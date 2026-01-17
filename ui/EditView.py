@@ -232,7 +232,7 @@ class EditView(QtW.QDialog):
         self.current_page = 0
         self.rows_per_page = settings.value('show_per_page')
         self.show_per_page_comboBox.setCurrentText(str(self.rows_per_page))
-        self.total_records = 0
+        self.total_pages = 0
 
         self.table = TxM.remove_spaces(table_name)
         self.msg = QtW.QMessageBox()
@@ -383,19 +383,20 @@ class EditView(QtW.QDialog):
         Asks the user if they want to reset the model. Changes are saved but will not be visible until all windows are
         committed.
         """
-        self.msg.setWindowTitle('Reset Model')
-        self.msg.setText(f'Changes are saved but may not be visible until all windows are committed.\n')
-        self.msg.setInformativeText(f'Are you sure you want to reset the model for {self.table}?')
-        self.msg.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
-        self.msg.setDefaultButton(QtW.QMessageBox.StandardButton.No)
-        self.msg.setIcon(QtW.QMessageBox.Icon.Question)
-        self.msg.setEscapeButton(QtW.QMessageBox.StandardButton.No)
-        self.msg.setWindowModality(QtC.Qt.WindowModality.ApplicationModal)
-        response = self.msg.exec()
-        if response == QtW.QMessageBox.StandardButton.Yes:
-            return True
-        else:
-            return False
+        if self.total_pages > 1:
+            self.msg.setWindowTitle('Reset Model')
+            self.msg.setText(f'Changes are saved but may not be visible until all windows are committed.\n')
+            self.msg.setInformativeText(f'Are you sure you want to reset the model for {self.table}?')
+            self.msg.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+            self.msg.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+            self.msg.setIcon(QtW.QMessageBox.Icon.Question)
+            self.msg.setEscapeButton(QtW.QMessageBox.StandardButton.No)
+            self.msg.setWindowModality(QtC.Qt.WindowModality.ApplicationModal)
+            response = self.msg.exec()
+            if response == QtW.QMessageBox.StandardButton.Yes:
+                return True
+            else:
+                return False
 
     def search(self):
         """
@@ -435,7 +436,7 @@ class EditView(QtW.QDialog):
         """
         if not self.reset_model_question():
             return
-        if (self.current_page + 1) * self.rows_per_page < self.total_records:
+        if (self.current_page + 1) * self.rows_per_page < self.total_pages:
             self.current_page += 1
             self.limit = f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'
             self.create_model()
@@ -695,13 +696,13 @@ class EditView(QtW.QDialog):
 
         if self.table_item_ids:
             # If the table_item_ids are provided, we need to set the total records based on the filtered data
-            self.total_records = len(self.table_item_ids)
+            self.total_pages = len(self.table_item_ids)
         elif self.where != '':
-            self.total_records = get_total_records(self.table, self.where)
+            self.total_pages = get_total_records(self.table, self.where)
         else:
-            self.total_records = get_total_records(self.table)
+            self.total_pages = get_total_records(self.table)
         self.page_info_label.setText(
-            f'{self.current_page * self.rows_per_page + 1}-{min((self.current_page + 1) * self.rows_per_page, self.total_records)} of {self.total_records}')
+            f'{self.current_page * self.rows_per_page + 1}-{min((self.current_page + 1) * self.rows_per_page, self.total_pages)} of {self.total_pages}')
         self.goto_line_edit.clear()
         self.goto_line_edit.setPlaceholderText(f'Go to {self.name_header}...')
 

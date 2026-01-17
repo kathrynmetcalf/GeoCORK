@@ -1268,13 +1268,13 @@ class ViewQuery:
                             self.create_temp_paged = f"""CREATE TEMP TABLE TempPaged AS
                                                             SELECT TempIDs.{where_header} FROM TempIDs
                                                             JOIN {self.table} ON {self.table}.{where_header} = TempIDs.{where_header}
-                                                            ORDER BY {self.order_col} {self.limit}
+                                                            ORDER BY {self.order_col} COLLATE NOCASE {self.limit}
                                                             """
                         else:
                             where_header = headers[0]
                             self.create_temp_paged = f"""CREATE TEMP TABLE TempPaged AS
                                                             SELECT {headers[0]} FROM {self.table}
-                                                            ORDER BY {self.order_col} {self.limit}
+                                                            ORDER BY {self.order_col} COLLATE NOCASE {self.limit}
                                                             """
                         hierarchy_where_join = f"INNER JOIN TempPaged tp ON"
                         hierarchy_limit = ''
@@ -1323,7 +1323,7 @@ class ViewQuery:
                         if self.order_col != '':
                             if self.order_col in get_headers(key):
                                 # Order applies to same table as where, so apply in the hierarchy query
-                                hierarchy_order_by = f'ORDER BY {self.order_col}'
+                                hierarchy_order_by = f'ORDER BY {self.order_col} COLLATE NOCASE'
                         break
             if hierarchy_where == '' and hierarchy_where_join == '':
                 logger_setup.get_logger().info(f'Where clause {self.where} does not apply to Samples, Aliquots, Spots or UPbAnalyses.')
@@ -1334,7 +1334,7 @@ class ViewQuery:
                 where_header = headers[0]
                 self.create_temp_paged = f"""CREATE TEMP TABLE TempPaged AS
                                                 SELECT {headers[0]} FROM {self.table}
-                                                ORDER BY {self.order_col} {self.limit}
+                                                ORDER BY {self.order_col} COLLATE NOCASE {self.limit}
                                             """
                 hierarchy_order_by = ''
                 hierarchy_limit = ''
@@ -1838,7 +1838,7 @@ class ViewQuery:
         table_abbreviation_dict = SQLUtils.limited_table_abbreviations.copy()
         if self.table not in table_abbreviation_dict:
             self.group_by = f'GROUP BY {self.group_col}'
-            self.order_by = f'ORDER BY {self.order_col}'
+            self.order_by = f'ORDER BY {self.order_col} COLLATE NOCASE'
             return
         table_abbreviation = table_abbreviation_dict[self.table]
         table_abbreviation_dict.pop(self.table)
@@ -1856,11 +1856,11 @@ class ViewQuery:
         self.order_by = ''
         if self.order_col != '':
             if self.order_col in get_headers(self.table):
-                self.order_by = f'ORDER BY {table_abbreviation}.{self.order_col}'
+                self.order_by = f'ORDER BY {table_abbreviation}.{self.order_col} COLLATE NOCASE'
             else:
                 for key in table_abbreviation_dict.keys():
                     if self.order_col in get_headers(key):
-                        self.order_by = f'ORDER BY {table_abbreviation_dict[key]}.{self.order_col}'
+                        self.order_by = f'ORDER BY {table_abbreviation_dict[key]}.{self.order_col} COLLATE NOCASE'
                         break
 
 def upb_columns(edit: bool) -> list:

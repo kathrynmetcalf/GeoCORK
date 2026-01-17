@@ -80,12 +80,20 @@ def release_savepoint(savepoint_name: str, database : QSqlDatabase=QSqlDatabase(
     :rtype: bool
     """
     query = QtS.QSqlQuery(database)
-    logger_setup.get_logger().info(f'Releasing savepoint {savepoint_name} on {database.connectionName()}')
+    logger_setup.get_logger().info(f'Releasing savepoint {savepoint_name} on connection {database.connectionName()}')
     if not query.exec(f'RELEASE SAVEPOINT {savepoint_name}'):
-        logger_setup.get_logger().info(f'Savepoint {savepoint_name} already released')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-        return False
+        if 'no such savepoint' in query.lastError().text():
+            logger_setup.get_logger().info(f'Savepoint {savepoint_name} already released')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            savepoint_manager = SavepointManager.get_instance()
+            savepoint_manager.remove_savepoint(savepoint_name)
+            return False
+        else:
+            logger_setup.get_logger().info(f'Error releasing {savepoint_name}')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            return False
     savepoint_manager = SavepointManager.get_instance()
     savepoint_manager.remove_savepoint(savepoint_name)
     return True
@@ -106,5 +114,5 @@ def rollback_savepoint(savepoint_name: str, database : QSqlDatabase=QSqlDatabase
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     savepoint_manager = SavepointManager.get_instance()
-    savepoint_manager.rollback_savepoint(savepoint_name)
+    savepoint_manager.remove_savepoint(savepoint_name)
     return True

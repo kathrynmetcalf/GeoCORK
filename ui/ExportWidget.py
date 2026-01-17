@@ -719,6 +719,7 @@ class ExportWidget(QWidget):
 
             case 'detritalPy':
                 self.clear_worksheet_data()
+                self.fileformat_comboBox.setEnabled(True)
                 # means error is in % and not sigma as required by detritalPy
                 if settings.value('age_error_format_id', int) not in (1,2):
                     response = QMessageBox.question(self, 'Update settings',
@@ -825,6 +826,7 @@ class ExportWidget(QWidget):
                 self.add_worksheet_tab('ZrUPb', False, False, ZrUPb_columns, ZrUPb_columns, True)
             case 'IsoplotR - 07/35, 06/38, 04/38, 07/06, 04/07, 04/06':
                 self.clear_worksheet_data()
+                self.fileformat_comboBox.setEnabled(True)
                 # modeled after UPb6.csv in IsoplotR
                 # 207/235
                 # 206/238
@@ -851,6 +853,7 @@ class ExportWidget(QWidget):
 
             case 'IsoplotR - 38/06, 07/06':
                 self.clear_worksheet_data()
+                self.fileformat_comboBox.setEnabled(True)
                 # modeled after UPb2.csv in IsoplotR
                 # 238/206
                 # 207/206
@@ -865,6 +868,7 @@ class ExportWidget(QWidget):
 
             case 'DZstats':
                 self.clear_worksheet_data()
+                self.fileformat_comboBox.setEnabled(True)
                 # means error is in % and not sigma as required by detritalPy
                 if settings.value('age_error_format_id', int) not in (1, 2):
                     response = QMessageBox.question(self, 'Update settings',
@@ -893,6 +897,7 @@ class ExportWidget(QWidget):
                 self.add_worksheet_tab('DZStats', False, True, UPb_columns, UPb_columns, False)
             case 'DZmix, DZmds, DZnmf':
                 self.clear_worksheet_data()
+                self.fileformat_comboBox.setEnabled(True)
                 # means error is in % and not sigma as required by detritalPy
                 if settings.value('age_error_format_id', int) not in (1, 2):
                     response = QMessageBox.question(self, 'Update settings',
@@ -921,6 +926,7 @@ class ExportWidget(QWidget):
                 self.add_worksheet_tab('DZmix, DZmds, DZnmf', False, True, UPb_columns, UPb_columns, True)
             case 'AgeCalcML concordia':
                 self.clear_worksheet_data()
+                self.fileformat_comboBox.setEnabled(True)
                 self.fileformat_comboBox.setCurrentText('Comma-Separated Value (.csv)')
                 UPb_columns = {
                     ('Samples', 'SampleName'): True,
@@ -1014,8 +1020,8 @@ class ExportWidget(QWidget):
                     'sql': ''
                 }
             case 'Custom':
-                if "Worksheet 1" not in self.worksheet_tabs_dict.keys():
-                    self.create_first_worksheet_tab()
+                self.clear_worksheet_data()
+                self.create_first_worksheet_tab()
 
     def clear_worksheet_data(self):
         self.delete_all_worksheet_tabs()

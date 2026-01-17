@@ -2260,6 +2260,7 @@ def delete_data(table: str, data_ids: list, enable_message=True):
     Given a table, delete given IDS. If table is Samples, Aliquots, or Spots, delete given ids and all sub items
     :param table: Table the IDs belong to
     :param data_ids: List of table IDs
+    :param enable_message: Enable message to also ask about deleting items that have no child items remaining
     :return: True or False
     """
     if len(data_ids) == 0:

@@ -182,7 +182,7 @@ def log_uncaught_exceptions(exc_type, exc_value, exc_tb):
             if savepoint_manager.active_savepoints():
                 _logger.critical("Active savepoints detected during crash, attempting to close application gracefully.")
                 if len(savepoint_manager.active_savepoints_names > 0):
-                    Savepoint_manager.rollback_savepoint[savepoint_manager.active_savepoints_names()[0]]
+                    savepoint_manager.rollback_savepoint[savepoint_manager.active_savepoints_names()[0]]
                 QSqlDatabase().commit()
                 QSqlDatabase().close()
 
