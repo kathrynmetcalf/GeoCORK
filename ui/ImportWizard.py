@@ -3532,7 +3532,7 @@ class ImportWizardDialog(QWidget):
                 if query.exec():
                     if query.next():
                         existing_sample_name = query.value(0)
-                        if existing_sample_name != sample_name:
+                        if existing_sample_name.lower() != sample_name.lower():
                             existing_aliquots.add(aliquot_name)
                             self.left_table.item(row_idx, aliquot_col).setBackground(self.red_brush)  # Light red
             spot_id = self.find_matching_id('Spots', 'SpotName', spot_name)
@@ -3543,7 +3543,7 @@ class ImportWizardDialog(QWidget):
                 if query.exec():
                     if query.next():
                         existing_aliquot_name = query.value(0)
-                        if existing_aliquot_name != aliquot_name:
+                        if existing_aliquot_name.lower() != aliquot_name.lower():
                             existing_spots.add(spot_name)
                             self.left_table.item(row_idx, spot_col).setBackground(self.red_brush)  # Light red
             if grain_name:
@@ -3555,7 +3555,7 @@ class ImportWizardDialog(QWidget):
                     if query.exec():
                         if query.next():
                             existing_spot_name = query.value(0)
-                            if existing_spot_name != spot_name:
+                            if existing_spot_name.lower() != spot_name.lower():
                                 existing_grains.add(grain_name)
                                 self.left_table.item(row_idx, grain_col).setBackground(self.red_brush)  # Light red
             upb_analysis_id = self.find_matching_id('UPbAnalyses', 'UPbAnalysisName', upb_analysis_name)
@@ -3566,7 +3566,7 @@ class ImportWizardDialog(QWidget):
                 if query.exec():
                     if query.next():
                         existing_spot_name = query.value(0)
-                        if existing_spot_name != spot_name:
+                        if existing_spot_name.lower() != spot_name.lower():
                             existing_upb_analyses.add(upb_analysis_name)
                             self.left_table.item(row_idx, upb_analysis_col).setBackground(self.red_brush)  # Light red
         if existing_aliquots or existing_spots or existing_grains or existing_upb_analyses:
@@ -4037,7 +4037,7 @@ class ImportWizardDialog(QWidget):
         imported_message += f"Samples: {imported_samples}\n"
         imported_analyses = len(self.upb_imports['UPbAnalysisID'])
         if 'UPbAnalyses' in self.skipped_import_ids.keys():
-            imported_analyses = imported_analyses - len(self.skipped_import_ids['UPbAnalysisID'])
+            imported_analyses = imported_analyses - len(self.skipped_import_ids['UPbAnalyses'])
         if imported_analyses < 0:
             imported_analyses = 0
         imported_message += f"UPb Analyses: {imported_analyses}\n"
@@ -4080,6 +4080,7 @@ class ImportWizardDialog(QWidget):
 
         row_count = self.right_tables[self.upb_sheet_name].model().rowCount()
         import_count = row_count - len(disabled_rows)
+        imported_names = {'Samples': [], 'Aliquots': [], 'Spots': [], 'Grains': [], 'UPbAnalyses': []}
 
         # Create a modal progress dialog
         progress_dialog = QProgressDialog(
@@ -4140,12 +4141,23 @@ class ImportWizardDialog(QWidget):
                     sample_id = None
                     if sample_query.next():
                         sample_id = sample_query.value(0)
-                    if sample_id:
-                        # found matching samplename in database, will use that sample ID
+                    if sample_id and (self.conflict_mode != 'overwrite' or record["Sample Name"] in imported_names['Samples']):
+                        # Found matching samplename in database
+                        # Any overwrites have already happened, so use the ID
                         record["SampleID"] = sample_id
                         self.sample_ids.append(record["SampleID"])
                         logger_setup.get_logger().info(f"Existing Sample: {record["Sample Name"]}")
                     else:
+                        if self.conflict_mode == 'overwrite' and sample_id:
+                            # Delete the existing item first and then create a new one
+                            if not delete_data('Samples', [sample_id], enable_message=False):
+                                logger_setup.get_logger().critical(
+                                    f'Could not overwrite existing Samples in the database')
+                                logger_setup.get_logger().debug(
+                                    f'Failed to delete values from Samples for ID {sample_id}')
+                                rollback_savepoint('before_upb_import')
+                                return False
+                            sample_id = None
                         # no matching samplename in database, will create new one.
                         create_sample = QSqlQuery()
                         if not create_sample.prepare('INSERT INTO Samples (SampleName) VALUES (:name)'):
@@ -4165,11 +4177,13 @@ class ImportWizardDialog(QWidget):
                             logger_setup.get_logger().debug(f"Bound values: {create_sample.boundValues()}")
                             rollback_savepoint('before_upb_import')
                             return False
-                        else:
-                            record["SampleID"] = create_sample.lastInsertId()
-                            self.sample_ids.append(record["SampleID"])
-                            self.upb_imports['SampleID'].append(record["SampleID"])
-                            logger_setup.get_logger().info(f"Imported Sample: {record['Sample Name']}")
+                        record["SampleID"] = create_sample.lastInsertId()
+                        self.sample_ids.append(record["SampleID"])
+                        self.upb_imports['SampleID'].append(record["SampleID"])
+                        imported_names_list = imported_names['Samples']
+                        imported_names_list.append(record["Sample Name"])
+                        imported_names['Samples'] = imported_names_list
+                        logger_setup.get_logger().info(f"Imported Sample: {record['Sample Name']}")
 
                 # Find matching Aliquot Name or create new
                 if record["Aliquot Name"] and record["SampleID"]:
@@ -4192,7 +4206,26 @@ class ImportWizardDialog(QWidget):
                         logger_setup.get_logger().debug(f'Bound values: {aliquot_query.boundValues()}')
                         rollback_savepoint('before_upb_import')
                         return False
+                    aliquot_id = None
                     if aliquot_query.next():
+                        aliquot_id = aliquot_query.value(0)
+                    if aliquot_id and (self.conflict_mode != 'overwrite' or record["Aliquot Name"] in imported_names[
+                        'Aliquots']):
+                        # Found matching samplename in database
+                        # Any overwrites have already happened, so use the ID
+                        record["AliquotID"] = aliquot_id
+                        logger_setup.get_logger().info(f"Existing Aliquot: {record["Aliquot Name"]}")
+                    elif self.conflict_mode == 'overwrite' and aliquot_id:
+                        # Delete the existing item first and then create a new one
+                        if not delete_data('Aliquots', [aliquot_id], enable_message=False):
+                            logger_setup.get_logger().critical(
+                                f'Could not overwrite existing Aliquots in the database')
+                            logger_setup.get_logger().debug(
+                                f'Failed to delete values from Aliquots for ID {aliquot_id}')
+                            rollback_savepoint('before_upb_import')
+                            return False
+                        aliquot_id = None
+                    if aliquot_id:
                         # Check that existing aliquot matches the sample ID
                         if aliquot_query.value(3) != record["SampleID"]:
                             logger_setup.get_logger().error(
@@ -4250,10 +4283,12 @@ class ImportWizardDialog(QWidget):
                             logger_setup.get_logger().debug(f"values: {create_aliquot.boundValues()}")
                             rollback_savepoint('before_upb_import')
                             return False
-                        else:
-                            record["AliquotID"] = create_aliquot.lastInsertId()
-                            self.upb_imports['AliquotID'].append(record["AliquotID"])
-                            logger_setup.get_logger().info(f"Imported Aliquot: {record['Aliquot Name']}")
+                        record["AliquotID"] = create_aliquot.lastInsertId()
+                        self.upb_imports['AliquotID'].append(record["AliquotID"])
+                        imported_names_list = imported_names['Aliquots']
+                        imported_names_list.append(record["Aliquot Name"])
+                        imported_names['Aliquots'] = imported_names_list
+                        logger_setup.get_logger().info(f"Imported Aliquot: {record['Aliquot Name']}")
 
 
                 # Find matching SpotID or create new
@@ -4277,7 +4312,27 @@ class ImportWizardDialog(QWidget):
                         logger_setup.get_logger().debug(f'values: {spot_query.boundValues()}')
                         rollback_savepoint('before_upb_import')
                         return False
+                    spot_id = None
                     if spot_query.next():
+                        spot_id = spot_query.value(0)
+                    if spot_id and (
+                            self.conflict_mode != 'overwrite' or record["Spot Name"] in imported_names[
+                        'Spots']):
+                        # Found matching samplename in database
+                        # Any overwrites have already happened, so use the ID
+                        record["SpotID"] = spot_id
+                        logger_setup.get_logger().info(f"Existing Spot: {record["Spot Name"]}")
+                    elif self.conflict_mode == 'overwrite' and spot_id:
+                        # Delete the existing item first and then create a new one
+                        if not delete_data('Spots', [spot_id], enable_message=False):
+                            logger_setup.get_logger().critical(
+                                f'Could not overwrite existing Spots in the database')
+                            logger_setup.get_logger().debug(
+                                f'Failed to delete values from Spots for ID {spot_id}')
+                            rollback_savepoint('before_upb_import')
+                            return False
+                        spot_id = None
+                    if spot_id:
                         # Check that existing spot matches the aliquot ID
                         if spot_query.value(1) != record["AliquotID"]:
                             logger_setup.get_logger().error(
@@ -4314,10 +4369,12 @@ class ImportWizardDialog(QWidget):
                             logger_setup.get_logger().debug(f"values: {create_spot.boundValues()}")
                             rollback_savepoint('before_upb_import')
                             return False
-                        else:
-                            record["SpotID"] = create_spot.lastInsertId()
-                            self.upb_imports['SpotID'].append(record["SpotID"])
-                            logger_setup.get_logger().info(f"Imported Spot: {record['Spot Name']}")
+                        record["SpotID"] = create_spot.lastInsertId()
+                        self.upb_imports['SpotID'].append(record["SpotID"])
+                        imported_names_list = imported_names['Spots']
+                        imported_names_list.append(record["Spot Name"])
+                        imported_names['Spots'] = imported_names_list
+                        logger_setup.get_logger().info(f"Imported Spot: {record['Spot Name']}")
 
 
                 # Find matching GrainID or create new
@@ -4339,46 +4396,60 @@ class ImportWizardDialog(QWidget):
                         logger_setup.get_logger().debug(f"SQL query: {grain_query.lastQuery()}")
                         rollback_savepoint('before_upb_import')
                         return False
+                    grain_id = None
                     if grain_query.next():
                         grain_id = grain_query.value(0)
-                        if grain_id:
-                            # Check that existing grain has spots from the same aliquot
-                            spot_grain_query = QSqlQuery()
-                            if not spot_grain_query.prepare('SELECT SpotID, AliquotID FROM Spots WHERE GrainID=:grainID'):
-                                logger_setup.get_logger().critical(f"Error importing Grain {record['Grain Name']}")
-                                logger_setup.get_logger().debug(f"Failed to prepare query to find Grain")
-                                logger_setup.get_logger().debug(f"Error: {spot_grain_query.lastError().text()}")
-                                logger_setup.get_logger().debug(f"SQL query: {spot_grain_query.lastQuery()}")
+                    if grain_id and (
+                            self.conflict_mode != 'overwrite' or record["Grain Name"] in imported_names[
+                        'Grains']):
+                        # Found matching name in database
+                        # Any overwrites have already happened, so use the ID
+                        record["GrainID"] = grain_id
+                        logger_setup.get_logger().info(f"Existing Grain: {record["Grain Name"]}")
+                    elif self.conflict_mode == 'overwrite' and grain_id:
+                        # Delete the existing item first and then create a new one
+                        if not delete_data('Grains', [grain_id], enable_message=False):
+                            logger_setup.get_logger().critical(
+                                f'Could not overwrite existing Grains in the database')
+                            logger_setup.get_logger().debug(
+                                f'Failed to delete values from Grains for ID {grain_id}')
+                            rollback_savepoint('before_upb_import')
+                            return False
+                        grain_id = None
+                    if grain_id:
+                        # Check that existing grain has spots from the same aliquot
+                        spot_grain_query = QSqlQuery()
+                        if not spot_grain_query.prepare('SELECT SpotID, AliquotID FROM Spots WHERE GrainID=:grainID'):
+                            logger_setup.get_logger().critical(f"Error importing Grain {record['Grain Name']}")
+                            logger_setup.get_logger().debug(f"Failed to prepare query to find Grain")
+                            logger_setup.get_logger().debug(f"Error: {spot_grain_query.lastError().text()}")
+                            logger_setup.get_logger().debug(f"SQL query: {spot_grain_query.lastQuery()}")
+                            rollback_savepoint('before_upb_import')
+                            return False
+                        spot_grain_query.bindValue(':grainID', grain_id)
+                        if not spot_grain_query.exec():
+                            logger_setup.get_logger().critical(f"Error importing Grain {record['Grain Name']}")
+                            logger_setup.get_logger().debug(f"Error searching for existing Grain")
+                            logger_setup.get_logger().debug(f"Error: {spot_grain_query.lastError().text()}")
+                            logger_setup.get_logger().debug(f"SQL query: {spot_grain_query.lastQuery()}")
+                            rollback_savepoint('before_upb_import')
+                            return False
+                        while spot_grain_query.next():
+                            if spot_grain_query.value(1) != record["AliquotID"]:
+                                logger_setup.get_logger().error(
+                                    f'Grain {record["Grain Name"]} exists but is already associated with Spots from a different aliquot.\nGrain names must be unique.')
+                                # Highlight the cell in the left table
+                                self.left_table.item(row_idx, grain_col).setBackground(
+                                    self.red_brush)  # Light red
+                                self.workbook_tabs.setCurrentIndex(
+                                    self.workbook_tabs.indexOf(self.right_tables[self.upb_sheet_name]))
+                                # scroll the left table to the row
+                                self.left_table.scrollToItem(self.left_table.item(row_idx, grain_col))
                                 rollback_savepoint('before_upb_import')
                                 return False
-                            spot_grain_query.bindValue(':grainID', grain_id)
-                            if not spot_grain_query.exec():
-                                logger_setup.get_logger().critical(f"Error importing Grain {record['Grain Name']}")
-                                logger_setup.get_logger().debug(f"Error searching for existing Grain")
-                                logger_setup.get_logger().debug(f"Error: {spot_grain_query.lastError().text()}")
-                                logger_setup.get_logger().debug(f"SQL query: {spot_grain_query.lastQuery()}")
-                                rollback_savepoint('before_upb_import')
-                                return False
-                            while spot_grain_query.next():
-                                if spot_grain_query.value(1) != record["AliquotID"]:
-                                    logger_setup.get_logger().error(
-                                        f'Grain {record["Grain Name"]} exists but is already associated with Spots from a different aliquot.\nGrain names must be unique.')
-                                    # Highlight the cell in the left table
-                                    self.left_table.item(row_idx, grain_col).setBackground(
-                                        self.red_brush)  # Light red
-                                    self.workbook_tabs.setCurrentIndex(
-                                        self.workbook_tabs.indexOf(self.right_tables[self.upb_sheet_name]))
-                                    # scroll the left table to the row
-                                    self.left_table.scrollToItem(self.left_table.item(row_idx, grain_col))
-                                    rollback_savepoint('before_upb_import')
-                                    return False
-                            record["GrainID"] = grain_id
-                            logger_setup.get_logger().info(f"Existing Grain: {record['Grain Name']}")
-                        else:
-                            record["GrainID"] = None
+                        record["GrainID"] = grain_id
+                        logger_setup.get_logger().info(f"Existing Grain: {record['Grain Name']}")
                     else:
-                        record["GrainID"] = None
-                    if not record["GrainID"]:
                         insert_sql = f"INSERT INTO Grains (GrainName) VALUES (:grain_name)"
                         insert_query = QSqlQuery()
                         if not insert_query.prepare(insert_sql):
@@ -4423,6 +4494,9 @@ class ImportWizardDialog(QWidget):
                             return False
                         record['GrainID'] = insert_query.lastInsertId()
                         self.upb_imports['GrainID'].append(record["GrainID"])
+                        imported_names_list = imported_names['Grains']
+                        imported_names_list.append(record["Grain Name"])
+                        imported_names['Grains'] = imported_names_list
                         logger_setup.get_logger().info(f"Imported Grain: {record['Grain Name']}")
 
                 # Find matching UPbAnalysisID or create new
@@ -4446,7 +4520,27 @@ class ImportWizardDialog(QWidget):
                         logger_setup.get_logger().debug(f"Bound values: {upb_query.boundValues()}")
                         rollback_savepoint('before_upb_import')
                         return False
+                    upb_id = None
                     if upb_query.next():
+                        upb_id = upb_query.value(0)
+                    if upb_id and (
+                            self.conflict_mode != 'overwrite' or record["UPb Analysis Name"] in imported_names[
+                        'UPbAnalyses']):
+                        # Found matching name in database
+                        # Any overwrites have already happened, so use the ID
+                        record["UPbAnalysisID"] = upb_id
+                        logger_setup.get_logger().info(f"Existing UPb Analysis: {record["UPb Analysis Name"]}")
+                    elif self.conflict_mode == 'overwrite' and upb_id:
+                        # Delete the existing item first and then create a new one
+                        if not delete_data('UPbAnalyses', [upb_id], enable_message=False):
+                            logger_setup.get_logger().critical(
+                                f'Could not overwrite existing UPb Analyses in the database')
+                            logger_setup.get_logger().debug(
+                                f'Failed to delete values from UPb Analyses for ID {upb_id}')
+                            rollback_savepoint('before_upb_import')
+                            return False
+                        upb_id = None
+                    if upb_id:
                         # Check that existing UPbAnalysis matches the spot ID
                         if upb_query.value(1) != record["SpotID"]:
                             logger_setup.get_logger().error(
@@ -4487,6 +4581,9 @@ class ImportWizardDialog(QWidget):
 
                         record['UPbAnalysisID'] = insert_query.lastInsertId()
                         self.upb_imports['UPbAnalysisID'].append(record["UPbAnalysisID"])
+                        imported_names_list = imported_names['UPbAnalyses']
+                        imported_names_list.append(record["UPb Analysis Name"])
+                        imported_names['UPbAnalyses'] = imported_names_list
                         logger_setup.get_logger().info(f"Imported UPb Analysis: {record['UPb Analysis Name']}")
 
                         inserted_count += 1
@@ -4967,21 +5064,22 @@ class ImportWizardDialog(QWidget):
                                     header_name = list(header.keys())[0]
                                     if item_name in self.item_ids[table][sheet][column][header_name].keys():
                                         self.item_ids[table][sheet][column][header_name][item_name] = item_id
-                            if table not in self.skipped_import_ids.keys():
+                            if db_table not in self.skipped_import_ids.keys():
                                 self.skipped_import_ids[db_table] = []
                             self.skipped_import_ids[db_table].append(item_id)
                             continue
                         elif self.conflict_mode == 'overwrite' and not (get_headers(table)[0] in self.upb_imports.keys()
                                                                         and item_id in self.upb_imports[get_headers(table)[0]]):
-                            logger_setup.get_logger().info(f'Overwriting existing {table} "{name}"')
-                            # Delete the existing item and re-insert it
-                            if not delete_data(table, [item_id], enable_message=False):
-                                logger_setup.get_logger().critical(f'Could not overwrite existing {table} in the database')
-                                logger_setup.get_logger().debug(f'Failed to delete values from {table} for ID {item_id}')
-                                rollback_savepoint('before_import_items')
-                                return False
-                            if table in ['Samples', 'Aliquots', 'Spots', 'UPbAnalyses']:
-                                pass
+                            if table not in ['Samples', 'Aliquots', 'Spots', 'UPbAnalyses']:
+                                # not already handled in import_upb_to_db method above
+                                logger_setup.get_logger().info(f'Overwriting existing {table} "{name}"')
+                                # Delete the existing item and re-insert it
+                                if not delete_data(table, [item_id], enable_message=False):
+                                    logger_setup.get_logger().critical(f'Could not overwrite existing {table} in the database')
+                                    logger_setup.get_logger().debug(f'Failed to delete values from {table} for ID {item_id}')
+                                    rollback_savepoint('before_import_items')
+                                    return False
+                                item_id = None
                         elif ((get_headers(table)[0] in self.upb_imports.keys() and item_id in self.upb_imports[
                             get_headers(table)[0]])
                               or self.conflict_mode == 'add to'):
@@ -5020,7 +5118,7 @@ class ImportWizardDialog(QWidget):
                                         # Only update if the item_name exists in this mapping (it may not if multiple name columns are used)
                                         if item_name in self.item_ids[table][sheet][column][header_name].keys():
                                             self.item_ids[table][sheet][column][header_name][item_name] = item_id
-                                if table not in self.skipped_import_ids.keys():
+                                if db_table not in self.skipped_import_ids.keys():
                                     self.skipped_import_ids[db_table] = []
                                 self.skipped_import_ids[db_table].append(item_id)
                                 continue
@@ -5035,7 +5133,7 @@ class ImportWizardDialog(QWidget):
                                         if not any(input_values[affected_column] != 'NULL' for affected_column in
                                                SQLUtils.unit_format_affected[table][column]):
                                             # All input values are NULL, so do not add this unit/format to the update values
-                                            if table not in self.skipped_import_ids.keys():
+                                            if db_table not in self.skipped_import_ids.keys():
                                                 self.skipped_import_ids[db_table] = []
                                             self.skipped_import_ids[db_table].append(item_id)
                                             continue
