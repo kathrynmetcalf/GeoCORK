@@ -2431,7 +2431,7 @@ class ImportWizardDialog(QWidget):
                 self.left_table.setItem(r, upb_analysis_col, QTableWidgetItem(upb_analysis_value))  # UPb Analysis Name
                 self.left_table.blockSignals(False)
         elif field == '':
-            if not clear_col:
+            if clear_col is None:
                 logger_setup.get_logger().critical(f'Error clearing left table column')
                 logger_setup.get_logger().debug(f'No column to clear for header: {left_header}')
                 return
@@ -2930,7 +2930,7 @@ class ImportWizardDialog(QWidget):
                 self.left_table.blockSignals(True)
                 self.update_left_table_background(self.left_table.item(row, spot_col), self.purple_brush)
                 self.update_left_table_background(self.left_table.item(row, upb_analysis_col), self.purple_brush)
-            elif grain_item and grain_name in ["", 'NULL', None] and spot_name in ["", 'NULL', None] and upb_analysis_name in ["", 'NULL', None]:
+            elif grain_name in ["", 'NULL', None] and spot_name in ["", 'NULL', None] and upb_analysis_name in ["", 'NULL', None]:
                 # If the grain column is defined but grain name, spot name, and upb analysis name are missing, set all three to AliquotName-counter
                 aliquot_name_item = self.left_table.item(row, aliquot_col)
                 if aliquot_name_item and aliquot_name_item.text().strip() not in ["", 'NULL', None]:
@@ -2940,11 +2940,13 @@ class ImportWizardDialog(QWidget):
                         spot_counter = 0  # Reset counter for new Aliquot Name
                     spot_counter += 1
                     self.left_table.blockSignals(False)
-                    self.left_table.setItem(row, grain_col, QTableWidgetItem(f"{aliquot_name}-{spot_counter}"))
+                    if grain_item:
+                        self.left_table.setItem(row, grain_col, QTableWidgetItem(f"{aliquot_name}-{spot_counter}"))
                     self.left_table.setItem(row, spot_col, QTableWidgetItem(f"{aliquot_name}-{spot_counter}"))
                     self.left_table.setItem(row, upb_analysis_col, QTableWidgetItem(f"{aliquot_name}-{spot_counter}"))
                     self.left_table.blockSignals(True)
-                    self.update_left_table_background(self.left_table.item(row, grain_col), self.purple_brush)
+                    if grain_item:
+                        self.update_left_table_background(self.left_table.item(row, grain_col), self.purple_brush)
                     self.update_left_table_background(self.left_table.item(row, spot_col), self.purple_brush)
                     self.update_left_table_background(self.left_table.item(row, upb_analysis_col), self.purple_brush)
             spot_name_item = self.left_table.item(row, spot_col)

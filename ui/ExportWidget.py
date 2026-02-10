@@ -211,7 +211,10 @@ class ExportWidget(QWidget):
         self.filtered_upb_ids = set()
 
         # Get the current selected samples, filters, and grouped filters
-        self.checked_sample_list = self.samplesincluded_comboBox.model().return_checked_ids()[0]
+        if isinstance(self.samplesincluded_comboBox.model(), CheckableSqlQueryModel):
+            self.checked_sample_list = self.samplesincluded_comboBox.model().return_checked_ids()[0]
+        else:
+            self.checked_sample_list = []
         self.checked_sample_names = f"({', '.join(map(str, self.checked_sample_list))})"
 
         self.checked_filter_list = self.filter_model.return_checked_ids()[0]

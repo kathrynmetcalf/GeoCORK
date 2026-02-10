@@ -354,6 +354,18 @@ class DisplayTables(QtW.QWidget):
             id_index = index.siblingAtColumn(0)
             selected_samples.append(id_index.data(QtC.Qt.ItemDataRole.DisplayRole))
         self.loading_manager.show_loading_dialog('Loading', f'Opening Sample Information window...')
+        if self.total_records > 1000:
+            warning_dlg = QMessageBox()
+            warning_dlg.setIcon(QMessageBox.Icon.Warning)
+            warning_dlg.setWindowTitle("Warning")
+            warning_dlg.setText(
+                'Editing samples in a large database this way may be slow. See details for alternatives. \n\nDo you want to continue?')
+            warning_dlg.setDetailedText('You can also edit samples by clicking the Edit Samples button at the top or by filtering and showing the desired samples, then clicking Edit Samples there.')
+            warning_dlg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            response = warning_dlg.exec()
+            if response == QMessageBox.StandardButton.No:
+                self.loading_manager.close_loading_dialog('Loading', f'Opening Sample Information window...')
+                return
         dlg = SampleInformation(self, selected_samples)
         dlg.exec()
         if dlg.updated:

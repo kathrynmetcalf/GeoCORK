@@ -774,6 +774,18 @@ class DataViewerWidget(QWidget):
         for index in selected_indexes:
             id_index = index.siblingAtColumn(0)
             selected_samples.append(id_index.data(QtC.Qt.ItemDataRole.DisplayRole))
+        if self.total_records_1 > 1000:
+            warning_dlg = QMessageBox()
+            warning_dlg.setIcon(QMessageBox.Icon.Warning)
+            warning_dlg.setWindowTitle("Warning")
+            warning_dlg.setText(
+                'Editing samples in a large database this way may be slow. See details for alternatives. \n\nDo you want to continue?')
+            warning_dlg.setDetailedText(
+                'You can also edit samples by clicking the Edit Samples button at the top.')
+            warning_dlg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            response = warning_dlg.exec()
+            if response == QMessageBox.StandardButton.No:
+                return
         dlg = SampleInformation(self, selected_samples)
         dlg.exec()
         if not update_database():

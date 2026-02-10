@@ -204,7 +204,7 @@ class SampleInformation(QtW.QDialog):
     def populate_dropdowns(self):
         start_populate_dropdown_time = time.time()
         logger_setup.get_logger().info("Populating dropdowns")
-
+        show_loading_dialog('Loading', 'Populating dropdowns...')
         column_cols = settings.value('column_view_columns')
         query_args = {'show_columns': column_cols}
         view_query = ViewQuery('Columns', False, **query_args)
@@ -241,6 +241,7 @@ class SampleInformation(QtW.QDialog):
         self.sample_name_comboBox.view().setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.column_name_comboBox.view().setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         end_populate_dropdown_time = time.time()
+        close_loading_dialog('Loading', 'Populating dropdowns...')
         logger_setup.get_logger().info(f"Populated dropdowns in {end_populate_dropdown_time - start_populate_dropdown_time} seconds")
         logger_setup.get_logger().info("Dropdowns populated")
 
@@ -446,6 +447,7 @@ class SampleInformation(QtW.QDialog):
 
     def populate_checks(self, many_to_many_table: str, combo: QtW.QComboBox):
         logger_setup.get_logger().info(f"Populating checks for {many_to_many_table}")
+        show_loading_dialog('Loading', f'Populating checks for {many_to_many_table.split('_')[1]}...')
         start_populate_checks_time = time.time()
         many_to_many_model = QtS.QSqlTableModel()
         many_to_many_model.setTable(many_to_many_table)
@@ -556,6 +558,7 @@ class SampleInformation(QtW.QDialog):
             text = combo.placeholderText()
         combo.setCurrentText(text)
         end_populate_checks_time = time.time()
+        close_loading_dialog('Loading', f'Populating checks for {many_to_many_table.split('_')[1]}...')
         logger_setup.get_logger().info(f"Populated checks for {many_to_many_table} in {end_populate_checks_time - start_populate_checks_time} seconds")
         logger_setup.get_logger().info(f"Populated checks for {many_to_many_table}")
         return text
