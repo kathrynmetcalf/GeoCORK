@@ -547,6 +547,12 @@ class ImportSheetModel(QAbstractTableModel):
                 return self.rejected_icon
             elif status == 'disabled':
                 return None  # No icon for disabled
+        if role == QtC.Qt.ItemDataRole.ToolTipRole:
+            if orientation == QtC.Qt.Orientation.Horizontal:
+                return "Double click to define/map column data"
+            elif orientation == QtC.Qt.Orientation.Vertical:
+                return 'Double Click to accept/reject analysis data\nright click for more options'
+
         return super().headerData(section, orientation, role)
 
     def setHeaderData(self, section, orientation, value, role: Qt.ItemDataRole = Qt.ItemDataRole.EditRole):

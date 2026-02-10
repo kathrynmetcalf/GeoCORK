@@ -953,6 +953,7 @@ class RuleWidget(QWidget):
 
         # Delete button
         self.delete_button = QPushButton('Delete')
+        self.delete_button('Remove condition from group')
         self.delete_button.clicked.connect(lambda: self.deleteLater())
         self.layout.addWidget(self.delete_button)
 
@@ -1268,12 +1269,15 @@ class GroupBox(QGroupBox):
         # Buttons to add rule or group
         buttons_layout = QHBoxLayout()
         self.add_rule_button = QPushButton('Add rule')
+        self.add_rule_button.setToolTip('Add new condition to group')
         self.add_rule_button.clicked.connect(lambda: self.add_rule(None, None, None, None, None))
 
         self.add_group_button = QPushButton('Add group')
+        self.add_group_button.setToolTip('Add new group of rules')
         self.add_group_button.clicked.connect(lambda: self.add_group(None))
 
         self.delete_button = QPushButton('Delete')
+        self.add_delete_button.setToolTip('Remove group and all rules in it')
 
         buttons_layout.addWidget(self.add_rule_button)
         buttons_layout.addWidget(self.add_group_button)
@@ -1458,6 +1462,7 @@ class QueryBuilder(QWidget):
         # views Samples that match the criteria
         buttons_layout = QHBoxLayout(self)
         self.view_samples_button = QPushButton('View Samples')
+        self.view_samples_button.setToolTip('View samples that pass the filter')
         buttons_layout.addWidget(self.view_samples_button)
         self.view_samples_button.clicked.connect(self.view_samples)
 
