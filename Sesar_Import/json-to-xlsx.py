@@ -4,7 +4,7 @@ from openpyxl import Workbook
 # ---------------------------------------------------
 # file paths
 # ---------------------------------------------------
-json_file_path = r"C:\Users\Kayla Gutierrez\OneDrive - Cal State Fullerton\Documents\CSUF\GeoChronology\geocork_import_ready.json"
+json_file_path = "geocork_import_ready.json"
 excel_file_path = "geocork_output.xlsx"
 
 # ---------------------------------------------------
