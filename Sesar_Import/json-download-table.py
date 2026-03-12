@@ -445,7 +445,7 @@ def main():
         filename = f"hierarchy_table_{safe_igsn}.csv"
         
         # save the DataFrame to a CSV file
-        # index=false means "don't save the row numbers as a separate column"
+        # index=false so we don't save the row numbers as a separate column
         data_frame.to_csv(filename, index=False)
         
         print(f"Table saved to {filename}")
