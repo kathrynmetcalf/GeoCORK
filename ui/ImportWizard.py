@@ -29,6 +29,11 @@ from Functions.Savepoint_manager import create_savepoint, rollback_savepoint, re
 from Functions.Settings_manager import SettingsManager
 from ui.EditView import EditView
 
+##############################################
+# ImportFromSesar Logic
+from .ImportFromSesar import ImportFromSesar
+##############################################
+
 settings = SettingsManager().settings
 from Functions.Widget_classes import (
     CheckableComboBox, CheckableSqlTableModel, SearchableComboBox, set_table, CheckableTreeModel,
@@ -366,6 +371,15 @@ class ImportWizardDialog(QWidget):
         self.btn_select.setFixedWidth(150)
         self.btn_select.clicked.connect(self.select_file)
         top_layout.addWidget(self.btn_select)
+
+        ######################################
+        # ImportFromSesar Logic
+        # New Import from Sesar button Test
+        self.btn_import_sesar = QPushButton("Import from Sesar")
+        self.btn_import_sesar.setFixedWidth(150)
+        self.btn_import_sesar.clicked.connect(self.open_import_sesar)
+        top_layout.addWidget(self.btn_import_sesar)
+        ######################################
 
         self.label_file = QLabel("No file selected.")
         top_layout.addWidget(self.label_file)
@@ -1958,6 +1972,15 @@ class ImportWizardDialog(QWidget):
         self.mapping_loaded = False
         self.loading_manager.close_loading_dialog("Loading", f"Loading {os.path.basename(path)}...")
 
+    ##########################################
+    # ImportFromSesar Logic
+    #Function to make the button open ImportFromSesar.py
+    def open_import_sesar(self):
+        """Open the Import from Sesar window"""
+        logger_setup.get_logger().info("Opening Import from Sesar window")
+        sesar_dialog = ImportFromSesar(self)
+        sesar_dialog.exec()
+    ##########################################
     def resize_tables(self):
         """
         Resize the tables to fit their contents and match the top positions.

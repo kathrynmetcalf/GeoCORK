@@ -1,0 +1,14 @@
+Notes to self
+
+Step 1:
+Need to add an option to import from the ImportWizard.py
+Got to make a button next to Select Excel File No File Selected that Says Import from Sesar. 
+When clicked it will open a new window
+For now let's just make it so it opens a new blank window to test lets call it ImportFromSesar.py
+Added comment 
+# ImportFromSesar Logic 
+to ctrl f and find changes I made faster
+
+
+Step 2:
+Add the basic importing from igsn functionality into the new ImportFromSesar.py window.
