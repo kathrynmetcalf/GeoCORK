@@ -31,6 +31,7 @@ from ui.EditView import EditView
 
 ##############################################
 # ImportFromSesar Logic
+# importing from ImportFromSesar.py
 from .ImportFromSesar import ImportFromSesar
 ##############################################
 

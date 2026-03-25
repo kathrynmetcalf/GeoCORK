@@ -1,5 +1,7 @@
 # ImportFromSesar.py
 # this file handles importing sample data from sesar using igsn numbers
+# needs error handling logic but it does the basic stuff
+
 
 import json
 import requests

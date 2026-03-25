@@ -9,6 +9,8 @@ Added comment
 # ImportFromSesar Logic 
 to ctrl f and find changes I made faster
 
-
 Step 2:
 Add the basic importing from igsn functionality into the new ImportFromSesar.py window.
+sample igsn:
+10.58052/IENWUC821
+Make sure to let Kayla know that she needs to install requests for it to work
