@@ -13,6 +13,9 @@ import logger_setup
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 from collections import Counter
+
+from Functions.Widget_classes import show_loading_dialog, close_loading_dialog
+
 settings = SettingsManager().settings
 
 '''
@@ -42,7 +45,7 @@ CREATE_ABOUT_TABLE = '''CREATE TABLE IF NOT EXISTS About(
 CREATE_AGE_CONSTRAINTS_TABLE = '''CREATE TABLE IF NOT EXISTS AgeConstraints(
                     AgeConstraintID INTEGER PRIMARY KEY,
                     ParentAgeConstraintID INTEGER,
-                    AgeConstraintParentRow INTEGER,
+                    AgeConstraintParentRow INTEGER NOT NULL,
                     AgeConstraintName TEXT NOT NULL CHECK (AgeConstraintName <> ''),
                     AgeConstraintDescription TEXT,
                     AgeConstraintCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -54,7 +57,7 @@ CREATE_AGE_CONSTRAINTS_TABLE = '''CREATE TABLE IF NOT EXISTS AgeConstraints(
 CREATE_AGE_INTERPRETATIONS_TABLE = '''CREATE TABLE IF NOT EXISTS AgeInterpretations(
                     AgeInterpretationID INTEGER PRIMARY KEY,
                     ParentAgeInterpretationID INTEGER,
-                    AgeInterpretationParentRow INTEGER,
+                    AgeInterpretationParentRow INTEGER NOT NULL,
                     AgeInterpretationName TEXT NOT NULL CHECK (AgeInterpretationName <> ''),
                     AgeInterpretationDescription TEXT,
                     AgeInterpretationCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -66,7 +69,7 @@ CREATE_AGE_INTERPRETATIONS_TABLE = '''CREATE TABLE IF NOT EXISTS AgeInterpretati
 CREATE_AGE_SIGNATURES_TABLE = '''CREATE TABLE IF NOT EXISTS AgeSignatures(
                     AgeSignatureID INTEGER PRIMARY KEY,
                     ParentAgeSignatureID INTEGER,
-                    AgeSignatureParentRow INTEGER,
+                    AgeSignatureParentRow INTEGER NOT NULL,
                     AgeSignatureName TEXT NOT NULL CHECK (AgeSignatureName <> ''),
                     AgeSignatureDescription TEXT,
                     AgeSignatureCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -104,7 +107,7 @@ CREATE_AGE_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS AgeUnitConversions(
 CREATE_AGES_TABLE = '''CREATE TABLE IF NOT EXISTS Ages(
                     AgeID INTEGER PRIMARY KEY,
                     ParentAgeID INTEGER,
-                    AgeParentRow INTEGER,
+                    AgeParentRow INTEGER NOT NULL,
                     AgeName TEXT NOT NULL CHECK (AgeName <> ''),
                     OldestAge REAL,
                     YoungestAge REAL,
@@ -118,7 +121,7 @@ CREATE_AGES_TABLE = '''CREATE TABLE IF NOT EXISTS Ages(
 CREATE_ALIQUOT_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS AliquotContexts(
                     AliquotContextID INTEGER PRIMARY KEY,
                     ParentAliquotContextID INTEGER,
-                    AliquotContextParentRow INTEGER,
+                    AliquotContextParentRow INTEGER NOT NULL,
                     AliquotContextName TEXT NOT NULL CHECK (AliquotContextName <> ''),
                     AliquotContextDescription TEXT,
                     AliquotContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -130,9 +133,10 @@ CREATE_ALIQUOT_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS AliquotContexts(
 CREATE_ALIQUOTS_TABLE = '''CREATE TABLE IF NOT EXISTS Aliquots(
                     AliquotID INTEGER PRIMARY KEY, 
                     ParentAliquotID INTEGER,
-                    AliquotParentRow INTEGER,
+                    AliquotParentRow INTEGER NOT NULL,
                     AliquotName TEXT NOT NULL CHECK (AliquotName <> ''),
                     SampleID INTEGER NOT NULL,
+                    AliquotDescription TEXT,
                     AliquotCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     AliquotModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE (AliquotName COLLATE NOCASE, ParentAliquotID, SampleID),
@@ -278,7 +282,7 @@ CREATE_GRAINS_TABLE = '''CREATE TABLE IF NOT EXISTS Grains(
 CREATE_GRAIN_CONTEXTS_TABLE = '''CREATE TABLE IF NOT EXISTS GrainContexts(
                     GrainContextID INTEGER PRIMARY KEY,
                     ParentGrainContextID INTEGER,
-                    GrainContextParentRow INTEGER,
+                    GrainContextParentRow INTEGER NOT NULL,
                     GrainContextName TEXT NOT NULL CHECK (GrainContextName <> ''),
                     GrainContextDescription TEXT,
                     GrainContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -425,7 +429,7 @@ CREATE_REFERENCES_TABLE = '''CREATE TABLE IF NOT EXISTS "References"(
 CREATE_REGIONS_TABLE = '''CREATE TABLE IF NOT EXISTS Regions(
                     RegionID INTEGER PRIMARY KEY,
                     ParentRegionID INTEGER,
-                    RegionParentRow INTEGER,
+                    RegionParentRow INTEGER NOT NULL,
                     RegionName TEXT NOT NULL CHECK (RegionName <> ''),
                     RegionDescription TEXT,
                     RegionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -446,7 +450,7 @@ CREATE_REJECTION_REASONS_TABLE = '''CREATE TABLE IF NOT EXISTS RejectionReasons(
 CREATE_ROCK_TYPES_TABLE = '''CREATE TABLE IF NOT EXISTS RockTypes(
                     RockTypeID INTEGER PRIMARY KEY,
                     ParentRockTypeID INTEGER,
-                    RockTypeParentRow INTEGER,
+                    RockTypeParentRow INTEGER NOT NULL,
                     RockTypeName TEXT NOT NULL CHECK (RockTypeName <> ''),
                     RockTypeDescription TEXT,
                     RockTypeCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -681,7 +685,7 @@ CREATE_SAMPLES_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_Units(
 CREATE_SAMPLING_METHODS_TABLE = '''CREATE TABLE IF NOT EXISTS SamplingMethods(
                     SamplingMethodID INTEGER PRIMARY KEY,
                     ParentSamplingMethodID INTEGER,
-                    SamplingMethodParentRow INTEGER,
+                    SamplingMethodParentRow INTEGER NOT NULL,
                     SamplingMethodName TEXT NOT NULL CHECK (SamplingMethodName <> ''),
                     SamplingMethodDescription TEXT, 
                     SamplingMethodCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -693,7 +697,7 @@ CREATE_SAMPLING_METHODS_TABLE = '''CREATE TABLE IF NOT EXISTS SamplingMethods(
 CREATE_SETTINGS_TABLE = '''CREATE TABLE IF NOT EXISTS Settings(
                     SettingID INTEGER PRIMARY KEY,
                     ParentSettingID INTEGER,
-                    SettingParentRow INTEGER,
+                    SettingParentRow INTEGER NOT NULL,
                     SettingName TEXT NOT NULL CHECK (SettingName <> ''),
                     SettingDescription TEXT,
                     SettingCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -705,7 +709,7 @@ CREATE_SETTINGS_TABLE = '''CREATE TABLE IF NOT EXISTS Settings(
 CREATE_SPOT_COMPOSITION_TABLE = '''CREATE TABLE IF NOT EXISTS SpotCompositions(
                     SpotCompositionID INTEGER PRIMARY KEY,
                     ParentSpotCompositionID INTEGER,
-                    SpotCompositionParentRow INTEGER,
+                    SpotCompositionParentRow INTEGER NOT NULL,
                     SpotCompositionName TEXT NOT NULL CHECK (SpotCompositionName <> ''),
                     SpotCompositionDescription TEXT, 
                     SpotCompositionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -717,7 +721,7 @@ CREATE_SPOT_COMPOSITION_TABLE = '''CREATE TABLE IF NOT EXISTS SpotCompositions(
 CREATE_SPOT_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS SpotContexts(
                     SpotContextID INTEGER PRIMARY KEY,
                     ParentSpotContextID INTEGER,
-                    SpotContextParentRow INTEGER,
+                    SpotContextParentRow INTEGER NOT NULL,
                     SpotContextName TEXT NOT NULL CHECK (SpotContextName <> ''),
                     SpotContextDescription TEXT, 
                     SpotContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -732,6 +736,7 @@ CREATE_SPOTS_TABLE = '''CREATE TABLE IF NOT EXISTS Spots(
                     AliquotID INTEGER NOT NULL,
                     GrainID INTEGER,
                     SpotCompositionID INTEGER,
+                    SpotDescription TEXT,
                     SpotCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     SpotModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE (SpotName COLLATE NOCASE, AliquotID),
@@ -763,7 +768,7 @@ CREATE_SPOTS_SPOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Spots_SpotContext
 CREATE_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS Units(
                     UnitID INTEGER PRIMARY KEY,
                     ParentUnitID INTEGER,
-                    UnitParentRow INTEGER,
+                    UnitParentRow INTEGER NOT NULL,
                     UnitName TEXT NOT NULL CHECK (UnitName <> ''),
                     UnitDescription TEXT, 
                     UnitCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -773,6 +778,313 @@ CREATE_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS Units(
                     )'''
 
 CREATE_UPBANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
+                    UPbAnalysisID INTEGER PRIMARY KEY,
+                    UPbAnalysisName TEXT NOT NULL CHECK (UPbAnalysisName <> ''),
+                    SpotID INTEGER NOT NULL,
+                    ReferenceID INTEGER,
+                    LabFacilityID INTEGER,
+                    InstrumentID INTEGER,
+                    UPbAnalysisMethodID INTEGER, 
+                    Pb204cps REAL, 
+                    Pb206cps REAL, 
+                    Pb207cps REAL, 
+                    Pb208cps REAL, 
+                    "Pb*cps" REAL,
+                    Th232cps REAL, 
+                    U235cps REAL, 
+                    U238cps REAL,
+                    Uppm REAL,
+                    Thppm REAL,
+                    Pbppm REAL,
+                    "U/Th" REAL,
+                    "Th/U" REAL,
+                    "CalculatedU/Th" AS (CASE
+                        WHEN "U/Th" IS NOT NULL THEN "U/Th"
+                        WHEN "Th/U" IS NOT NULL THEN 1/"Th/U"
+                        ELSE NULL
+                        END) STORED,
+                    "CalculatedTh/U" AS (CASE
+                        WHEN "Th/U" IS NOT NULL THEN "Th/U"
+                        WHEN "U/Th" IS NOT NULL THEN 1/"U/Th"
+                        ELSE NULL
+                        END) STORED,
+                    "206Pb/207Pb" REAL,
+                    "206Pb/207PbError" REAL, 
+                    "207Pb/206Pb" REAL,
+                    "207Pb/206PbError" REAL, 
+                    "Calculated206Pb/207Pb" AS (CASE
+                        WHEN "206Pb/207Pb" IS NOT NULL THEN "206Pb/207Pb"
+                        WHEN "207Pb/206Pb" IS NOT NULL THEN 1/"207Pb/206Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated207Pb/206Pb" AS (CASE
+                        WHEN "207Pb/206Pb" IS NOT NULL THEN "207Pb/206Pb"
+                        WHEN "206Pb/207Pb" IS NOT NULL THEN 1/"206Pb/207Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "207Pb/235U" REAL,
+                    "207Pb/235UError" REAL, 
+                    "235U/207Pb" REAL,
+                    "235U/207PbError" REAL, 
+                    "Calculated207Pb/235U" AS (CASE
+                        WHEN "207Pb/235U" IS NOT NULL THEN "207Pb/235U"
+                        WHEN "235U/207Pb" IS NOT NULL THEN 1/"235U/207Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated235U/207Pb" AS (CASE
+                        WHEN "235U/207Pb" IS NOT NULL THEN "235U/207Pb"
+                        WHEN "207Pb/235U" IS NOT NULL THEN 1/"207Pb/235U"
+                        ELSE NULL
+                        END) STORED,
+                    "206Pb/238U" REAL,
+                    "206Pb/238UError" REAL, 
+                    "238U/206Pb" REAL,
+                    "238U/206PbError" REAL,
+                    "Calculated206Pb/238U" AS (CASE
+                        WHEN "206Pb/238U" IS NOT NULL THEN "206Pb/238U"
+                        WHEN "238U/206Pb" IS NOT NULL THEN 1/"238U/206Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated238U/206Pb" AS (CASE
+                        WHEN "238U/206Pb" IS NOT NULL THEN "238U/206Pb"
+                        WHEN "206Pb/238U" IS NOT NULL THEN 1/"206Pb/238U"
+                        ELSE NULL
+                        END) STORED, 
+                    "208Pb/232Th" REAL,
+                    "208Pb/232ThError" REAL, 
+                    "232Th/208Pb" REAL,
+                    "232Th/208PbError" REAL, 
+                    "Calculated208Pb/232Th" AS (CASE
+                        WHEN "208Pb/232Th" IS NOT NULL THEN "208Pb/232Th"
+                        WHEN "232Th/208Pb" IS NOT NULL THEN 1/"232Th/208Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated232Th/208Pb" AS (CASE
+                        WHEN "232Th/208Pb" IS NOT NULL THEN "232Th/208Pb"
+                        WHEN "208Pb/232Th" IS NOT NULL THEN 1/"208Pb/232Th"
+                        ELSE NULL
+                        END) STORED,
+                    "238U/232Th" REAL,
+                    "238U/232ThError" REAL, 
+                    "232Th/238U" REAL,
+                    "232Th/238UError" REAL, 
+                    "Calculated238U/232Th" AS (CASE
+                        WHEN "238U/232Th" IS NOT NULL THEN "238U/232Th"
+                        WHEN "232Th/238U" IS NOT NULL THEN 1/"232Th/238U"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated232Th/238U" AS (CASE
+                        WHEN "232Th/238U" IS NOT NULL THEN "232Th/238U"
+                        WHEN "238U/232Th" IS NOT NULL THEN 1/"238U/232Th"
+                        ELSE NULL
+                        END) STORED,
+                    "204Pb/238U" REAL,
+                    "204Pb/238UError" REAL, 
+                    "238U/204Pb" REAL,
+                    "238U/204PbError" REAL, 
+                    "Calculated204Pb/238U" AS (CASE
+                        WHEN "204Pb/238U" IS NOT NULL THEN "204Pb/238U"
+                        WHEN "238U/204Pb" IS NOT NULL THEN 1/"238U/204Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated238U/204Pb" AS (CASE
+                        WHEN "238U/204Pb" IS NOT NULL THEN "238U/204Pb"
+                        WHEN "204Pb/238U" IS NOT NULL THEN 1/"204Pb/238U"
+                        ELSE NULL
+                        END) STORED,
+                    "206Pb/204Pb" REAL,
+                    "206Pb/204PbError" REAL, 
+                    "204Pb/206Pb" REAL,
+                    "204Pb/206PbError" REAL, 
+                    "Calculated206Pb/204Pb" AS (CASE
+                        WHEN "206Pb/204Pb" IS NOT NULL THEN "206Pb/204Pb"
+                        WHEN "204Pb/206Pb" IS NOT NULL THEN 1/"204Pb/206Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated204Pb/206Pb" AS (CASE
+                        WHEN "204Pb/206Pb" IS NOT NULL THEN "204Pb/206Pb"
+                        WHEN "206Pb/204Pb" IS NOT NULL THEN 1/"206Pb/204Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "207Pb/204Pb" REAL,
+                    "207Pb/204PbError" REAL, 
+                    "204Pb/207Pb" REAL,
+                    "204Pb/207PbError" REAL, 
+                    "Calculated207Pb/204Pb" AS (CASE
+                        WHEN "207Pb/204Pb" IS NOT NULL THEN "207Pb/204Pb"
+                        WHEN "204Pb/207Pb" IS NOT NULL THEN 1/"204Pb/207Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated204Pb/207Pb" AS (CASE
+                        WHEN "204Pb/207Pb" IS NOT NULL THEN "204Pb/207Pb"
+                        WHEN "207Pb/204Pb" IS NOT NULL THEN 1/"207Pb/204Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "208Pb/204Pb" REAL,
+                    "208Pb/204PbError" REAL, 
+                    "204Pb/208Pb" REAL,
+                    "204Pb/208PbError" REAL, 
+                    "Calculated208Pb/204Pb" AS (CASE
+                        WHEN "208Pb/204Pb" IS NOT NULL THEN "208Pb/204Pb"
+                        WHEN "204Pb/208Pb" IS NOT NULL THEN 1/"204Pb/208Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated204Pb/208Pb" AS (CASE
+                        WHEN "204Pb/208Pb" IS NOT NULL THEN "204Pb/208Pb"
+                        WHEN "208Pb/204Pb" IS NOT NULL THEN 1/"208Pb/204Pb"
+                        ELSE NULL
+                        END) STORED,
+                    RatioErrorFormatID INTEGER,
+                    "207Pb/206PbAge" REAL,
+                    "207Pb/206PbAgeError" REAL, 
+                    "207Pb/235UAge" REAL,
+                    "207Pb/235UAgeError" REAL, 
+                    "206Pb/238UAge" REAL,
+                    "206Pb/238UAgeError" REAL,
+                    "208Pb/232ThAge" REAL,
+                    "208Pb/232ThAgeError" REAL,
+                    BestAge REAL,
+                    BestAgeError REAL, 
+                    AgeErrorFormatID INTEGER,
+                    AgeUnitID INTEGER,
+                    AgeInterpretationID INTEGER,
+                    "Concordance_206Pb/238Uv207Pb/206Pb" REAL,
+                    "ErrorCorr/Rho_68v76" REAL,
+                    "Concordance_206Pb/238Uv207Pb/235U" REAL,
+                    "ErrorCorr/Rho_68v75" REAL,
+                    ConcordanceFormatID INTEGER,
+                    MinimumSegmentedDiscordance REAL,
+                    SpotSize REAL,
+                    SpotSizeUnitID INTEGER,
+                    Rejected INTEGER,
+                    UPbAnalysisDescription TEXT,
+                    UPbAnalysisCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UPbAnalysisModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (UPbAnalysisName COLLATE NOCASE),
+                    FOREIGN KEY(SpotID) REFERENCES Spots(SpotID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(ReferenceID) REFERENCES "References"(ReferenceID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(LabFacilityID) REFERENCES LabFacilities(LabFacilityID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(UPbAnalysisMethodID) REFERENCES UPbAnalysisMethods(UPbAnalysisMethodID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(InstrumentID) REFERENCES Instruments(InstrumentID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL, 
+                    FOREIGN KEY(RatioErrorFormatID) REFERENCES ErrorFormats(ErrorFormatID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL, 
+                    FOREIGN KEY(AgeErrorFormatID) REFERENCES ErrorFormats(ErrorFormatID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL, 
+                    FOREIGN KEY(AgeUnitID) REFERENCES AgeUnits(AgeUnitID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(AgeInterpretationID) REFERENCES AgeInterpretations(AgeInterpretationID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(ConcordanceFormatID) REFERENCES ConcordanceFormats(ConcordanceFormatID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(SpotSizeUnitID) REFERENCES DistanceUnits(DistanceUnitID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL
+                    )'''
+
+
+CREATE_UPB_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalysisContexts(
+                    UPbAnalysisContextID INTEGER PRIMARY KEY,
+                    ParentUPbAnalysisContextID INTEGER,
+                    UPbAnalysisContextParentRow INTEGER NOT NULL,
+                    UPbAnalysisContextName TEXT NOT NULL CHECK (UPbAnalysisContextName <> ''),
+                    UPbAnalysisContextDescription TEXT, 
+                    UPbAnalysisContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UPbAnalysisContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (UPbAnalysisContextName COLLATE NOCASE),
+                    UNIQUE (ParentUPbAnalysisContextID, UPbAnalysisContextParentRow)
+                    )'''
+
+CREATE_UPBANALYSES_UPBANALYSISCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses_UPbAnalysisContexts(
+                    UPbAnalysisID INTEGER NOT NULL,
+                    UPbAnalysisContextID INTEGER NOT NULL,
+                    UPbAnalyses_UPbAnalysisContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UPbAnalyses_UPbAnalysisContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (UPbAnalysisID, UPbAnalysisContextID),
+                    FOREIGN KEY(UPbAnalysisID) REFERENCES UPbAnalyses(UPbAnalysisID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(UPbAnalysisContextID) REFERENCES UPbAnalysisContexts(UPbAnalysisContextID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
+CREATE_UPBANALYSES_REJECTIONREASONS_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses_RejectionReasons(
+                    UPbAnalysisID INTEGER,
+                    RejectionReasonID INTEGER,
+                    UPbAnalyses_RejectionReasonsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UPbAnalyses_RejectionReasonsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (UPbAnalysisID, RejectionReasonID),
+                    FOREIGN KEY(UPbAnalysisID) REFERENCES UPbAnalyses(UPbAnalysisID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(RejectionReasonID) REFERENCES RejectionReasons(RejectionReasonID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
+CREATE_UPBANALYSIS_METHOD_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalysisMethods(
+                    UPbAnalysisMethodID INTEGER PRIMARY KEY,
+                    ParentUPbAnalysisMethodID INTEGER,
+                    UPbAnalysisMethodParentRow INTEGER NOT NULL,
+                    UPbAnalysisMethodName TEXT NOT NULL CHECK (UPbAnalysisMethodName <> ''),
+                    UPbAnalysisMethodDescription TEXT, 
+                    UPbAnalysisMethodCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UPbAnalysisMethodModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (UPbAnalysisMethodName COLLATE NOCASE)
+                    )'''
+
+
+CREATE_ALIQUOTS_TABLE_v103 = '''CREATE TABLE IF NOT EXISTS Aliquots(
+                    AliquotID INTEGER PRIMARY KEY, 
+                    ParentAliquotID INTEGER,
+                    AliquotParentRow INTEGER NOT NULL,
+                    AliquotName TEXT NOT NULL CHECK (AliquotName <> ''),
+                    SampleID INTEGER NOT NULL,
+                    AliquotCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    AliquotModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (AliquotName COLLATE NOCASE, ParentAliquotID, SampleID),
+                    UNIQUE (ParentAliquotID, AliquotParentRow),
+                    FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
+CREATE_SPOTS_TABLE_v103 = '''CREATE TABLE IF NOT EXISTS Spots(
+                    SpotID INTEGER PRIMARY KEY,
+                    SpotName TEXT NOT NULL CHECK (SpotName <> ''), 
+                    AliquotID INTEGER NOT NULL,
+                    GrainID INTEGER,
+                    SpotCompositionID INTEGER,
+                    SpotCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    SpotModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (SpotName COLLATE NOCASE, AliquotID),
+                    FOREIGN KEY(AliquotID) REFERENCES Aliquots(AliquotID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(SpotCompositionID) REFERENCES SpotCompositions(SpotCompositionID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(GrainID) REFERENCES Grains(GrainID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL
+                    )'''
+
+CREATE_UPBANALYSES_TABLE_v103 = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
                     UPbAnalysisID INTEGER PRIMARY KEY,
                     UPbAnalysisName TEXT NOT NULL CHECK (UPbAnalysisName <> ''),
                     SpotID INTEGER NOT NULL,
@@ -1201,56 +1513,27 @@ CREATE_UPBANALYSES_TABLE_v101 = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
                         ON DELETE SET NULL
                     )'''
 
-CREATE_UPB_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalysisContexts(
-                    UPbAnalysisContextID INTEGER PRIMARY KEY,
-                    ParentUPbAnalysisContextID INTEGER,
-                    UPbAnalysisContextParentRow INTEGER,
-                    UPbAnalysisContextName TEXT NOT NULL CHECK (UPbAnalysisContextName <> ''),
-                    UPbAnalysisContextDescription TEXT, 
-                    UPbAnalysisContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UPbAnalysisContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (UPbAnalysisContextName COLLATE NOCASE),
-                    UNIQUE (ParentUPbAnalysisContextID, UPbAnalysisContextParentRow)
-                    )'''
-
-CREATE_UPBANALYSES_UPBANALYSISCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses_UPbAnalysisContexts(
-                    UPbAnalysisID INTEGER NOT NULL,
-                    UPbAnalysisContextID INTEGER NOT NULL,
-                    UPbAnalyses_UPbAnalysisContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UPbAnalyses_UPbAnalysisContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (UPbAnalysisID, UPbAnalysisContextID),
-                    FOREIGN KEY(UPbAnalysisID) REFERENCES UPbAnalyses(UPbAnalysisID)
+CREATE_SPOTS_TABLE_v101 = '''CREATE TABLE IF NOT EXISTS Spots(
+                    SpotID INTEGER PRIMARY KEY,
+                    SpotName TEXT NOT NULL CHECK (SpotName <> ''), 
+                    AliquotID INTEGER NOT NULL,
+                    GrainID INTEGER,
+                    SpotCompositionID INTEGER,
+                    SpotCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    SpotModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (SpotName COLLATE NOCASE, AliquotID),
+                    FOREIGN KEY(AliquotID) REFERENCES Aliquots(AliquotID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
-                    FOREIGN KEY(UPbAnalysisContextID) REFERENCES UPbAnalysisContexts(UPbAnalysisContextID)
+                    FOREIGN KEY(SpotCompositionID) REFERENCES SpotCompositions(SpotCompositionID)
                         ON UPDATE CASCADE
-                        ON DELETE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(GrainID) REFERENCES Grains(GrainID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL
                     )'''
 
-CREATE_UPBANALYSES_REJECTIONREASONS_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses_RejectionReasons(
-                    UPbAnalysisID INTEGER,
-                    RejectionReasonID INTEGER,
-                    UPbAnalyses_RejectionReasonsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UPbAnalyses_RejectionReasonsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (UPbAnalysisID, RejectionReasonID),
-                    FOREIGN KEY(UPbAnalysisID) REFERENCES UPbAnalyses(UPbAnalysisID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE,
-                    FOREIGN KEY(RejectionReasonID) REFERENCES RejectionReasons(RejectionReasonID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE
-                    )'''
 
-CREATE_UPBANALYSIS_METHOD_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalysisMethods(
-                    UPbAnalysisMethodID INTEGER PRIMARY KEY,
-                    ParentUPbAnalysisMethodID INTEGER,
-                    UPbAnalysisMethodParentRow INTEGER,
-                    UPbAnalysisMethodName TEXT NOT NULL CHECK (UPbAnalysisMethodName <> ''),
-                    UPbAnalysisMethodDescription TEXT, 
-                    UPbAnalysisMethodCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UPbAnalysisMethodModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (UPbAnalysisMethodName COLLATE NOCASE)
-                    )'''
 
 '''Commands to create tables and populate default tables'''
 
@@ -1691,6 +1974,11 @@ def update_schema(version: str, database: QtS.QSqlDatabase = None) -> str:
             return backup_file
         version = 'v1.0.3'
 
+    if version == 'v1.0.3':
+        if not update_schema_v104(database):
+            return backup_file
+        version = 'v1.0.4'
+
     return 'True'
 
 def update_schema_v101(database: QtS.QSqlDatabase = None) -> bool:
@@ -1702,7 +1990,14 @@ def update_schema_v101(database: QtS.QSqlDatabase = None) -> bool:
     create_savepoint('before_schema_update')
     query = QtS.QSqlQuery(database)
 
-    create_sql = CREATE_SPOTS_TABLE
+    if not query.exec(f'ALTER TABLE Spots ADD COLUMN GrainID INTEGER'):
+        logger_setup.get_logger().debug(f"Failed to add GrainID column to Spots table")
+        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        rollback_savepoint('before_schema_update')
+        return False
+
+    create_sql = CREATE_SPOTS_TABLE_v101
     column_creation = '''(SpotID INTEGER PRIMARY KEY,
                     SpotName TEXT NOT NULL CHECK (SpotName <> ''), 
                     AliquotID INTEGER NOT NULL,
@@ -1958,7 +2253,11 @@ def update_schema_v101(database: QtS.QSqlDatabase = None) -> bool:
                 current_columns.append(column)
         settings.setValue(column_setting, current_columns)
     logger_setup.get_logger().info(f'Successfully updated view and edit columns')
-
+    if not query.exec(f'UPDATE About SET Version = "v1.0.1" WHERE AboutID = 1'):
+        logger_setup.get_logger().critical(f'Error updating version in About table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
     return True
 
 def update_schema_v103(database: QtS.QSqlDatabase = None) -> bool:
@@ -2034,7 +2333,7 @@ def update_schema_v103(database: QtS.QSqlDatabase = None) -> bool:
         rollback_savepoint('before_schema_update')
         return False
     # Copy the old "concordance" value into the new "concordance_206Pb/238Uv207Pb/206Pb"
-    for upb_analysis in concordance_values.keys():
+    for upb_analysis in concordance_values:
         concordance = concordance_values[upb_analysis]
         if concordance:
             update_concordance = f'UPDATE UPbAnalyses_new SET "Concordance_206Pb/238Uv207Pb/206Pb" = {concordance} WHERE UPbAnalysisID = {upb_analysis}'
@@ -2153,7 +2452,432 @@ def update_schema_v103(database: QtS.QSqlDatabase = None) -> bool:
     logger_setup.get_logger().info(f'Updated {updated} ages with colors during schema update.')
     if not_found:
         logger_setup.get_logger().info(f'Could not find {len(not_found)} ages to update colors during schema update: {not_found}')
+    if not query.exec(f'UPDATE About SET Version = "v1.0.3" WHERE AboutID = 1'):
+        logger_setup.get_logger().critical(f'Error updating version in About table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
     return True
+
+def update_schema_v104(database: QtS.QSqlDatabase = None) -> bool:
+    """
+    Update schema from v1.0.3 to v1.0.4.
+    Add columns for ErrorCorr/Rho_68v76, ErrorCorr/Rho_68v75, and MinimumSegmentedDiscordance in the UPbAnalyses table and populate.
+    Update some settings.
+    :param database:
+    :return:
+    """
+    # update schema from v1.0.3 to v1.0.4
+    create_savepoint('before_schema_update')
+    query = QtS.QSqlQuery()
+    show_loading_dialog('Updating', 'Adding new columns to UPbAnalyses...')
+    logger_setup.get_logger().debug(f'Adding new columns to UPbAnalyses...')
+    if not query.exec(f'ALTER TABLE UPbAnalyses ADD COLUMN "ErrorCorr/Rho_68v76" REAL'):
+        if 'duplicate column name' not in query.lastError().text():
+            logger_setup.get_logger().debug(f'Error adding UPbAnalysisName column to UPbAnalyses table')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            rollback_savepoint('before_schema_update')
+            close_loading_dialog('Updating', 'Adding new columns to UPbAnalyses...')
+            return False
+    if not query.exec(f'ALTER TABLE UPbAnalyses ADD COLUMN "ErrorCorr/Rho_68v75" REAL'):
+        if 'duplicate column name' not in query.lastError().text():
+            logger_setup.get_logger().debug(f'Error adding UPbAnalysisName column to UPbAnalyses table')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            rollback_savepoint('before_schema_update')
+            close_loading_dialog('Updating', 'Adding new columns to UPbAnalyses...')
+            return False
+    if not query.exec(f'ALTER TABLE UPbAnalyses ADD COLUMN "MinimumSegmentedDiscordance" REAL'):
+        if 'duplicate column name' not in query.lastError().text():
+            logger_setup.get_logger().debug(f'Error adding UPbAnalysisName column to UPbAnalyses table')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            rollback_savepoint('before_schema_update')
+            close_loading_dialog('Updating', 'Adding new columns to UPbAnalyses...')
+            return False
+    if not query.exec(f'ALTER TABLE UPbAnalyses ADD Column "Pbppm" TEXT'):
+        if 'duplicate column name' not in query.lastError().text():
+            logger_setup.get_logger().debug(f'Error adding Pbppm column to UPbAnalyses table')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            rollback_savepoint('before_schema_update')
+            close_loading_dialog('Updating', 'Adding new columns to UPbAnalyses...')
+            return False
+    if not query.exec(f'ALTER TABLE UPbAnalyses ADD COLUMN "UPbAnalysisDescription" TEXT'):
+        if 'duplicate column name' not in query.lastError().text():
+            logger_setup.get_logger().debug(f'Error adding UPbAnalysisDescription column to UPbAnalyses table')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            rollback_savepoint('before_schema_update')
+            close_loading_dialog('Updating', 'Adding new columns to UPbAnalyses...')
+            return False
+    close_loading_dialog('Updating', 'Adding new columns to UPbAnalyses...')
+
+    show_loading_dialog('Updating', 'Adding new columns to Aliquots...')
+    logger_setup.get_logger().info('Adding new columns to Aliquots...')
+    if not query.exec(f'ALTER TABLE Aliquots ADD COLUMN "AliquotDescription" TEXT'):
+        if 'duplicate column name' not in query.lastError().text():
+            logger_setup.get_logger().debug(f'Error adding AliquotDescription column to Aliquots table')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            rollback_savepoint('before_schema_update')
+            close_loading_dialog('Updating', 'Adding new columns to Aliquots...')
+            return False
+    close_loading_dialog('Updating', 'Adding new columns to Aliquots...')
+
+    show_loading_dialog('Updating', 'Adding new columns to Spots...')
+    logger_setup.get_logger().info('Adding new columns to Spots...')
+    if not query.exec(f'ALTER TABLE Spots ADD COLUMN "SpotDescription" TEXT'):
+        if 'duplicate column name' not in query.lastError().text():
+            logger_setup.get_logger().debug(f'Error adding SpotDescription column to Spots table')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            rollback_savepoint('before_schema_update')
+            close_loading_dialog('Updating', 'Adding new columns to Spots...')
+            return False
+    close_loading_dialog('Updating', 'Adding new columns to Spots...')
+
+    show_loading_dialog('Updating', 'Evaluating data...')
+    logger_setup.get_logger().info('Evaluating data...')
+    msc_concordance_values = {}
+    # v103 assumed that all concordance values entered previously were 206Pb/238Uv207Pb/206Pb, but now need to separate out the minimum segmented discordance values.
+    if not query.exec(f'SELECT UPbAnalysisID, "Concordance_206Pb/238Uv207Pb/206Pb" FROM UPbAnalyses WHERE ConcordanceFormatID = 5 AND "Concordance_206Pb/238Uv207Pb/206Pb" is not NULL'):
+        logger_setup.get_logger().debug(f'Error retrieving UPbAnalysisID and Concordance from UPbAnalyses table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        rollback_savepoint('before_schema_update')
+        close_loading_dialog('Updating', 'Evaluating data...')
+        return False
+    while query.next():
+        msc_concordance_values[query.value(0)] = query.value(1)
+    # Get any minimum segmented discordance that was placed in the "Concordance_206Pb/238Uv207Pb/235U" column instead
+    if not query.exec(f'SELECT UPbAnalysisID, "Concordance_206Pb/238Uv207Pb/235U" FROM UPbAnalyses WHERE ConcordanceFormatID = 5 AND "Concordance_206Pb/238Uv207Pb/206Pb" is NULL'):
+        logger_setup.get_logger().debug(f'Error retrieving UPbAnalysisID and Concordance from UPbAnalyses table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        rollback_savepoint('before_schema_update')
+        close_loading_dialog('Updating', 'Evaluating data...')
+        return False
+    while query.next():
+        msc_concordance_values[query.value(0)] = query.value(1)
+    from Functions.Widget_classes import get_headers
+    columns = get_headers('UPbAnalyses')
+    error_cor_68v76_values = {}
+    error_cor_68v75_values = {}
+    if '"ErrorCorr/Rho"' in columns:
+        error_cor_68v76_values = {}
+        if not query.exec(f'SELECT UPbAnalysisID, "ErrorCorr/Rho" FROM UPbAnalyses WHERE "Concordance_206Pb/238Uv207Pb/206Pb" is not NULL'):
+            logger_setup.get_logger().debug(f'Error retrieving UPbAnalysisID and ErrorCorr/Rho from UPbAnalyses table')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            rollback_savepoint('before_schema_update')
+            close_loading_dialog('Updating', 'Evaluating data...')
+            return False
+        while query.next():
+            error_cor_68v76_values[query.value(0)] = query.value(1)
+        if not query.exec(f'SELECT UPbAnalysisID, "ErrorCorr/Rho" FROM UPbAnalyses WHERE "Concordance_206Pb/238Uv207Pb/235U" is not NULL'):
+            logger_setup.get_logger().debug(f'Error retrieving UPbAnalysisID and ErrorCorr/Rho from UPbAnalyses table')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            rollback_savepoint('before_schema_update')
+            close_loading_dialog('Updating', 'Evaluating data...')
+            return False
+        while query.next():
+            error_cor_68v75_values[query.value(0)] = query.value(1)
+    close_loading_dialog('Updating', 'Evaluating data...')
+
+    show_loading_dialog('Updating', 'Confirming new UPbAnalyses columns...')
+    logger_setup.get_logger().info('Confirming new UPbAnalyses columns...')
+    if not query.exec(f'PRAGMA table_xinfo("UPbAnalyses")'):
+        logger_setup.get_logger().debug(f"Failed to get columns for UPbAnalyses table")
+        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        rollback_savepoint('before_schema_update')
+        close_loading_dialog('Updating', 'Confirming new UPbAnalyses columns...')
+        return False
+    columns = []
+    while query.next():
+        columns.append(query.value(1))
+    if any(new_column not in columns for new_column in ['ErrorCorr/Rho_68v76', 'ErrorCorr/Rho_68v75', 'MinimumSegmentedDiscordance']):
+        logger_setup.get_logger().debug(
+            f'Failed to add "ErrorCorr/Rho_68v76", "ErrorCorr/Rho_68v75", and MinimumSegmentedDiscordance columns to UPbAnalyses table')
+        rollback_savepoint('before_schema_update')
+        close_loading_dialog('Updating', 'Confirming new UPbAnalyses columns...')
+        return False
+    close_loading_dialog('Updating', 'Confirming new UPbAnalyses columns...')
+
+    show_loading_dialog('Updating', 'Preparing updated tables...')
+    logger_setup.get_logger().info('Preparing updated tables...')
+    # Create new UPbAnalyses, Spots, and Aliquots tables with new create statements
+    create_sql = CREATE_UPBANALYSES_TABLE
+    column_creation = create_sql.split(f'CREATE TABLE IF NOT EXISTS UPbAnalyses')[1]
+    if not query.exec(f'CREATE TABLE IF NOT EXISTS UPbAnalyses_new{column_creation}'):
+        logger_setup.get_logger().debug(f"Failed to create new UPbAnalyses table")
+        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        rollback_savepoint('before_schema_update')
+        close_loading_dialog('Updating', 'Preparing updated tables...')
+        return False
+    create_sql = CREATE_SPOTS_TABLE
+    column_creation = create_sql.split(f'CREATE TABLE IF NOT EXISTS Spots')[1]
+    if not query.exec(f'CREATE TABLE IF NOT EXISTS Spots_new{column_creation}'):
+        logger_setup.get_logger().debug(f"Failed to create new Spots table")
+        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        rollback_savepoint('before_schema_update')
+        close_loading_dialog('Updating', 'Preparing updated tables...')
+        return False
+    create_sql = CREATE_ALIQUOTS_TABLE
+    column_creation = create_sql.split(f'CREATE TABLE IF NOT EXISTS Aliquots')[1]
+    if not query.exec(f'CREATE TABLE IF NOT EXISTS Aliquots_new{column_creation}'):
+        logger_setup.get_logger().debug(f"Failed to create new Aliquots table")
+        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        rollback_savepoint('before_schema_update')
+        close_loading_dialog('Updating', 'Preparing updated tables...')
+        return False
+    close_loading_dialog('Updating', 'Preparing updated tables...')
+
+    show_loading_dialog('Updating', 'Moving data to new columns...')
+    logger_setup.get_logger().info('Moving data to new columns...')
+    # Copy data from old UPbAnalyses table to new UPbAnalyses table
+    from Functions.Alter_database import get_columns
+    query, virtual, stored, columns = get_columns('UPbAnalyses_new', database)
+    column_str = ', '.join(columns)
+    insert_new_table = f'INSERT INTO UPbAnalyses_new SELECT {column_str} FROM UPbAnalyses'
+    logger_setup.get_logger().info(f'Inserting into new table: UPbAnalyses_new')
+    if not query.exec(insert_new_table):
+        logger_setup.get_logger().debug(f'Error inserting values into UPbAnalyses_new table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        rollback_savepoint('before_schema_update')
+        close_loading_dialog('Updating', 'Moving data to new columns...')
+        return False
+    # Copy the old "ErrorCorr/Rho" value into the new "ErrorCorr/Rho_68v76" and "ErrorCorr/Rho_68v75" based on which concordance value is present
+    for upb_analysis in error_cor_68v76_values:
+        error_cor_68v76 = error_cor_68v76_values[upb_analysis]
+        if error_cor_68v76:
+            update_concordance = f'UPDATE UPbAnalyses_new SET "ErrorCorr/Rho_68v76" = {error_cor_68v76} WHERE UPbAnalysisID = {upb_analysis}'
+            if not query.exec(update_concordance):
+                logger_setup.get_logger().debug(f'Error copying concordance to new column')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                rollback_savepoint('before_schema_update')
+                close_loading_dialog('Updating', 'Moving data to new columns...')
+                return False
+    for upb_analysis in error_cor_68v75_values:
+        error_cor_68v75 = error_cor_68v75_values[upb_analysis]
+        if error_cor_68v75:
+            update_concordance = f'UPDATE UPbAnalyses_new SET "ErrorCorr/Rho_68v75" = {error_cor_68v75} WHERE UPbAnalysisID = {upb_analysis}'
+            if not query.exec(update_concordance):
+                logger_setup.get_logger().debug(f'Error copying concordance to new column')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                rollback_savepoint('before_schema_update')
+                close_loading_dialog('Updating', 'Moving data to new columns...')
+                return False
+    # Copy concordance values with ConcordanceFormatID = 5 into the new MinimumSegmentedDiscordance column, and set the Concordance_206Pb/238Uv207Pb/206Pb column to NULL for those analyses since that value is not actually concordance but minimum segmented discordance.
+    for upb_analysis in msc_concordance_values:
+        msc_concordance = msc_concordance_values[upb_analysis]
+        if msc_concordance:
+            update_concordance = f'UPDATE UPbAnalyses_new SET "MinimumSegmentedDiscordance" = {msc_concordance}, "ConcordanceFormatID" = NULL WHERE UPbAnalysisID = {upb_analysis}'
+            if not query.exec(update_concordance):
+                logger_setup.get_logger().debug(f'Error copying concordance to new column')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                rollback_savepoint('before_schema_update')
+                close_loading_dialog('Updating', 'Moving data to new columns...')
+                return False
+            update_concordance = f'UPDATE UPbAnalyses_new SET "Concordance_206Pb/238Uv207Pb/206Pb" = NULL, "Concordance_206Pb/238Uv207Pb/235U" = NULL WHERE UPbAnalysisID = {upb_analysis}'
+            if not query.exec(update_concordance):
+                logger_setup.get_logger().debug(f'Error setting old concordance columns to NULL for minimum segmented discordance analyses')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                rollback_savepoint('before_schema_update')
+                close_loading_dialog('Updating', 'Moving data to new columns...')
+                return False
+    logger_setup.get_logger().info(f'Successfully inserted into new table: UPbAnalyses_new')
+
+    # Copy data from old Spots table to new Spots table
+    query, virtual, stored, columns = get_columns('Spots_new', database)
+    column_str = ', '.join(columns)
+    insert_new_table = f'INSERT INTO Spots_new SELECT {column_str} FROM Spots'
+    logger_setup.get_logger().info(f'Inserting into new table: Spots_new')
+    if not query.exec(insert_new_table):
+        logger_setup.get_logger().debug(f'Error inserting values into Spots_new table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        rollback_savepoint('before_schema_update')
+        close_loading_dialog('Updating', 'Moving data to new columns...')
+        return False
+
+    # Copy data from old Aliquots table to new Aliquots table
+    query, virtual, stored, columns = get_columns('Aliquots_new', database)
+    column_str = ', '.join(columns)
+    insert_new_table = f'INSERT INTO Aliquots_new SELECT {column_str} FROM Aliquots'
+    logger_setup.get_logger().info(f'Inserting into new table: Aliquots_new')
+    if not query.exec(insert_new_table):
+        logger_setup.get_logger().debug(f'Error inserting values into Aliquots_new table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        rollback_savepoint('before_schema_update')
+        close_loading_dialog('Updating', 'Moving data to new columns...')
+        return False
+    close_loading_dialog('Updating', 'Moving data to new columns...')
+
+    show_loading_dialog('Updating', 'Removing obsolete formats...')
+    logger_setup.get_logger().info('Removing obsolete formats...')
+    # Remove old concordance format MinimumSegmentedDiscordance from settings if present since now there is a separate column for minimum segmented discordance and concordance format should no longer be set to 5 for those analyses.
+    if not query.exec(f'DELETE FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "MinSegDis"'):
+        logger_setup.get_logger().debug(f'Error deleting old minimum segmented discordance concordance format from ConcordanceFormats table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        rollback_savepoint('before_schema_update')
+        close_loading_dialog('Updating', 'Removing obsolete formats...')
+        return False
+
+    # Remove old conversions for minimum segmented discordance. These could not be converted with the other formats, so the calculation column is "-"
+    if not query.exec(f'DELETE FROM ConcordanceFormatConversions WHERE ConcordanceFormatConversionCalculation = "-"'):
+        logger_setup.get_logger().debug(f'Error deleting old minimum segmented discordance conversions from ConcordanceFormatConversions table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        rollback_savepoint('before_schema_update')
+        close_loading_dialog('Updating', 'Removing obsolete formats...')
+        return False
+    close_loading_dialog('Updating', 'Removing obsolete formats...')
+
+    show_loading_dialog('Updating', 'Cleaning up...')
+    logger_setup.get_logger().info('Cleaning up...')
+    # Close and reopen the database to avoid "database table is locked" errors
+    if not database.commit():
+        if 'no transaction is active' not in database.lastError().text():
+            logger_setup.get_logger().critical(f"Error committing database")
+            logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+            close_loading_dialog('Updating', 'Cleaning up...')
+            rollback_savepoint('before_schema_update')
+            return False
+    if not database.close():
+        if 'no transaction is active' not in database.lastError().text():
+            logger_setup.get_logger().critical(f"Error closing database")
+            logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+            close_loading_dialog('Updating', 'Cleaning up...')
+            rollback_savepoint('before_schema_update')
+            return False
+    if not database.open():
+        logger_setup.get_logger().critical(f"Error opening database")
+        logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+        close_loading_dialog('Updating', 'Cleaning up...')
+        rollback_savepoint('before_schema_update')
+        return False
+
+    # Drop the original tables
+    drop_original_table = f'DROP TABLE IF EXISTS "UPbAnalyses"'
+    logger_setup.get_logger().info(f'Dropping original table: UPbAnalyses')
+    if not query.exec(drop_original_table):
+        logger_setup.get_logger().critical(f'Error dropping original UPbAnalyses table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        close_loading_dialog('Updating', 'Cleaning up...')
+        rollback_savepoint('before_schema_update')
+        return False
+    logger_setup.get_logger().info(f'Successfully dropped original table: UPbAnalyses')
+    drop_original_table = f'DROP TABLE IF EXISTS "Spots"'
+    logger_setup.get_logger().info(f'Dropping original table: Spots')
+    if not query.exec(drop_original_table):
+        logger_setup.get_logger().critical(f'Error dropping original Spots table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        close_loading_dialog('Updating', 'Cleaning up...')
+        rollback_savepoint('before_schema_update')
+        return False
+    logger_setup.get_logger().info(f'Successfully dropped original table: Spots')
+    drop_original_table = f'DROP TABLE IF EXISTS "Aliquots"'
+    logger_setup.get_logger().info(f'Dropping original table: Aliquots')
+    if not query.exec(drop_original_table):
+        logger_setup.get_logger().critical(f'Error dropping original Aliquots table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        close_loading_dialog('Updating', 'Cleaning up...')
+        rollback_savepoint('before_schema_update')
+        return False
+    logger_setup.get_logger().info(f'Successfully dropped original table: Aliquots')
+
+    # Rename the new tables to the original table names
+    alter_table_qry = f'ALTER TABLE UPbAnalyses_new RENAME TO "UPbAnalyses"'
+    logger_setup.get_logger().info(f'Altering table rename: UPbAnalyses_new to UPbAnalyses')
+    if not query.exec(alter_table_qry):
+        logger_setup.get_logger().critical(f'Error renaming UPbAnalyses table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        close_loading_dialog('Updating', 'Cleaning up...')
+        rollback_savepoint('before_schema_update')
+        return False
+    logger_setup.get_logger().info(f'Successfully altered table rename: UPbAnalyses_new to UPbAnalyses')
+    alter_table_qry = f'ALTER TABLE Spots_new RENAME TO "Spots"'
+    logger_setup.get_logger().info(f'Altering table rename: Spots_new to Spots')
+    if not query.exec(alter_table_qry):
+        logger_setup.get_logger().critical(f'Error renaming Spots table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        close_loading_dialog('Updating', 'Cleaning up...')
+        rollback_savepoint('before_schema_update')
+        return False
+    logger_setup.get_logger().info(f'Successfully altered table rename: Spots_new to Spots')
+    alter_table_qry = f'ALTER TABLE Aliquots_new RENAME TO "Aliquots"'
+    logger_setup.get_logger().info(f'Altering table rename: Aliquots_new to Aliquots')
+    if not query.exec(alter_table_qry):
+        logger_setup.get_logger().critical(f'Error renaming Aliquots table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        close_loading_dialog('Updating', 'Cleaning up...')
+        rollback_savepoint('before_schema_update')
+        return False
+    logger_setup.get_logger().info(f'Successfully altered table rename: Aliquots_new to Aliquots')
+
+    # Ensure that Spots.GrainID is NULL instead of 'GrainID.' Left over from not explicitly adding the GrainID column in v101 updated
+    if not query.exec(f'UPDATE Spots SET GrainID = NULL WHERE GrainID = "GrainID"'):
+        logger_setup.get_logger().debug(f'Error setting GrainID to NULL in Spots table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        rollback_savepoint('before_schema_update')
+        return False
+    close_loading_dialog('Updating', 'Cleaning up...')
+
+    release_savepoint('before_schema_update')
+
+    show_loading_dialog('Updating', 'Updating settings...')
+    logger_setup.get_logger().info('Updating view and edit columns')
+    update_column_settings = ['upb_analysis_view_columns', 'upb_analysis_edit_columns', 'spot_view_columns',
+                       'spot_edit_columns', 'grain_edit_columns', 'grain_view_columns', 'aliquot_view_columns',
+                       'aliquot_edit_columns', 'sample_edit_columns', 'sample_view_columns']
+    for column_setting in update_column_settings:
+        current_columns = settings.value(column_setting)
+        default_columns = settings.value(f'default_{column_setting}')
+        if set(current_columns) != set(default_columns):
+            update_columns = []
+            for column in current_columns:
+                # Keep any column that still exists in the new schema
+                if column in default_columns:
+                    update_columns.append(column)
+            for column in default_columns:
+                # Add any new columns from default columns that have to do with the new columns
+                if column not in update_columns and ('ErrorCorr/Rho' in column or 'MinimumSegmentedDiscordance' in column):
+                    update_columns.append(column)
+            settings.setValue(column_setting, update_columns)
+    other_settings = ['show_items_missing_data']
+    for setting in other_settings:
+        if not setting in settings.allKeys():
+            settings.setValue(setting, settings.value(f'default_{setting}'))
+    logger_setup.get_logger().info(f'Successfully updated view and edit columns')
+    close_loading_dialog('Updating', 'Updating settings...')
+    if not query.exec(f'UPDATE About SET Version = "v1.0.4" WHERE AboutID = 1'):
+        logger_setup.get_logger().critical(f'Error updating version in About table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
+    return True
+
 
 def populate_tables(database=None) -> bool:
     """
@@ -2419,11 +3143,11 @@ def populate_concordance_conversions(database=None) -> bool:
         for format2 in range(len(concordance_formats)):
             if format2 > format1:
                 # print(f'Adding conversion for {concordance_formats[format1][1]} to {concordance_formats[format2][1]}')
-                if concordance_formats[format1][1] == 'MinSegDis' or concordance_formats[format2][1] == 'MinSegDis':
-                    # One format is MinSegDis and the other is not. There is no simple conversion, so use a placeholder
-                    conversion1to2 = '-'
-                    conversion2to1 = '-'
-                elif concordance_formats[format1][1][-1] == '%' and concordance_formats[format2][1][-1] == '%':
+                # if concordance_formats[format1][1] == 'MinSegDis' or concordance_formats[format2][1] == 'MinSegDis':
+                #     # One format is MinSegDis and the other is not. There is no simple conversion, so use a placeholder
+                #     conversion1to2 = '-'
+                #     conversion2to1 = '-'
+                if concordance_formats[format1][1][-1] == '%' and concordance_formats[format2][1][-1] == '%':
                     # Both formats are percent
                     conversion1to2 = '100-x'
                     conversion2to1 = '100-x'

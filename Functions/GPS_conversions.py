@@ -352,15 +352,23 @@ def convert_utm_to_dd(zone_txt: str, UTME: float, UTMN: float):
     zone_txt = zone_txt.replace(" ", "")
     if zone_txt == '' or UTME == '' or UTMN == '':
         return '', ''
+    zone_int_str = ''
+    # Go through each character and add it to the zone_int_str if it is a digit, stop when we reach a non-digit character after we have started adding digits
+    for char in zone_txt:
+        if char.isdigit():
+            zone_int_str += char
+        elif len(zone_int_str) > 0:
+            break
+    try:
+        zone = int(zone_int_str)
+    except ValueError:
+        return f"Invalid zone: {zone_txt}"
     if zone_txt[-1] == 'S':
         south = True
-        zone = int(zone_txt[:-1])
     elif zone_txt[-1] == 'N':
         south = False
-        zone = int(zone_txt[:-1])
     else:
         south = False
-        zone = int(zone_txt)
     proj_utm = pyproj.Proj(proj="utm", zone=zone, ellps='WGS84', datum="WGS84", south=south, preserve_units=False)
     lon, lat = proj_utm(UTME, UTMN, inverse=True)
     return [lat], [lon]

@@ -33,12 +33,12 @@ def update_modified_timestamp(table: str, record_ids: list):
     elif len(record_ids) == 1:
         where_sql = f'{record_id_header} = {record_ids[0]}'
     if not query.exec(f'UPDATE {table} SET {modified_header} = CURRENT_TIMESTAMP WHERE {where_sql}'):
-        logger_setup.get_logger().error(
-            f'Unable to update modified timestamps for {table}')
         logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
         logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        return f'Error updating modified timestamp for {table}'
+    return ''
 
-def validate_insert(table: str, columns: list, values: list, GPSFormatID: int | None):
+def validate_insert(table: str, columns: list, values: list, gps_format_id: int | None):
     """
     Check that the values being inserted into the database are valid
     The corresponding columns and values should be in the same index in their respective lists
@@ -46,7 +46,7 @@ def validate_insert(table: str, columns: list, values: list, GPSFormatID: int | 
     :param str table: table to be inserted into
     :param list columns: list of names of columns to be inserted into
     :param list values: list of values to be inserted into the columns
-    :param int GPSFormatID: the id of the GPS format to be used for the GPS location, if applicable
+    :param int gps_format_id: the id of the GPS format to be used for the GPS location, if applicable
     :return:
     """
     if len(columns) != len(values):
@@ -61,7 +61,7 @@ def validate_insert(table: str, columns: list, values: list, GPSFormatID: int | 
             if error != 'ColumnTotalHeightDepthUnitID missing ColumnTotalHeightDepth':
                 return "Column total height/depth value missing units", 'ColumnTotalHeightDepthUnitID'
     if table == 'GPSLocations':
-        error, header = check_gps_format_insert(pairs, GPSFormatID)
+        error, header = check_gps_format_insert(pairs, gps_format_id)
         if error:
             return error, header
     if table == 'SampleAges':
@@ -132,7 +132,7 @@ def validate_insert(table: str, columns: list, values: list, GPSFormatID: int | 
             if error:
                 if error != 'AgeErrorFormatID missing AgeError':
                     return "Age error given without error format", 'AgeErrorFormatID'
-        error, header = check_insert_pairs(pairs, 'Concordance', 'ConcordanceFormatID')
+        error, header = check_insert_concordance(pairs, values[columns.index('ConcordanceFormatID')] if 'ConcordanceFormatID' in columns else None)
         if error:
             if error != 'ConcordanceFormatID missing Concordance':
                 return "Concordance/discordance given without type", 'ConcordanceFormatID'
@@ -305,7 +305,7 @@ def check_update_units(all_records: list, value_col: str, unit_id_col: str):
     # A unit id missing a value is not problematic
     return None, None
 
-def check_insert_pairs(pairs: list, column1: str, column2: str) -> None:
+def check_insert_pairs(pairs: list, column1: str, column2: str):
     """
     Checks a pair of columns that should have data in both columns or both be NULL.
     :param list pairs: list of values to validate
@@ -491,30 +491,60 @@ def check_gps_format_insert(pairs: list, format_id: int):
     for pair in pairs:
         if pair[0] == 'GPSLatDeg':
             new_latdeg = f'{pair[1]}'
+            if not try_float(new_latdeg) and new_latdeg != 'NULL' and new_latdeg != '':
+                return 'Latitude degrees must be a number', 'GPSLatDeg'
         elif pair[0] == 'GPSLatMin':
             new_latmin = f'{pair[1]}'
+            if not try_float(new_latmin) and new_latmin != 'NULL' and new_latmin != '':
+                return 'Latitude minutes must be a number', 'GPSLatMin'
         elif pair[0] == 'GPSLatSec':
             new_latsec = f'{pair[1]}'
+            if not try_float(new_latsec) and new_latsec != 'NULL' and new_latsec != '':
+                return 'Latitude seconds must be a number', 'GPSLatSec'
         elif pair[0] == 'GPSLatDirectionID':
             new_latdir = f'{pair[1]}'
         elif pair[0] == 'GPSLonDeg':
             new_londeg = f'{pair[1]}'
+            if not try_float(new_londeg) and new_londeg != 'NULL' and new_londeg != '':
+                return 'Longitude degrees must be a number', 'GPSLonDeg'
         elif pair[0] == 'GPSLonMin':
             new_lonmin = f'{pair[1]}'
+            if not try_float(new_lonmin) and new_lonmin != 'NULL' and new_lonmin != '':
+                return 'Longitude minutes must be a number', 'GPSLonMin'
         elif pair[0] == 'GPSLonSec':
             new_lonsec = f'{pair[1]}'
+            if not try_float(new_lonsec) and new_lonsec != 'NULL' and new_lonsec != '':
+                return 'Longitude seconds must be a number', 'GPSLonSec'
         elif pair[0] == 'GPSLonDirectionID':
             new_londir = f'{pair[1]}'
         elif pair[0] == 'GPSUTMZone':
             new_utmzone = f'{pair[1]}'
+            if new_utmzone != 'NULL' and new_utmzone != '':
+                zone_int_str = ''
+                # Go through each character and add it to the zone_int_str if it is a digit, stop when we reach a non-digit character after we have started adding digits
+                for char in new_utmzone:
+                    if char.isdigit():
+                        zone_int_str += char
+                    elif len(zone_int_str) > 0:
+                        break
+                if not try_float(zone_int_str) or zone_int_str == '':
+                    return 'UTM zone must include a number', 'GPSUTMZone'
         elif pair[0] == 'GPSUTMN':
             new_utmn = f'{pair[1]}'
+            if not try_float(new_utmn) and new_utmn != 'NULL' and new_utmn != '':
+                return 'UTM northing must be a number', 'GPSUTMN'
         elif pair[0] == 'GPSUTME':
             new_utme = f'{pair[1]}'
+            if not try_float(new_utme) and new_utme != 'NULL' and new_utme != '':
+                return 'UTM easting must be a number', 'GPSUTME'
         elif pair[0] == 'GPSElev':
             new_elev = f'{pair[1]}'
+            if not try_float(new_elev) and new_elev != 'NULL' and new_elev != '':
+                return 'Elevation must be a number', 'GPSElev'
         elif pair[0] == 'GPSElevError':
             new_elev_error = f'{pair[1]}'
+            if not try_float(new_elev_error) and new_elev_error != 'NULL' and new_elev_error != '':
+                return 'Elevation error must be a number', 'GPSElevError'
         elif pair[0] == 'GPSElevUnitID':
             new_elev_unit = f'{pair[1]}'
 
@@ -621,47 +651,67 @@ def check_gps_format_update(all_records: list, new_format_id: int):
     gps_format_abbreviation = gps_format_model.data(gps_format_model.index(0, 2))
     for record in all_records:
         if record[0] == 'GPSLatDeg':
-            new_latdeg = record[1]
-            old_latdegs = record[2]
+            new_latdeg = str(record[1])
+            old_latdegs = str(record[2])
+            if not try_float(record[1]) and record[1] != 'NULL' and record[1] != '':
+                return 'Latitude degrees must be a number', 'GPSLatDeg'
         elif record[0] == 'GPSLatMin':
-            new_latmin = record[1]
-            old_latmins = record[2]
+            new_latmin = str(record[1])
+            old_latmins = str(record[2])
+            if not try_float(record[1]) and record[1] != 'NULL' and record[1] != '':
+                return 'Latitude minutes must be a number', 'GPSLatMin'
         elif record[0] == 'GPSLatSec':
-            new_latsec = record[1]
-            old_latsecs = record[2]
+            new_latsec = str(record[1])
+            old_latsecs = str(record[2])
+            if not try_float(record[1]) and record[1] != 'NULL' and record[1] != '':
+                return 'Latitude seconds must be a number', 'GPSLatSec'
         elif record[0] == 'GPSLatDirectionID':
-            new_latdir = record[1]
-            old_latdirs = record[2]
+            new_latdir = str(record[1])
+            old_latdirs = str(record[2])
         elif record[0] == 'GPSLonDeg':
-            new_londeg = record[1]
-            old_londegs = record[2]
+            new_londeg = str(record[1])
+            old_londegs = str(record[2])
+            if not try_float(record[1]) and record[1] != 'NULL' and record[1] != '':
+                return 'Longitude degrees must be a number', 'GPSLonDeg'
         elif record[0] == 'GPSLonMin':
-            new_lonmin = record[1]
-            old_lonmins = record[2]
+            new_lonmin = str(record[1])
+            old_lonmins = str(record[2])
+            if not try_float(record[1]) and record[1] != 'NULL' and record[1] != '':
+                return 'Longitude minutes must be a number', 'GPSLonMin'
         elif record[0] == 'GPSLonSec':
-            new_lonsec = record[1]
-            old_lonsecs = record[2]
+            new_lonsec = str(record[1])
+            old_lonsecs = str(record[2])
+            if not try_float(record[1]) and record[1] != 'NULL' and record[1] != '':
+                return 'Longitude seconds must be a number', 'GPSLonSec'
         elif record[0] == 'GPSLonDirectionID':
-            new_londir = record[1]
-            old_londirs = record[2]
+            new_londir = str(record[1])
+            old_londirs = str(record[2])
         elif record[0] == 'GPSUTMZone':
-            new_utmzone = record[1]
-            old_utmzones = record[2]
+            new_utmzone = str(record[1])
+            old_utmzones = str(record[1])
         elif record[0] == 'GPSUTMN':
-            new_utmn = record[1]
-            old_utmns = record[2]
+            new_utmn = str(record[1])
+            old_utmns = str(record[1])
+            if not try_float(record[1]) and record[1] != 'NULL' and record[1] != '':
+                return 'UTM northing must be a number', 'GPSUTMN'
         elif record[0] == 'GPSUTME':
-            new_utme = record[1]
-            old_utmes = record[2]
+            new_utme = str(record[1])
+            old_utmes = str(record[1])
+            if not try_float(record[1]) and record[1] != 'NULL' and record[1] != '':
+                return 'UTM easting must be a number', 'GPSUTME'
         elif record[0] == 'GPSElev':
-            new_elev = record[1]
-            old_elevs = record[2]
+            new_elev = str(record[1])
+            old_elevs = str(record[1])
+            if not try_float(record[1]) and record[1] != 'NULL' and record[1] != '':
+                return 'Elevation must be a number', 'GPSElev'
         elif record[0] == 'GPSElevError':
-            new_elev_error = record[1]
-            old_elev_errors = record[2]
+            new_elev_error = str(record[1])
+            old_elev_errors = str(record[1])
+            if not try_float(record[1]) and record[1] != 'NULL' and record[1] != '':
+                return 'Elevation error must be a number', 'GPSElevError'
         elif record[0] == 'GPSElevUnitID':
-            new_elev_unit = record[1]
-            old_elev_units = record[2]
+            new_elev_unit = str(record[1])
+            old_elev_units = str(record[1])
 
     if 'D' in gps_format_abbreviation:
         # DD, DDM, or DMS
@@ -776,6 +826,61 @@ def check_gps_format_update(all_records: list, new_format_id: int):
         return 'Elevation error missing elevation', 'GPSElev'
     return None, None
 
+def check_insert_concordance(pairs: list, concordance_format_id: int):
+    if not pairs or not concordance_format_id:
+        return 'Incomplete data given for concordance'
+    concordance_format_model = QtS.QSqlTableModel()
+    concordance_format_model.setTable('ConcordanceFormats')
+    concordance_format_model.select()
+    while concordance_format_model.canFetchMore():
+        concordance_format_model.fetchMore()
+    concordance_format_model.setFilter(f'ConcordanceFormatID = {concordance_format_id}')
+    new_68v76_concordance = 'NULL'
+    new_68v75_concordance = 'NULL'
+    for pair in pairs:
+        if pair[0] == 'Concordance_206Pb/238Uv207Pb/206Pb':
+            new_68v76_concordance = pair[1]
+        elif pair[0] == 'Concordance_207Pb/238Uv207Pb/235U':
+            new_68v75_concordance = pair[1]
+    if (new_68v76_concordance != 'NULL' or new_68v75_concordance != 'NULL') and not concordance_format_id:
+        return 'Concordance format ID missing', 'ConcordanceFormatID'
+    # if 'MinSegDisc' in format_name:
+    #     if new_68v76_concordance != 'NULL' or new_68v75_concordance != 'NULL':
+    #         return '206Pb/238Uv207Pb/206Pb and 207Pb/238Uv207Pb/235U concordance values should be NULL in MinSegDisc format', 'Concordance_206Pb/238Uv207Pb/206Pb'
+    return None, None
+
+def check_update_concordance(pairs: list):
+    concordance_format_model = QtS.QSqlTableModel()
+    concordance_format_model.setTable('ConcordanceFormats')
+    concordance_format_model.select()
+    while concordance_format_model.canFetchMore():
+        concordance_format_model.fetchMore()
+    new_68v76_concordance = 'NULL'
+    new_68v75_concordance = 'NULL'
+    old_68v76_concordances = []
+    old_68v75_concordances = []
+    new_concordance_format_id = 'NULL'
+    old_concordance_format_ids = []
+    for pair in pairs:
+        if pair[0] == 'Concordance_206Pb/238Uv207Pb/206Pb':
+            new_68v76_concordance = pair[1]
+            old_68v76_concordances = pair[2]
+        elif pair[0] == 'Concordance_207Pb/238Uv207Pb/235U':
+            new_68v75_concordance = pair[1]
+            old_68v75_concordances = pair[2]
+        if pair[0] == 'ConcordanceFormatID':
+            new_concordance_format_id = pair[1]
+            old_concordance_format_ids = pair[2]
+    if ((new_68v76_concordance != 'NULL' or (new_68v76_concordance == '' and 'NULL' not in old_68v76_concordances))
+            or (new_68v75_concordance != 'NULL' or (new_68v75_concordance == '' and 'NULL' not in old_68v75_concordances))
+            and not (new_concordance_format_id or (new_concordance_format_id == '' and 'NULL' not in old_concordance_format_ids))):
+        return 'Concordance format ID missing', 'ConcordanceFormatID'
+    # if 'MinSegDisc' in format_name:
+    #     if ((new_68v76_concordance != 'NULL' or (new_68v76_concordance == '' and 'NULL' not in old_68v76_concordances))
+    #             or (new_68v75_concordance != 'NULL' or (new_68v75_concordance == '' and 'NULL' not in old_68v75_concordances))):
+    #         return '206Pb/238Uv207Pb/206Pb and 207Pb/238Uv207Pb/235U concordance values should be NULL in MinSegDisc format', 'Concordance_206Pb/238Uv207Pb/206Pb'
+    return None, None
+
 def check_dependencies(table: str, record_id_header: str, record_ids: list, record_names: list):
     """
     Check whether the records provided are being used in other tables
@@ -872,3 +977,10 @@ def check_dependencies(table: str, record_id_header: str, record_ids: list, reco
     if table == 'Aliquots':
         # Check which samples it belongs to
         dependencies_text = build_dependencies_check(table, 'Samples', 'SampleID', record_ids, record_names)
+
+def try_float(value):
+    try:
+        float(value)
+        return True
+    except ValueError:
+        return False

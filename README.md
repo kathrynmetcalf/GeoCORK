@@ -3,7 +3,7 @@
 <h2 align="center"> An improved workflow for geochronology data management</h2>
 
 ## Description
-GeoCORK is a desktop application for managing U-Pb geochronology data which are stored in a local relational database. Data can be imported from .xlsx files in various formats and exported for use in analysis tools and data sharing. For more information on using GeoCORK, refer to Metcalf and Burges (2025).
+GeoCORK is a desktop application for managing U-Pb geochronology data which are stored in a local relational database. Data can be imported from .xlsx files in various formats and exported for use in analysis tools and data sharing. For more information on using GeoCORK, refer to Metcalf and Burges (in review).
 
 ## Download
 Find the latest release [here](https://github.com/kathrynmetcalf/GeoCORK/releases).
@@ -11,7 +11,7 @@ Find the latest release [here](https://github.com/kathrynmetcalf/GeoCORK/release
 ## Publications
 If you have used GeoCORK in your workflow, please cite the accompanying publication and zenodo data release. At the bottom of the page you can find BibTeX formats. 
 
-Metcalf, K., and Burges, J., 2025, kathrynmetcalf/GeoCORK: GeoCORK v1.0.3:, doi:10.5281/ZENODO.15833658.
+Metcalf, K., and Burges, J., in review, kathrynmetcalf/GeoCORK: GeoCORK v1.0.4:, doi:10.5281/ZENODO.15833658.
 
 ## Example Files
 Two example databases and supporting files can be found at (zenodo link).

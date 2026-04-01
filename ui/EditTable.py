@@ -12,13 +12,13 @@ from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
 import logger_setup
 from Functions.Database_manager import update_database
-from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.Widget_classes import (get_headers,
                                       ReadableProxyModel, get_name_column, get_total_records, EditableSqlQueryModel,
-                                      get_id_from_name, get_record_index, delete_data)
+                                      get_id_from_name, get_record_index, delete_data, show_loading_dialog,
+                                      close_loading_dialog)
 from ui.AddTags import AddTags
 from ui.Merge import MergeDialog
 
@@ -30,7 +30,6 @@ class EditTable(QtW.QDialog):
 
     def __init__(self, parent_window, table_name, **kwargs):
         super().__init__(parent=parent_window)
-        self.loading_manager = LoadingDialogManager.get_instance()
         logger_setup.get_logger().info(f'Opening {table_name} edit dialog')
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "EditTable.ui")
@@ -77,7 +76,7 @@ class EditTable(QtW.QDialog):
         self.edit_tableView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.edit_tableView.customContextMenuRequested.connect(self.show_context_menu)
 
-        self.loading_manager.close_loading_dialog('Loading', f'Opening edit window for {table_name}...')
+        close_loading_dialog('Loading', f'Opening edit window for {table_name}...')
 
     def change_rows_per_page(self):
         """
@@ -194,8 +193,8 @@ class EditTable(QtW.QDialog):
         """
         Dislays the table in the table view. Sets the model for the table view to the proxy model.
         """
-        logger_setup.get_logger().info(f'Displaying {self.table} table')
-        self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table}...')
+        logger_setup.get_logger().info(f'Displaying {self.model.rowCount()} {self.table} table')
+        show_loading_dialog('Loading', f'Displaying {self.model.rowCount()} {self.table}...')
         # Reset column sorting indicator
         self.edit_tableView.horizontalHeader().setSortIndicator(-1, QtC.Qt.SortOrder.AscendingOrder)
         self.edit_tableView.setModel(self.table_proxy_model)
@@ -216,7 +215,7 @@ class EditTable(QtW.QDialog):
             self.page_info_label.setText(
                 f'{self.current_page * self.rows_per_page + 1}-{(self.current_page + 1) * self.rows_per_page} of '
                 f'{self.total_records}')
-        self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table}...')
+        close_loading_dialog('Loading', f'Displaying {self.model.rowCount()} {self.table}...')
 
     def set_go_to_completer(self):
         # Populate the value input with a completer based on the selected attribute
@@ -271,7 +270,7 @@ class EditTable(QtW.QDialog):
         """
         Opens an AddTags dialog to add tags to the table.
         """
-        self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {self.table}...')
+        show_loading_dialog('Loading', f'Opening add window for {self.table}...')
         if not self.model.submit():
             errtxt = f'Failed to save changes to {self.table}: {self.model.lastError().text()}'
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)

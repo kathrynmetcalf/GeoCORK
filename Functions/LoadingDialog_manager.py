@@ -48,7 +48,6 @@ class LoadingDialogManager:
             # update_timer.timeout.connect(self.update_dialog)
             # update_timer.start(0)
             QtW.QApplication.processEvents()
-            QtW.QApplication.processEvents()
 
     def begin(self):
         if len(self.messages) == 0:
@@ -59,6 +58,8 @@ class LoadingDialogManager:
         # Show the most recent title and message
         self.dialog.setWindowTitle(self.titles[-1])
         self.dialog.setMinimumSize(QSize(250, 75))
+        self.dialog.setWindowFlags(self.dialog.windowFlags() | Qt.WindowType.Tool)  # Optional: Frameless and treated as a tool window
+        self.dialog.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)  # Pass mouse events to the parent
         self.layout = QtW.QHBoxLayout(self.dialog)
         self.layout.setContentsMargins(5, 5, 5, 5)
         self.layout.setSpacing(5)

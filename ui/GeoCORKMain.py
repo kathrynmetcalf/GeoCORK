@@ -18,13 +18,11 @@ import ui.New_reference
 from Functions import Savepoint_manager
 from Functions.BackupDatabase import BackupThread
 from Functions.Database_manager import update_database, turn_on_foreign_keys
-from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Savepoint_manager import SavepointManager
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.Text_manipulations import shrink_home, expand_home
-from Functions.Widget_classes import PartiallyCloseableTabWidget
-from Functions.Widget_classes import get_name_from_id, close_loading_dialog
+from Functions.Widget_classes import PartiallyCloseableTabWidget, get_name_from_id, close_loading_dialog, show_loading_dialog
 from ui.DisplayTables import DisplayTables
 from ui.ExportWidget import ExportWidget
 from ui.Filters import Filters
@@ -40,9 +38,6 @@ class GeoCORK(QtW.QMainWindow):
     def __init__(self, landingpage):
         super().__init__()
         logger_setup.get_logger().info("Starting the main window")
-        # Define any variables here
-
-        self.loading_manager = LoadingDialogManager.get_instance()
 
         blank_schema_file = "Reference/GeoCORK_v1-0.db"
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
@@ -136,7 +131,7 @@ class GeoCORK(QtW.QMainWindow):
         actionQuit.triggered.connect(self.close)
         actionNew.triggered.connect(self.new_database)
 
-        self.loading_manager.close_loading_dialog('Opening',
+        close_loading_dialog('Opening',
                                               f'Opening {self.db_name}... \n(GeoCORK may be slower for large databases)')
         self.showMaximized()
         self.show()
@@ -288,7 +283,7 @@ class GeoCORK(QtW.QMainWindow):
         :param sample_ids: The IDs of the samples to edit
         :return:
         """
-        self.loading_manager.show_loading_dialog('Loading', 'Opening Sample Information window...')
+        show_loading_dialog('Loading', 'Opening Sample Information window...')
         sample_ids = list(set(sample_ids))
         dlg = SampleInformation(self, sample_ids)
         dlg.exec()
@@ -331,12 +326,13 @@ class GeoCORK(QtW.QMainWindow):
                 logger_setup.get_logger().critical(f'Child type {child_type} not recognized')
                 return
             label = f'{parent_type} {parent_name}: {child_type}'
-            self.loading_manager.show_loading_dialog('Loading',
+            show_loading_dialog('Loading',
                                                      f'Loading {parent_type} {parent_name}: {child_type}...')
             tab = ViewDataTab(p_id, parent_type, child_type, label)
             tab.setUpdatesEnabled(False)
             start_add_tab_time = time.time()
             self.tabWidget.addTab(tab, label)
+            self.tabWidget.setTabToolTip(self.tabWidget.currentIndex(), label)
             logger_setup.get_logger().debug(f'Time to add tab: {time.time() - start_add_tab_time}')
             tab.setUpdatesEnabled(True)
         end_open_tab_time = time.time()
@@ -344,10 +340,14 @@ class GeoCORK(QtW.QMainWindow):
 
     def close_tab(self, index):
         self.tabWidget: PartiallyCloseableTabWidget
-        if index not in self.tabWidget.permanent_tabs:
-            self.tabWidget.removeTab(index)
-            if self.tabWidget.currentIndex() == index:
+        if index >= len(self.tabWidget.permanent_tabs):
+            if index == len(self.tabWidget.permanent_tabs): # If the export tab is to the left of the closed tab, switch to the data tables tab
+                self.tabWidget.setCurrentIndex(0)
+            else:
                 self.tabWidget.setCurrentIndex(index - 1)
+            tab_widget = self.tabWidget.widget(index)
+            self.tabWidget.removeTab(index)
+            tab_widget.close()
 
     def saveWindowState(self):
         settings.setValue("ui/GeoChronMain/pos", self.pos())

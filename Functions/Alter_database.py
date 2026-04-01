@@ -12,7 +12,7 @@ from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.LoadingDialog_manager import LoadingDialogManager
 loading_manager = LoadingDialogManager.get_instance()
-from Functions.Widget_classes import set_table, get_columns
+from Functions.Widget_classes import set_table, get_columns, get_headers, show_loading_dialog, close_loading_dialog
 # the below imports are required for GPS conversions, pycharm detects no usage do not remove
 # below comments are for pycharm to ignore issues
 # noinspection PyUnresolvedReferences
@@ -369,7 +369,7 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
     if populate_progress.wasCanceled():
         rollback_savepoint('before_populate')
         return False
-    if not generate_age_display_column('SampleAges', database=database):
+    if not generate_age_display_columns('SampleAges', database=database):
         rollback_savepoint('before_populate')
         return False
     populate_count += 1
@@ -552,10 +552,10 @@ def generate_columns(affected_column_names: list[str], table: str, table_id_head
     return True
 
 
-def generate_age_display_column(table: str, database: QtS.QSqlDatabase = None) -> bool:
+def generate_age_display_columns(table: str, database: QtS.QSqlDatabase = None) -> bool:
     """
-    Generate a calculated column in the given table that displays the age in a user-friendly format.
-    :param table: Name of the table where the calculated age column will be added.
+    Generate calculated columns in the given table that displays the age in a user-friendly format.
+    :param table: Name of the table where the calculated age columns will be added.
     :param database: QSqlDatabase instance to use, if None the default database is used.
     :return: True for success, False for failure
     :rtype: bool
@@ -564,8 +564,16 @@ def generate_age_display_column(table: str, database: QtS.QSqlDatabase = None) -
         query = QtS.QSqlQuery()
     else:
         query = QtS.QSqlQuery(db=database)
-    column = 'SampleAgeDisplay'
+    column = 'SampleAgeConverted'
     sql_alter = f'ALTER TABLE "{table}" ADD COLUMN {column} TEXT AS (ifnull(CalculatedDirectAge, "") || "±" || ifnull(CalculatedDirectAgeError, "") || ", " || ifnull(CalculatedOldestDirectAge, "") || "-" || ifnull(CalculatedYoungestDirectAge, "") || ", " || ifnull(OldestAgeID, "") || "-" || ifnull(YoungestAgeID, ""))'
+    logger_setup.get_logger().info(f'Adding the calculated column {column}')
+    if not query.exec(sql_alter):
+        logger_setup.get_logger().critical(f'Error adding the calculated column {column}')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
+    column = 'SampleAgeDisplay'
+    sql_alter = f'ALTER TABLE "{table}" ADD COLUMN {column} TEXT AS (ifnull(DirectAge, "") || "±" || ifnull(DirectAgeError, "")  || " (" || ifnull(DirectAgeUnitID, "") || ")" || ", " || ifnull(OldestDirectAge, "") || "-" || ifnull(YoungestDirectAge, "") || ", " || ifnull(OldestAgeID, "") || "-" || ifnull(YoungestAgeID, ""))'
     logger_setup.get_logger().info(f'Adding the calculated column {column}')
     if not query.exec(sql_alter):
         logger_setup.get_logger().critical(f'Error adding the calculated column {column}')
@@ -1050,9 +1058,9 @@ def convert_gps_location(gps_id: int, database: QtS.QSqlDatabase = None) -> bool
     release_savepoint('before_populate_gps')
     return True
 
-def return_sample_age_display(sample_age_id: int, database: QtS.QSqlDatabase = None) -> str:
+def return_sample_age_converted(sample_age_id: int, database: QtS.QSqlDatabase = None) -> str:
     """
-    During a transaction, this function will return the display string for a sample age.
+    Convert a sample age to its display format based on the AgeUnitConversions and ErrorFormatConversions tables.
     :param sample_age_id: The sample age ID to convert.
     :param database: QSqlDatabase instance to use, if None the default database is used.
     :return: age_display: The string representation of the sample age.
@@ -1133,7 +1141,34 @@ def return_sample_age_display(sample_age_id: int, database: QtS.QSqlDatabase = N
                 calc_age_values.append('')
         else:
             pass
-    age_display = f'{calc_age_values[0]}±{calc_age_values[1]}, {calc_age_values[2]}-{calc_age_values[3]}, {OldestAgeID}-{YoungestAgeID}'
+    age_converted = f'{calc_age_values[0]}±{calc_age_values[1]}, {calc_age_values[2]}-{calc_age_values[3]}, {OldestAgeID}-{YoungestAgeID}'
+    return age_converted
+
+def return_sample_age_display(sample_age_id: int, database: QtS.QSqlDatabase = None) -> str:
+    """
+    Return a sample age display string from the database.
+    """
+    if database is None:
+        sample_age_model = QtS.QSqlTableModel()
+    else:
+        sample_age_model = QtS.QSqlTableModel(db=database)
+    set_table(sample_age_model, 'SampleAges')
+    sample_age_model.setFilter(f'SampleAgeID={sample_age_id}')
+    if sample_age_model.lastError().text() != '':
+        logger_setup.get_logger().critical(f'Error getting SampleAges')
+        logger_setup.get_logger().debug(f'Error: {sample_age_model.lastError().text()}')
+        logger_setup.get_logger().debug(f'Filter: {sample_age_model.filter()}')
+        return ''
+    if sample_age_model.rowCount() == 0:
+        logger_setup.get_logger().debug(f'No SampleAges with ID {sample_age_id} found. It may have been deleted.')
+        return ''
+    DirectAge = sample_age_model.record(0).value('DirectAge')
+    DirectAgeError = sample_age_model.record(0).value('DirectAgeError')
+    OldestDirectAge = sample_age_model.record(0).value('OldestDirectAge')
+    YoungestDirectAge = sample_age_model.record(0).value('YoungestDirectAge')
+    OldestAgeID = sample_age_model.record(0).value('OldestAgeID')
+    YoungestAgeID = sample_age_model.record(0).value('YoungestAgeID')
+    age_display = f'{DirectAge}±{DirectAgeError}, {OldestDirectAge}-{YoungestDirectAge}, {OldestAgeID}-{YoungestAgeID}'
     return age_display
 
 def convert_sample_age(sample_age_id: int, database: QtS.QSqlDatabase = None) -> bool:
@@ -1230,4 +1265,83 @@ def convert_sample_age(sample_age_id: int, database: QtS.QSqlDatabase = None) ->
         return False
     logger_setup.get_logger().info(f'Successfully updated SampleAge display')
     release_savepoint('before_populate_age')
+    return True
+
+def check_tree_structure(table: str, database: QtS.QSqlDatabase = None) -> bool:
+    """
+    Check the structure of the tree and update if necessary.
+    Look for missing parent row values
+    :param table: The name of the table to check the structure of.
+    :param database: QSqlDatabase instance to use, if None the default database is used.
+    :return: True for success, False for failure
+    """
+    if database is None:
+        query = QtS.QSqlQuery()
+    else:
+        query = QtS.QSqlQuery(db=database)
+    table_headers = get_headers(table)
+    if not any('Parent' in header for header in table_headers):
+        # This is not a tree table, so no structure to check
+        return True
+    problem_parent_row_dict = {}
+    id_header = table_headers[0]
+    parent_id_header = table_headers[1]
+    parent_row_header = table_headers[2]
+    problem_parents = set()
+    if not query.exec(f'SELECT "{parent_id_header}" FROM "{table}" WHERE "{parent_row_header}" IS NULL'):
+        logger_setup.get_logger().critical(f'Error selecting from {table}')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
+    while query.next():
+        if not query.value(parent_id_header):
+            parent = 'NULL'
+        else:
+            parent = query.value(parent_id_header)
+        problem_parents.add(parent)
+    if len(list(problem_parents)) == 0:
+        logger_setup.get_logger().info(f'No missing parent row values found in {table}')
+        return True
+    if 'NULL' in problem_parents and len(problem_parents) == 1:
+        problem_parent_text = 'IS NULL'
+    elif 'NULL' in problem_parents:
+        problem_parent_text = f'IS NULL OR "{parent_id_header}" IN ({", ".join(str(parent) for parent in problem_parents if parent != "NULL")})'
+    else:
+        problem_parent_text = f'IN ({", ".join(str(parent) for parent in problem_parents)})'
+    if not query.exec(f'SELECT "{id_header}", "{parent_id_header}", "{parent_row_header}" FROM "{table}" WHERE "{parent_id_header}" {problem_parent_text}'):
+        logger_setup.get_logger().critical(f'Error selecting from {table}')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
+    while query.next():
+        item_id = query.record().value(id_header)
+        parent_id = query.record().value(parent_id_header)
+        parent_row = query.record().value(parent_row_header)
+        if not parent_row:
+            parent_row = None
+        if parent_id not in problem_parent_row_dict:
+            problem_parent_row_dict[parent_id] = []
+        children = problem_parent_row_dict[parent_id]
+        children.append((item_id, parent_row))
+        problem_parent_row_dict[parent_id] = children
+    create_savepoint('before_update_tree_rows')
+    for parent_id, children in problem_parent_row_dict.items():
+        # sort children by the parent row value, with nulls last
+        children.sort(key=lambda x: (not x[1], x[1]))
+        for i, child in enumerate(children):
+            item_id = child[0]
+            parent_row = child[1]
+            if parent_row != i:
+                query.prepare(f'UPDATE "{table}" SET "{parent_row_header}"=? WHERE "{id_header}"=?')
+                query.bindValue(0, i)
+                query.bindValue(1, item_id)
+                if not query.exec():
+                    logger_setup.get_logger().critical(f'Error updating {table} structure')
+                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                    rollback_savepoint('before_update_tree_rows')
+                    return False
+    logger_setup.get_logger().info(f'Successfully checked {table} structure')
+    release_savepoint('before_update_tree_rows')
     return True

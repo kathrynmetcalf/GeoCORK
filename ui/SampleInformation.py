@@ -22,7 +22,8 @@ from Functions.Widget_classes import (
     CheckableTreeView, save_expanded_state, set_comboBox_text, find_upb_from_samples, delete_data,
     find_tree_model, CheckableComboBox, get_selected_tree_ids, get_headers, add_tree_popup, restore_expanded_state,
     DisplayRoundedQueryModel, populate_combo_box, populate_many_combo_checks, ReadableProxyModel, show_column,
-    get_view_from_table, close_loading_dialog, show_loading_dialog, get_name_from_id, get_id_from_name
+    get_view_from_table, close_loading_dialog, show_loading_dialog, get_name_from_id, get_id_from_name,
+    LazyCheckableTreeModel, update_many_table_with_checks
 )
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
@@ -94,24 +95,6 @@ class SampleInformation(QtW.QDialog):
 
         # Sample information models
         self.samples_table = None
-        self.distance_unit_model = QtS.QSqlTableModel()
-        self.elevation_unit_model = QtS.QSqlTableModel()
-        self.column_model = QtS.QSqlTableModel()
-        self.column_unit_model = QtS.QSqlTableModel()
-        self.sample_context_model = QtS.QSqlTableModel()
-        self.sample_context_tree = CheckableTreeModel()
-        self.sampling_method_model = QtS.QSqlTableModel()
-        self.sampling_method_tree = CheckableTreeModel()
-        self.unit_model = QtS.QSqlTableModel()
-        self.unit_tree = CheckableTreeModel()
-        self.rock_type_model = QtS.QSqlTableModel()
-        self.rock_type_tree = CheckableTreeModel()
-        self.region_model = QtS.QSqlTableModel()
-        self.region_tree = CheckableTreeModel()
-        self.setting_model = QtS.QSqlTableModel()
-        self.setting_tree = CheckableTreeModel()
-        self.age_signature_model = QtS.QSqlTableModel()
-        self.age_signature_tree = CheckableTreeModel()
         self.sample_description_textEdit: QtW.QTextEdit
         self.sample_description_textEdit.setLineWrapMode(QtW.QTextEdit.LineWrapMode.WidgetWidth)
 
@@ -396,13 +379,13 @@ class SampleInformation(QtW.QDialog):
         #     self.populate_sample_dictionary()
 
         # Sample tags
-        self.populate_checks('Samples_SampleContexts',self.sample_context_comboBox)
-        self.populate_checks('Samples_SamplingMethods', self.sampling_method_comboBox)
-        self.populate_checks('Samples_Units', self.unit_comboBox)
-        self.populate_checks('Samples_RockTypes', self.rock_type_comboBox)
-        self.populate_checks('Samples_Regions', self.region_comboBox)
-        self.populate_checks('Samples_Settings', self.setting_comboBox)
-        self.populate_checks('Samples_AgeSignatures', self.age_signature_comboBox)
+        populate_many_combo_checks('Samples_SampleContexts',self.sample_context_comboBox, self.checked_sample_list)
+        populate_many_combo_checks('Samples_SamplingMethods', self.sampling_method_comboBox, self.checked_sample_list)
+        populate_many_combo_checks('Samples_Units', self.unit_comboBox, self.checked_sample_list)
+        populate_many_combo_checks('Samples_RockTypes', self.rock_type_comboBox, self.checked_sample_list)
+        populate_many_combo_checks('Samples_Regions', self.region_comboBox, self.checked_sample_list)
+        populate_many_combo_checks('Samples_Settings', self.setting_comboBox, self.checked_sample_list)
+        populate_many_combo_checks('Samples_AgeSignatures', self.age_signature_comboBox, self.checked_sample_list)
 
         end_populate_fields_time = time.time()
         logger_setup.get_logger().info(f"Populated fields in {end_populate_fields_time - start_populate_fields_time} seconds")
@@ -419,17 +402,24 @@ class SampleInformation(QtW.QDialog):
         self.sample_description_textEdit.setText(self.sample_description_textEdit.placeholderText())
 
         # Sample tags
-        self.populate_checks('Samples_SampleContexts', self.sample_context_comboBox)
-        self.populate_checks('Samples_SamplingMethods', self.sampling_method_comboBox)
-        self.populate_checks('Samples_Units', self.unit_comboBox)
-        self.populate_checks('Samples_RockTypes', self.rock_type_comboBox)
-        self.populate_checks('Samples_Regions', self.region_comboBox)
-        self.populate_checks('Samples_Settings', self.setting_comboBox)
-        self.populate_checks('Samples_AgeSignatures', self.age_signature_comboBox)
+        if self.sample_context_comboBox.model().rowCount() > 0:
+            populate_many_combo_checks('Samples_SampleContexts', self.sample_context_comboBox, self.checked_sample_list)
+        if self.sampling_method_comboBox.model().rowCount() > 0:
+            populate_many_combo_checks('Samples_SamplingMethods', self.sampling_method_comboBox, self.checked_sample_list)
+        if self.unit_comboBox.model().rowCount() > 0:
+            populate_many_combo_checks('Samples_Units', self.unit_comboBox, self.checked_sample_list)
+        if self.rock_type_comboBox.model().rowCount() > 0:
+            populate_many_combo_checks('Samples_RockTypes', self.rock_type_comboBox, self.checked_sample_list)
+        if self.region_comboBox.model().rowCount() > 0:
+            populate_many_combo_checks('Samples_Regions', self.region_comboBox, self.checked_sample_list)
+        if self.setting_comboBox.model().rowCount() > 0:
+            populate_many_combo_checks('Samples_Settings', self.setting_comboBox, self.checked_sample_list)
+        if self.age_signature_comboBox.model().rowCount() > 0:
+            populate_many_combo_checks('Samples_AgeSignatures', self.age_signature_comboBox, self.checked_sample_list)
 
     def populate_sample_dictionary(self):
-        logger_setup.get_logger().info("Populating fields")
-        start_populate_fields_time = time.time()
+        logger_setup.get_logger().info("Populating sample dictionary")
+        start_populate_samples_time = time.time()
         headers = get_headers('Samples')
         if len(self.checked_sample_list) > 1:
             self.samples_table = SQLiteTableModel(
@@ -444,171 +434,7 @@ class SampleInformation(QtW.QDialog):
         if self.samples_table.rowCount() == 0:
             logger_setup.get_logger().info("No samples to populate")
             return
-
-    def populate_checks(self, many_to_many_table: str, combo: QtW.QComboBox):
-        logger_setup.get_logger().info(f"Populating checks for {many_to_many_table}")
-        show_loading_dialog('Loading', f'Populating checks for {many_to_many_table.split('_')[1]}...')
-        start_populate_checks_time = time.time()
-        many_to_many_model = QtS.QSqlTableModel()
-        many_to_many_model.setTable(many_to_many_table)
-        many_to_many_model.select()
-        while many_to_many_model.canFetchMore():
-            many_to_many_model.fetchMore()
-        all_items = []
-        some_items = []
-        text = combo.placeholderText()
-        if isinstance(combo, CheckableTreeCombobox):
-            model, indexes = find_tree_model(combo.model(), None)
-            col = 0  # Name column is always placed in the first column
-            tag_id_header = model.source_model.record().fieldName(0)
-            id_col = 1  # ID column is always placed in the second column
-        else:
-            model = combo.model()
-            col = get_name_column(model.tableName())
-            tag_id_header = model.record().fieldName(0)
-            id_col = 0  # ID column is always in the first column
-        if len(self.checked_sample_list) == 0:
-            logger_setup.get_logger().info("No samples selected, so unchecking everything")
-            if isinstance(combo, CheckableTreeCombobox):
-                model.blockSignals(True)
-                # recursively uncheck everything
-                def uncheck_all(model: CheckableTreeModel, index: QtC.QModelIndex):
-                    for row in range(model.rowCount(index)):
-                        model_index = model.index(row, col, index)
-                        model.setData(model_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
-                        uncheck_all(model, model_index)
-                uncheck_all(model, QtC.QModelIndex())
-                model.blockSignals(False)
-            else:
-                for row in range(model.rowCount()):
-                    model_index = model.index(row, col)
-                    model.setData(model_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
-                    if model.lastError().text():
-                        logger_setup.get_logger().critical(f"Error setting unchecked for {model.tableName()}: {model.lastError().text()}")
-            logger_setup.get_logger().info("Unchecked everything")
-            combo.setCurrentText(text)
-        else:
-            logger_setup.get_logger().info(f"Checking {many_to_many_table}")
-            if isinstance(combo, CheckableTreeCombobox):
-                model.blockSignals(True)
-                # recursively check data
-                def check_data(model: CheckableTreeModel, index: QtC.QModelIndex):
-                    for row in range(model.rowCount(index)):
-                        model_index = model.index(row, col, index)
-                        id_index = model.index(row, id_col, index)
-                        tag_id = model.data(id_index, QtC.Qt.ItemDataRole.DisplayRole)
-                        if len(self.checked_sample_list) > 1:
-                            many_to_many_model.setFilter(
-                                f"SampleID in {tuple(self.checked_sample_list)} AND {tag_id_header} = {tag_id}")
-                        else:
-                            many_to_many_model.setFilter(
-                                f"SampleID = {self.checked_sample_list[0]} AND {tag_id_header} = {tag_id}")
-                        if many_to_many_model.rowCount() == len(self.checked_sample_list):
-                            # All samples have this tag
-                            model.setData(model_index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
-                            all_items.append(model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole))
-                        elif many_to_many_model.rowCount() > 0:
-                            # Some samples have this tag
-                            model.setData(model_index, QtC.Qt.CheckState.PartiallyChecked,
-                                          QtC.Qt.ItemDataRole.CheckStateRole)
-                            some_items.append(model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole))
-                        else:
-                            # No samples have this tag
-                            model.setData(model_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
-                        check_data(model, model_index)
-                check_data(model, QtC.QModelIndex())
-            else:
-                for row in range(model.rowCount()):
-                    tag_id = model.index(row, id_col).data()
-                    if len(self.checked_sample_list) > 1:
-                        many_to_many_model.setFilter(f"SampleID in {tuple(self.checked_sample_list)} AND {tag_id_header} = {tag_id}")
-                    else:
-                        many_to_many_model.setFilter(f"SampleID = {self.checked_sample_list[0]} AND {tag_id_header} = {tag_id}")
-                    model_index = model.index(row, col)
-                    if many_to_many_model.rowCount() == len(self.checked_sample_list):
-                        # All samples have this tag
-                        model.setData(model_index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
-                        if model.lastError().text():
-                            logger_setup.get_logger().critical(f"Error setting checked for {model.tableName()}: {model.lastError().text()}")
-                        all_items.append(model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole))
-                    elif many_to_many_model.rowCount() > 0:
-                        # Some samples have this tag
-                        model.setData(model_index, QtC.Qt.CheckState.PartiallyChecked, QtC.Qt.ItemDataRole.CheckStateRole)
-                        if model.lastError().text():
-                            logger_setup.get_logger().critical(f"Error setting partial checked for {model.tableName()}: {model.lastError().text()}")
-                        some_items.append(model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole))
-                    else:
-                        # No samples have this tag
-                        model.setData(model_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
-                        if model.lastError().text():
-                            logger_setup.get_logger().critical(f"Error setting unchecked for {model.tableName()}: {model.lastError().text()}")
-        if not all_items and not some_items:
-            # No samples have these tags
-            text = ""
-        elif not some_items:
-            # All samples have the same tags
-            text = ', '.join(all_items)
-        else:
-            # Samples have different tags
-            text = "-"
-        if isinstance(combo, CheckableTreeCombobox):
-            model.blockSignals(False)
-            combo.treeView.expand_all_checked()
-        if text is None or text == '':
-            text = combo.placeholderText()
-        combo.setCurrentText(text)
-        end_populate_checks_time = time.time()
-        close_loading_dialog('Loading', f'Populating checks for {many_to_many_table.split('_')[1]}...')
-        logger_setup.get_logger().info(f"Populated checks for {many_to_many_table} in {end_populate_checks_time - start_populate_checks_time} seconds")
-        logger_setup.get_logger().info(f"Populated checks for {many_to_many_table}")
-        return text
-
-    # this should not be needed anymore as context menu is handed at the combobox level in Widget_classes not here
-    # keeping commented if this is needed sometime later
-    # def show_context_menu(self, pos: QtC.QPoint):
-    #     combo = self.sender()
-    #     while not isinstance(combo, QtW.QComboBox):
-    #         combo = combo.parent()
-    #     logger_setup.get_logger().info("Showing context menu")
-    #     menu = QtW.QMenu()
-    #     if isinstance(combo, CheckableComboBox) and not combo.single_click:
-    #         select_action = menu.addAction("Select all")
-    #         unselect_action = menu.addAction("Unselect all")
-    #         delete_action = menu.addAction("Delete selected")
-    #         add_action = None
-    #         edit_action = None
-    #     else:
-    #         add_action = menu.addAction("Add")
-    #         edit_action = menu.addAction("Edit")
-    #         select_action = None
-    #         unselect_action = None
-    #         delete_action = None
-    #     action = menu.exec(combo.view().mapToGlobal(pos))
-    #     if not action:
-    #         return
-    #     if action == select_action:
-    #         self.check_all_samples()
-    #     elif action == unselect_action:
-    #         self.uncheck_all_samples()
-    #     elif action == delete_action:
-    #         selected_indexes = combo.view().selectionModel().selectedIndexes()
-    #         selected_ids = []
-    #         for index in selected_indexes:
-    #             id = combo.model().index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
-    #             if id is not None:
-    #                 selected_ids.append(id)
-    #         if selected_ids:
-    #             delete_data( 'Samples', selected_ids)
-    #             action = None
-    #         else:
-    #             action = None
-    #             return
-    #     elif action == add_action:
-    #         self.add_popup(combo, action)
-    #         action = None
-    #     elif action == edit_action:
-    #         self.edit_popup()
-    #         action = None
+        logger_setup.get_logger().info(f"Populated sample dictionary in {time.time() - start_populate_samples_time} seconds")
 
     def update_field(self, field: str, text: str):
         logger_setup.get_logger().info(f"Update field called with {field} and {text}")
@@ -686,6 +512,9 @@ class SampleInformation(QtW.QDialog):
         if not isinstance(combo, CheckableTreeCombobox):
             logger_setup.get_logger().critical(f"Combo box is not CheckableTreeComboBox")
             return False
+        if len(self.checked_sample_list) == 0:
+            logger_setup.get_logger().info("No samples selected")
+            return False
         model, indexes = find_tree_model(combo.model(), None)
         if model:
             table = model.table
@@ -694,27 +523,23 @@ class SampleInformation(QtW.QDialog):
             logger_setup.get_logger().critical(f"Could not find model for combo box {combo.objectName()}")
             return False
         start_update_sample_tags = time.time()
-        many_to_many_model = QtS.QSqlTableModel()
-        set_table(many_to_many_model, f"Samples_{table}")
-
-        if len(self.checked_sample_list) == 0:
-            logger_setup.get_logger().info("No samples selected")
-            return
-        else:
-            checked_ids , partially_checked_ids, checked_indices, partially_checked_indices = model.traverse_checkable_tree(QtC.QModelIndex())
-            logger_setup.get_logger().info(f"Updating {table} for {len(self.checked_sample_list)} samples")
-            create_savepoint('before_update')
-            update = model.update_many_table(f'Samples_{table}', self.checked_sample_list)
-            if update is False:
-                logger_setup.get_logger().critical(f"Failed to update {table} for selected Samples")
-                rollback_savepoint('before_update')
-                return
-            self.updated = True
-            populate_many_combo_checks(f'Samples_{table}', combo, self.checked_sample_list)
-            end_update_sample_tags_time = time.time()
-            logger_setup.get_logger().info(f"Updated {table} for {len(self.checked_sample_list)} samples in {end_update_sample_tags_time - start_update_sample_tags} seconds")
-            # logger_setup.get_logger().info(f"Updated {table} for {len(self.checked_sample_list)} samples")
-            release_savepoint('before_update')
+        logger_setup.get_logger().info(f"Updating {table} for {len(self.checked_sample_list)} samples")
+        create_savepoint('before_update')
+        update = model.update_many_table(f'Samples_{table}', self.checked_sample_list)
+        if update == 'False':
+            logger_setup.get_logger().critical(f"Failed to update {table} for selected Samples")
+            rollback_savepoint('before_update')
+            return False
+        elif update == 'No':
+            logger_setup.get_logger().info(f"No changes to {table} for selected Samples")
+            rollback_savepoint('before_update')
+            return True
+        self.updated = True
+        populate_many_combo_checks(f'Samples_{table}', combo, self.checked_sample_list)
+        end_update_sample_tags_time = time.time()
+        logger_setup.get_logger().info(f"Updated {table} for {len(self.checked_sample_list)} samples in {end_update_sample_tags_time - start_update_sample_tags} seconds")
+        release_savepoint('before_update')
+        return True
 
     def update_column_info(self):
         logger_setup.get_logger().info("Update column height called")
@@ -804,9 +629,7 @@ class SampleInformation(QtW.QDialog):
             self.updated = True
             # Update this combo box
             populate_combo_box(combo, **{'table': table})
-            if isinstance(combo, CheckableTreeCombobox):
-                restore_expanded_state(table, combo.view())
-            self.populate_checks(f'Samples_{table}', combo)
+            populate_many_combo_checks(f'Samples_{table}', combo, self.checked_sample_list)
             combo.blockSignals(False)
         else:
             combo.blockSignals(False)
@@ -846,9 +669,7 @@ class SampleInformation(QtW.QDialog):
             self.updated = True
             # Update this combo box
             populate_combo_box(combo, **{'table': table})
-            if isinstance(combo, CheckableTreeCombobox):
-                restore_expanded_state(table, combo.view())
-            self.populate_checks(f'Samples_{table}', combo)
+            populate_many_combo_checks(f'Samples_{table}', combo, self.checked_sample_list)
         combo.blockSignals(False)
 
     def edit_upb_popup(self):
@@ -874,8 +695,9 @@ class SampleInformation(QtW.QDialog):
         if isinstance(combo, CheckableComboBox):
             selected_ids = model.checked_ids
         elif isinstance(combo, CheckableTreeCombobox):
-            selected_ids, partially_checked_ids, checked_indices, partially_checked_indices = model.traverse_checkable_tree(
-                QtC.QModelIndex())
+            model, indexes = find_tree_model(model, None)
+            if model:
+                selected_ids = model.checked_ids
         if selected_ids:
             if delete_data(table, selected_ids):
                 self.updated = True
@@ -984,7 +806,6 @@ class SampleInformation(QtW.QDialog):
     def commit(self):
         release_savepoint('before_edit_samples')
         # Edit occurred in the dialog
-        self.updated = True
         self.close_by_dialog = True
         self.close()
         self.close_by_dialog = False

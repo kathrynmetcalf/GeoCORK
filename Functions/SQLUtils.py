@@ -15,24 +15,23 @@ qgps = 'SampleGPS.GPSLocationConverted AS GPSSampleLocationCalculated'
 qgps_display = 'SampleGPS.GPSLocationDisplay AS SampleGPSLocationDisplay'
 qsample_gps_id = 'Samples.SampleGPSLocationID AS SampleGPSLocationID'
 qsample_elev = 'NULLIF(COALESCE(SampleGPS.CalculatedGPSElev, "") || "±" || COALESCE(SampleGPS.CalculatedGPSElevError, ""), "±") AS SampleElevationCalculated'
-qsample_elev_display = 'NULLIF(COALESCE(SampleGPS.GPSElev, "") || "±" || COALESCE(SampleGPS.GPSElevError, ""), "±") AS SampleElevation'
+qsample_elev_display = 'NULLIF(COALESCE(SampleGPS.GPSElev, "") || "±" || COALESCE(SampleGPS.GPSElevError, "") || " (" || COALESCE(SampleElevationUnits.DistanceUnitAbbreviation, "") || ")", " ") AS SampleElevation'
 qsample_elev_unit = 'SampleElevationUnits.DistanceUnitAbbreviation AS SampleElevationUnitAbbreviation'
 qsample_column_data = 'NULLIF(COALESCE(Samples.CalculatedHeightDepth, "") || "±" || COALESCE(Samples.CalculatedHeightDepthError, ""), "±") AS ColumnHeightDepthCalculated'
-qsample_column_data_display = 'NULLIF(COALESCE(Samples.HeightDepth, "") || "±" || COALESCE(Samples.HeightDepthError, ""), "±") AS ColumnHeightDepth'
+qsample_column_data_display = 'NULLIF(COALESCE(Samples.HeightDepth, "") || "±" || COALESCE(Samples.HeightDepthError, "") || " (" || COALESCE(ColumnHeightDepthUnits.DistanceUnitAbbreviation, "") || ")", "±") AS ColumnHeightDepth'
 qsample_column_data_unit = 'ColumnHeightDepthUnits.DistanceUnitAbbreviation AS ColumnHeightDepthUnitAbbreviation'
-qsample_age = 'SampleAges.SampleAgeDisplay AS SampleAgeCalculated'
-qage_range = 'NULLIF(COALESCE(SampleAges.CalculatedOldestDirectAge, " ") || "-" || COALESCE(SampleAges.CalculatedYoungestDirectAge, " "), " - ") AS SampleAgeRangeCalculated'
-qage_range_display = 'NULLIF(COALESCE(SampleAges.OldestDirectAge, " ") || "-" || COALESCE(SampleAges.YoungestDirectAge, " "), " - ") AS SampleAgeRange'
-qage_unit = 'DirectAgeUnitAbbreviation AS SampleAgeUnitAbbreviation'
-qage_error_format = 'DirectAgeErrorFormatAbbreviation AS SampleAgeErrorFormatAbbreviation'
-qsample_age_constraint = 'REPLACE(GROUP_CONCAT(DISTINCT SampleAgeConstraints.AgeConstraintName), ",", "; ") AS SampleAgeConstraintName'
-qsample_age_interpretation = 'REPLACE(GROUP_CONCAT(DISTINCT SampleAgeInterpretations.AgeInterpretationName), ",", "; ") AS SampleAgeInterpretationName'
+qsample_age = 'SampleAges.SampleAgeConverted AS SampleAgeCalculated'
+qsample_age_display = 'SampleAges.SampleAgeDisplay AS SampleAgeDisplay'
+qsample_age_unit = 'SampleAgeUnits.AgeUnitAbbreviation AS SampleAgeUnitAbbreviation'
+qsample_age_error_format = 'DirectAgeErrorFormats.ErrorFormatAbbreviation AS DirectAgeErrorFormatAbbreviation'
+qsample_age_constraints = 'REPLACE(GROUP_CONCAT(DISTINCT SampleAgeConstraints.AgeConstraintName), ",", "; ") AS SampleAgeConstraintName'
+qsample_age_interpretations = 'REPLACE(GROUP_CONCAT(DISTINCT SampleAgeInterpretations.AgeInterpretationName), ",", "; ") AS SampleAgeInterpretationName'
 qsample_age_references = 'GROUP_CONCAT(DISTINCT SampleAgeReferences.ReferenceDisplay) AS SampleAgeReferenceDisplay'
 qsample_description = 'Samples.SampleDescription AS SampleDescription'
-qage_signature = 'REPLACE(GROUP_CONCAT(DISTINCT AgeSignatures.AgeSignatureName), ",", "; ") AS SampleAgeSignatureName'
+qage_signatures = 'REPLACE(GROUP_CONCAT(DISTINCT AgeSignatures.AgeSignatureName), ",", "; ") AS SampleAgeSignatureName'
 qregions = 'REPLACE(GROUP_CONCAT(DISTINCT Regions.RegionName), ",", "; ") AS RegionName'
 qrock_types = 'REPLACE(GROUP_CONCAT(DISTINCT RockTypes.RockTypeName), ",", "; ") AS RockTypeName'
-qsample_context = 'REPLACE(GROUP_CONCAT(DISTINCT SampleContexts.SampleContextName), ",", "; ") AS SampleContextName'
+qsample_contexts = 'REPLACE(GROUP_CONCAT(DISTINCT SampleContexts.SampleContextName), ",", "; ") AS SampleContextName'
 qsampling_methods = 'REPLACE(GROUP_CONCAT(DISTINCT SamplingMethods.SamplingMethodName), ",", "; ") AS SamplingMethodName'
 qsettings = 'REPLACE(GROUP_CONCAT(DISTINCT Settings.SettingName), ",", "; ") AS SettingName'
 qunits = 'REPLACE(GROUP_CONCAT(DISTINCT Units.UnitName), ",", "; ") AS UnitName'
@@ -50,7 +49,7 @@ qcolumn_calc_total_height_depth = f'Columns.CalculatedColumnTotalHeightDepth AS 
 qcolumn_total_height_depth = f'Columns.ColumnTotalHeightDepth AS ColumnTotalHeightDepth'
 qcolumn_total_height_depth_unit = f'ColumnUnits.DistanceUnitAbbreviation AS ColumnTotalHeightDepthUnitAbbreviation'
 qcolumn_elev = 'NULLIF(COALESCE(ColumnGPS.CalculatedGPSElev, "") || "±" || COALESCE(ColumnGPS.CalculatedGPSElevError, ""), "±") AS ColumnElevationCalculated'
-qcolumn_elev_display = 'NULLIF(COALESCE(ColumnGPS.GPSElev, "") || "±" || COALESCE(ColumnGPS.GPSElevError, ""), "±") AS ColumnElevation'
+qcolumn_elev_display = 'NULLIF(COALESCE(ColumnGPS.GPSElev, "") || "±" || COALESCE(ColumnGPS.GPSElevError, "") || " (" || COALESCE(ColumnElevationUnits.DistanceUnitAbbreviation, "") || ")", "±") AS ColumnElevation'
 qcolumn_elev_unit = 'ColumnElevationUnits.DistanceUnitAbbreviation AS ColumnElevationUnitAbbreviation'
 qcolumn_description = 'Columns.ColumnDescription AS ColumnDescription'
 qcolumn_created = 'Columns.ColumnCreated AS ColumnCreated'
@@ -65,7 +64,7 @@ qaliquot_parent_row = 'Aliquots.AliquotParentRow AS AliquotParentRow'
 qaliquot_sample = 'Samples.SampleName AS SampleName'
 qaliquot_contexts = 'REPLACE(GROUP_CONCAT(DISTINCT AliquotContexts.AliquotContextName), ",", "; ") AS AliquotContextName'
 qaliquot_spots = 'REPLACE(GROUP_CONCAT(DISTINCT Spots.SpotName), ",", "; ") AS SpotName'
-qaliquot_spot_context = 'REPLACE(GROUP_CONCAT(DISTINCT SpotContexts.SpotContexts.SpotContextName), ",", "; ") AS SpotContextName'
+qaliquot_spot_contexts = 'REPLACE(GROUP_CONCAT(DISTINCT SpotContexts.SpotContexts.SpotContextName), ",", "; ") AS SpotContextName'
 qaliquot_spot_compositions = 'REPLACE(GROUP_CONCAT(DISTINCT SpotCompositions.SpotCompositionName), ",", "; ") AS SpotCompositionName'
 qaliquot_references = 'GROUP_CONCAT(DISTINCT ReferenceDisplay) AS UPb Reference'
 qaliquot_upb_methods = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAnalysisMethods.UPbAnalysisMethodName), ",", "; ") AS UPbAnalysisMethodName'
@@ -97,9 +96,9 @@ qspot_created = 'Spots.SpotCreated AS SpotCreated'
 qspot_modified = 'Spots.SpotModified AS SpotModified'
 
 # UPb view columns
-# qupb_count = 'SUM(CASE WHEN Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID) AS "Accepted/TotalUPbAnalyses"'  # accepted/total
 qupb_analyses = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAnalyses.UPbAnalysisName), ",", "; ") AS UPbAnalyses'
 qupb_analysis_name = 'UPbAnalyses.UPbAnalysisName AS UPbAnalysisName'
+qupb_analysis_description = 'UPbAnalyses.UPbAnalysisDescription AS UPbAnalysisDescription'
 qupb_count = 'DistinctUPbAnalyses.AcceptedTotalUPbAnalyses AS "Accepted/TotalUPbAnalyses"'
 qupb_count_sample_subquery = f'''
 DistinctUPbAnalyses AS 
@@ -148,9 +147,13 @@ DistinctUPbAnalyses AS
 )
 '''
 qupb_references = 'GROUP_CONCAT(DISTINCT UPbReferences.ReferenceDisplay) AS UPbReference'
+qupb_reference = 'UPbReferences.ReferenceDisplay AS UPbReference'
 qupb_lab_facilities = 'REPLACE(GROUP_CONCAT(DISTINCT LabFacilities.LabFacilityName), ",", "; ") AS LabFacilityName'
+qupb_lab_facility = 'LabFacilities.LabFacilityName AS LabFacilityName'
 qupb_instruments = 'REPLACE(GROUP_CONCAT(DISTINCT Instruments.InstrumentName), ",", "; ") AS InstrumentName'
+qupb_instrument = 'Instruments.InstrumentName AS InstrumentName'
 qupb_analysis_methods = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAnalysisMethods.UPbAnalysisMethodName), ",", "; ") AS UPbAnalysisMethodName'
+qupb_analysis_method = 'UPbAnalysisMethods.UPbAnalysisMethodName AS UPbAnalysisMethodName'
 qupb_204cps = 'UPbAnalyses."Pb204cps" AS "Pb204cps"'
 qupb_206cps = 'UPbAnalyses."Pb206cps" AS "Pb206cps"'
 qupb_207cps = 'UPbAnalyses."Pb207cps" AS "Pb207cps"'
@@ -161,6 +164,7 @@ qupb_235cps = 'UPbAnalyses."U235cps" AS "U235cps"'
 qupb_238cps = 'UPbAnalyses."U238cps" AS "U238cps"'
 qupb_uppm = 'UPbAnalyses."Uppm" AS "Uppm"'
 qupb_thppm = 'UPbAnalyses."Thppm" AS "Thppm"'
+qupb_pbppm = 'UPbAnalyses."Pbppm" AS "Pbppm"'
 qupb_uth = 'UPbAnalyses."U/Th" AS "U/Th"'
 qupb_thu = 'UPbAnalyses."Th/U" AS "Th/U"'
 qupb_calc_uth = 'UPbAnalyses."CalculatedU/Th" AS "CalculatedU/Th"'
@@ -175,7 +179,7 @@ qupb_calc_207206 = 'UPbAnalyses."Calculated207Pb/206Pb" AS "Calculated207Pb/206P
 qupb_calc_207206_error = 'UPbAnalyses."Calculated207Pb/206PbError" AS "Calculated207Pb/206PbError"'
 qupb_207235 = 'UPbAnalyses."207Pb/235U" AS "207Pb/235U"'
 qupb_207235_error = 'UPbAnalyses."207Pb/235UError" AS "207Pb/235UError"'
-qupb_calc_207235 = 'UPbAnalyses."Calculated207Pb/225U" AS "Calculated207Pb/235U"'
+qupb_calc_207235 = 'UPbAnalyses."Calculated207Pb/235U" AS "Calculated207Pb/235U"'
 qupb_calc_207235_error = 'UPbAnalyses."Calculated207Pb/235UError" AS "Calculated207Pb/235UError"'
 qupb_235207 = 'UPbAnalyses."235U/207Pb" AS "235U/207Pb"'
 qupb_235207_error = 'UPbAnalyses."235U/207PbError" AS "235U/207PbError"'
@@ -205,12 +209,12 @@ qupb_232238 = 'UPbAnalyses."232Th/238U" AS "232Th/238U"'
 qupb_232238_error = 'UPbAnalyses."232Th/238UError" AS "232Th/238UError"'
 qupb_calc_232238 = 'UPbAnalyses."Calculated232Th/238U" AS "Calculated232Th/238U"'
 qupb_calc_232238_error = 'UPbAnalyses."Calculated232Th/238UError" AS "Calculated232Th/238UError"'
-qupb204238 = 'UPbAnalyses."204Pb/238U" AS "204Pb/238U"'
-qupb204238_error = 'UPbAnalyses."204Pb/238UError" AS "204Pb/238UError"'
+qupb_204238 = 'UPbAnalyses."204Pb/238U" AS "204Pb/238U"'
+qupb_204238_error = 'UPbAnalyses."204Pb/238UError" AS "204Pb/238UError"'
 qupb_calc_204238 = 'UPbAnalyses."Calculated204Pb/238U" AS "Calculated204Pb/238U"'
 qupb_calc_204238_error = 'UPbAnalyses."Calculated204Pb/238UError" AS "Calculated204Pb/238UError"'
-qupb_2382204 = 'UPbAnalyses."238U/204Pb" AS "238U/204Pb"'
-qupb_2382204_error = 'UPbAnalyses."238U/204PbError" AS "238U/204PbError"'
+qupb_238204 = 'UPbAnalyses."238U/204Pb" AS "238U/204Pb"'
+qupb_238204_error = 'UPbAnalyses."238U/204PbError" AS "238U/204PbError"'
 qupb_calc_238204 = 'UPbAnalyses."Calculated238U/204Pb" AS "Calculated238U/204Pb"'
 qupb_calc_238204_error = 'UPbAnalyses."Calculated238U/204PbError" AS "Calculated238U/204PbError"'
 qupb_206204 = 'UPbAnalyses."206Pb/204Pb" AS "206Pb/204Pb"'
@@ -229,20 +233,20 @@ qupb_204207 = 'UPbAnalyses."204Pb/207Pb" AS "204Pb/207Pb"'
 qupb_204207_error = 'UPbAnalyses."204Pb/207PbError" AS "204Pb/207PbError"'
 qupb_calc_204207 = 'UPbAnalyses."Calculated204Pb/207Pb" AS "Calculated204Pb/207Pb"'
 qupb_calc_204207_error = 'UPbAnalyses."Calculated204Pb/207PbError" AS "Calculated204Pb/207Pb"'
-upb_208204 = 'UPbAnalyses."208Pb/204Pb" AS "208Pb/204Pb"'
+qupb_208204 = 'UPbAnalyses."208Pb/204Pb" AS "208Pb/204Pb"'
 qupb_208204_error = 'UPbAnalyses."208Pb/204PbError" AS "208Pb/204PbError"'
 qupb_calc_208204 = 'UPbAnalyses."Calculated208Pb/204Pb" AS "Calculated208Pb/204Pb"'
 qupb_calc_208204_error = 'UPbAnalyses."Calculated208Pb/204PbError" AS "Calculated208Pb/204Pb"'
-upb_204208 = 'UPbAnalyses."204Pb/208Pb" AS "204Pb/208Pb"'
-upb_204208_error = 'UPbAnalyses."204Pb/208PbError" AS "204Pb/208PbError"'
+qupb_204208 = 'UPbAnalyses."204Pb/208Pb" AS "204Pb/208Pb"'
+qupb_204208_error = 'UPbAnalyses."204Pb/208PbError" AS "204Pb/208PbError"'
 qupb_calc_204208 = 'UPbAnalyses."Calculated204Pb/208Pb" AS "Calculated204Pb/208Pb"'
 qupb_calc_204208_error = 'UPbAnalyses."Calculated204Pb/208PbError" AS "Calculated204Pb/208Pb"'
 qupb_ratio_error_formats = 'REPLACE(GROUP_CONCAT(DISTINCT RatioErrorFormats.ErrorFormatAbbreviation), ",", "; ") AS RatioErrorFormatAbbreviation'
-qupb_error_corr = 'UPbAnalyses.ErrorCorr AS ErrorCorr'
+qupb_ratio_error_format = 'RatioErrorFormats.ErrorFormatAbbreviation AS RatioErrorFormatAbbreviation'
 qupb_207206_age = 'UPbAnalyses."207Pb/206PbAge" AS "207Pb/206PbAge"'
 qupb_207206_age_error = 'UPbAnalyses."207Pb/206PbAgeError" AS "207Pb/206PbAgeError"'
 qupb_calc_207206_age = 'UPbAnalyses."Calculated207Pb/206PbAge" AS "Calculated207Pb/206PbAge"'
-qupb_calc_207206_age_error = 'UPbAnalyses."Calculated207Pb/206PbAgeError AS "Calculated207Pb/206PbAgeError"'
+qupb_calc_207206_age_error = 'UPbAnalyses."Calculated207Pb/206PbAgeError" AS "Calculated207Pb/206PbAgeError"'
 qupb_207235_age = 'UPbAnalyses."207Pb/235UAge" AS "207Pb/235UAge"'
 qupb_207235_age_error = 'UPbAnalyses."207Pb/235UAgeError" AS "207Pb/235UAgeError"'
 qupb_calc_207235_age = 'UPbAnalyses."Calculated207Pb/235UAge" AS "Calculated207Pb/235UAge"'
@@ -257,19 +261,32 @@ qupb_calc_208232_age = 'UPbAnalyses."Calculated208Pb/232ThAge" AS "Calculated208
 qupb_calc_208232_age_error = 'UPbAnalyses."Calculated208Pb/232ThAgeError" AS "Calculated208Pb/232ThAgeError"'
 qupb_best_age = 'UPbAnalyses.BestAge AS BestAge'
 qupb_best_age_error = 'UPbAnalyses.BestAgeError AS BestAgeError'
+qupb_best_age_filled = 'UPbAnalyses.BestAgeFilled AS BestAgeFilled'
+qupb_best_age_filled_error = 'UPbAnalyses.BestAgeErrorFilled AS BestAgeErrorFilled'
 qupb_calc_best_age = 'UPbAnalyses."CalculatedBestAge" AS "CalculatedBestAge"'
 qupb_calc_best_age_error = 'UPbAnalyses."CalculatedBestAgeError" AS "CalculatedBestAgeError"'
-qupb_age_error_formats = 'REPLACE(GROUP_CONCAT(DISTINCT AgeErrorFormats.ErrorFormatAbbreviation), ",", "; ") AS AgeErrorFormatAbbreviation'
-qupb_age_units = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAgeUnits.AgeUnitAbbreviation), ",", "; ") AS AgeUnitAbbreviation'
+qupb_calc_best_age_filled = 'UPbAnalyses.CalculatedBestAgeFilled AS CalculatedBestAgeFilled'
+qupb_calc_best_age_filled_error = 'UPbAnalyses.CalculatedBestAgeErrorFilled AS CalculatedBestAgeErrorFilled'
+qupb_age_error_formats = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAgeErrorFormats.ErrorFormatAbbreviation), ",", "; ") AS UPbAgeErrorFormatAbbreviation'
+qupb_age_error_format = 'UPbAgeErrorFormats.ErrorFormatAbbreviation AS UPbAgeErrorFormatAbbreviation'
+qupb_age_units = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAgeUnits.AgeUnitAbbreviation), ",", "; ") AS UPbAgeUnitAbbreviation'
+qupb_age_unit = 'UPbAgeUnits.AgeUnitAbbreviation AS UPbAgeUnitAbbreviation'
 qupb_age_interpretations = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAgeInterpretations.AgeInterpretationName), ",", "; ") AS UPbAgeInterpretationName'
+qupb_age_interpretation = 'UPbAgeInterpretations.AgeInterpretationName AS UPbAgeInterpretationName'
 qupb_concordance_68v76 = 'UPbAnalyses."CalculatedConcordance_206Pb/238Uv207Pb/206Pb" AS "Concordance_206Pb/238Uv207Pb/206Pb"'
+qupb_error_corr_68v76 = 'UPbAnalyses."ErrorCorr/Rho_68v76" AS "ErrorCorr/Rho_68v76"'
 qupb_concordance_68v75 = 'UPbAnalyses."CalculatedConcordance_206Pb/238Uv207Pb/235U" AS "Concordance_206Pb/238Uv207Pb/235U"'
+qupb_error_corr_68v75 = 'UPbAnalyses."ErrorCorr/Rho_68v75" AS "ErrorCorr/Rho_68v75"'
 qupb_calc_concordance_68v76 = 'UPbAnalyses."CalculatedConcordance_206Pb/238Uv207Pb/206Pb" AS "Concordance_206Pb/238Uv207Pb/206Pb"'
 qupb_calc_concordance_68v75 = 'UPbAnalyses."CalculatedConcordance_206Pb/238Uv207Pb/235U" AS "Concordance_206Pb/238Uv207Pb/235U"'
 qconcordance_formats = 'REPLACE(GROUP_CONCAT(DISTINCT ConcordanceFormats.ConcordanceFormatAbbreviation), ",", "; ") AS ConcordanceFormatAbbreviation'
+qconcordance_format = 'ConcordanceFormats.ConcordanceFormatAbbreviation AS ConcordanceFormatAbbreviation'
+qminsegdisc = 'UPbAnalyses.MinimumSegmentedDiscordance AS MinimumSegmentedDiscordance'
 qspot_size = 'UPbAnalyses.SpotSize AS SpotSize'
+qupb_calc_spot_size = 'UPbAnalyses.CalculatedSpotSize AS CalculatedSpotSize'
 qspot_sizes = f'REPLACE(GROUP_CONCAT(DISTINCT UPbAnalyses.CalculatedSpotSize), ",", "; ") AS CalculatedSpotSize'
-qspot_size_unit = 'REPLACE(GROUP_CONCAT(DISTINCT SpotSizeUnits.DistanceUnitAbbreviation), ",", "; ") AS SpotSizeUnitAbbreviation'
+qspot_size_units = 'REPLACE(GROUP_CONCAT(DISTINCT SpotSizeUnits.DistanceUnitAbbreviation), ",", "; ") AS SpotSizeUnitAbbreviation'
+qspot_size_unit = 'SpotSizeUnits.DistanceUnitAbbreviation AS SpotSizeUnitAbbreviation'
 rejected_text = "'Rejected'"
 accepted_text = "'Accepted'"
 qupb_rejected = f'(CASE WHEN UPbAnalyses.Rejected = 1 THEN {rejected_text} ELSE {accepted_text} END) AS Rejected'
@@ -293,9 +310,7 @@ qreference_modified = 'ReferenceModified AS ReferenceModified'
 # SampleAge-Age joins
 sample_age_join = 'LEFT JOIN Ages ON SampleAges.OldestAgeID = Ages.AgeID OR SampleAges.YoungestAgeID = Ages.AgeID'
 sample_age_left_joins = '''LEFT JOIN ErrorFormats AS DirectAgeErrorFormats ON SampleAges.DirectAgeErrorFormatID = DirectAgeErrorFormats.ErrorFormatID
-                        LEFT JOIN AgeUnits AS SampleAgeUnits ON SampleAges.DirectAgeUnitID = SampleAgeUnits.AgeUnitID
-                        LEFT JOIN Ages AS OldAge ON SampleAges.OldestAgeID = OldAge.AgeID
-                        LEFT JOIN Ages AS YoungAge ON SampleAges.YoungestAgeID = YoungAge.AgeID'''
+                        LEFT JOIN AgeUnits AS SampleAgeUnits ON SampleAges.DirectAgeUnitID = SampleAgeUnits.AgeUnitID'''
 sampleage_age_constraint_join = '''LEFT JOIN SampleAges_AgeConstraints ON SampleAges.SampleAgeID = SampleAges_AgeConstraints.SampleAgeID
                         LEFT JOIN AgeConstraints AS SampleAgeConstraints ON SampleAges_AgeConstraints.AgeConstraintID = SampleAgeConstraints.AgeConstraintID'''
 sampleage_age_interpretation_join = '''LEFT JOIN SampleAges_AgeInterpretations ON SampleAges.SampleAgeID = SampleAges_AgeInterpretations.SampleAgeID
@@ -369,7 +384,7 @@ upb_labs_join = 'LEFT JOIN LabFacilities ON UPbAnalyses.LabFacilityID = LabFacil
 upb_instruments_join = 'LEFT JOIN Instruments ON UPbAnalyses.InstrumentID = Instruments.InstrumentID'
 upb_method_join = 'LEFT JOIN UPbAnalysisMethods ON UPbAnalyses.UPbAnalysisMethodID = UPbAnalysisMethods.UPbAnalysisMethodID'
 upb_ratio_error_format_join = 'LEFT JOIN ErrorFormats AS RatioErrorFormats ON UPbAnalyses.RatioErrorFormatID = RatioErrorFormats.ErrorFormatID'
-upb_age_error_format_join = 'LEFT JOIN ErrorFormats AS AgeErrorFormats ON UPbAnalyses.AgeErrorFormatID = AgeErrorFormats.ErrorFormatID'
+upb_age_error_format_join = 'LEFT JOIN ErrorFormats AS UPbAgeErrorFormats ON UPbAnalyses.AgeErrorFormatID = UPbAgeErrorFormats.ErrorFormatID'
 upb_age_unit_join = 'LEFT JOIN AgeUnits AS UPbAgeUnits ON UPbAnalyses.AgeUnitID = UPbAgeUnits.AgeUnitID'
 upb_age_interpretation_join = 'LEFT JOIN AgeInterpretations AS UPbAgeInterpretations ON UPbAnalyses.AgeInterpretationID = UPbAgeInterpretations.AgeInterpretationID'
 upb_concordance_format_join = 'LEFT JOIN ConcordanceFormats ON UPbAnalyses.ConcordanceFormatID = ConcordanceFormats.ConcordanceFormatID'
@@ -391,184 +406,177 @@ limited_sample_aliquot_hierarchy_join = f'''
 limited_spot_upb_grain_hierarchy_join = f'''
                         INNER JOIN LimitedSamplesAliquots lsa ON lspuag.AliquotID = lsa.AliquotID
                         '''
-# limited_sample_hierarchy_join = f'''
-#                         JOIN LimitedAliquots la ON ls.SampleID = la.SampleID
-#                         JOIN LimitedSpots lsp ON la.AliquotID = lsp.AliquotID
-#                         JOIN LimitedUPbAnalyses lu ON lsp.SpotID = lu.SpotID
-#                         '''
-# limited_aliquot_hierarchy_join = f'''
-#                         JOIN LimitedSamples ls ON la.SampleID = ls.SampleID
-#                         JOIN LimitedSpots lsp ON la.AliquotID = lsp.AliquotID
-#                         JOIN LimitedUPbAnalyses lu ON lsp.SpotID = lu.SpotID
-#                         '''
-# limited_grain_hierarchy_join = f'''
-#                         JOIN LimitedSpots lsp ON lu.SpotID = lsp.SpotID
-#                         JOIN LimitedAliquots la ON lsp.AliquotID = la.AliquotID
-#                         JOIN LimitedSamples ls ON la.SampleID = ls.SampleID
-#                         JOIN LimitedUPbAnalyses lu ON lsp.SpotID = lu.SpotID
-#                         '''
-# limited_spot_hierarchy_join = f'''
-#                         JOIN LimitedAliquots la ON lsp.AliquotID = la.AliquotID
-#                         JOIN LimitedSamples ls ON la.SampleID = ls.SampleID
-#                         JOIN LimitedUPbAnalyses lu ON lsp.SpotID = lu.SpotID
-#                         '''
-# limited_upb_hierarchy_join = f'''
-#                         JOIN LimitedSpots lsp ON lu.SpotID = lsp.SpotID
-#                         JOIN LimitedAliquots la ON lsp.AliquotID = la.AliquotID
-#                         JOIN LimitedSamples ls ON la.SampleID = ls.SampleID
-#                     '''
-
+limited_sample_hierarchy_joins = [column_join, column_unit_join]
 # Limited tags
 # Limit the many-to-many relationships
 upb_distinct_join_limited_sample = '''LEFT JOIN DistinctUPbAnalyses ON lsa.SampleID = DistinctUPbAnalyses.SampleID'''
 upb_distinct_join_limited_aliquot = '''LEFT JOIN DistinctUPbAnalyses ON lsa.AliquotID = DistinctUPbAnalyses.AliquotID'''
 upb_distinct_join_limited_grain = '''LEFT JOIN DistinctUPbAnalyses ON lspuag.GrainID = DistinctUPbAnalyses.GrainID'''
 upb_distinct_join_limited_spot = '''LEFT JOIN DistinctUPbAnalyses ON lspuag.SpotID = DistinctUPbAnalyses.SpotID'''
-limited_sample_tags = f'''
-        LimitedSamples_AgeSignatures AS (
+limited_sample_tags = [
+        f'''LimitedSamples_AgeSignatures AS (
             SELECT s_ags.SampleID, ags.*
             FROM AgeSignatures ags
             INNER JOIN Samples_AgeSignatures s_ags ON ags.AgeSignatureID = s_ags.AgeSignatureID
             INNER JOIN LimitedSamplesAliquots lsa ON s_ags.SampleID = lsa.SampleID
-        ),
-        LimitedSamples_Regions AS (
+        )''',
+        f'''LimitedSamples_Regions AS (
             SELECT s_re.SampleID, re.*
             FROM Regions re
             INNER JOIN Samples_Regions s_re ON re.RegionID = s_re.RegionID
             INNER JOIN LimitedSamplesAliquots lsa ON s_re.SampleID = lsa.SampleID
-        ),
-        LimitedSamples_RockTypes AS (
+        )''',
+        f'''LimitedSamples_RockTypes AS (
             SELECT s_rt.SampleID, rt.*
             FROM RockTypes rt
             INNER JOIN Samples_RockTypes s_rt ON rt.RockTypeID = s_rt.RockTypeID
             INNER JOIN LimitedSamplesAliquots lsa ON s_rt.SampleID = lsa.SampleID
-        ),
-        LimitedSamples_SampleAges AS (
-            SELECT s_sa.SampleID, sa.*
+        )''',
+        f'''LimitedSamples_SampleAges AS (
+            SELECT s_sa.SampleID, sa.*, DirectAgeErrorFormats.*, SampleAgeUnits.*
             FROM SampleAges sa
             INNER JOIN Samples_SampleAges s_sa ON sa.SampleAgeID = s_sa.SampleAgeID
             INNER JOIN LimitedSamplesAliquots lsa ON s_sa.SampleID = lsa.SampleID
-        ),
-        LimitedSampleAges_AgeConstraints AS (
+            {sample_age_left_joins.replace('SampleAges.', 'sa.')}
+        )''',
+        f'''LimitedSampleAges_AgeConstraints AS (
             SELECT sa_ac.SampleAgeID, ac.*
             FROM AgeConstraints ac
             INNER JOIN SampleAges_AgeConstraints sa_ac ON ac.AgeConstraintID = sa_ac.AgeConstraintID
             INNER JOIN LimitedSamples_SampleAges lssa ON sa_ac.SampleAgeID = lssa.SampleAgeID
-        ),
-        LimitedSampleAges_AgeInterpretations AS (
+        )''',
+        f'''LimitedSampleAges_AgeInterpretations AS (
             SELECT sa_ai.SampleAgeID, ai.*
             FROM AgeInterpretations ai
             INNER JOIN SampleAges_AgeInterpretations sa_ai ON ai.AgeInterpretationID = sa_ai.AgeInterpretationID
             INNER JOIN LimitedSamples_SampleAges lssa ON sa_ai.SampleAgeID = lssa.SampleAgeID
-        ),
-        LimitedSampleAges_References AS (
+        )''',
+        f'''LimitedSampleAges_References AS (
             SELECT sa_r.SampleAgeID, r.*
             FROM "References" r
             INNER JOIN SampleAges_References sa_r ON r.ReferenceID = sa_r.ReferenceID
             INNER JOIN LimitedSamples_SampleAges lssa ON sa_r.SampleAgeID = lssa.SampleAgeID
-        ),
-        LimitedSamples_SampleContexts AS (
+        )''',
+        f'''LimitedSamples_SampleContexts AS (
             SELECT s_sc.SampleID, sc.*
             FROM SampleContexts sc
             INNER JOIN Samples_SampleContexts s_sc ON sc.SampleContextID = s_sc.SampleContextID
             INNER JOIN LimitedSamplesAliquots lsa ON s_sc.SampleID = lsa.SampleID
-        ),
-        LimitedSamples_SamplingMethods AS (
+        )''',
+        f'''LimitedSamples_SamplingMethods AS (
             SELECT s_sm.SampleID, sm.*
             FROM SamplingMethods sm
             INNER JOIN Samples_SamplingMethods s_sm ON sm.SamplingMethodID = s_sm.SamplingMethodID
             INNER JOIN LimitedSamplesAliquots lsa ON s_sm.SampleID = lsa.SampleID
-        ),
-        LimitedSamples_Settings AS (
+        )''',
+        f'''LimitedSamples_Settings AS (
             SELECT s_se.SampleID, se.*
             FROM Settings se
             INNER JOIN Samples_Settings s_se ON se.SettingID = s_se.SettingID
             INNER JOIN LimitedSamplesAliquots lsa ON s_se.SampleID = lsa.SampleID
-        ),
-        LimitedSamples_Units AS (
+        )''',
+        f'''LimitedSamples_Units AS (
             SELECT s_u.SampleID, u.*
             FROM Units u
             INNER JOIN Samples_Units s_u ON u.UnitID = s_u.UnitID
             INNER JOIN LimitedSamplesAliquots lsa ON s_u.SampleID = lsa.SampleID
-        )
-    '''
-limited_aliquot_tags = f'''
-        LimitedAliquots_AliquotContexts AS (
+        )'''
+        ]
+limited_aliquot_tags = [
+        f'''LimitedAliquots_AliquotContexts AS (
             SELECT a_ac.AliquotID, ac.*
             FROM AliquotContexts ac
             INNER JOIN Aliquots_AliquotContexts a_ac ON ac.AliquotContextID = a_ac.AliquotContextID
             INNER JOIN LimitedSamplesAliquots lsa ON a_ac.AliquotID = lsa.AliquotID
-        )
-    '''
-limited_spot_tags = f'''
-        LimitedSpots_SpotContexts AS (
+        )''']
+limited_spot_tags = [
+        f'''LimitedSpots_SpotContexts AS (
             SELECT s_sc.SpotID, sc.*
             FROM SpotContexts sc
             INNER JOIN Spots_SpotContexts s_sc ON sc.SpotContextID = s_sc.SpotContextID
             INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON s_sc.SpotID = lspuag.SpotID
-        ),
-        LimitedGrains_GrainContexts AS (
+        )''',
+        f'''LimitedGrains_GrainContexts AS (
             SELECT g_gc.GrainID, gc.*
             FROM GrainContexts gc
             INNER JOIN Grains_GrainContexts g_gc ON gc.GrainContextID = g_gc.GrainContextID
             INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON g_gc.GrainID = lspuag.GrainID
-        )
-    '''
-limited_upb_tags = f'''
-        LimitedUPbAnalyses_UpbAnalysisContexts AS (
+        )''']
+limited_upb_tags = [
+        f'''LimitedUPbAnalyses_UPbAnalysisContexts AS (
             SELECT ua_uac.UPbAnalysisID, ac.*
             FROM UPbAnalysisContexts ac
             INNER JOIN UPbAnalyses_UPbAnalysisContexts ua_uac ON ac.UPbAnalysisContextID = ua_uac.UPbAnalysisContextID
             INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON ua_uac.UPbAnalysisID = lspuag.UPbAnalysisID
-        ),
-        LimitedUPbAnalyses_RejectionReasons AS (
+        )''',
+        f'''LimitedUPbAnalyses_RejectionReasons AS (
             SELECT ua_rr.UPbAnalysisID, rr.*
             FROM RejectionReasons rr
             INNER JOIN UPbAnalyses_RejectionReasons ua_rr ON rr.RejectionReasonID = ua_rr.RejectionReasonID
             INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON ua_rr.UPbAnalysisID = lspuag.UPbAnalysisID
-        )
-    '''
+        )''']
 
-limited_sample_gps_info = f'''
-        LimitedSamplesGPsInfo AS (
-            SELECT 
-            {qgps_display},
-            {qsample_elev_display},
-            {qsample_elev_unit},
-            {qgps},
-            {qsample_elev}
-            FROM SamplesGPsInfo s'''
+limited_grain_tags = [
+        f'''LimitedGrains_GrainContexts AS (
+            SELECT g_gc.GrainID, gc.*
+            FROM GrainContexts gc
+            INNER JOIN Grains_GrainContexts g_gc ON gc.GrainContextID = g_gc.GrainContextID
+            INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON g_gc.GrainID = lspuag.GrainID
+        )''']
 
 # Limited tag joins
-limited_sample_tags_join = f'''
-    LEFT JOIN LimitedSamples_AgeSignatures lsas ON lsa.SampleID = lsas.SampleID
-    LEFT JOIN LimitedSamples_Regions lsre ON lsa.SampleID = lsre.SampleID
-    LEFT JOIN LimitedSamples_RockTypes lsrt ON lsa.SampleID = lsrt.SampleID
-    LEFT JOIN LimitedSamples_SampleAges lssa ON lsa.DefaultSampleAgeID = lssa.SampleAgeID
-    LEFT JOIN LimitedSampleAges_AgeConstraints AS SampleAgeConstraints ON lsa.DefaultSampleAgeID = SampleAgeConstraints.SampleAgeID
-    LEFT JOIN LimitedSampleAges_AgeInterpretations AS SampleAgeInterpretations ON lsa.DefaultSampleAgeID = SampleAgeInterpretations.SampleAgeID
-    LEFT JOIN LimitedSampleAges_References AS SampleAgeReferences ON lsa.DefaultSampleAgeID = SampleAgeReferences.SampleAgeID
-    LEFT JOIN LimitedSamples_SampleContexts lssc ON lsa.SampleID = lssc.SampleID
-    LEFT JOIN LimitedSamples_SamplingMethods lssm ON lsa.SampleID = lssm.SampleID
-    LEFT JOIN LimitedSamples_Settings lss ON lsa.SampleID = lss.SampleID
-    LEFT JOIN LimitedSamples_Units lsu ON lsa.SampleID = lsu.SampleID
-'''
+limited_sample_tags_join = [
+    'LEFT JOIN LimitedSamples_AgeSignatures lsas ON lsa.SampleID = lsas.SampleID',
+    'LEFT JOIN LimitedSamples_Regions lsre ON lsa.SampleID = lsre.SampleID',
+    'LEFT JOIN LimitedSamples_RockTypes lsrt ON lsa.SampleID = lsrt.SampleID',
+    'LEFT JOIN LimitedSamples_SampleAges lssa ON lsa.DefaultSampleAgeID = lssa.SampleAgeID',
+    'LEFT JOIN LimitedSampleAges_AgeConstraints lsaac ON lsa.DefaultSampleAgeID = lsaac.SampleAgeID',
+    'LEFT JOIN LimitedSampleAges_AgeInterpretations lsaai ON lsa.DefaultSampleAgeID = lsaai.SampleAgeID',
+    'LEFT JOIN LimitedSampleAges_References lsar ON lsa.DefaultSampleAgeID = lsar.SampleAgeID',
+    'LEFT JOIN LimitedSamples_SampleContexts lssc ON lsa.SampleID = lssc.SampleID',
+    'LEFT JOIN LimitedSamples_SamplingMethods lssm ON lsa.SampleID = lssm.SampleID',
+    'LEFT JOIN LimitedSamples_Settings lss ON lsa.SampleID = lss.SampleID',
+    'LEFT JOIN LimitedSamples_Units lsu ON lsa.SampleID = lsu.SampleID',
+    ]
 
-limited_aliquot_tags_join = f'''
-    LEFT JOIN LimitedAliquots_AliquotContexts laac ON lsa.AliquotID = laac.AliquotID
-'''
+limited_aliquot_tags_join = [f'LEFT JOIN LimitedAliquots_AliquotContexts laac ON lsa.AliquotID = laac.AliquotID']
 
-limited_spot_tags_join = f'''
-    LEFT JOIN LimitedSpots_SpotContexts lspsc ON lspuag.SpotID = lspsc.SpotID
-    LEFT JOIN LimitedGrains_GrainContexts lggc ON lspuag.GrainID = lggc.GrainID
-'''
+limited_spot_tags_join = [
+    'LEFT JOIN LimitedSpots_SpotContexts lspsc ON lspuag.SpotID = lspsc.SpotID',
+    'LEFT JOIN LimitedGrains_GrainContexts lggc ON lspuag.GrainID = lggc.GrainID'
+    ]
 
-limited_upb_tags_join = f'''
-    LEFT JOIN LimitedUPbAnalyses_UpbAnalysisContexts luac ON lspuag.UPbAnalysisID = luac.UPbAnalysisID
-    LEFT JOIN LimitedUPbAnalyses_RejectionReasons AS UPbRejectionReasons ON lspuag.UPbAnalysisID = UPbRejectionReasons.UPbAnalysisID
-'''
+limited_upb_tags_join = [
+    'LEFT JOIN LimitedUPbAnalyses_UPbAnalysisContexts luac ON lspuag.UPbAnalysisID = luac.UPbAnalysisID',
+    'LEFT JOIN LimitedUPbAnalyses_RejectionReasons lurr ON lspuag.UPbAnalysisID = lurr.UPbAnalysisID'
+    ]
+
+limited_grain_tags_join = [
+    'LEFT JOIN LimitedGrains_GrainContexts lggc ON lspuag.GrainID = lggc.GrainID'
+]
 
 
+limited_lsa_lspuag_joins = {
+    'LimitedSamplesAliquots': [column_join,
+                    column_unit_join,
+                    gps_sample_join,
+                    gps_sample_left_joins,
+                    gps_column_join,
+                    gps_column_left_joins
+                ],
+    'LimitedSpotsUPbAnalysesGrains': [grain_composition_join,
+                    spot_composition_join,
+                    upb_reference_join,
+                    upb_labs_join,
+                    upb_instruments_join,
+                    upb_method_join,
+                    upb_ratio_error_format_join,
+                    upb_age_error_format_join,
+                    upb_age_unit_join,
+                    upb_concordance_format_join,
+                    upb_age_interpretation_join,
+                    upb_spot_size_unit_join]
+}
 
 # Dictionary for limited table abbreviations
 limited_table_abbreviations = {
@@ -577,34 +585,56 @@ limited_table_abbreviations = {
     'Spots': 'lspuag',
     'UPbAnalyses': 'lspuag',
     'Grains': 'lspuag',
+    'Columns': 'lsa',
+    'ColumnHeightDepthUnits': 'lsa',
+    'SampleLatDirections': 'lsa',
+    'SampleLonDirections': 'lsa',
+    'SampleElevationUnits': 'lsa',
+    'SampleGPSFormats': 'lsa',
     'AgeSignatures': 'lsas',
     'Regions': 'lsre',
     'RockTypes': 'lsrt',
     'SampleAges': 'lssa',
-    'AgeConstraints': 'lsaac',
-    'AgeInterpretations': 'lsaai',
+    'DirectAgeErrorFormats': 'lssa',
+    'SampleAgeUnits': 'lssa',
+    'OldAge': 'lssa',
+    'YoungAge': 'lssa',
+    'SampleAgeConstraints': 'lsaac',
+    'SampleAgeInterpretations': 'lsaai',
+    'SampleAgeReferences': 'lsar',
     'SampleContexts': 'lssc',
+    'SampleGPS': 'lsa',
     'SamplingMethods': 'lssm',
     'Settings': 'lss',
     'Units': 'lsu',
+    'LimitedSamplesGPsInfo': 'lsgps',
     'AliquotContexts': 'laac',
     'GrainContexts': 'lggc',
     'SpotContexts': 'lspsc',
     'UPbAnalysisContexts': 'luac',
-    'RejectionReasons': 'lurr'
+    'UPbRejectionReasons': 'lurr',
+    'SpotCompositions': 'lspuag',
+    'GrainCompositions': 'lspuag',
+    'LabFacilities': 'lspuag',
+    'Instruments': 'lspuag',
+    'UPbAnalysisMethods': 'lspuag',
+    'RatioErrorFormats': 'lspuag',
+    'UPbAgeErrorFormats': 'lspuag',
+    'ConcordanceFormats': 'lspuag',
+    'UPbAgeUnits': 'lspuag',
+    'UPbAgeInterpretations': 'lspuag',
+    'UPbReferences': 'lspuag',
+    'SpotSizeUnits': 'lspuag'
 }
 
-# Information for settings
-
-sample_view_columns = [qsample_id, qigsn, qsample_name, qgps, qsample_elev, qcolumn_gps, qcolumn_data, qsample_age,
-                       qage_range, qsample_age_constraint, qsample_age_interpretation,
-                       qsample_age_references, qsample_description, qage_signature, qregions, qrock_types,
-                       qsample_context, qsampling_methods, qsettings, qunits, qaliquots, qaliquot_contexts, qgrains,
-                       qgrain_compositions, qgrain_contexts,
-                       qspots, qspot_compositions, qspot_contexts, qupb_references, qupb_lab_facilities,
-                       qupb_instruments,
-                       qupb_analysis_methods, qupb_ratio_error_formats, qupb_age_error_formats, qupb_age_units,
-                       qupb_age_interpretations, qconcordance_formats, qspot_sizes, qupb_rejection_reasons, qupb_contexts]
+# Dictionary of column leaders that could be included in select statements for LimitedSamplesAliquots and LimitedSpotsUPbAnalysesGrains
+limited_column_leaders = {
+    'LimitedSamplesAliquots': [],
+    'LimitedSpotsUPbAnalysesGrains': []
+}
+for table, abbreviation in limited_table_abbreviations.items():
+    limited_column_leaders['LimitedSamplesAliquots'].append(f'{table}.') if abbreviation == 'lsa' else None
+    limited_column_leaders['LimitedSpotsUPbAnalysesGrains'].append(f'{table}.') if abbreviation == 'lspuag' else None
 
 # Many-to-many columns for each table key, key-value pairs for column in the view and table to edit that information, populate multiple selection dropdowns
 many_editable = {
@@ -631,8 +661,8 @@ one_editable = {
                     'UPbReference': 'References',
                     'LabFacilityName': 'LabFacilities', 'InstrumentName': 'Instruments',
                     'UPbAnalysisMethodName': 'UPbAnalysisMethods',
-                    'RatioErrorFormatAbbreviation': 'ErrorFormats', 'AgeUnitAbbreviation': 'AgeUnits',
-                    'AgeErrorFormatAbbreviation': 'ErrorFormats', 'ConcordanceFormatAbbreviation': 'ConcordanceFormats',
+                    'RatioErrorFormatAbbreviation': 'ErrorFormats', 'UPbAgeUnitAbbreviation': 'AgeUnits',
+                    'UPbAgeErrorFormatAbbreviation': 'ErrorFormats', 'ConcordanceFormatAbbreviation': 'ConcordanceFormats',
                     'SpotSizeUnitAbbreviation': 'DistanceUnits'},
     'References': {}
 }
@@ -955,9 +985,18 @@ concordance_formats = [('Concordance ratio', 'Con', 'Ratio agreement between the
                        ('Discordance ratio', 'Dis',
                         'Ratio disagreement between  the 206Pb/238U age to the 207Pb/206Pb age'),
                        ('Discordance percent', 'Dis%',
+                        'Percent disagreement between the 206Pb/238U age and the 207Pb/206Pb age')]
+"""Static list of valid concordance formats. Used to create ConcordanceFormats table."""
+
+concordance_formats_v103 = [('Concordance ratio', 'Con', 'Ratio agreement between the 206Pb/238U age to the 207Pb/235U age'),
+                       ('Concordance percent', 'Con%',
+                        'Percent agreement between the 206Pb/238U age and the 207Pb/235U age'),
+                       ('Discordance ratio', 'Dis',
+                        'Ratio disagreement between  the 206Pb/238U age to the 207Pb/206Pb age'),
+                       ('Discordance percent', 'Dis%',
                         'Percent disagreement between the 206Pb/238U age and the 207Pb/206Pb age'),
                        ('Minimum segmented discordance', 'MinSegDis',
-                        'Minimum of |206Pb/238U-207Pb/235U| aged and |206Pb/207Pb-207Pb/235U| ages')]
+                        'Minimum of |206Pb/238U-207Pb/235U| ages and |206Pb/207Pb-207Pb/235U| ages')]
 """Static list of valid concordance formats. Used to create ConcordanceFormats table."""
 
 direction_units = [('North', 'N','positive north'),
@@ -1024,7 +1063,7 @@ as_table_dict = {
     'ColumnHeightDepthUnits': 'DistanceUnits',
     'UPbReferences': 'References',
     'RatioErrorFormats': 'ErrorFormats',
-    'AgeErrorFormats': 'ErrorFormats',
+    'UPbAgeErrorFormats': 'ErrorFormats',
     'UPbAgeUnits': 'AgeUnits',
     'UPbAgeInterpretations': 'AgeInterpretations',
     'SpotSizeUnits': 'DistanceUnits',
@@ -1200,10 +1239,12 @@ table_attributes_dict = {
         "CalculatedBestAgeFilled",
         "CalculatedBestAgeErrorFilled",
 
-        "ErrorCorr/Rho",
+        "ErrorCorr/Rho_68v76",
+        "ErrorCorr/Rho_68v75",
 
         "CalculatedConcordance_206Pb/238Uv207Pb/206Pb",
         "CalculatedConcordance_206Pb/238Uv207Pb/235U",
+        "MinimumSegmentedDiscordance",
         "Rejected",
         "CalculatedSpotSize",
 
@@ -1365,10 +1406,12 @@ table_attributes_description_dict = {
         "CalculatedBestAgeFilled",
         "CalculatedBestAgeErrorFilled",
 
-        "ErrorCorr/Rho",
+        "ErrorCorr/Rho_68v76",
+        "ErrorCorr/Rho_68v75",
 
         "CalculatedConcordance_206Pb/238Uv207Pb/206Pb",
         "CalculatedConcordance_206Pb/238Uv207Pb/235U",
+        "MinimumSegmentedDiscordance",
         "Rejected",
         "CalculatedSpotSize",
 
@@ -1390,190 +1433,89 @@ Used in ExporterWidget.py as valid columns able to be exported
 Used in Filters.py as valid columns to be filtered"""
 
 view_attributes_dict = {
-    'SampleView': [
-        f"{qsample_id.split('AS ')[1]}", f"{qigsn.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}",
-        f"{qsample_description.split('AS ')[1]}", f"{qgps.split('AS ')[1]}", f"{qsample_elev.split('AS ')[1]}",
-        f"{qsample_age.split('AS ')[1]}", f"{qsample_age_constraint.split('AS ')[1]}", f"{qsample_age_interpretation.split('AS ')[1]}",
-        f"{qsample_age_references.split('AS ')[1]}", f"{qcolumn_name.split('AS ')[1]}", f"{qsample_column_data.split('AS ')[1]}",
-        f"{qage_signature.split('AS ')[1]}", f"{qregions.split('AS ')[1]}", f"{qrock_types.split('AS ')[1]}",
-        f"{qsample_context.split('AS ')[1]}", f"{qsampling_methods.split('AS ')[1]}", f"{qsettings.split('AS ')[1]}",
-        f"{qunits.split('AS ')[1]}", f"{qaliquots.split('AS ')[1]}", f"{qaliquot_contexts.split('AS ')[1]}",
-        f"{qgrain_count.split('AS ')[1]}", f"{qgrain_compositions.split('AS ')[1]}", f"{qgrain_contexts.split('AS ')[1]}",
-        f"{qspot_count.split('AS ')[1]}", f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}",
-        f"{qupb_count.split('AS ')[1]}", f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}",
-        f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}", f"{qupb_age_error_formats.split('AS ')[1]}",
-        f"{qconcordance_formats.split('AS ')[1]}", f"{qspot_sizes.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
-        f"{qupb_contexts.split('AS ')[1]}", f"{qupb_references.split('AS ')[1]}", f"{qsample_created.split('AS ')[1]}",
-        f"{qsample_modified.split('AS ')[1]}"
-        ],
-    'SampleEditView': [
-        f"{qsample_id.split('AS ')[1]}", f"{qigsn.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}",
-        f"{qsample_description.split('AS ')[1]}", f"{qgps_display.split('AS ')[1]}",
-        f"{qsample_elev_display.split('AS ')[1]}",
-        f"{qsample_elev_unit.split('AS ')[1]}", f"{qsample_age_constraint.split('AS ')[1]}",
-        f"{qsample_age_interpretation.split('AS ')[1]}",
-        f"{qsample_age_references.split('AS ')[1]}", f"{qcolumn_name.split('AS ')[1]}",
-        f"{qsample_column_data_display.split('AS ')[1]}", f"{qsample_column_data_unit.split('AS ')[1]}",
-        f"{qage_signature.split('AS ')[1]}", f"{qregions.split('AS ')[1]}", f"{qrock_types.split('AS ')[1]}",
-        f"{qsample_context.split('AS ')[1]}", f"{qsampling_methods.split('AS ')[1]}", f"{qsettings.split('AS ')[1]}",
-        f"{qunits.split('AS ')[1]}", f"{qaliquots.split('AS ')[1]}", f"{qaliquot_contexts.split('AS ')[1]}",
-        f"{qgrain_count.split('AS ')[1]}", f"{qgrain_compositions.split('AS ')[1]}", f"{qgrain_contexts.split('AS ')[1]}",
-        f"{qspot_count.split('AS ')[1]}", f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}",
-        f"{qupb_count.split('AS ')[1]}", f"{qupb_lab_facilities.split('AS ')[1]}",
-        f"{qupb_analysis_methods.split('AS ')[1]}", f"{qupb_ratio_error_formats.split('AS ')[1]}",
-        f"{qupb_age_units.split('AS ')[1]}",
-        f"{qupb_age_error_formats.split('AS ')[1]}", f"{qconcordance_formats.split('AS ')[1]}",
-        f"{qspot_size.split('AS ')[1]}", f"{qspot_size_unit.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
-        f"{qupb_references.split('AS ')[1]}",
-        f"{qsample_created.split('AS ')[1]}", f"{qsample_modified.split('AS ')[1]}"
-        ],
-    'ColumnView': [
-        f"{qcolumn_id.split('AS ')[1]}", f"{qcolumn_name.split('AS ')[1]}", f"{qcolumn_calc_total_height_depth.split('AS ')[1]}", f"{qcolumn_gps.split('AS ')[1]}",
-        f"{qcolumn_description.split('AS ')[1]}", f"{qcolumn_created.split('AS ')[1]}", f"{qcolumn_modified.split('AS ')[1]}"
-    ],
-    'ColumnEditView': [
-        f"{qcolumn_id.split('AS ')[1]}", f"{qcolumn_name.split('AS ')[1]}", f"{qcolumn_total_height_depth.split('AS ')[1]}", f"{qcolumn_total_height_depth_unit.split('AS ')[1]}",
-        f"{qcolumn_gps_display.split('AS ')[1]}", f"{qcolumn_description.split('AS ')[1]}", f"{qcolumn_created.split('AS ')[1]}", f"{qcolumn_modified.split('AS ')[1]}"
-    ],
-    'AliquotView': [
-        f"{qaliquot_id.split('AS ')[1]}", f"{qaliquot_parent_id.split('AS ')[1]}",
-        f"{qaliquot_parent_row.split('AS ')[1]}", f"{qaliquot_name.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}",
-        f"{qaliquot_sample.split('AS ')[1]}", f"{qaliquot_contexts.split('AS ')[1]}", f"{qgrain_count.split('AS ')[1]}",
-        f"{qgrain_compositions.split('AS ')[1]}", f"{qgrain_contexts.split('AS ')[1]}", f"{qspot_count.split('AS ')[1]}",
-        f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}", f"{qupb_count.split('AS ')[1]}",
-        f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}",
-        f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}",
-        f"{qupb_age_error_formats.split('AS ')[1]}", f"{qconcordance_formats.split('AS ')[1]}",
-        f"{qspot_sizes.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
-        f"{qupb_contexts.split('AS ')[1]}",
-        f"{qupb_references.split('AS ')[1]}", f"{qaliquot_created.split('AS ')[1]}",
-        f"{qaliquot_modified.split('AS ')[1]}"
-    ],
-    'AliquotEditView': [
-        f"{qaliquot_id.split('AS ')[1]}", f"{qaliquot_parent_id.split('AS ')[1]}",
-        f"{qaliquot_parent_row.split('AS ')[1]}", f"{qaliquot_name.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}",
-        f"{qaliquot_sample.split('AS ')[1]}", f"{qaliquot_contexts.split('AS ')[1]}",
-        f"{qaliquot_description.split('AS ')[1]}",
-        f"{qaliquot_created.split('AS ')[1]}", f"{qaliquot_modified.split('AS ')[1]}"
-    ],
-    'GrainView': [
-        f"{qgrain_id.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}", f"{qaliquot_id.split('AS ')[1]}",
-        f"{qspot_id.split('AS ')[1]}", f"{qgrain_name.split('AS ')[1]}", f"{qspots.split('AS ')[1]}",
-        f"{qsample_name.split('AS ')[1]}", f"{qaliquot_name.split('AS ')[1]}", f"{qgrain_contexts.split('AS ')[1]}",
-        f"{qgrain_compositions.split('AS ')[1]}", f"{qgrain_description.split('AS ')[1]}",
-        f"{qgrain_created.split('AS ')[1]}", f"{qgrain_modified.split('AS ')[1]}"
-    ],
-    'GrainEditView': [
-        f"{qgrain_id.split('AS ')[1]}", f"{qgrain_name.split('AS ')[1]}", f"{qgrain_contexts.split('AS ')[1]}",
-        f"{qgrain_compositions.split('AS ')[1]}", f"{qgrain_description.split('AS ')[1]}",
-        f"{qgrain_created.split('AS ')[1]}", f"{qgrain_modified.split('AS ')[1]}"
-    ],
-    'SpotView': [
-        f"{qspot_id.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}", f"{qaliquot_id.split('AS ')[1]}",
-        f"{qspots.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}", f"{qaliquot_name.split('AS ')[1]}",
-        f"{qgrain_name.split('AS ')[1]}", f"{qgrain_compositions.split('AS ')[1]}", f"{qgrain_contexts.split('AS ')[1]}",
-        f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}",
-        f"{qupb_analyses.split('AS ')[1]}",
-        f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}",
-        f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}",
-        f"{qupb_age_error_formats.split('AS ')[1]}", f"{qconcordance_formats.split('AS ')[1]}",
-        f"{qspot_sizes.split('AS ')[1]}", f"{qupb_rejected.split('AS ')[1]}",
-        f"{qupb_rejection_reasons.split('AS ')[1]}", f"{qupb_contexts.split('AS ')[1]}",
-        f"{qupb_references.split('AS ')[1]}", f"{qspot_description.split('AS ')[1]}",
-        f"{qspot_created.split('AS ')[1]}", f"{qspot_modified.split('AS ')[1]}"
-    ],
-    'SpotEditView': [
-        f"{qspot_id.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}", f"{qaliquot_id.split('AS ')[1]}",
-        f"{qspots.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}", f"{qaliquot_name.split('AS ')[1]}",
-        f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}",
-        f"{qspot_created.split('AS ')[1]}", f"{qspot_modified.split('AS ')[1]}"
-    ],
-    'UPbView': [
-        f"{qupb_id.split('AS ')[1]}", f"{qspot_name.split('AS ')[1]}", f"{qaliquot_name.split('AS ')[1]}",
-        f"{qsample_name.split('AS ')[1]}", f"{qupb_references.split('AS ')[1]}",
-        f"{qupb_lab_facilities.split('AS ')[1]}",
-        f"{qupb_instruments.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}", '"Pb204cps"', '"Pb206cps"',
-        '"Pb207cps"', '"Pb208cps"', '"Pb*cps"', '"Th232cps"',
-        '"U235cps"', '"U238cps"', '"Uppm"', '"Thppm"',
-        '"CalculatedU/Th"', '"CalculatedTh/U"',
-        '"Calculated206Pb/207Pb"', '"Calculated206Pb/207PbError"',
-        '"Calculated207Pb/206Pb"', '"Calculated207Pb/206PbError"',
-        '"Calculated207Pb/235U"', '"Calculated207Pb/235UError"',
-        '"Calculated235U/207Pb"', '"Calculated235U/207PbError"',
-        '"Calculated206Pb/238U"', '"Calculated206Pb/238UError"',
-        '"Calculated238U/206Pb"', '"Calculated238U/206PbError"',
-        '"Calculated208Pb/232Th"', '"Calculated208Pb/232ThError"',
-        '"Calculated232Th/208Pb"', '"Calculated232Th/208PbError"',
-        '"Calculated238U/232Th"', '"Calculated238U/232ThError"',
-        '"Calculated232Th/238U"', '"Calculated232Th/238UError"',
-        '"Calculated204Pb/238U"', '"Calculated204Pb/238UError"',
-        '"Calculated238U/204Pb"', '"Calculated238U/204PbError"',
-        '"Calculated206Pb/204Pb"', '"Calculated206Pb/204PbError"',
-        '"Calculated204Pb/206Pb"', '"Calculated204Pb/206PbError"',
-        '"Calculated207Pb/204Pb"', '"Calculated207Pb/204PbError"',
-        '"Calculated204Pb/207Pb"', '"Calculated204Pb/207PbError"',
-        '"Calculated208Pb/204Pb"', '"Calculated208Pb/204PbError"',
-        '"Calculated204Pb/208Pb"', '"Calculated204Pb/208PbError"', '"ErrorCorr/Rho"',
-        '"Calculated207Pb/206PbAge"', '"Calculated207Pb/206PbAgeError"',
-        '"Calculated206Pb/238UAge"', '"Calculated206Pb/238UAgeError"',
-        '"Calculated207Pb/235UAge"', '"Calculated207Pb/235UAgeError"',
-        '"Calculated208Pb/232ThAge"', '"Calculated208Pb/232ThAgeError"',
-        '"CalculatedBestAgeFilled"', '"CalculatedBestAgeErrorFilled"',
-        '"CalculatedSpotSize"', '"CalculatedConcordance_206Pb/238Uv207Pb/206Pb"',
-        '"CalculatedConcordance_206Pb/238Uv207Pb/235U"',
-        f"{qupb_rejected.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
-        f"{qupb_contexts.split('AS ')[1]}",
-        f"{qupb_created.split('AS ')[1]}", f"{qupb_modified.split('AS ')[1]}"
-    ],
-    'UPbEditView': [
-        f"{qupb_id.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}", f"{qaliquot_id.split('AS ')[1]}",
-        f"{qspot_id.split('AS ')[1]}", f"{qspot_name.split('AS ')[1]}", f"{qaliquot_name.split('AS ')[1]}",
-        f"{qsample_name.split('AS ')[1]}",
-        f"{qupb_references.split('AS ')[1]}", f"{qupb_lab_facilities.split('AS ')[1]}",
-        f"{qupb_instruments.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}",
-        '"Pb204cps"', '"Pb206cps"',
-        '"Pb207cps"', '"Pb208cps"', '"Pb*cps"', '"Th232cps"',
-        '"U235cps"', '"U238cps"', '"Uppm"', '"Thppm"',
-        '"U/Th"', '"Th/U"',
-        '"206Pb/207Pb"', '"206Pb/207PbError"',
-        '"207Pb/206Pb"', '"207Pb/206PbError"',
-        '"206Pb/238U"', '"206Pb/238UError"',
-        '"238U/206Pb"', '"238U/206PbError"',
-        '"207Pb/235U"', '"207Pb/235UError"',
-        '"235U/207Pb"', '"235U/207PbError"',
-        '"208Pb/232Th"', '"208Pb/232ThError"',
-        '"232Th/208Pb"', '"232Th/208PbError"',
-        '"238U/232Th"', '"238U/232ThError"',
-        '"232Th/238U"', '"232Th/238UError"',
-        '"204Pb/238U"', '"204Pb/238UError"',
-        '"238U/204Pb"', '"238U/204PbError"',
-        '"206Pb/204Pb"', '"206Pb/204PbError"',
-        '"204Pb/206Pb"', '"204Pb/206PbError"',
-        '"207Pb/204Pb"', '"207Pb/204PbError"',
-        '"204Pb/207Pb"', '"204Pb/207PbError"',
-        '"208Pb/204Pb"', '"208Pb/204PbError"',
-        '"204Pb/208Pb"', '"204Pb/208PbError"',
-        f"{qupb_ratio_error_formats.split('AS ')[1]}", '"ErrorCorr/Rho"',
-        '"207Pb/206PbAge"', '"207Pb/206PbAgeError"',
-        '"207Pb/235UAge"', '"207Pb/235UAgeError"',
-        '"206Pb/238UAge"', '"206Pb/238UAgeError"',
-        '"208Pb/232ThAge"', '"208Pb/232ThAgeError"',
-        '"BestAge"', '"BestAgeError"',
-        '"BestAgeFilled"', '"BestAgeErrorFilled"',
-        f"{qupb_age_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}",
-        '"Concordance_206Pb/238Uv207Pb/206Pb"', '"Concordance_206Pb/238Uv207Pb/235U"',
-        f"{qconcordance_formats.split('AS ')[1]}",
-        '"SpotSize"', f"{qspot_size_unit.split('AS ')[1]}", f"{qupb_rejected.split('AS ')[1]}",
-        f"{qupb_rejection_reasons.split('AS ')[1]}", f"{qupb_contexts.split('AS ')[1]}",
-        f"{qupb_created.split('AS ')[1]}", f"{qupb_modified.split('AS ')[1]}"
-    ],
-    'ReferenceView': [
-        f"{qreference_id.split('AS ')[1]}", f"{qreference_display.split('AS ')[1]}", f"{qauthors.split('AS ')[1]}",
-        f"{qyear.split('AS ')[1]}", f"{qtitle.split('AS ')[1]}", f"{qsource.split('AS ')[1]}",
-        f"{qdoi.split('AS ')[1]}",
-        f"{qreference_description.split('AS ')[1]}", f"{qreference_created.split('AS ')[1]}",
-        f"{qreference_modified.split('AS ')[1]}"
-    ]
+    'SampleView': [qsample_id, qsample_name, qigsn, qsample_description, qgps, qsample_elev, qsample_age,
+                   qsample_age_constraints, qsample_age_interpretations, qsample_age_references, qcolumn_name,
+                   qsample_column_data, qage_signatures, qregions, qrock_types, qsample_contexts, qsampling_methods,
+                   qsettings, qunits, qaliquots, qaliquot_contexts, qgrain_count, qgrain_compositions, qgrain_contexts,
+                   qspot_count, qspot_compositions, qspot_contexts, qupb_count, qupb_lab_facilities, qupb_instruments,
+                   qupb_analysis_methods, qupb_ratio_error_formats, qupb_age_units, qupb_age_error_formats,
+                   qconcordance_formats, qspot_sizes, qupb_rejection_reasons, qupb_contexts, qupb_age_interpretations,
+                   qupb_references, qsample_created, qsample_modified],
+    'SampleEditView': [qsample_id, qsample_name, qigsn, qsample_description, qgps_display, qsample_elev_display,
+                       qsample_age_display, qsample_age_constraints, qsample_age_interpretations,
+                       qsample_age_references, qcolumn_name, qsample_column_data_display, qsample_column_data_unit,
+                       qage_signatures, qregions, qrock_types, qsample_contexts, qsampling_methods, qsettings, qunits,
+                       qaliquots, qaliquot_contexts, qgrain_count, qgrain_compositions, qgrain_contexts, qspot_count,
+                       qspot_compositions, qspot_contexts, qupb_count, qupb_lab_facilities, qupb_instruments,
+                       qupb_analysis_methods, qupb_ratio_error_formats, qupb_age_units, qupb_age_error_formats,
+                       qconcordance_formats, qspot_size, qspot_size_unit, qupb_rejection_reasons, qupb_references,
+                       qupb_contexts, qupb_age_interpretations, qsample_created, qsample_modified],
+    'ColumnView': [qcolumn_id, qcolumn_name, qcolumn_description, qcolumn_calc_total_height_depth, qcolumn_gps,
+                   qcolumn_elev, qcolumn_created, qcolumn_modified],
+    'ColumnEditView': [qcolumn_id, qcolumn_name, qcolumn_description, qcolumn_total_height_depth,
+                       qcolumn_total_height_depth_unit, qcolumn_gps_display, qcolumn_elev_display, qcolumn_elev_unit,
+                       qcolumn_created, qcolumn_modified],
+    'AliquotView': [qaliquot_id, qaliquot_parent_id, qaliquot_parent_row, qaliquot_name, qaliquot_description,
+                    qsample_id, qaliquot_sample, qaliquot_contexts, qgrain_count, qgrain_compositions, qgrain_contexts,
+                    qspot_count, qspot_compositions, qspot_contexts, qupb_count, qupb_lab_facilities,
+                    qupb_analysis_methods, qupb_instruments, qupb_ratio_error_formats, qupb_age_units,
+                    qupb_age_error_formats, qconcordance_formats, qspot_sizes, qupb_rejection_reasons, qupb_contexts,
+                    qupb_age_interpretations, qupb_references, qaliquot_created, qaliquot_modified],
+    'AliquotEditView': [qaliquot_id, qaliquot_parent_id, qaliquot_parent_row, qaliquot_name, qaliquot_description,
+                        qsample_id, qaliquot_sample, qaliquot_contexts, qaliquot_created, qaliquot_modified],
+    'GrainView': [qgrain_id, qaliquot_id, qsample_id, qgrain_name, qgrain_description, qaliquot_name, qsample_name,
+                  qspots, qaliquot_name, qsample_name, qgrain_composition, qgrain_contexts, qspot_compositions,
+                  qspot_contexts, qupb_count, qupb_lab_facilities, qupb_instruments, qupb_analysis_methods,
+                  qupb_ratio_error_formats, qupb_age_units, qupb_age_error_formats, qconcordance_formats, qspot_sizes,
+                  qupb_rejection_reasons, qupb_contexts, qupb_age_interpretations, qupb_references, qgrain_created,
+                  qgrain_modified],
+    'GrainEditView': [qgrain_id, qaliquot_id, qsample_id, qgrain_name, qgrain_description, qaliquot_name, qsample_name,
+                      qgrain_composition, qgrain_contexts, qgrain_created, qgrain_modified],
+    'SpotView': [qspot_id, qgrain_id, qaliquot_id, qsample_id, qspot_name, qspot_description, qgrain_name,
+                 qaliquot_name, qsample_name, qspot_compositions, qspot_contexts, qgrain_composition, qgrain_contexts,
+                 qupb_analyses, qupb_count, qupb_lab_facilities, qupb_instruments, qupb_analysis_methods,
+                 qupb_ratio_error_formats, qupb_age_units, qupb_age_error_formats, qconcordance_formats, qspot_sizes,
+                 qupb_rejection_reasons, qupb_contexts, qupb_age_interpretations, qupb_references, qspot_created,
+                 qspot_modified],
+    'SpotEditView': [qspot_id, qgrain_id, qaliquot_id, qsample_id, qspot_name, qspot_description, qgrain_name,
+                     qaliquot_name, qsample_name, qspot_compositions, qspot_contexts, qspot_created, qspot_modified],
+    'UPbView': [qupb_id, qspot_id, qgrain_id, qaliquot_id, qsample_id, qupb_analysis_name, qupb_analysis_description,
+                qspot_name, qgrain_name, qaliquot_name, qsample_name, qupb_reference, qupb_lab_facility,
+                qupb_instrument, qupb_analysis_method, qupb_204cps, qupb_206cps, qupb_207cps, qupb_208cps, qupb_pbcps,
+                qupb_232cps, qupb_235cps, qupb_238cps, qupb_uppm, qupb_thppm, qupb_pbppm, qupb_calc_uth, qupb_calc_thu,
+                qupb_calc_206207, qupb_calc_206207_error, qupb_calc_207206, qupb_calc_207206_error, qupb_calc_207235,
+                qupb_calc_207235_error, qupb_calc_235207, qupb_calc_235207_error, qupb_calc_206238, qupb_calc_206238_error,
+                qupb_calc_238206, qupb_calc_238206_error, qupb_calc_208232, qupb_calc_208232_error, qupb_calc_232208,
+                qupb_calc_232208_error, qupb_calc_238232, qupb_calc_238232_error, qupb_calc_232238, qupb_calc_232238_error,
+                qupb_calc_204238, qupb_calc_204238_error, qupb_calc_238204, qupb_calc_238204_error, qupb_calc_206204,
+                qupb_calc_206204_error, qupb_calc_204206, qupb_calc_204206_error, qupb_calc_207204, qupb_calc_207204_error,
+                qupb_calc_204207, qupb_calc_204207_error, qupb_calc_208204, qupb_calc_208204_error, qupb_calc_204208,
+                qupb_calc_204208_error, qupb_ratio_error_format, qupb_calc_207206_age, qupb_calc_207206_age_error,
+                qupb_calc_206238_age, qupb_calc_206238_age_error, qupb_calc_207235_age, qupb_calc_207235_age_error,
+                qupb_calc_208232_age, qupb_calc_208232_age_error, qupb_calc_best_age, qupb_calc_best_age_error,
+                qupb_calc_best_age_filled, qupb_calc_best_age_filled_error, qupb_age_error_format, qupb_age_unit,
+                qupb_age_interpretation, qupb_calc_spot_size, qupb_calc_concordance_68v76, qupb_error_corr_68v76,
+                qupb_calc_concordance_68v75, qupb_error_corr_68v75, qconcordance_format, qminsegdisc,
+                qupb_calc_spot_size, qupb_rejected, qupb_rejection_reasons, qupb_contexts, qupb_created, qupb_modified],
+    'UPbEditView': [qupb_id, qspot_id, qgrain_id, qaliquot_id, qsample_id, qupb_analysis_name, qupb_analysis_description,
+                    qspot_name, qgrain_name, qaliquot_name, qsample_name, qupb_reference, qupb_lab_facility,
+                    qupb_instrument, qupb_analysis_method, qupb_204cps, qupb_206cps, qupb_207cps, qupb_208cps,
+                    qupb_pbcps, qupb_232cps, qupb_235cps, qupb_238cps, qupb_uppm, qupb_thppm, qupb_pbppm, qupb_uth,
+                    qupb_thu, qupb_206207, qupb_206207_error, qupb_207206, qupb_207206_error, qupb_206238,
+                    qupb_206238_error, qupb_238206, qupb_238206_error, qupb_207235, qupb_207235_error, qupb_235207,
+                    qupb_235207_error, qupb_208232, qupb_208232_error, qupb_232208, qupb_232208_error, qupb_238232,
+                    qupb_238232_error, qupb_232238, qupb_232238_error, qupb_204238, qupb_204238_error, qupb_238204,
+                    qupb_238204_error, qupb_206204, qupb_206204_error, qupb_204206, qupb_204206_error, qupb_207204,
+                    qupb_207204_error, qupb_204207, qupb_204207_error, qupb_208204, qupb_208204_error, qupb_204208,
+                    qupb_204208_error, qupb_ratio_error_format, qupb_207206_age, qupb_207206_age_error,
+                    qupb_206238_age, qupb_206238_age_error, qupb_207235_age, qupb_207235_age_error, qupb_208232_age,
+                    qupb_208232_age_error, qupb_best_age, qupb_best_age_error, qupb_best_age_filled,
+                    qupb_best_age_filled_error, qupb_age_error_format, qupb_age_unit, qupb_age_interpretation,
+                    qupb_concordance_68v76, qupb_error_corr_68v76, qupb_concordance_68v75, qupb_error_corr_68v75,
+                    qconcordance_format, qminsegdisc, qspot_size, qspot_size_unit, qupb_rejected, qupb_rejection_reasons,
+                    qupb_contexts, qupb_created, qupb_modified],
+    'ReferenceView': [qreference_id, qreference_display, qauthors, qyear, qtitle, qsource, qdoi, qreference_description,
+                      qreference_created, qreference_modified]
 }
 
 
@@ -1754,7 +1696,8 @@ upb_possible_user_input_fields = {
         '238U/232Th Error': ['UPbAnalyses', '238U/232ThError'],
         '232Th/238U': ['UPbAnalyses', '232Th/238U'],
         '232Th/238U Error': ['UPbAnalyses', '232Th/238UError'],
-        'ErrorCorr/Rho': ['UPbAnalyses', 'ErrorCorr/Rho']
+        'ErrorCorr/Rho_68v76': ['UPbAnalyses', 'ErrorCorr/Rho_68v76'],
+        'ErrorCorr/Rho_68v75': ['UPbAnalyses', 'ErrorCorr/Rho_68v75']
     },
     'Ages': {
         '207Pb/206PbAge': ['UPbAnalyses', '207Pb/206PbAge'],
@@ -1772,6 +1715,7 @@ upb_possible_user_input_fields = {
         'Concordance_206Pb/238Uv207Pb/206Pb': ['UPbAnalyses', 'Concordance_206Pb/238Uv207Pb/206Pb'],
         'Concordance_206Pb/238Uv207Pb/235U': ['UPbAnalyses', 'Concordance_206Pb/238Uv207Pb/235U'],
         'Concordance Format': ['UPbAnalyses', 'ConcordanceFormatID'],
+        'Minimum Segmented Discordance': ['UPbAnalyses', 'MinimumSegmentedDiscordance'],
         'Age Interpretation': ['AgeInterpretations', 'AgeInterpretationName'],
     },
     'Isotope Counts': {
@@ -1861,7 +1805,7 @@ possible_database_input_fields = [
     '238U/232Th', '238U/232ThError',
     '232Th/238U', '232Th/238UError',
 
-    'ErrorCorr/Rho',
+    'ErrorCorr/Rho_68v76', 'ErrorCorr/Rho_68v75',
     'RatioErrorFormatID',
     '207Pb/206PbAge', '207Pb/206PbAgeError',
     '207Pb/235UAge', '207Pb/235UAgeError',
@@ -1873,7 +1817,7 @@ possible_database_input_fields = [
     'AgeUnitID',
     'AgeInterpretationID',
     'Concordance_206Pb/238Uv207Pb/206Pb', 'Concordance_206Pb/238Uv207Pb/235U',
-    'ConcordanceFormatID', 'ConcordanceFormatName',
+    'ConcordanceFormatID', 'ConcordanceFormatName', 'MinimumSegmentedDiscordance',
     'SpotSize', 'SpotSizeUnitID',
     'Rejected',
     'RejectionReasonName',

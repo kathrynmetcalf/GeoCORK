@@ -423,7 +423,7 @@
           <number>0</number>
          </property>
          <item>
-          <widget class="QTreeView" name="dbTable_treeView">
+          <widget class="TrackExpandedTreeView" name="dbTable_treeView">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
              <horstretch>0</horstretch>
@@ -445,7 +445,7 @@
         </sizepolicy>
        </property>
        <property name="currentIndex">
-        <number>0</number>
+        <number>1</number>
        </property>
        <widget class="QWidget" name="db_tableView_2">
         <property name="sizePolicy">
@@ -494,7 +494,7 @@
           <number>0</number>
          </property>
          <item>
-          <widget class="QTreeView" name="dbTable_treeView_2">
+          <widget class="TrackExpandedTreeView" name="dbTable_treeView_2">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
              <horstretch>0</horstretch>
@@ -703,6 +703,13 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>TrackExpandedTreeView</class>
+   <extends>QTreeView</extends>
+   <header>Functions/Widget_classes.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

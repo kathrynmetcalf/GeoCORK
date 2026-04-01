@@ -17,7 +17,7 @@ settings = SettingsManager().settings
 from Functions.Widget_classes import (TreeModel, TreeContextMenu, expand_collapse, save_expanded_state,
                                       restore_expanded_state, show_loading_dialog, close_loading_dialog,
                                       get_headers, get_name_column, description_column, set_table, ReadableProxyModel,
-                                      get_id_from_name
+                                      get_id_from_name, TreeSortFilterProxyModel, get_name_from_id, SQLiteTableModel
                                       )
 
 
@@ -46,9 +46,9 @@ class AddTreeTags(QtW.QDialog):
         self.id_header = self.source_model.record().fieldName(0)
         self.parent_id_header = self.source_model.record().fieldName(1)
         self.parent_row_header = self.source_model.record().fieldName(2)
-        self.item_name_header = self.source_model.record().fieldName(3)
+        self.name_header = self.source_model.record().fieldName(3)
         self.tree_model = TreeModel(self.source_model)
-        self.tree_proxy_model = ReadableProxyModel()
+        self.tree_proxy_model = TreeSortFilterProxyModel()
         self.tree_proxy_model.setSourceModel(self.tree_model)
         self.table_name = TxM.add_spaces_camel(self.table)
         self.selectTags_label.setText(self.table_name)
@@ -65,11 +65,10 @@ class AddTreeTags(QtW.QDialog):
         for key, value in kwargs.items():
             setattr(self, key, value)
         # if add_item is not one of the keys, set it to 'child'
-        if 'add_item' not in kwargs.keys():
+        if 'add_item' not in kwargs and self.parent_id:
             self.add_item = 'child'
         self.columns = get_headers(self.table)
-        self.name_column = self.columns[get_name_column(self.table)]
-        self.description_column = self.columns[description_column(self.table)]
+        self.description_header = [header for header in self.columns if 'Description' in header][0]
         self.existing_names = set()
 
         self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
@@ -82,6 +81,7 @@ class AddTreeTags(QtW.QDialog):
         create_savepoint('before_add')
         self.tree_model.dataEdited.connect(self.update_proxy)
         # self.tree_model.save_state.connect(lambda: save_expanded_state(self.table, self.tags_treeView))
+        self.tags_treeView.setUniformRowHeights(True)
         self.ok_pushButton.clicked.connect(self.add_tree_tag)
         self.cancel_pushButton.clicked.connect(self.discard_question)
         self.finish_pushButton.clicked.connect(self.commit)
@@ -107,17 +107,6 @@ class AddTreeTags(QtW.QDialog):
                 parent_name = query.value(3)
             else:
                 parent_name = 'top level'
-            # if self.item_id:
-            #     query.prepare(
-            #         f'SELECT * FROM {self.table} WHERE {self.id_header} = {self.item_id}')
-            #     if not query.exec():
-            #         logger_setup.get_logger().error(
-            #             f'Error selecting {self.id_header} {self.item_id}: {query.lastError().text()}')
-            #         return
-            #     query.next()
-            #     item_name = query.value(3)
-            # else:
-            #     item_name = 'new item'
             if self.parent_row:
                 row_name = f'row {self.parent_row + 1}'
             else:
@@ -130,20 +119,22 @@ class AddTreeTags(QtW.QDialog):
         """
         Displays the existing tags in the tree view.
         """
-        show_loading_dialog('Loading', f'Loading {self.table}...')
+        show_loading_dialog('Loading', f'Loading {self.source_model.rowCount()} {self.table}...')
         self.tags_treeView.setModel(self.tree_proxy_model)
+        self.tags_treeView.setUniformRowHeights(True)
         self.tags_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
         self.tags_treeView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tags_treeView.hideColumn(1)  # Don't show ID column
         self.tags_treeView.hideColumn(2)  # Don't show parent ID column
         self.tags_treeView.hideColumn(3)  # Don't show parent row column
-        restore_expanded_state(self.table, self.tags_treeView)
+        if isinstance(self.tags_treeView.model(), TreeSortFilterProxyModel):
+            self.tags_treeView.model().update_visible_columns()
         self.add_label()
 
         # Get a list of the existing tag names
         self.existing_names = []
         query = QtS.QSqlQuery()
-        query.prepare(f'SELECT {self.name_column} FROM {self.table}')
+        query.prepare(f'SELECT {self.name_header} FROM {self.table}')
         if not query.exec():
             logger_setup.get_logger().critical(
                 f'Error selecting display column from {self.table}: {query.lastError().text()}')
@@ -157,9 +148,7 @@ class AddTreeTags(QtW.QDialog):
         completer.setCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
         completer.setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
         self.newName_lineEdit.setCompleter(completer)
-
-        restore_expanded_state(self.table, self.tags_treeView)
-        close_loading_dialog('Loading', f'Loading {self.table}...')
+        close_loading_dialog('Loading', f'Loading {self.source_model.rowCount()} {self.table}...')
 
     def show_context_menu(self, pos: QtC.QPoint):
         """
@@ -243,7 +232,7 @@ class AddTreeTags(QtW.QDialog):
             for child in range(len(self.item_ids)):
                 # Move only if the child currently has the old parent ID
                 current_parent_ID = self.old_parent_ids[child] if isinstance(self.old_parent_ids[child], int) else None
-                if current_parent_ID == parent_id:
+                if current_parent_ID != new_parent_id:
                     if not self.tree_model.moveItem(self.item_ids[child], parent_row, pID):
                         close_loading_dialog('Adding item', f'Adding {self.newName_lineEdit.text()} to {self.table}...')
                         return False
@@ -251,17 +240,15 @@ class AddTreeTags(QtW.QDialog):
             logger_setup.get_logger().info(f'Updated parent of {self.item_ids} to {new_parent_id} in {self.table}')
             if new_parent_id:
                 # Add the new parent ID to the list of expanded IDs in the settings
-                expanded_ids = settings.value(f'expanded_ids_{self.table}', [])
+                expanded_ids = settings.value(f'expanded_ids_{self.table}', set())
                 expanded_ids.add(new_parent_id)
                 settings.setValue(f'expanded_ids_{self.table}', expanded_ids)
         self.updated = True
         if self.parent_id:
             # Add it to the settings list of expanded items
-            expanded_ids = settings.value(f'expanded_ids_{self.table}', [])
+            expanded_ids = settings.value(f'expanded_ids_{self.table}', set())
             expanded_ids.add(self.parent_id)
             settings.setValue(f'expanded_ids_{self.table}', expanded_ids)
-        save_expanded_state(self.table, self.tags_treeView)
-        # self.source_model.dataChanged.emit()
         self.update_proxy()
         self.newName_lineEdit.clear()
         self.newDescription_lineEdit.clear()

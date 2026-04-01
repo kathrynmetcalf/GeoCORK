@@ -1,5 +1,6 @@
 import os
 import sys
+from wsgiref import headers
 
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
@@ -11,9 +12,13 @@ from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
 import logger_setup
 from Functions.Database_manager import update_database
-from Functions.LoadingDialog_manager import LoadingDialogManager
+from Functions.Database_views import ViewQuery
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
-from Functions.Widget_classes import set_table, get_headers, get_name_column, description_column, ReadableProxyModel
+from Functions.Settings_manager import SettingsManager
+settings = SettingsManager().settings
+import Functions.SQLUtils as SQLUtils
+from Functions.Widget_classes import set_table, get_headers, get_name_column, description_column, ReadableProxyModel, \
+    get_edit_view_from_table, SQLiteTableModel, close_loading_dialog, show_loading_dialog
 
 
 class AddTags(QtW.QDialog):
@@ -23,7 +28,6 @@ class AddTags(QtW.QDialog):
 
     def __init__(self, parent_window, table):
         super().__init__(parent=parent_window)
-        self.loading_manager = LoadingDialogManager.get_instance()
         logger_setup.get_logger().info(f'Starting AddTags dialog for {table}...')
         # Define any widgets here
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
@@ -36,7 +40,6 @@ class AddTags(QtW.QDialog):
 
         self.table = table
         self.model = QtS.QSqlTableModel()
-        set_table(self.model, self.table)
         self.table_name = TxM.add_spaces_camel(self.table)
         self.selectTags_label.setText(self.table_name)
         self.errmsg = QtW.QMessageBox(self)
@@ -44,18 +47,9 @@ class AddTags(QtW.QDialog):
         self.cancel_pushButton.setAutoDefault(False)
         self.ok_pushButton.setAutoDefault(True)
 
-        self.sample_info_text = QLabel(parent=self, text='Utilize Edit Samples to modify Sample Metadata. This only adds samples with a name and description.')
-        self.layout().insertWidget(4, self.sample_info_text)
-
         self.filter_proxy_model = ReadableProxyModel()
-        self.filter_proxy_model.setSourceModel(self.model)
-        self.filter_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
-        self.filter_proxy_model.setFilterKeyColumn(1)
         self.newName_lineEdit.textChanged.connect(self.filter_proxy_model.setFilterRegularExpression)
 
-        self.columns = get_headers(self.table)
-        self.name_column = self.columns[get_name_column(self.table)]
-        self.description_column = self.columns[description_column(self.table)]
         self.existing_names = set()
 
         self.close_by_dialog = False
@@ -65,29 +59,32 @@ class AddTags(QtW.QDialog):
         self.cancel_pushButton.clicked.connect(self.discard_question)
         self.finish_pushButton.clicked.connect(self.commit)
 
-        self.loading_manager.close_loading_dialog('Loading', f'Opening add window for {self.table}...')
+        close_loading_dialog('Loading', f'Opening add window for {self.table}...')
 
     def display_tags(self):
         """
         Displays the tags in the table view.
         :return:
         """
+        self.model = QtS.QSqlTableModel()
+        set_table(self.model, self.table)
+        self.columns = get_headers(self.table)
+        self.name_header = self.columns[get_name_column(self.table)]
+        self.description_header = self.columns[description_column(self.table)]
+        while self.model.canFetchMore():
+            self.model.fetchMore()
+        self.filter_proxy_model.setSourceModel(self.model)
+        self.filter_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        self.filter_proxy_model.setFilterKeyColumn(1)
         self.tags_tableView.setModel(self.filter_proxy_model)
         self.tags_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tags_tableView.hideColumn(0)  # Hide the ID column
-        if self.table == 'Samples':
-            self.tags_tableView.hideColumn(3)
-            self.tags_tableView.hideColumn(4)
-            self.tags_tableView.hideColumn(5)
-            self.tags_tableView.hideColumn(6)
-            self.tags_tableView.hideColumn(7)
-            self.tags_tableView.hideColumn(8)
         self.tags_tableView.resizeColumnsToContents()
         self.tags_tableView.horizontalHeader().setDefaultAlignment(QtC.Qt.AlignmentFlag.AlignLeft)
         query = QtS.QSqlQuery()
 
         # Get a list of the existing tag names
-        query.prepare(f'SELECT {self.name_column} FROM {self.table}')
+        query.prepare(f'SELECT {self.name_header} FROM {self.table}')
         if not query.exec():
             logger_setup.get_logger().critical(
                 f'Error selecting display column from {self.table}: {query.lastError().text()}')
@@ -116,7 +113,7 @@ class AddTags(QtW.QDialog):
         name = self.newName_lineEdit.text()
         description = self.newDescription_lineEdit.text()
         query = QtS.QSqlQuery()
-        query.prepare(f'INSERT INTO {self.table}({self.name_column}, {self.description_column}) VALUES(?, ?)')
+        query.prepare(f'INSERT INTO {self.table}({self.name_header}, {self.description_header}) VALUES(?, ?)')
         query.addBindValue(name)
         query.addBindValue(None if description=='' else description)
 
@@ -130,23 +127,23 @@ class AddTags(QtW.QDialog):
                 for entry in self.existing_names:
                     if name.casefold() == entry.casefold():
                         duplicates.append(entry)
-                logger_setup.get_logger().critical(
+                logger_setup.get_logger().error(
                     f'Each entry in {header} must be unique (case insensitive)\nDuplicates: {duplicates}')
                 logger_setup.get_logger().debug(f'Error: {error}')
                 logger_setup.get_logger().debug(f'SQL command: {query.lastQuery()}')
             elif 'CHECK constraint failed:' in error:
-                logger_setup.get_logger().critical(f'{header} cannot be blank')
+                logger_setup.get_logger().error(f'{header} cannot be blank')
                 logger_setup.get_logger().debug(f'Error: {error}')
                 logger_setup.get_logger().debug(f'SQL command: {query.lastQuery()}')
             else:
                 logger_setup.get_logger().critical(f'Error: {error}')
                 logger_setup.get_logger().debug(f'SQL command: {query.lastQuery()}')
             rollback_savepoint('before_add')
+            return False
 
         logger_setup.get_logger().info(f'Successfully inserted {name} into {self.table}')
         self.updated = True
         self.ids_added.append(query.lastInsertId())
-        self.model.setTable(self.table)
         self.model.select()
         while self.model.canFetchMore():
             self.model.fetchMore()

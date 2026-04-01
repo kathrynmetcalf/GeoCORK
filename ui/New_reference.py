@@ -6,7 +6,7 @@ from PyQt6 import QtCore as QtC
 from PyQt6.uic import loadUi
 from PyQt6.QtSql import QSqlQuery
 
-from Functions.LoadingDialog_manager import LoadingDialogManager
+from Functions.Widget_classes import close_loading_dialog, show_loading_dialog
 import logger_setup
 
 
@@ -15,7 +15,6 @@ class NewReference(QtW.QDialog):
         super().__init__(parent=parent_window)
 
         logger_setup.get_logger().info(f'Opening reference add dialog')
-        self.loading_manager = LoadingDialogManager().get_instance()
 
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         base_path = os.path.normpath(base_path)
@@ -30,7 +29,7 @@ class NewReference(QtW.QDialog):
         self.ok_buttonBox.accepted.connect(self.add_reference)
         self.ok_buttonBox.rejected.connect(self.rejected)
 
-        self.loading_manager.close_loading_dialog('Loading', 'Opening add window for References...')
+        close_loading_dialog('Loading', 'Opening add window for References...')
 
     def add_reference(self):
         authors = self.authors_lineEdit.text()

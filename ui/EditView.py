@@ -1,36 +1,36 @@
 import os
 import sys
 import time
-from operator import index, itemgetter
+import math
 
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
-from PyQt6.QtCore import QPoint, QSize, QSortFilterProxyModel
+from PyQt6.QtCore import QPoint, QSize, QSortFilterProxyModel, QRegularExpression, Qt
 from PyQt6.QtSql import QSqlQuery
-from PyQt6.QtWidgets import QCompleter, QMessageBox
+from PyQt6.QtWidgets import QCompleter, QMessageBox, QTreeView, QApplication
 from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
 import logger_setup
-import difflib
-
-from Functions.SQLUtils import spot_aliquot_join, aliquot_sample_join
 from Functions.Widget_classes import (
     TreeModel, CheckableTreeCombobox, CheckableTreeModel, ReadableProxyModel, populate_combo_box,
     SQLiteTableModel, CheckableComboBox, CheckableSqlTableModel, CheckableSqlQueryModel, get_headers, get_name_column,
-    set_table, populate_many_combo_checks, populate_model_checks, delete_data,
+    set_table, populate_many_combo_checks, populate_model_checks, delete_data, scroll_to_record,
     WordWrapDelegate, get_columns, get_table_from_view, find_current_sub_items, get_total_records, get_record_index,
-    get_id_from_name, add_tree_popup, save_expanded_state, restore_expanded_state, get_readable_header,
+    get_id_from_name, add_tree_popup, save_expanded_state, get_readable_header,
     get_name_from_id, find_tree_model, get_view_from_table, TreeSortFilterProxyModel, populate_tree_model_checks,
-    columns_as_list, show_loading_dialog, close_loading_dialog
+    columns_as_list, show_loading_dialog, close_loading_dialog, CheckableTreeView, populate_many_model_checks,
+    CheckableTableView, LazyCheckableTreeModel
 )
 from Functions import SQLUtils
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint, SavepointManager
 from Functions.Settings_manager import SettingsManager
+from ui.SampleChainEdit import SampleChainEdit
+from ui.AddDataItem import AddDataItem
+
 settings = SettingsManager().settings
 from Functions.Database_views import ViewQuery
-from Functions.LoadingDialog_manager import LoadingDialogManager
 from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags
 from ui.EditTree import EditTree
@@ -48,11 +48,10 @@ class SetSelectedValues(QtW.QDialog):
         self.setWindowTitle('Set selected values')
         self.setModal(True)
         self.close_by_dialog = False
-        self.loading_manager = LoadingDialogManager.get_instance()
         # self.setMinimumSize(600, 200)
 
         self.widget = widget
-        self.widget.setVisible(True)
+        # self.widget.setVisible(True)
         self.widget.setSizePolicy(QtW.QSizePolicy.Policy.Expanding, QtW.QSizePolicy.Policy.Expanding)
         if isinstance(self.widget, QtW.QComboBox):
             self.widget.setSizeAdjustPolicy(QtW.QComboBox.SizeAdjustPolicy.AdjustToContents)
@@ -77,7 +76,7 @@ class SetSelectedValues(QtW.QDialog):
         elif isinstance(self.widget, CheckableTreeCombobox):
             self.widget.add_triggered.connect(self.add_popup)
             self.widget.edit_triggered.connect(self.edit_popup)
-        self.loading_manager.close_loading_dialog('Loading', f'Loading...')
+        close_loading_dialog('Loading', f'Loading...')
 
     def add_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
         combo.blockSignals(True)
@@ -102,17 +101,17 @@ class SetSelectedValues(QtW.QDialog):
         if table in SQLUtils.user_viewable_trees:
             save_expanded_state(table, combo.view())
             dlg_args = add_tree_popup(combo.view(), action)
-            self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
+            show_loading_dialog('Loading', f'Opening add window for {table}...')
             if dlg_args:
                 dlg = AddTreeTags(self, table, **dlg_args)
             else:
                 dlg = AddTreeTags(self, table)
         elif table in ['References', '"References"']:
             table = 'References'
-            self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
+            show_loading_dialog('Loading', f'Opening add window for {table}...')
             dlg = NewReference(self)
         else:
-            self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
+            show_loading_dialog('Loading', f'Opening add window for {table}...')
             dlg = AddTags(self, table)
         if not dlg:
             combo.blockSignals(False)
@@ -204,7 +203,6 @@ class SetSelectedValues(QtW.QDialog):
 class EditView(QtW.QDialog):
     def __init__(self, parent_window, table_name, **kwargs):
         super().__init__(parent=parent_window)
-        self.loading_manager = LoadingDialogManager.get_instance()
         self.loadWindowState()
 
         logger_setup.get_logger().info(f'Creating a new EditView for {get_readable_header(table_name)}')
@@ -233,6 +231,7 @@ class EditView(QtW.QDialog):
         self.rows_per_page = settings.value('show_per_page')
         self.show_per_page_comboBox.setCurrentText(str(self.rows_per_page))
         self.total_pages = 0
+        self.total_records = 0
 
         self.table = TxM.remove_spaces(table_name)
         self.msg = QtW.QMessageBox()
@@ -251,6 +250,10 @@ class EditView(QtW.QDialog):
         self.combo_proxy = None
         self.dropdown_table = None
         self.lineEdit = None
+        self.edit_index = QtC.QModelIndex()
+        self.view = None
+        self.view_index = QtC.QModelIndex()
+        self.view_model = None
         self.msg = QtW.QMessageBox(self)
         self.close_by_dialog = False
         self.tabbed_from_editor = False
@@ -270,6 +273,7 @@ class EditView(QtW.QDialog):
         create_savepoint('before_edit')
 
         self.connect_table_signals()
+        self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit_question)
         self.cancel_pushButton.clicked.connect(self.discard_question)
         self.goto_line_edit.returnPressed.connect(self.go_to_record)
@@ -279,7 +283,7 @@ class EditView(QtW.QDialog):
         self.search_lineEdit.returnPressed.connect(self.search)
         self.set_go_to_completer()
 
-        self.loading_manager.close_loading_dialog('Loading', f'Opening edit window for {self.table}...')
+        close_loading_dialog('Loading', f'Opening edit window for {self.table}...')
         logger_setup.get_logger().info(f'EditView created for {self.table} in {time.time() - edit_view_start_time:.2f} seconds')
 
     def connect_table_signals(self):
@@ -330,10 +334,8 @@ class EditView(QtW.QDialog):
         if self.table in SQLUtils.trigger_tables:
             if self.table == 'Columns':
                 self.show_cols = settings.value('column_edit_columns')
-                self.add_pushButton.clicked.connect(self.add_popup)
             elif self.table == 'Samples':
                 self.show_cols = settings.value('sample_edit_columns')
-                self.add_pushButton.hide()
             elif self.table == 'Spots' or self.table == 'UPbAnalyses' or self.table == 'Grains':
                 self.parent_id_header = 'SampleID' if self.parent_type == 'Samples' \
                     else 'AliquotID' if self.parent_type == 'Aliquots' \
@@ -347,10 +349,8 @@ class EditView(QtW.QDialog):
                     self.show_cols = settings.value('spot_edit_columns')
                 elif self.table == 'UPbAnalyses':
                     self.show_cols = settings.value('upb_analysis_edit_columns')
-                self.add_pushButton.hide()
         elif self.table == 'References':
             self.show_cols = settings.value('reference_view_columns')
-            self.add_pushButton.clicked.connect(self.add_popup)
         if self.set_table_item_ids is not None:
             self.table_item_ids = self.set_table_item_ids
             if len(self.set_table_item_ids) == 1:
@@ -364,9 +364,13 @@ class EditView(QtW.QDialog):
         query_args = {'show_columns': self.show_cols, 'limit': self.limit, 'where': self.where}
         view_query = ViewQuery(self.table, True, **query_args)
         table_query = view_query.table_query
-        show_loading_dialog('Loading', f'Loading related data for {self.table}...')
+        if settings.value('show_items_missing_data'):
+            msg = f'Loading related data for {self.table}...\n\nSettings to speed up loading:\n- Hide items with missing data\n- Reduce the columns shown'
+        else:
+            msg = f'Loading related data for {self.table}...\n\nSettings to speed up loading:\n- Reduce the columns shown'
+        show_loading_dialog('Loading', msg)
         self.model = SQLiteTableModel(table_query, view_query=view_query)
-        close_loading_dialog('Loading', f'Loading related data for {self.table}...')
+        close_loading_dialog('Loading', msg)
         if self.model.last_error is not None:
             logger_setup.get_logger().critical(f'Error displaying {self.table}.')
             return
@@ -374,7 +378,7 @@ class EditView(QtW.QDialog):
             query_args = {'show_columns': [self.show_cols[0]], 'where': self.where}
             view_query = ViewQuery(self.table, True, **query_args)
             table_query = view_query.table_query
-            self.table_item_ids = columns_as_list(table_query, [0], view_query)[0]
+            self.table_item_ids = columns_as_list(table_query, [0], view_query)[0]  # slow
         self.model.set_table(self.table)
         self.display_table()
 
@@ -434,8 +438,9 @@ class EditView(QtW.QDialog):
         """
         Slot to move to the next page for the displayed table
         """
-        if not self.reset_model_question():
-            return
+        if self.updated:
+            if not self.reset_model_question():
+                return
         if (self.current_page + 1) * self.rows_per_page < self.total_pages:
             self.current_page += 1
             self.limit = f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'
@@ -445,8 +450,9 @@ class EditView(QtW.QDialog):
         """
         Slot to move to the previous page for the displayed table
         """
-        if not self.reset_model_question():
-            return
+        if self.updated:
+            if not self.reset_model_question():
+                return
         if self.current_page > 0:
             self.current_page -= 1
             self.limit = f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'
@@ -459,43 +465,23 @@ class EditView(QtW.QDialog):
         query_args = {'show_columns': [self.name_header], 'where': self.where}
         view_query = ViewQuery(self.table, True, **query_args)
         table_query = view_query.table_query
-        where_ids = view_query.where_ids
-        create_temp_id = view_query.create_temp_id
-        create_temp_paged = view_query.create_temp_paged
-        if create_temp_id and where_ids:
-            if not query.exec(create_temp_id):
-                logger_setup.get_logger().critical(f'Error setting up completer')
-                logger_setup.get_logger().debug(f'Error creating temporary IDs for completer')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {create_temp_id}')
-                return
-            id_header = create_temp_id.split('TempIDs (')[1].split(' ')[0].strip()
-            if not query.exec(
-                f'INSERT INTO TempIds ({id_header}) VALUES {", ".join(f"({item_id})" for item_id in where_ids)}'):
-                logger_setup.get_logger().critical(f'Error setting up completer')
-                logger_setup.get_logger().debug(f'Error inserting IDs into temporary IDs for completer')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {create_temp_id}')
-                return
-        if create_temp_paged:
-            if not query.exec(create_temp_paged):
-                logger_setup.get_logger().critical(f'Error setting up completer')
-                logger_setup.get_logger().debug(f'Error creating temporary paged IDs for completer')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {create_temp_paged}')
-                return
         logger_setup.get_logger().debug(f'SQL command: {table_query}')
         query.setForwardOnly(True)
         if not query.exec(table_query):
             logger_setup.get_logger().critical(f'Error creating the completer for input')
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
             logger_setup.get_logger().debug(f'SQL command: {table_query}')
-        values = set()
+        all_names = set()
         while query.next():
-            values.add(query.value(0))
-        self.name_completer.setModel(QtC.QStringListModel(values))
+            all_names.add(query.value(0))
+        list_model = QtC.QStringListModel(sorted(all_names, key=str.casefold))
+        list_proxy_model = QtC.QSortFilterProxyModel()
+        list_proxy_model.setSourceModel(list_model)
+        list_proxy_model.setSortCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        self.name_completer.setModel(list_proxy_model)
         self.name_completer.setFilterMode(QtC.Qt.MatchFlag.MatchContains)
         self.name_completer.setCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        self.name_completer.setModelSorting(QtW.QCompleter.ModelSorting.CaseInsensitivelySortedModel)
         self.name_completer.setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
 
         self.goto_line_edit.setCompleter(self.name_completer)
@@ -527,11 +513,13 @@ class EditView(QtW.QDialog):
                 if self.current_page == new_page:
                     QMessageBox.information(self, 'Record Found', 'Record already displayed')
                 else:
-                    if not self.reset_model_question():
-                        return
+                    if self.updated:
+                        if not self.reset_model_question():
+                            return
                     self.current_page = new_page
                     self.limit = f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'
                     self.create_model()
+                scroll_to_record(record_id, self.edit_tableView)
             else:
                 logger_setup.get_logger().critical(f"Record {self.name_header} not found: {self.goto_line_edit.text()}")
         except Exception as e:
@@ -575,6 +563,7 @@ class EditView(QtW.QDialog):
         for index in indexes:
             if not index.isValid():
                 return
+        selected_rows = set(index.row() for index in indexes)
         clear_action = menu.addAction('Clear selected values')
         single_column = False
         for index in indexes:
@@ -586,8 +575,18 @@ class EditView(QtW.QDialog):
             set_selected_action = menu.addAction('Set selected values')
         else:
             set_selected_action = None
-        edit_action = menu.addAction('Edit')
-        if len(indexes) > 1:
+        if len(selected_rows) == 1:
+            if self.table == 'Samples':
+                add_action = menu.addAction('Add Aliquot')
+            elif self.table == 'Grains':
+                add_action = menu.addAction('Add Spot')
+            elif self.table == 'Spots':
+                add_action = menu.addAction('Add UPb Analysis')
+            else:
+                add_action = None
+        else:
+            add_action = None
+        if len(selected_rows) > 1:
             merge_action = menu.addAction('Merge')
         else:
             merge_action = None
@@ -603,24 +602,24 @@ class EditView(QtW.QDialog):
                 dlg = SetSelectedValues(self, self.lineEdit)
                 if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
                     self.lineEdit = dlg.widget
-                    self.loading_manager.show_loading_dialog('Loading', f'Loading...')
+                    show_loading_dialog('Loading', f'Loading...')
                     self.save_lineedit_data()
                     self.display_table()
-                    self.loading_manager.close_loading_dialog('Loading', f'Loading...')
+                    close_loading_dialog('Loading', f'Loading...')
                 else:
                     self.destroy_lineedit()
             elif self.combo:
                 dlg = SetSelectedValues(self, self.combo)
                 if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
                     self.combo = dlg.widget
-                    self.loading_manager.show_loading_dialog('Loading', f'Loading...')
+                    show_loading_dialog('Loading', f'Loading...')
                     self.save_dropdown_data()
                     self.display_table()
-                    self.loading_manager.close_loading_dialog('Loading', f'Loading...')
+                    close_loading_dialog('Loading', f'Loading...')
                 else:
                     self.destroy_dropdown()
-        elif action == edit_action:
-            self.display_widget()
+        elif action == add_action:
+            self.add_child_popup()
         elif action == merge_action:
             ids_to_merge = []
             for index in indexes:
@@ -665,7 +664,7 @@ class EditView(QtW.QDialog):
     def display_table(self):
         start_time = time.time()
         logger_setup.get_logger().info(f'Displaying {self.table} table')
-        self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table}...')
+        show_loading_dialog('Loading', f'Displaying {self.table}...')
         # Reset column sorting indicator
         self.edit_tableView.horizontalHeader().setSortIndicator(-1, QtC.Qt.SortOrder.AscendingOrder)
         self.proxy_model = ReadableProxyModel(view=True)
@@ -696,13 +695,16 @@ class EditView(QtW.QDialog):
 
         if self.table_item_ids:
             # If the table_item_ids are provided, we need to set the total records based on the filtered data
-            self.total_pages = len(self.table_item_ids)
-        elif self.where != '':
-            self.total_pages = get_total_records(self.table, self.where)
+            self.total_records = len(self.table_item_ids)
         else:
-            self.total_pages = get_total_records(self.table)
+            query_args = {'show_columns': [self.show_cols[0]], 'where': self.where}
+            view_query = ViewQuery(self.table, True, **query_args)
+            table_query = view_query.table_query
+            self.table_item_ids = columns_as_list(table_query, [0], view_query)[0]
+            self.total_records = len(self.table_item_ids)
         self.page_info_label.setText(
-            f'{self.current_page * self.rows_per_page + 1}-{min((self.current_page + 1) * self.rows_per_page, self.total_pages)} of {self.total_pages}')
+                f'{self.current_page * self.rows_per_page + 1}-{min((self.current_page + 1) * self.rows_per_page, self.total_records)} of {self.total_records}')
+        self.total_pages = math.ceil(self.total_records // self.rows_per_page) + 1
         self.goto_line_edit.clear()
         self.goto_line_edit.setPlaceholderText(f'Go to {self.name_header}...')
 
@@ -721,10 +723,10 @@ class EditView(QtW.QDialog):
                 self.edit_tableView.setColumnWidth(column, 400)
         self.connect_table_signals()
 
-        self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table}...')
+        close_loading_dialog('Loading', f'Displaying {self.table}...')
         end_time = time.time()
         logger_setup.get_logger().info(f'Displayed {self.table} in {end_time - start_time} seconds')
-        self.loading_manager.close_loading_dialog('Loading', f'Loading...')
+        close_loading_dialog('Loading', f'Loading...')
 
     def display_widget(self):
         if len(self.edit_tableView.selectedIndexes()) == 0:
@@ -753,36 +755,46 @@ class EditView(QtW.QDialog):
             if self.combo is not None:
                 logger_setup.get_logger().info('Error destroying previous dropdown')
                 return
+        if self.table in ['References', '"References"'] and model_index.column() == self.name_column:
+            # This is the reference display column which is not editable
+            header = self.model.headerData(model_index.column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+            logger_setup.get_logger().error(f'{get_readable_header(header)} is created from other fields and is not directly editable')
+            return
         if model_index.column() == self.name_column:
             # The column is the name column for the table. This should be edited with a line edit.
             self.create_lineedit()
             return
-        self.loading_manager.show_loading_dialog('Loading', f'Loading...')
+        show_loading_dialog('Loading', f'Loading...')
         header = self.model.headerData(model_index.column(), QtC.Qt.Orientation.Horizontal,
                                        QtC.Qt.ItemDataRole.DisplayRole)
+        item_ids = []
+        for proxy_index in self.edit_tableView.selectedIndexes():
+            row = proxy_index.row()
+            item_id = self.proxy_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
+            if item_id not in item_ids:
+                item_ids.append(item_id)
         if 'GPS' in header or 'Elevation' in header:
             if not self.tabbed_from_editor:
                 # Do not open the popup if tabbing here, only when double-clicking
-                item_ids = []
-                row = model_index.row()
-                item_ids.append(self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole))
-                self.loading_manager.show_loading_dialog('Loading', f'Opening GPS editor...')
+                close_loading_dialog('Loading', f'Loading...')
+                show_loading_dialog('Loading', f'Opening GPS editor...')
                 dlg = GPSDialog(self.table, item_ids, self)
                 dlg.exec()
                 if dlg.gps_fields.updated:
                     self.updated = True
                     logger_setup.get_logger().info(f'Repopulating {get_readable_header(header)} for {item_ids[0]}')
-                    if not self.update_model_data(header, self.gps_headers, item_ids, row):
-                        logger_setup.get_logger().critical(f'Error updating model data for {get_readable_header(header)}')
-                        return
+                    for proxy_index in self.edit_tableView.selectedIndexes():
+                        row = proxy_index.row()
+                        if not self.update_model_data(header, self.gps_headers, item_ids, row):
+                            logger_setup.get_logger().critical(f'Error updating model data for {get_readable_header(header)}')
+                            close_loading_dialog('Loading', f'Opening GPS editor...')
+                            return
             else:
                 self.edit_tableView.setFocus()
         elif 'SampleAge' in header and 'AgeSignature' not in header:
             if not self.tabbed_from_editor:
-                item_ids = []
-                row = model_index.row()
-                item_ids.append(self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole))
-                self.loading_manager.show_loading_dialog('Loading', f'Opening sample age editor...')
+                close_loading_dialog('Loading', f'Loading...')
+                show_loading_dialog('Loading', f'Opening sample age editor...')
                 dlg = AgeDialog(self.table, item_ids, self)
                 dlg.exec()
                 if dlg.age_fields.updated:
@@ -790,9 +802,15 @@ class EditView(QtW.QDialog):
                     logger_setup.get_logger().info(f'Repopulating {get_readable_header(header)} for {item_ids[0]}')
                     if not self.update_model_data(header, self.age_headers, item_ids, row):
                         logger_setup.get_logger().critical(f'Error updating model data for {get_readable_header(header)}')
+                        close_loading_dialog('Loading', f'Opening sample age editor...')
                         return
             else:
                 self.edit_tableView.setFocus()
+        elif (header in ['SampleName', 'AliquotName', 'GrainName', 'SpotName'] and
+            self.table in ['Grains', 'Spots', 'UPbAnalyses']):
+            if not self.tabbed_from_editor:
+                self.edit_sample_chain(item_ids)
+
         else:
             self.dropdown_table = ''
             if 'Rejected' in header:
@@ -801,25 +819,27 @@ class EditView(QtW.QDialog):
                 columns = None
                 if header in SQLUtils.non_editable[self.table]:
                     logger_setup.get_logger().error(f'{get_readable_header(header)} is not editable')
+                    close_loading_dialog('Loading', f'Loading...')
                     return
-                elif header in SQLUtils.many_editable[self.table].keys():
+                elif header in SQLUtils.many_editable[self.table]:
                     columns = SQLUtils.many_editable[self.table]
-                elif header in SQLUtils.one_editable[self.table].keys():
+                elif header in SQLUtils.one_editable[self.table]:
                     columns = SQLUtils.one_editable[self.table]
                 else:
                     for key, values in SQLUtils.many_editable.items():
-                        if header in values.keys():
+                        if header in values:
                             columns = values
                             break
                     if columns is None:
                         for key, values in SQLUtils.one_editable.items():
-                            if header in values.keys():
+                            if header in values:
                                 columns = values
                                 break
                     if columns is None:
                         for key, values in SQLUtils.non_editable.items():
                             if header in values:
                                 logger_setup.get_logger().info(f'{get_readable_header(header)} is not editable')
+                                close_loading_dialog('Loading', f'Loading...')
                                 return
                 if columns is not None:
                     for col_key in columns:
@@ -830,15 +850,17 @@ class EditView(QtW.QDialog):
                 query, virtual, stored, columns = get_columns(self.table)
                 if f'"{header}"' in virtual or f'"{header}"' in stored:
                     logger_setup.get_logger().error(f'{get_readable_header(header)} is auto-generated and not editable')
+                    close_loading_dialog('Loading', f'Loading...')
                     return
                 self.create_lineedit()
             else:
                 query, virtual, stored, columns = get_columns(self.dropdown_table)
                 if f'"{header}"' in virtual or f'"{header}"' in stored:
                     logger_setup.get_logger().error(f'{get_readable_header(header)} is auto-generated and not editable')
+                    close_loading_dialog('Loading', f'Loading...')
                     return
                 self.create_dropdown()
-        self.loading_manager.close_loading_dialog('Loading', f'Loading...')
+        close_loading_dialog('Loading', f'Loading...')
 
     def update_model_data(self, header: str, show_columns: list, item_ids: list, row: int) -> bool:
         """
@@ -853,41 +875,6 @@ class EditView(QtW.QDialog):
         query_args = {'show_columns': show_columns, 'where': f' WHERE {self.table_headers[0]} = {item_ids[0]}'}
         view_query = ViewQuery(self.table, True, **query_args)
         table_query = view_query.table_query
-        where_ids = view_query.where_ids
-        create_temp_id = view_query.create_temp_id
-        create_temp_paged = view_query.create_temp_paged
-        if ('TempIds' in table_query and not create_temp_id) or ('TempPaged' in table_query and not create_temp_paged):
-            # If the query contains temporary tables but not the create statements for the temp tables
-            logger_setup.get_logger().debug(f'Query includes temporary tables, but no query to create them')
-            logger_setup.get_logger().debug(
-                f'SQL query: {table_query}\nCreate TempIDs: {create_temp_id}\nCreate TempPaged: {create_temp_paged}')
-            return False
-        if create_temp_id and where_ids:
-            # Make sure any existing temp table is dropped before creating a new one
-            if not query.exec('DROP TABLE IF EXISTS TempIDs'):
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: DROP TABLE IF EXISTS TempIDs')
-                return False
-            if not query.exec(create_temp_id):
-                logger_setup.get_logger().debug(f'Error creating TempIDs table: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {create_temp_id}')
-                return False
-            id_header = create_temp_id.split('TempIDs (')[1].split(' ')[0].strip()
-            if not query.exec(
-                    f'INSERT INTO TempIds ({id_header}) VALUES {", ".join(f"({item_id})" for item_id in where_ids)}'):
-                logger_setup.get_logger().debug(f'Error inserting IDs into TempIDs table: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {create_temp_id}')
-                return False
-        if create_temp_paged:
-            # Make sure any existing temp table is dropped before creating a new one
-            if not query.exec('DROP TABLE IF EXISTS TempPaged'):
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: DROP TABLE IF EXISTS TempPaged')
-                return False
-            if not query.exec(create_temp_paged):
-                logger_setup.get_logger().debug(f'Error creating TempPaged table: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {create_temp_paged}')
-                return False
         if not query.exec(table_query):
             logger_setup.get_logger().debug(
                 f'Failed to get {get_readable_header(header)} for {item_ids[0]}: {query.lastError().text()}')
@@ -899,15 +886,96 @@ class EditView(QtW.QDialog):
                 self.model.setData(self.model.index(row, col), query.value(header), QtC.Qt.ItemDataRole.EditRole)
                 logger_setup.get_logger().info(
                     f'New {header} value: {self.model.index(row, col).data(QtC.Qt.ItemDataRole.DisplayRole)}')
-        if not query.exec('DROP TABLE IF EXISTS TempPaged'):
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: DROP TABLE IF EXISTS TempPaged')
-            return False
-        if not query.exec('DROP TABLE IF EXISTS TempIDs'):
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: DROP TABLE IF EXISTS TempIDs')
-            return False
         return True
+
+    def edit_sample_chain(self, item_ids):
+        close_loading_dialog('Loading', f'Loading...')
+        current_parents = {}
+        update_row_ids = []
+        sample_id_col = None
+        aliquot_id_col = None
+        grain_id_col = None
+        spot_id_col = None
+        for row in range(self.proxy_model.rowCount()):
+            row_id = self.proxy_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
+            if row_id not in item_ids:
+                continue
+            if row_id not in update_row_ids:
+                update_row_ids.append(row_id)
+            if 'SampleID' in self.show_cols and self.table != 'Samples':
+                sample_id_col = self.show_cols.index('SampleID')
+                current_sample_id = self.model.index(row, sample_id_col).data(QtC.Qt.ItemDataRole.DisplayRole)
+                if 'Samples' not in current_parents:
+                    current_parents['Samples'] = []
+                if current_sample_id not in current_parents['Samples']:
+                    current_parents['Samples'].append(current_sample_id)
+            if 'AliquotID' in self.show_cols and self.table != 'Aliquots':
+                aliquot_id_col = self.show_cols.index('AliquotID')
+                current_aliquot_id = self.model.index(row, aliquot_id_col).data(QtC.Qt.ItemDataRole.DisplayRole)
+                if 'Aliquots' not in current_parents:
+                    current_parents['Aliquots'] = []
+                if current_aliquot_id not in current_parents['Aliquots']:
+                    current_parents['Aliquots'].append(current_aliquot_id)
+            if 'GrainID' in self.show_cols and self.table != 'Grains':
+                grain_id_col = self.show_cols.index('GrainID')
+                current_grain_id = self.model.index(row, grain_id_col).data(QtC.Qt.ItemDataRole.DisplayRole)
+                if 'Grains' not in current_parents:
+                    current_parents['Grains'] = []
+                if current_grain_id not in current_parents['Grains']:
+                    current_parents['Grains'].append(current_grain_id)
+            if 'SpotID' in self.show_cols and self.table != 'Spots':
+                spot_id_col = self.show_cols.index('SpotID')
+                current_spot_id = self.model.index(row, spot_id_col).data(QtC.Qt.ItemDataRole.DisplayRole)
+                if 'Spots' not in current_parents:
+                    current_parents['Spots'] = []
+                if current_spot_id not in current_parents['Spots']:
+                    current_parents['Spots'].append(current_spot_id)
+        dlg = SampleChainEdit(self, self.table, current_parents, item_ids)
+        dlg.exec()
+        if dlg.updated:
+            # show_loading_dialog('Loading', f'Updating values...')
+            self.updated = True
+            sample_id = dlg.new_sample_id
+            sample_insert = True if dlg.sample_mode_comboBox.currentText() == 'New' else False
+            aliquot_id = dlg.new_aliquot_id
+            aliquot_insert = True if (dlg.aliquot_mode_comboBox.currentText() and dlg.aliquot_mode_comboBox.currentText() != 'Existing') else False
+            grain_id = dlg.new_grain_id
+            grain_insert = True if (dlg.grain_mode_comboBox.currentText() and dlg.grain_mode_comboBox.currentText() != 'Existing') else False
+            spot_id = dlg.new_spot_id
+            spot_insert = True if (dlg.spot_mode_comboBox.currentText() and dlg.spot_mode_comboBox.currentText() != 'Existing') else False
+            for row in range(self.proxy_model.rowCount()):
+                row_id = self.proxy_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
+                if row_id in update_row_ids:
+                    continue
+                if ('SpotID' in self.show_cols and spot_insert and
+                        self.proxy_model.index(row, spot_id_col).data(QtC.Qt.ItemDataRole.DisplayRole) == spot_id):
+                    if row_id in update_row_ids:
+                        update_row_ids.append(row_id)
+                    continue
+                elif ('GrainID' in self.show_cols and grain_insert and
+                      self.proxy_model.index(row, grain_id_col).data(QtC.Qt.ItemDataRole.DisplayRole) == grain_id):
+                    if row_id in update_row_ids:
+                        update_row_ids.append(row_id)
+                    continue
+                elif ('AliquotID' in self.show_cols and aliquot_insert and
+                      self.proxy_model.index(row, aliquot_id_col).data(QtC.Qt.ItemDataRole.DisplayRole) == aliquot_id):
+                    if row_id in update_row_ids:
+                        update_row_ids.append(row_id)
+                    continue
+                elif ('SampleID' in self.show_cols and sample_insert and
+                      self.proxy_model.index(row, sample_id_col).data(QtC.Qt.ItemDataRole.DisplayRole) == sample_id):
+                    if row_id in update_row_ids:
+                        update_row_ids.append(row_id)
+                    continue
+            logger_setup.get_logger().info(f'Updating {len(update_row_ids)} rows...')
+            self.model.beginResetModel()
+            if update_row_ids and isinstance(self.model, SQLiteTableModel):
+                if not self.model.update_id_rows_from_db(update_row_ids):
+                    logger_setup.get_logger().critical(f'Error updating view')
+                    self.model.endResetModel()
+                    return
+                logger_setup.get_logger().info(f'Updated {len(update_row_ids)} {self.table} in the view model')
+            self.model.endResetModel()
 
     def create_lineedit(self):
         logger_setup.get_logger().info('Displaying line edit')
@@ -938,7 +1006,7 @@ class EditView(QtW.QDialog):
 
     def display_lineedit(self):
         self.lineEdit.installEventFilter(self)
-        self.loading_manager.close_loading_dialog('Loading', f'Loading...')
+        close_loading_dialog('Loading', f'Loading...')
         self.lineEdit.returnPressed.connect(self.save_lineedit_data)
         self.lineEdit.editingFinished.connect(self.save_lineedit_data)
         self.edit_tableView.setIndexWidget(self.edit_tableView.selectedIndexes()[0], self.lineEdit)
@@ -991,10 +1059,9 @@ class EditView(QtW.QDialog):
             self.combo_index = self.edit_tableView.selectedIndexes()[0]
             model_indexes = [self.proxy_model.mapToSource(self.combo_index)]
         self.combo_model = QtS.QSqlTableModel()
-        self.combo = QtW.QComboBox()
+        self.combo = QtW.QComboBox(self)
         header = self.model.headerData(model_indexes[0].column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
         if self.dropdown_table == 'Rejected':
-            self.combo = QtW.QComboBox()
             self.combo.addItem('Accepted')
             self.combo.addItem('Rejected')
         else:
@@ -1004,39 +1071,39 @@ class EditView(QtW.QDialog):
                     (self.table == 'Grains' and self.dropdown_table == 'Aliquots')):
                 if self.parent_type == 'Samples':
                     if self.dropdown_table == 'Aliquots':
-                        self.combo = CheckableTreeCombobox()
+                        self.combo = CheckableTreeCombobox(self)
                         query = f'SELECT * FROM Aliquots WHERE SampleID = {self.parent_id}'
                     elif self.dropdown_table == 'Grains':
-                        self.combo = CheckableComboBox()
+                        self.combo = CheckableComboBox(self)
                         query = f'''SELECT * FROM Grains 
                             {SQLUtils.spot_aliquot_join}
                             {SQLUtils.grain_spot_join}
                             WHERE SampleID = {self.parent_id}'''
                     elif self.dropdown_table == 'Spots':
-                        self.combo = CheckableComboBox()
+                        self.combo = CheckableComboBox(self)
                         query = f'''SELECT * FROM Spots 
                             {SQLUtils.spot_aliquot_join}
                             WHERE SampleID = {self.parent_id}'''
                 elif self.parent_type == 'Aliquots':
                     if self.dropdown_table == 'Grains':
-                        self.combo = CheckableComboBox()
+                        self.combo = CheckableComboBox(self)
                         query = f'''SELECT * FROM Grains
                             {SQLUtils.spot_aliquot_join}
                             {SQLUtils.grain_spot_join}
                             WHERE AliquotID = {self.parent_id}'''
                     if self.dropdown_table == 'Spots':
-                        self.combo = CheckableComboBox()
+                        self.combo = CheckableComboBox(self)
                         query = f'SELECT * FROM Spots WHERE AliquotID = {self.parent_id}'
                 elif self.parent_type == 'Grains':
                     if self.dropdown_table == 'Spots':
-                        self.combo = CheckableComboBox()
+                        self.combo = CheckableComboBox(self)
                         query = f'SELECT * FROM Spots WHERE GrainID = {self.parent_id}'
             elif self.dropdown_table in SQLUtils.user_viewable_trees:
-                self.combo = CheckableTreeCombobox()
+                self.combo = CheckableTreeCombobox(self)
             elif 'Abbreviation' in header:
-                self.combo = QtW.QComboBox()
+                self.combo = QtW.QComboBox(self)
             else:
-                self.combo = CheckableComboBox()
+                self.combo = CheckableComboBox(self)
             populate_combo_box(self.combo, **{'table': self.dropdown_table, 'query': query})
             if isinstance(self.combo.model(), TreeSortFilterProxyModel):
                 self.combo_proxy = self.combo.model()
@@ -1064,6 +1131,8 @@ class EditView(QtW.QDialog):
                 return
             if '_' in edit_table:
                 populate_many_combo_checks(edit_table, self.combo, edit_ids)
+                if isinstance(self.combo.view(), CheckableTreeView):
+                    self.combo.view().expand_all_checked()
                 self.combo.single_click = False
             else:
                 if isinstance(self.combo_model, CheckableSqlTableModel | CheckableSqlQueryModel):
@@ -1071,6 +1140,7 @@ class EditView(QtW.QDialog):
                     self.combo.single_click = True
                 elif isinstance(self.combo_model, CheckableTreeModel):
                     populate_tree_model_checks(self.combo_model, edit_ids, edit_table)
+                    self.combo.view().expand_all_checked()
                     self.combo.single_click = True
         if not self.combo_index.isValid():
             selected_text = model_indexes[0].data(QtC.Qt.ItemDataRole.DisplayRole)
@@ -1095,7 +1165,7 @@ class EditView(QtW.QDialog):
             self.combo.edit_triggered.connect(self.edit_tag_popup)
             # Save data and delete combo box when the dropdown view is closed
             self.combo.closing.connect(self.save_dropdown_data)
-        self.loading_manager.close_loading_dialog('Loading', f'Loading...')
+        close_loading_dialog('Loading', f'Loading...')
         self.combo.setFocus()
         self.combo.showPopup()
 
@@ -1207,7 +1277,8 @@ class EditView(QtW.QDialog):
                 # Save points are in these methods
                 if '_' in edit_table:
                     # Many-to-many table
-                    if not combo_model.update_many_table(edit_table, edit_ids):
+                    update = combo_model.update_many_table(edit_table, edit_ids)
+                    if update != 'True':
                         logger_setup.get_logger().info(f'{edit_table} was not updated')
                         self.destroy_dropdown()
                         return
@@ -1215,7 +1286,8 @@ class EditView(QtW.QDialog):
                 else:
                     if isinstance(combo_model,
                                   CheckableSqlTableModel | CheckableSqlQueryModel | CheckableTreeModel):
-                        if not combo_model.update_other_table(edit_table, edit_ids):
+                        update = combo_model.update_other_table(edit_table, edit_ids)
+                        if update != 'True':
                             logger_setup.get_logger().info(f'{edit_table} was not updated')
                             self.destroy_dropdown()
                             return
@@ -1266,39 +1338,10 @@ class EditView(QtW.QDialog):
                             return
                         updated = True
                         release_savepoint('before_edit_id')
-            if (isinstance(combo_model, CheckableSqlTableModel | CheckableSqlQueryModel) and not combo_model.partially_checked_ids) \
-                or (isinstance(combo_model, CheckableTreeModel) and combo.single_click):
+            if isinstance(combo_model, CheckableSqlTableModel | CheckableSqlQueryModel | CheckableTreeModel):
+                new_text = combo_model.selected_items_string()
                 for model_index in model_indexes:
-                    if not self.model.setData(model_index, combo.currentText(), QtC.Qt.ItemDataRole.EditRole):
-                        logger_setup.get_logger().critical(f'Error updating view')
-                        logger_setup.get_logger().debug(f'Error: {self.model.last_error}')
-                        self.destroy_dropdown()
-                        return
-            elif isinstance(combo_model, CheckableSqlTableModel | CheckableSqlQueryModel) and combo_model.partially_checked_ids:
-                checked_values = [get_name_from_id(combo_model.tableName(), id) for id in combo_model.checked_ids]
-                partially_checked_values = [get_name_from_id(combo_model.tableName(), id) for id in combo_model.partially_checked_ids]
-                for model_index in model_indexes:
-                    current_values = self.model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole).split(';')
-                    new_values = [value for value in current_values if value in partially_checked_values or value in checked_values]
-                    new_values.extend(checked_values)
-                    new_values = '; '.join(set(new_values))
-                    self.model.setData(model_index, new_values, QtC.Qt.ItemDataRole.EditRole)
-            elif isinstance(combo_model, CheckableTreeModel) and not combo.single_click:
-                checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = combo_model.traverse_checkable_tree(QtC.QModelIndex())
-                checked_values = [get_name_from_id(combo_model.tableName(), id) for id in checked_ids]
-                partially_checked_values = [get_name_from_id(combo_model.tableName(), id) for id in
-                                            partially_checked_ids]
-                for model_index in model_indexes:
-                    current_values = self.model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole)
-                    if current_values:
-                        current_values = current_values.split(';')
-                        new_values = [value for value in current_values if
-                                      value in partially_checked_values or value in checked_values]
-                    else:
-                        new_values = []
-                    new_values.extend(checked_values)
-                    new_values = '; '.join(set(new_values))
-                    self.model.setData(model_index, new_values, QtC.Qt.ItemDataRole.EditRole)
+                    self.model.setData(model_index, new_text, QtC.Qt.ItemDataRole.EditRole)
             else:
                 for model_index in model_indexes:
                     if not self.model.setData(model_index, combo.currentText(), QtC.Qt.ItemDataRole.EditRole):
@@ -1336,7 +1379,9 @@ class EditView(QtW.QDialog):
         except AttributeError:
             pass
         self.edit_tableView.setIndexWidget(self.combo_index, None)
-        self.combo = None
+        if self.combo is not None:
+            self.combo.deleteLater()
+            self.combo = None
         self.dropdown_table = None
         self.combo_index = QtC.QModelIndex()
 
@@ -1432,24 +1477,24 @@ class EditView(QtW.QDialog):
                 sample_id = get_id_from_name('Samples', sample_name)
                 if not sample_id:
                     logger_setup.get_logger().critical(f'No sample ID found for {sample_name}')
-                    create_savepoint('before_update_chain')
+                    rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
                 aliquot_id = self.select_child('Samples', 'Aliquots', sample_id)
                 if not aliquot_id:
                     logger_setup.get_logger().info(f'No aliquot ID selected for {sample_name}')
-                    create_savepoint('before_update_chain')
+                    rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
                 grain_id = self.select_child('Aliquots', 'Grains', aliquot_id)
                 if not grain_id:
                     logger_setup.get_logger().critical(f'No grain ID selected for {aliquot_id}')
-                    create_savepoint('before_update_chain')
+                    rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                 spot_id = self.select_child('Aliquots', 'Spots', aliquot_id)
                 if not spot_id:
                     logger_setup.get_logger().info(f'No spot ID selected for {sample_name}')
-                    create_savepoint('before_update_chain')
+                    rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
             elif self.dropdown_table == 'Aliquots':
@@ -1458,13 +1503,13 @@ class EditView(QtW.QDialog):
                 aliquot_id = get_id_from_name('Aliquots', aliquot_name)
                 if not aliquot_id:
                     logger_setup.get_logger().critical(f'No aliquot ID found for {aliquot_name}')
-                    create_savepoint('before_update_chain')
+                    rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
                 spot_id = self.select_child('Aliquots', aliquot_id)
                 if not spot_id:
                     logger_setup.get_logger().info(f'No spot ID selected for {aliquot_name}')
-                    create_savepoint('before_update_chain')
+                    rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
             elif self.dropdown_table == 'Grains':
@@ -1474,13 +1519,13 @@ class EditView(QtW.QDialog):
                 grain_id = get_id_from_name('Grains', grain_name)
                 if not grain_id:
                     logger_setup.get_logger().critical(f'No aliquot ID found for {grain_name}')
-                    create_savepoint('before_update_chain')
+                    rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
                 spot_id = self.select_child('Grains', 'Spots', grain_id)
                 if not spot_id:
                     logger_setup.get_logger().info(f'No spot ID selected for {grain_name}')
-                    create_savepoint('before_update_chain')
+                    rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
             else:
@@ -1504,13 +1549,13 @@ class EditView(QtW.QDialog):
                 sample_id = get_id_from_name('Samples', sample_name)
                 if not sample_id:
                     logger_setup.get_logger().critical(f'No sample ID found for {sample_name}')
-                    create_savepoint('before_update_chain')
+                    rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
-                aliquot_id = self.select_child('Samples', sample_id)
+                aliquot_id = self.select_child('Samples', 'Spots', sample_id)
                 if not aliquot_id:
                     logger_setup.get_logger().info(f'No aliquot ID selected for {sample_name}')
-                    create_savepoint('before_update_chain')
+                    rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
             else:
@@ -1524,7 +1569,7 @@ class EditView(QtW.QDialog):
                 logger_setup.get_logger().critical(f'Failed to update Spot Name for {sample_name}')
                 logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                 logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                create_savepoint('before_update_chain')
+                rollback_savepoint('before_update_chain')
                 self.destroy_dropdown()
                 return False
             self.updated = True
@@ -1549,7 +1594,7 @@ class EditView(QtW.QDialog):
                                           QtC.Qt.ItemDataRole.EditRole):
                     logger_setup.get_logger().critical(f'Error updating view')
                     logger_setup.get_logger().debug(f'Error: {self.model.last_error}')
-                    create_savepoint('before_update_chain')
+                    rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
                 self.model.edited_indexes.remove(update_index)
@@ -1559,7 +1604,7 @@ class EditView(QtW.QDialog):
                                           QtC.Qt.ItemDataRole.EditRole):
                     logger_setup.get_logger().critical(f'Error updating view')
                     logger_setup.get_logger().debug(f'Error: {self.model.last_error}')
-                    create_savepoint('before_update_chain')
+                    rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
                 self.model.edited_indexes.remove(update_index)
@@ -1569,7 +1614,7 @@ class EditView(QtW.QDialog):
                                           QtC.Qt.ItemDataRole.EditRole):
                     logger_setup.get_logger().critical(f'Error updating view')
                     logger_setup.get_logger().debug(f'Error: {self.model.last_error}')
-                    create_savepoint('before_update_chain')
+                    rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
                 self.model.edited_indexes.remove(update_index)
@@ -1579,7 +1624,7 @@ class EditView(QtW.QDialog):
                                           QtC.Qt.ItemDataRole.EditRole):
                     logger_setup.get_logger().critical(f'Error updating view')
                     logger_setup.get_logger().debug(f'Error: {self.model.last_error}')
-                    create_savepoint('before_update_chain')
+                    rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
                 self.model.edited_indexes.remove(update_index)
@@ -1591,13 +1636,56 @@ class EditView(QtW.QDialog):
         if parent_table not in ['Samples', 'Aliquots', 'Grains', 'Spots']:
             return False
         parent_id_header = get_headers(parent_table)[0]
-        child_id_header = get_headers(child_table)[0]
-        table_model = CheckableSqlTableModel()
-        set_table(table_model, child_table)
-        table_model.setFilter(f'{parent_id_header} = {parent_id}')
+        child_view = get_view_from_table(child_table)
+        child_name_column = get_name_column(child_view)
+        child_name_header = get_headers(child_view)[child_name_column]
+        child_model = CheckableSqlQueryModel()
+        show_columns = SQLUtils.view_attributes_dict[child_view]
+        while not any(id_column in show_columns[-1] for id_column in ['SampleID', 'AliquotID', 'GrainID', 'SpotID', 'UPbAnalysisID', child_name_header]):
+            # Remove the last item from the list
+            show_columns = show_columns[0:-1]
+        query_args = {'show_columns': show_columns, 'where': f'WHERE {parent_id_header} = {parent_id}'}
+        view_query = ViewQuery(self.table, True, **query_args)
+        table_query = view_query.table_query
+        show_loading_dialog('Loading',
+                            f'Loading related data for {child_table}...')
+        # where_ids = view_query.where_ids
+        # create_temp_id = view_query.create_temp_id
+        # create_temp_paged = view_query.create_temp_paged
+        # query = QSqlQuery()
+        # if create_temp_id and where_ids:
+        #     logger_setup.get_logger().debug(f'Create temp: {create_temp_id}')
+        #     if not query.exec(create_temp_id):
+        #         logger_setup.get_logger().critical(f'Error loading data from {child_table}')
+        #         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        #         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        #         return None
+        #     id_header = create_temp_id.split('TempIDs (')[1].split(' ')[0].strip()
+        #     temp_query = f'INSERT INTO TempIDs ({id_header}) VALUES {", ".join(f"({item_id})" for item_id in where_ids)}'
+        #     logger_setup.get_logger().debug(f'Temp query: {temp_query}')
+        #     if not query.exec(temp_query):
+        #         logger_setup.get_logger().critical(f'Error loading data from {child_table}')
+        #         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        #         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        #         return None
+        # if create_temp_paged:
+        #     logger_setup.get_logger().debug(f'Create temp paged: {create_temp_paged}')
+        #     if not query.exec(create_temp_paged):
+        #         logger_setup.get_logger().critical(f'Error loading data from {child_table}')
+        #         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        #         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        #         return None
+        child_model.setQuery(table_query)
+        close_loading_dialog('Loading',
+                             f'Loading related data for {child_table}...')
+        if child_model.lastError().text():
+            logger_setup.get_logger().critical(f'Error displaying {child_table}.')
+            logger_setup.get_logger().debug(f'Error: {child_model.lastError().text()}')
+            return None
         if child_table == 'Aliquots':
             tree_model = CheckableTreeModel()
-            tree_model.setSourceModel(table_model)
+            # tree_model = LazyCheckableTreeModel()
+            tree_model.setSourceModel(child_model)
             child_combo = CheckableTreeCombobox()
             child_combo.set_single_click(True)
             child_combo.setModel(tree_model)
@@ -1608,32 +1696,31 @@ class EditView(QtW.QDialog):
             if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
                 child_combo = dlg.widget
             tree_model, indexes = find_tree_model(child_combo.model(), None)
-            checked_ids = tree_model.traverse_checkable_tree(QtC.QModelIndex())[0]
+            checked_ids = tree_model.checked_ids
         else:
             proxy_model = ReadableProxyModel()
-            proxy_model.setSourceModel(table_model)
-            proxy_model.sort(get_name_column(child_table), QtC.Qt.SortOrder.AscendingOrder)
+            proxy_model.setSourceModel(child_model)
+            proxy_model.sort(child_name_column, QtC.Qt.SortOrder.AscendingOrder)
             child_combo = CheckableComboBox()
             child_combo.set_single_click(True)
             child_combo.setModel(proxy_model)
-            child_combo.setModelColumn(get_name_column(child_table))
+            child_combo.setModelColumn(child_name_column)
             child_combo.setCurrentText('')
             dlg = SetSelectedValues(self, child_combo)
             dlg.setWindowTitle(f'Select {child_table} for {parent_table}')
             if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
                 child_combo = dlg.widget
-            table_model = child_combo.model()
+            child_model = child_combo.model()
             if isinstance(child_combo.view(), QtW.QTreeView):
-                if not isinstance(table_model, TreeModel):
-                    table_model, indexes = find_tree_model(table_model, None)
-                if not table_model:
+                if not isinstance(child_model, TreeModel):
+                    child_model, indexes = find_tree_model(child_model, None)
+                if not child_model:
                     logger_setup.get_logger().critical(f"Error adding item")
                     logger_setup.get_logger().debug(f"Error: No tree model found")
-                    return
-            elif isinstance(table_model, QtC.QSortFilterProxyModel):
-                table_model = table_model.sourceModel()
-            checked_ids = table_model.checked_ids
-            partially_checked_ids = table_model.partially_checked_ids
+                    return None
+            elif isinstance(child_model, QtC.QSortFilterProxyModel):
+                child_model = child_model.sourceModel()
+            checked_ids = child_model.checked_ids
         if len(checked_ids) > 1:
             logger_setup.get_logger().error('Multiple items selected, please select only one')
             return None
@@ -1641,7 +1728,7 @@ class EditView(QtW.QDialog):
             logger_setup.get_logger().info('No items selected')
             return None
         else:
-            child_id = checked_ids[0]
+            child_id = list(checked_ids)[0]
             return child_id
 
     def set_selected_value_dialog(self, table, indexes):
@@ -1671,7 +1758,7 @@ class EditView(QtW.QDialog):
             if f'"{header}"' in virtual or f'"{header}"' in stored:
                 logger_setup.get_logger().error(f'{get_readable_header(header)} is auto-generated')
                 return
-            if header not in columns.keys():
+            if header not in columns:
                 columns[header] = []
             rows.append(model_index.row())
             id = self.model.index(model_index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
@@ -1682,7 +1769,7 @@ class EditView(QtW.QDialog):
             return
         create_savepoint('before_clear')
         # If any of the headers are in the list of GPS headers or age headers, check if the user wants to apply one value to all selected items
-        if any(header in self.gps_headers for header in columns.keys()):
+        if any(header in self.gps_headers for header in columns):
             response = self.msg.warning(self, 'Clear GPS', 'Do you want to clear the GPS columns for all selected items?', QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No, QtW.QMessageBox.StandardButton.No)
             if response == QtW.QMessageBox.StandardButton.No:
                 rollback_savepoint('before_clear')
@@ -1692,7 +1779,7 @@ class EditView(QtW.QDialog):
                 # Only relevant for Samples and Columns
                 edit_ids = []
                 for gps_header in self.gps_headers:
-                    if gps_header in columns.keys():
+                    if gps_header in columns:
                         edit_ids = columns[gps_header]
                         break
                 if not edit_ids:
@@ -1725,9 +1812,9 @@ class EditView(QtW.QDialog):
                     col = self.show_cols.index(gps_header)
                     for row in rows:
                         self.model.setData(self.model.index(row, col), '', QtC.Qt.ItemDataRole.EditRole)
-                    if gps_header in columns.keys():
+                    if gps_header in columns:
                         del columns[gps_header]
-        if any(header in self.age_headers for header in columns.keys()):
+        if any(header in self.age_headers for header in columns):
             response = self.msg.warning(self, 'Clear Sample Age', 'Do you want to clear all sample age columns for all selected items?', QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No, QtW.QMessageBox.StandardButton.No)
             if response == QtW.QMessageBox.StandardButton.No:
                 rollback_savepoint('before_clear')
@@ -1737,7 +1824,7 @@ class EditView(QtW.QDialog):
                 # Only relevant for Samples
                 edit_ids = []
                 for age_header in self.age_headers:
-                    if age_header in columns.keys():
+                    if age_header in columns:
                         edit_ids = columns[age_header]
                         break
                 if not edit_ids:
@@ -1766,7 +1853,7 @@ class EditView(QtW.QDialog):
                     col = self.show_cols.index(age_header)
                     for row in rows:
                         self.model.setData(self.model.index(row, col), '', QtC.Qt.ItemDataRole.EditRole)
-                    if age_header in columns.keys():
+                    if age_header in columns:
                         del columns[age_header]
         for column, ids in columns.items():
             # Set the selection to a single column
@@ -1805,10 +1892,7 @@ class EditView(QtW.QDialog):
                 self.save_lineedit_data()
             elif self.combo is not None:
                 # Clear the combo box checks
-                if isinstance(self.combo_model, CheckableSqlTableModel | CheckableSqlQueryModel):
-                    self.combo_model.clear_checks()
-                elif isinstance(self.combo_tree_model, CheckableTreeModel):
-                    self.combo_tree_model.clear_checks(QtC.QModelIndex())
+                self.combo_model.clear_checks()
                 self.combo.setCurrentIndex(-1)
                 self.save_dropdown_data()
 
@@ -1867,9 +1951,9 @@ class EditView(QtW.QDialog):
         column = None
         def highlight_error():
             if column is not None:
-                index = self.model.index(self.model.edited_indexes[0].row(), column)
-                if index.isValid():
-                    self.edit_tableView.selectionModel().select(index, QtC.QItemSelectionModel.SelectionFlag.Select)
+                error_index = self.model.index(self.model.edited_indexes[0].row(), column)
+                if error_index.isValid():
+                    self.edit_tableView.selectionModel().select(error_index, QtC.QItemSelectionModel.SelectionFlag.Select)
             else:
                 selection = QtC.QItemSelection(self.model.index(self.model.edited_indexes[0].row(), 0),
                                                  self.model.index(self.model.edited_indexes[0].row(), self.model.columnCount() - 1))
@@ -1899,7 +1983,7 @@ class EditView(QtW.QDialog):
         update_cols = {}
         update_col_values = {}
         where_col_ids = {}
-        for key in SQLUtils.one_editable.keys():
+        for key in SQLUtils.one_editable:
             update_cols[key] = []
             update_col_values[key] = []
             where_col_ids[key] = []
@@ -1997,19 +2081,19 @@ class EditView(QtW.QDialog):
                             continue
                 if not header_found:
                     for key, values in SQLUtils.many_editable.items():
-                        if header in values.keys():
+                        if header in values:
                             # This is a many-to-many relationship and was committed when the dropdown was destroyed
                             header_found = True
                             continue
                 if not header_found:
                     for key, values in SQLUtils.one_editable.items():
-                        for col_key in values.keys():
+                        for col_key in values:
                             if header == col_key:
                                 text = model_index.data(QtC.Qt.ItemDataRole.DisplayRole)
                                 if text == '' or text is None:
                                     id = 'Null'
                                 else:
-                                    id = self.retrieve_id(values[header], text)
+                                    id = get_id_from_name(key, text)
                                     if not id:
                                         continue
                                 update_cols[key].append(header)
@@ -2040,7 +2124,7 @@ class EditView(QtW.QDialog):
                     if header not in update_cols[table]:
                         update_cols[table].append(header)
                         update_col_values[table].append(text)
-        for table in update_cols.keys():
+        for table in update_cols:
             if update_col_values[table]:
                 table_headers = get_headers(table)
                 if table == self.table:
@@ -2075,29 +2159,152 @@ class EditView(QtW.QDialog):
             return None
         if query.next():
             return query.value(0)
-        else:
-            logger_setup.get_logger().debug(f'{get_name_column(table)} {value} not found in {table}')
-            return None
+        logger_setup.get_logger().debug(f'{get_name_column(table)} {value} not found in {table}')
+        return None
 
     def add_popup(self):
         if not self.on_row_change(QtC.QModelIndex(), self.edit_tableView.currentIndex()):
             logger_setup.get_logger().critical(f'Failed to submit changes to {self.table}')
             return
-        if self.table == '"References"' or self.table == 'References':
-            self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {self.table}...')
+        if self.table in ['Samples', 'Grains', 'Spots', 'UPbAnalyses']:
+            show_loading_dialog('Loading', f'Opening add window for {self.table}...')
+            if self.table != 'Samples':
+                parent_data_id, parent_table = self.get_parent_data_id()
+                if not parent_data_id:
+                    return
+                dlg = AddDataItem(self.table, self, **{'parent_data_id': parent_data_id, 'parent_table': parent_table})
+            else:
+                dlg = AddDataItem(self.table, self)
+        elif self.table == '"References"' or self.table == 'References':
+            show_loading_dialog('Loading', f'Opening add window for {self.table}...')
             dlg = NewReference(self)
         else:
-            self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {self.table}...')
+            show_loading_dialog('Loading', f'Opening add window for {self.table}...')
             dlg = AddTags(self, self.table)
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
-            self.loading_manager.show_loading_dialog('Loading', f'Loading...')
+            show_loading_dialog('Loading', f'Loading...')
             self.find_added(dlg.ids_added)
         self.display_table()
+
+    def add_child_popup(self):
+        if not self.on_row_change(QtC.QModelIndex(), self.edit_tableView.currentIndex()):
+            logger_setup.get_logger().critical(f'Failed to submit changes to {self.table}')
+            return
+        if self.table == 'Samples':
+            child_table = 'Aliquots'
+        elif self.table == 'Grains':
+            child_table = 'Spots'
+        elif self.table == 'Spots':
+            child_table = 'UPbAnalyses'
+        else:
+            logger_setup.get_logger().critical(f'Unexpected table {self.table} for adding child')
+            return
+        if not self.edit_tableView.selectedIndexes():
+            logger_setup.get_logger().error(f'No {self.table} selected to add {child_table} to')
+            return
+        parent_data_id = self.proxy_model.index(self.edit_tableView.selectedIndexes()[0].row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
+        if not parent_data_id:
+            return
+        dlg = AddDataItem(child_table, self, **{'parent_data_id': parent_data_id, 'parent_table': self.table})
+        if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
+            self.updated = True
+            added_ids = dlg.ids_added
+            if added_ids:
+                self.model.beginResetModel()
+                if added_ids and isinstance(self.model, SQLiteTableModel):
+                    if not self.model.insert_id_rows_from_db(added_ids):
+                        logger_setup.get_logger().critical(f'Error updating view')
+                        self.model.endResetModel()
+                        return
+                    logger_setup.get_logger().info(f'Added {len(added_ids)} items to the view model')
+                self.model.endResetModel()
+            show_loading_dialog('Loading', f'Loading...')
+        self.display_table()
+
+    def get_parent_data_id(self):
+        parent_data_ids = []
+        if self.table == 'Grains':
+            parent_table = 'Aliquots'
+            parent_data_id_header = 'AliquotID'
+        elif self.table == 'Spots':
+            parent_table = 'Grains'
+            parent_data_id_header = 'GrainID'
+        elif self.table == 'UPbAnalyses':
+            parent_table = 'Spots'
+            parent_data_id_header = 'SpotID'
+        else:
+            logger_setup.get_logger().critical(f'Unexpected table {self.table} for getting parent data ID')
+            return None, None
+        for col in range(self.model.columnCount()):
+            header = self.model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+            if header == parent_data_id_header:
+                break
+        if not self.edit_tableView.selectedIndexes():
+            for row in self.model.rowCount():
+                parent_data_id = self.model.data(row, col, QtC.Qt.ItemDataRole.DisplayRole)
+                if parent_data_id not in parent_data_ids:
+                    parent_data_ids.append(parent_data_id)
+        else:
+            for selected_index in self.edit_tableView.selectedIndexes():
+                model_index = self.proxy_model.mapToSource(selected_index)
+                parent_data_id = self.model.data(model_index.row(), col, QtC.Qt.ItemDataRole.DisplayRole)
+                if parent_data_id not in parent_data_ids:
+                    parent_data_ids.append(parent_data_id)
+        if not parent_data_ids and parent_table == 'Grains':
+            # No grains selected, but we can get the parent data ID from the selected aliquots
+            parent_table = 'Aliquots'
+            parent_data_id_header = 'AliquotID'
+            for col in range(self.model.columnCount()):
+                header = self.model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+                if header == parent_data_id_header:
+                    break
+            if not self.edit_tableView.selectedIndexes():
+                for row in self.model.rowCount():
+                    parent_data_id = self.model.data(row, col, QtC.Qt.ItemDataRole.DisplayRole)
+                    if parent_data_id not in parent_data_ids:
+                        parent_data_ids.append(parent_data_id)
+            else:
+                for selected_index in self.edit_tableView.selectedIndexes():
+                    model_index = self.proxy_model.mapToSource(selected_index)
+                    parent_data_id = self.model.data(model_index.row(), col, QtC.Qt.ItemDataRole.DisplayRole)
+                    if parent_data_id not in parent_data_ids:
+                        parent_data_ids.append(parent_data_id)
+        if not parent_data_ids:
+            logger_setup.get_logger().critical(f'Error finding parent {parent_table} for {self.table}')
+            logger_setup.get_logger().debug('No parent data id found for selected indexes or whole view')
+            return None, None
+        elif len(parent_data_ids) > 1:
+            dlg = QtW.QDialog()
+            dlg.setWindowTitle(f'Multiple {parent_table} Found')
+            layout = QtW.QVBoxLayout()
+            label = QtW.QLabel(
+                f'Multiple {parent_table} found for the selected aliquots. Please select a {get_headers(parent_table)[get_name_column(parent_table)]} for the new {self.table}.')
+            layout.addWidget(label)
+            combo = QtW.QComboBox()
+            populate_combo_box(combo, **{'table': parent_table,
+                                         'query': f'SELECT {get_headers(parent_table)[0]}, {get_headers(parent_table)[get_name_column(parent_table)]} FROM {parent_table} WHERE {get_headers(parent_table)[0]} IN {tuple(parent_data_ids)}'})
+            layout.addWidget(combo)
+            button_box = QtW.QDialogButtonBox(
+                QtW.QDialogButtonBox.StandardButton.Ok | QtW.QDialogButtonBox.StandardButton.Cancel)
+            button_box.accepted.connect(dlg.accept)
+            button_box.rejected.connect(dlg.reject)
+            layout.addWidget(button_box)
+            dlg.setLayout(layout)
+            if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
+                parent_data_index = combo.currentIndex()
+                parent_data_id = combo.model().index(parent_data_index, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
+                return parent_data_id, parent_table
+            else:
+                return None, None
+        else:
+            return parent_data_ids[0], parent_table
 
     def find_added(self, ids_added):
         if not ids_added:
             return
+        logger_setup.get_logger().info(f'Found {len(ids_added)} new {self.table}')
+        show_loading_dialog('Loading', f'Adding new {self.table}...')
         if len(ids_added) == 1:
             where = f'WHERE {self.table_headers[0]} = {ids_added[0]}'
         else:
@@ -2106,7 +2313,7 @@ class EditView(QtW.QDialog):
         query_args = {'show_columns': self.show_cols, 'where': where,
                       'limit': f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}',
                       'group_col': f'{self.show_cols[0]}', 'order_col': f'{self.name_header}'}
-        view_query = ViewQuery('References', False, **query_args)
+        view_query = ViewQuery(self.table, True, **query_args)
         table_query = view_query.table_query
         if not query.exec(table_query):
             logger_setup.get_logger().critical(f'Could not find new {self.table}')
@@ -2119,6 +2326,7 @@ class EditView(QtW.QDialog):
                 row.append(query.value(i))
             self.model.insertRow(row)
         logger_setup.get_logger().info(f'Updated {self.table}')
+        close_loading_dialog('Loading', f'Adding new {self.table}...')
 
     def add_tag_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
         model = combo.model()
@@ -2149,15 +2357,15 @@ class EditView(QtW.QDialog):
         if not dlg:
             return
         logger_setup.get_logger().info(f"Showing {table} add dialog")
-        self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {self.table}...')
+        show_loading_dialog('Loading', f'Opening add window for {self.table}...')
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
             # Clear and recreate this combo box
-            self.loading_manager.show_loading_dialog('Loading', f'Loading...')
+            show_loading_dialog('Loading', f'Loading...')
             self.destroy_dropdown()
             self.display_widget()
             self.combo.showPopup()
-            self.loading_manager.close_loading_dialog('Loading', f'Loading...')
+            close_loading_dialog('Loading', f'Loading...')
 
     def edit_tag_popup(self):
         combo = self.sender()
@@ -2185,15 +2393,15 @@ class EditView(QtW.QDialog):
         if dlg is None:
             return
         logger_setup.get_logger().info(f"Showing {table} edit dialog")
-        self.loading_manager.show_loading_dialog('Loading', f'Opening edit window for {self.table}...')
+        show_loading_dialog('Loading', f'Opening edit window for {self.table}...')
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
             # Clear and recreate this combo box
-            self.loading_manager.show_loading_dialog('Loading', f'Loading...')
+            show_loading_dialog('Loading', f'Loading...')
             self.destroy_dropdown()
             self.display_widget()
             self.combo.showPopup()
-            self.loading_manager.close_loading_dialog('Loading', f'Loading...')
+            close_loading_dialog('Loading', f'Loading...')
 
     def rollback(self):
         rollback_savepoint('before_edit')

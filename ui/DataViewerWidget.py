@@ -27,7 +27,6 @@ from Functions.Widget_classes import get_headers
 from ui.SampleInformation import SampleInformation
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
-from Functions.LoadingDialog_manager import LoadingDialogManager
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
 from ui.EditView import EditView
@@ -56,8 +55,6 @@ class DataViewerWidget(QWidget):
             self.query_builder = None
             self.filtered_sample_ids = ids_to_show
 
-        self.loading_manager = LoadingDialogManager.get_instance()
-
         self.data_table = table_type
         self.data_filtered_table = 'RockTypes' # default to rocktypes
 
@@ -71,6 +68,11 @@ class DataViewerWidget(QWidget):
 
         self.data_table_proxy_model = ReadableProxyModel()
         self.data_filtered_table_proxy_model = ReadableProxyModel()
+
+        try:
+            self.dbTable_treeView.setUniformRowHeights(True)
+        except AttributeError:
+            pass
 
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "DataViewerWidget.ui")
@@ -173,6 +175,8 @@ class DataViewerWidget(QWidget):
             return f'IN ({", ".join([str(i) for i in self.data_filtered_ids_to_show])})'
 
     def data_table_switcher(self):
+        if self.data_table == 'Aliquots':
+            save_expanded_state(self.data_table, self.dbTable_treeView)
         new_table = self.dbTable_comboBox.currentText()
         show_loading_dialog('Loading', f'Loading {new_table}...')
         if self.query_builder:
@@ -223,8 +227,10 @@ class DataViewerWidget(QWidget):
             close_loading_dialog('Loading', f'Loading {new_table}...')
 
     def data_filter_table_switcher(self):
+        if self.data_filtered_table in SQLUtils.user_viewable_trees:
+            save_expanded_state(self.data_filtered_table, self.dbTable_treeView_2)
         table = self.dbTable_comboBox_2.currentText()
-        if table in SQLUtils.as_table_dict.keys():
+        if table in SQLUtils.as_table_dict:
             table = SQLUtils.as_table_dict[table]
         if table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees:
             self.switch_to_tree_2(self.db_stackedWidget_2)
@@ -267,7 +273,7 @@ class DataViewerWidget(QWidget):
             logger_setup.get_logger().info(f'No table selected to display')
             return
 
-        self.loading_manager.show_loading_dialog('Loading', f'Displaying {len(self.data_ids_to_show)} {self.data_table}...')
+        show_loading_dialog('Loading', f'Displaying {len(self.data_ids_to_show)} {self.data_table}...')
         self.data_table_model = None
         self.data_table_proxy_model = None
 
@@ -293,9 +299,13 @@ class DataViewerWidget(QWidget):
                           'limit': f'LIMIT {self.rows_per_page_1} OFFSET {offset}'}
             view_query = ViewQuery(table, False, **query_args)
             table_query = view_query.table_query
-            show_loading_dialog('Loading', f'Loading related data for {table}...')
+            if settings.value('show_items_missing_data'):
+                msg = f'Loading related data for {table}...\n\nSettings to speed up loading:\n- Hide items with missing data\n- Reduce the columns shown'
+            else:
+                msg = f'Loading related data for {table}...\n\nSettings to speed up loading:\n- Reduce the columns shown'
+            show_loading_dialog('Loading', msg)
             self.data_table_model = SQLiteTableModel(table_query, view_query=view_query)
-            close_loading_dialog('Loading', f'Loading related data for {table}...')
+            close_loading_dialog('Loading', msg)
             if self.data_table_model.last_error:
                 logger_setup.get_logger().critical(f'Error displaying {self.data_table}')
                 return
@@ -361,9 +371,13 @@ class DataViewerWidget(QWidget):
                           'order_col': 'SampleName'}
             view_query = ViewQuery(table, False, **query_args)
             table_query = view_query.table_query
-            show_loading_dialog('Loading', f'Loading related data for {table}...')
+            if settings.value('show_items_missing_data'):
+                msg = f'Loading related data for {table}...\n\nSettings to speed up loading:\n- Hide items with missing data\n- Reduce the columns shown'
+            else:
+                msg = f'Loading related data for {table}...\n\nSettings to speed up loading:\n- Reduce the columns shown'
+            show_loading_dialog('Loading', msg)
             model = SQLiteTableModel(table_query, view_query=view_query)
-            close_loading_dialog('Loading', f'Loading related data for {table}...')
+            close_loading_dialog('Loading', msg)
             if model.last_error:
                 logger_setup.get_logger().critical(f'Error displaying Aliquots')
                 logger_setup.get_logger().debug(f'Error: {model.last_error}')
@@ -374,7 +388,7 @@ class DataViewerWidget(QWidget):
 
             self.data_table_proxy_model = TreeSortFilterProxyModel(view=self.dbTable_treeView)
             # Now apply the filter to the model so that only the filtered AliquotIDs are shown
-            self.data_table_proxy_model.filter_ids = self.data_ids_to_show
+            self.data_table_proxy_model.filter_ids = set(self.data_ids_to_show)
             self.data_table_proxy_model.filter_column = 1  # AliquotID column
             self.data_table_proxy_model.setSourceModel(self.data_table_model)
             self.dbTable_treeView.setModel(self.data_table_proxy_model)
@@ -402,7 +416,7 @@ class DataViewerWidget(QWidget):
             self.dbTable_tableView.selectionModel().selectionChanged.connect(self.on_select_changed)
             self.dbTable_tableView.selectAll()
 
-        self.loading_manager.close_loading_dialog('Loading', f'Displaying {len(self.data_ids_to_show)} {self.data_table}...')
+        close_loading_dialog('Loading', f'Displaying {len(self.data_ids_to_show)} {self.data_table}...')
 
     def on_select_changed(self):
         """
@@ -417,7 +431,7 @@ class DataViewerWidget(QWidget):
         Displays the selected table
         :return:
         """
-        self.loading_manager.show_loading_dialog('Loading', f'Displaying filtered {self.dbTable_comboBox_2.currentText()}...')
+        show_loading_dialog('Loading', f'Displaying filtered {self.dbTable_comboBox_2.currentText()}...')
         if self.data_table == 'Aliquots':
             data_filter = self.dbTable_treeView
         else:
@@ -525,10 +539,10 @@ class DataViewerWidget(QWidget):
                     table_condition = f"WHERE Spots.SpotID {sql_selected_data_filter_ids}"
                 case 'UPbAnalyses':
                     table_condition = f"WHERE UPbAnalyses.UPbAnalysisID {sql_selected_data_filter_ids}"
-            self.loading_manager.close_loading_dialog('Loading',
+            close_loading_dialog('Loading',
                                                       f'Displaying filtered {self.dbTable_comboBox_2.currentText()}...')
         else:
-            self.loading_manager.close_loading_dialog('Loading',
+            close_loading_dialog('Loading',
                                                       f'Displaying filtered {self.dbTable_comboBox_2.currentText()}...')
             return
 
@@ -563,7 +577,7 @@ class DataViewerWidget(QWidget):
 
         # Now that we have the data_filtered_ids_to_show, we can display the filtered table. If the table was renamed
         # when joining to Samples, we need to use the original table name
-        if self.data_filtered_table in SQLUtils.as_table_dict.keys():
+        if self.data_filtered_table in SQLUtils.as_table_dict:
             self.data_filtered_table = SQLUtils.as_table_dict[self.data_filtered_table]
         sql_columns = ', '.join(f'"{self.data_filtered_table}".{column}' for column in show_cols)
         if self.data_filtered_table in SQLUtils.user_viewable_trees:
@@ -582,6 +596,7 @@ class DataViewerWidget(QWidget):
                 logger_setup.get_logger().debug(f'Error: {source_model.last_error}')
                 logger_setup.get_logger().debug(f'SQL command: {sql_query}')
                 return
+            source_model.set_table = self.data_filtered_table
 
             self.data_filtered_table_model = TreeModel(source_model, self)
 
@@ -597,6 +612,8 @@ class DataViewerWidget(QWidget):
             self.dbTable_treeView_2.hideColumn(2)  # don't show parent ID column
             self.dbTable_treeView_2.hideColumn(3)  # don't show parent row column
             # self.dbTable_treeView_2.hideColumn(4)  # don't show sample ID column
+            if isinstance(self.dbTable_treeView_2.model(), TreeSortFilterProxyModel):
+                self.dbTable_treeView_2.model().update_visible_columns()
             self.dbTable_treeView_2.setSortingEnabled(False)
 
             self.search_lineEdit_2.returnPressed.connect(
@@ -637,6 +654,7 @@ class DataViewerWidget(QWidget):
                 logger_setup.get_logger().debug(f'Error: {self.data_filtered_table_model.last_error}')
                 logger_setup.get_logger().debug(f'SQL query: {sql_query}')
                 return
+            self.data_filtered_table_model.set_table = self.data_filtered_table
 
             self.data_filtered_table_proxy_model = ReadableProxyModel()
             self.data_filtered_table_proxy_model.setSourceModel(self.data_filtered_table_model)
@@ -669,12 +687,12 @@ class DataViewerWidget(QWidget):
             logger_setup.get_logger().info(f'Sucessfully displayed {self.data_filtered_table} with selection-based filter')
 
 
-        self.loading_manager.close_loading_dialog('Loading', f'Displaying filtered {self.dbTable_comboBox_2.currentText()}...')
+        close_loading_dialog('Loading', f'Displaying filtered {self.dbTable_comboBox_2.currentText()}...')
 
     def edit_popup(self, dbTable_tableView, dbTable_treeView, tree_proxy_model, dbTable_comboBox):
         dbTable_comboBox: QComboBox
         table_name = dbTable_comboBox.currentText()
-        if table_name in SQLUtils.as_table_dict.keys():
+        if table_name in SQLUtils.as_table_dict:
             table_name = SQLUtils.as_table_dict[table_name]
         table = TxM.remove_spaces(table_name)
         view_tables = ['Samples', 'Aliquots', 'Spots', 'UPbAnalyses', 'Columns', 'References']
@@ -711,6 +729,7 @@ class DataViewerWidget(QWidget):
                                 sample_name = query.value(0)
                                 if sample_name not in sample_names:
                                     sample_names.append(sample_name)
+                    sample_names.sort()
                     sample_name, ok = QtW.QInputDialog.getItem(self, "Select Sample",
                                                                "Edit aliquots of selected sample:", sample_names, 0, False)
                     if not ok:
@@ -748,10 +767,10 @@ class DataViewerWidget(QWidget):
                 dlg = EditView(self, table, **dlg_args)
         elif table in SQLUtils.user_viewable_trees:
             save_expanded_state(table_name, dbTable_treeView)
-            self.loading_manager.show_loading_dialog('Loading', f'Opening edit window for {table}...')
+            show_loading_dialog('Loading', f'Opening edit window for {table}...')
             dlg = EditTree(self, table)
         else:
-            self.loading_manager.show_loading_dialog('Loading', f'Opening edit window for {table}...')
+            show_loading_dialog('Loading', f'Opening edit window for {table}...')
             dlg = EditTable(self, table)
         dlg.exec()
         if dlg.updated:
@@ -856,6 +875,8 @@ class DataViewerWidget(QWidget):
                 db_view.hideColumn(column)
             else:
                 db_view.showColumn(column)
+        if isinstance(db_view.model(), TreeSortFilterProxyModel):
+            db_view.model().update_visible_columns()
 
     def search(self, search_lineEdit, proxy_model, dbTable_treeView=None):
         """
@@ -965,7 +986,7 @@ class DataViewerWidget(QWidget):
                 logger_setup.get_logger().error(f'Could not find record name: {record_name}')
                 return
             table = TxM.remove_spaces(self.dbTable_comboBox_2.currentText())
-            if table in SQLUtils.as_table_dict.keys():
+            if table in SQLUtils.as_table_dict:
                 table = SQLUtils.as_table_dict[table]
             index = get_record_index(table, record_id, self.data_filtered_ids_to_show)
 

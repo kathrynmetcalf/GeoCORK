@@ -205,13 +205,8 @@
           </size>
          </property>
          <property name="placeholderText">
-          <string>None</string>
+          <string/>
          </property>
-         <item>
-          <property name="text">
-           <string>None</string>
-          </property>
-         </item>
         </widget>
        </item>
        <item row="2" column="1">
@@ -270,13 +265,8 @@
           <string/>
          </property>
          <property name="placeholderText">
-          <string>None</string>
+          <string/>
          </property>
-         <item>
-          <property name="text">
-           <string>None</string>
-          </property>
-         </item>
         </widget>
        </item>
        <item row="1" column="1">
@@ -332,19 +322,14 @@
           </size>
          </property>
          <property name="currentText">
-          <string>None</string>
+          <string/>
          </property>
          <property name="currentIndex">
-          <number>0</number>
+          <number>-1</number>
          </property>
          <property name="placeholderText">
-          <string>None</string>
+          <string/>
          </property>
-         <item>
-          <property name="text">
-           <string>None</string>
-          </property>
-         </item>
         </widget>
        </item>
        <item row="3" column="0">

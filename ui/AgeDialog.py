@@ -8,14 +8,13 @@ from Functions.Savepoint_manager import create_savepoint, rollback_savepoint, re
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from ui.AgeFields import AgeFields
-from Functions.LoadingDialog_manager import LoadingDialogManager
+from Functions.Widget_classes import show_loading_dialog, close_loading_dialog
 
 
 class AgeDialog(QtW.QDialog):
     def __init__(self, table: str, item_ids: list, parent=None):
         super().__init__(parent)
         self.loadWindowState()
-        self.loading_manager = LoadingDialogManager.get_instance()
 
         self.age_fields = ui.AgeFields.AgeFields(table, item_ids)
         self.setLayout(QtW.QVBoxLayout())
@@ -43,7 +42,12 @@ class AgeDialog(QtW.QDialog):
         self.commit_button.clicked.connect(self.commit_question)
         self.cancel_button.clicked.connect(self.discard_question)
         self.clear_button.clicked.connect(self.age_fields.clear_fields)
-        self.loading_manager.close_loading_dialog('Loading', f'Opening sample age editor...')
+
+        self.commit_button.setAutoDefault(False)
+        self.cancel_button.setAutoDefault(False)
+        self.clear_button.setAutoDefault(False)
+
+        close_loading_dialog('Loading', f'Opening sample age editor...')
 
     def commit_question(self):
         QApplication.processEvents()

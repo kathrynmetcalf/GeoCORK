@@ -532,6 +532,7 @@ class GPSFields(QtW.QWidget):
         else:
             self.elevation_unit_model.setFilter(f"DistanceUnitAbbreviation = '{elevation_unit}'")
             elevation_unit = self.elevation_unit_model.data(self.elevation_unit_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
+            self.elevation_unit_model.setFilter("")  # Clear the filter
         gps_values = [lat_deg, lat_min, lat_sec, lat_dir, lon_deg, lon_min, lon_sec, lon_dir,
                       utm_zone, utm_n, utm_e, elevation, elevation_error, elevation_unit, gps_format_id]
         return gps_columns, gps_values

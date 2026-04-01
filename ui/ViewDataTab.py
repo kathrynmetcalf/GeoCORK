@@ -11,14 +11,14 @@ from PyQt6.QtWidgets import QHeaderView, QLabel, QPushButton
 import logger_setup
 from Functions.Database_manager import update_database
 from Functions.Database_views import ViewQuery
-from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.Widget_classes import (SQLiteTableModel, WordWrapDelegate, ReadableProxyModel, TreeModel,
                                       TreeContextMenu, expand_collapse, get_name_column, get_headers,
                                       get_view_from_table, TreeSortFilterProxyModel, get_readable_header,
                                       show_loading_dialog, close_loading_dialog, get_record_index, get_total_records,
-                                      get_id_from_name, columns_as_list)
+                                      get_id_from_name, columns_as_list, save_expanded_state, restore_expanded_state,
+                                      TrackExpandedTreeView)
 from ui.EditTreeView import EditTreeView
 from ui.EditView import EditView
 
@@ -29,8 +29,6 @@ class ViewDataTab(QtW.QWidget):
         logger_setup.get_logger().info(
             f'Creating a new ViewDataTab for {child_type} with parent {parent_type} ID {parent_id}')
         start_view_data_tab_time = time.time()
-
-        self.loading_manager = LoadingDialogManager.get_instance()
 
         self.setAttribute(QtC.Qt.WidgetAttribute.WA_DeleteOnClose)
 
@@ -111,12 +109,12 @@ class ViewDataTab(QtW.QWidget):
         self.resize_timer = QTimer()
         self.display_table()
         if self.model.rowCount() == 0:
-            self.loading_manager.close_loading_dialog('Loading', f'Loading {label}...')
+            close_loading_dialog('Loading', f'Loading {label}...')
             return
         self.set_go_to_completer()
         self.v_layout.addLayout(self.h_layout_bottom)
 
-        self.loading_manager.close_loading_dialog('Loading', f'Loading {label}...')
+        close_loading_dialog('Loading', f'Loading {label}...')
         end_view_data_tab_time = time.time()
         logger_setup.get_logger().info(
             f'Time to create ViewDataTab: {end_view_data_tab_time - start_view_data_tab_time}')
@@ -163,53 +161,26 @@ class ViewDataTab(QtW.QWidget):
         query_args = {'show_columns': [self.name_header], 'where': self.where}
         view_query = ViewQuery(self.table, True, **query_args)
         table_query = view_query.table_query
-        where_ids = view_query.where_ids
-        create_temp_id = view_query.create_temp_id
-        create_temp_paged = view_query.create_temp_paged
-        if create_temp_id and where_ids:
-            if not query.exec(create_temp_id):
-                logger_setup.get_logger().critical(f'Error setting up completer')
-                logger_setup.get_logger().debug(f'Error creating temporary IDs for completer')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {create_temp_id}')
-                return
-            id_header = create_temp_id.split('TempIDs (')[1].split(' ')[0].strip()
-            if not query.exec(
-                    f'INSERT INTO TempIds ({id_header}) VALUES {", ".join(f"({item_id})" for item_id in where_ids)}'):
-                logger_setup.get_logger().critical(f'Error setting up completer')
-                logger_setup.get_logger().debug(f'Error inserting IDs into temporary IDs for completer')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {create_temp_id}')
-                return
-        if create_temp_paged:
-            if not query.exec(create_temp_paged):
-                logger_setup.get_logger().critical(f'Error setting up completer')
-                logger_setup.get_logger().debug(f'Error creating temporary paged IDs for completer')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {create_temp_paged}')
-                return
         logger_setup.get_logger().debug(f'SQL command: {table_query}')
         query.setForwardOnly(True)
         if not query.exec(table_query):
             logger_setup.get_logger().critical(f'Error creating the completer for input')
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
             logger_setup.get_logger().debug(f'SQL command: {table_query}')
-        values = set()
+        all_names = set()
         while query.next():
-            values.add(query.value(0))
-        self.name_completer.setModel(QtC.QStringListModel(values))
+            all_names.add(query.value(0))
+        list_model = QtC.QStringListModel(sorted(all_names, key=str.casefold))
+        list_proxy_model = QtC.QSortFilterProxyModel()
+        list_proxy_model.setSourceModel(list_model)
+        list_proxy_model.setSortCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        self.name_completer.setModel(list_proxy_model)
         self.name_completer.setFilterMode(QtC.Qt.MatchFlag.MatchContains)
         self.name_completer.setCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        self.name_completer.setModelSorting(QtW.QCompleter.ModelSorting.CaseInsensitivelySortedModel)
         self.name_completer.setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
 
         self.goto_line_edit.setCompleter(self.name_completer)
-
-        if not query.exec(f'DROP TABLE IF EXISTS TempPaged'):
-            logger_setup.get_logger().critical(f'Error dropping temporary paged table for completer')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        if not query.exec(f'DROP TABLE IF EXISTS TempIDs'):
-            logger_setup.get_logger().critical(f'Error dropping temporary ID table for completer')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
 
     def go_to_record(self):
         """
@@ -245,12 +216,17 @@ class ViewDataTab(QtW.QWidget):
     def display_table(self):
         logger_setup.get_logger().info(
             f'Displaying table for {self.child_type} with parent {self.parent_type} ID {self.parent_id}')
-        loading_manager = LoadingDialogManager.get_instance()
-        loading_manager.show_loading_dialog('Loading', 'Displaying table...')
+        if settings.value('show_items_missing_data'):
+            msg = f'Displaying table...\n\nSettings to speed up loading:\n- Hide items with missing data\n- Reduce the columns shown'
+        else:
+            msg = f'Displaying table...\n\nSettings to speed up loading:\n- Reduce the columns shown'
+        show_loading_dialog('Loading', msg)
         start_display_table_time = time.time()
         if not self.view:
             if self.child_type == 'Aliquots':
-                self.view = QtW.QTreeView()
+                self.view = TrackExpandedTreeView()
+                self.view.setUniformRowHeights(True)
+                self.view.setSortingEnabled(False)
             else:
                 self.view = QtW.QTableView()
                 self.view.setWordWrap(True)
@@ -271,6 +247,7 @@ class ViewDataTab(QtW.QWidget):
             self.view.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
             self.view.customContextMenuRequested.connect(self.show_context_menu)
             self.v_layout.addWidget(self.view)
+        self.view.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
         if self.child_type == 'Aliquots' and self.parent_type == 'Samples':
             self.show_cols = settings.value('aliquot_view_columns')
         elif self.child_type == 'Grains':
@@ -284,15 +261,21 @@ class ViewDataTab(QtW.QWidget):
                               'where': self.where}
         view_query = ViewQuery(self.table, False, **query_args)
         table_query = view_query.table_query
-        show_loading_dialog('Loading', f'Loading related data for {self.table}...')
+        if settings.value('show_items_missing_data'):
+            related_msg = f'Loading related data for {self.table}...\n\nSettings to speed up loading:\n- Hide items with missing data\n- Reduce the columns shown'
+        else:
+            related_msg = f'Loading related data for {self.table}...\n\nSettings to speed up loading:\n- Reduce the columns shown'
+        show_loading_dialog('Loading', related_msg)
         self.model = SQLiteTableModel(table_query, view_query=view_query)
-        close_loading_dialog('Loading', f'Loading related data for {self.table}...')
+        close_loading_dialog('Loading', related_msg)
         if self.model.last_error:
             logger_setup.get_logger().critical(f'Error displaying table')
+            close_loading_dialog('Loading', msg)
             return
         self.model.set_table(self.table)
         if self.model.rowCount() == 0:
             logger_setup.get_logger().error(f'No {self.child_type} for selected {self.parent_type}')
+            close_loading_dialog('Loading', msg)
             self.close()
             return
         if isinstance(self.view, QtW.QTreeView):
@@ -336,20 +319,23 @@ class ViewDataTab(QtW.QWidget):
                 self.view.hideColumn(2)  # don't show ParentAliquotID
                 self.view.hideColumn(3)  # don't show AliquotParentRow
                 self.view.hideColumn(4)  # don't show SampleID
+                if isinstance(self.view.model(), TreeSortFilterProxyModel):
+                    self.view.model().update_visible_columns()
             case 'Grains':
                 self.view.hideColumn(0)  # don't show GrainID
-                self.view.hideColumn(1)  # don't show SpotID
-                self.view.hideColumn(2)  # don't show AliquotID
-                self.view.hideColumn(3)  # don't show SampleID
+                self.view.hideColumn(1)  # don't show AliquotID
+                self.view.hideColumn(2)  # don't show SampleID
             case 'Spots':
                 self.view.hideColumn(0)  # don't show SpotID
-                self.view.hideColumn(1)  # don't show SampleID
+                self.view.hideColumn(1)  # don't show GrainID
                 self.view.hideColumn(2)  # don't show AliquotID
+                self.view.hideColumn(3)  # don't show SampleID
             case 'UPbAnalyses':
                 self.view.hideColumn(0)  # don't show UPbAnalysisID
-                self.view.hideColumn(1)  # don't show SampleID
-                self.view.hideColumn(2)  # don't show AliquotID
-                self.view.hideColumn(3)  # don't show SpotID
+                self.view.hideColumn(1)  # don't show SpotID
+                self.view.hideColumn(2)  # don't show GrainID
+                self.view.hideColumn(3)  # don't show AliquotID
+                self.view.hideColumn(4)  # don't show SampleID
         query_args = {'show_columns': [self.show_cols[0]], 'where': self.where}
         view_query = ViewQuery(self.table, True, **query_args)
         table_query = view_query.table_query
@@ -358,7 +344,7 @@ class ViewDataTab(QtW.QWidget):
         self.page_info_label.setText(
             f'{self.current_page * self.rows_per_page + 1}-{min((self.current_page + 1) * self.rows_per_page, self.total_records)} of {self.total_records}')
         end_display_table_time = time.time()
-        loading_manager.close_loading_dialog('Loading', 'Displaying table...')
+        close_loading_dialog('Loading', msg)
         logger_setup.get_logger().info(f'Time to display table: {end_display_table_time - start_display_table_time}')
 
     def show_context_menu(self, pos):
@@ -376,7 +362,11 @@ class ViewDataTab(QtW.QWidget):
                     self.display_data(action)
         else:
             edit_action = table_menu.addAction('Edit')
-            if self.model.table == 'Spots':
+            if self.model.table == 'Grains':
+                view_spots_action = table_menu.addAction('View Spots')
+            else:
+                view_spots_action = None
+            if self.model.table in ['Spots', 'Grains']:
                 view_upb_analyses_action = table_menu.addAction('View U-Pb Analyses')
             else:
                 view_upb_analyses_action = None
@@ -384,7 +374,7 @@ class ViewDataTab(QtW.QWidget):
             if action:
                 if action == edit_action:
                     self.edit_popup()
-                elif action == view_upb_analyses_action:
+                elif action == view_upb_analyses_action or action == view_spots_action:
                     self.display_data(action)
 
     def display_data(self, action):
@@ -406,12 +396,15 @@ class ViewDataTab(QtW.QWidget):
         if 'Grain' in action.text():
             self.main_window.open_tab(parent_ids, 'Aliquots', 'Grains')
         elif 'Spot' in action.text():
-            self.main_window.open_tab(parent_ids, 'Aliquots', 'Spots')
+            if isinstance(self.view, QtW.QTreeView):
+                self.main_window.open_tab(parent_ids, 'Aliquots', 'Spots')
+            else:
+                self.main_window.open_tab(parent_ids, 'Grains', 'Spots')
         elif 'U-Pb' in action.text():
             if isinstance(self.view, QtW.QTreeView):
                 self.main_window.open_tab(parent_ids, 'Aliquots', 'UPbAnalyses')
             else:
-                self.main_window.open_tab(parent_ids, 'Spots', 'UPbAnalyses')
+                self.main_window.open_tab(parent_ids, self.table, 'UPbAnalyses')
 
     def edit_popup(self):
         logger_setup.get_logger().info(
@@ -421,6 +414,8 @@ class ViewDataTab(QtW.QWidget):
             dlg = EditTreeView(self, self.table, **dlg_args)
         else:
             dlg = EditView(self, self.table, **dlg_args)
+        if isinstance(self.view, QtW.QTreeView):
+            save_expanded_state(self.table, self.view)
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             if not update_database():
                 logger_setup.get_logger().error('Error updating and displaying database')
@@ -444,3 +439,8 @@ class ViewDataTab(QtW.QWidget):
                 self.view.expandAll()
         else:
             self.proxy_model.setFilterRegularExpression(search_expression)
+
+    def close(self):
+        if isinstance(self.view, QtW.QTreeView) and self.tree_model:
+            save_expanded_state(self.table, self.view)
+        super().close()

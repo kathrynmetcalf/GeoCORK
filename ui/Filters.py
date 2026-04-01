@@ -4,6 +4,7 @@ import os
 import re
 import sqlite3
 import sys
+import time
 from collections import defaultdict
 from typing import Literal, Dict, Tuple, List
 
@@ -953,7 +954,7 @@ class RuleWidget(QWidget):
 
         # Delete button
         self.delete_button = QPushButton('Delete')
-        self.delete_button('Remove condition from group')
+        self.delete_button.setToolTip('Remove condition from group')
         self.delete_button.clicked.connect(lambda: self.deleteLater())
         self.layout.addWidget(self.delete_button)
 
@@ -1277,7 +1278,7 @@ class GroupBox(QGroupBox):
         self.add_group_button.clicked.connect(lambda: self.add_group(None))
 
         self.delete_button = QPushButton('Delete')
-        self.add_delete_button.setToolTip('Remove group and all rules in it')
+        self.delete_button.setToolTip('Remove group and all rules in it')
 
         buttons_layout.addWidget(self.add_rule_button)
         buttons_layout.addWidget(self.add_group_button)
@@ -1681,15 +1682,18 @@ class QueryBuilder(QWidget):
         :param str type: Samples, Aliquots, Spots, or UPbAnalyses to query the database for
         :return: list of ids of given type or None
         """
-        show_loading_dialog('Filtering', f'Filtering {type} based on current criteria...')
+        filter_start = time.time()
+        show_loading_dialog('Filtering', f'Filtering {type} based on current criteria...\n\nThis may take minutes for complex filters or large databases.')
         sql_query = self.get_sql(type)
-        uri = f'file:{settings.value('db_file', type=str)}?mode=ro&immutable=1'
+        database = settings.value('db_file', type=str)
+        uri = f'file:{database}?mode=ro&immutable=1'
         try:
             conn = sqlite3.connect(uri, uri=True)
             with conn:
                 cursor = conn.cursor()
                 cursor.execute(sql_query)
-                results = [row[0] for row in cursor.fetchall()]
+                data = cursor.fetchall()
+                results = [row[0] for row in data]
             conn.commit()
             conn.close()
         except sqlite3.Error as e:
@@ -1697,11 +1701,11 @@ class QueryBuilder(QWidget):
             logger_setup.get_logger().debug(f"Failed to get filtered ids")
             logger_setup.get_logger().debug(f"Error: {e}")
             logger_setup.get_logger().debug(f"SQL query: {sql_query}")
-            close_loading_dialog('Filtering', f'Filtering {type} based on current criteria...')
+            close_loading_dialog('Filtering', f'Filtering {type} based on current criteria...\n\nThis may take minutes for complex filters or large databases.')
             return None
         logger_setup.get_logger().debug(f'Filtered ids: {results}')
-        logger_setup.get_logger().info('Gathered filtered ids successfully')
-        close_loading_dialog('Filtering', f'Filtering {type} based on current criteria...')
+        logger_setup.get_logger().info('Gathered filtered ids successfully in {:.2f} seconds'.format(time.time() - filter_start))
+        close_loading_dialog('Filtering', f'Filtering {type} based on current criteria...\n\nThis may take minutes for complex filters or large databases.')
         return results if results else None
 
     def get_sql(self, type: str) -> str:

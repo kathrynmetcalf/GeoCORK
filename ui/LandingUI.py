@@ -21,7 +21,6 @@ from Functions.Create_database import create_tables
 from Functions.Database_manager import update_database, turn_on_foreign_keys
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
-from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Text_manipulations import shrink_home, expand_home
 from Functions.Widget_classes import show_loading_dialog, close_loading_dialog
 from ui.MergeDatabaseUI import MergeDatabaseDialog
@@ -33,7 +32,6 @@ class LandingPage(QWidget):
     def __init__(self, start_filepath=None):
         super().__init__()
         logger_setup.get_logger().info("Starting Landing Page...")
-        self.loading_manager = LoadingDialogManager.get_instance()
 
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file =os.path.join(base_path,  "LandingPage.ui")
@@ -66,7 +64,7 @@ class LandingPage(QWidget):
         self.github_button.clicked.connect(self.open_github)
         self.selected_files = None
 
-        self.citation = LinkLabel(text = 'Metcalf, K., & Burges, J. (2025). kathrynmetcalf/GeoCORK: GeoCORK v1.0.3 (v1.0.3). Zenodo. https://doi.org/10.5281/zenodo.15833658',
+        self.citation = LinkLabel(text = f'Metcalf, K., & Burges, J. in review. kathrynmetcalf/GeoCORK: GeoCORK {settings.value('default_geocork_version')}. Zenodo. https://doi.org/10.5281/zenodo.15833658',
                                   url = 'https://doi.org/10.5281/zenodo.15833658')
         self.citation.setObjectName("citation")
         self.horizontalLayout_4.insertWidget(0, self.citation)
@@ -129,10 +127,10 @@ class LandingPage(QWidget):
     def open_geo_cork(self, skip_update=False):
         if not self.test_database_lock():
             if '/' in self.selected_files:
-                self.loading_manager.show_loading_dialog("Opening",
+                show_loading_dialog("Opening",
                          f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
             elif '\\' in self.selected_files:
-                self.loading_manager.show_loading_dialog("Opening",
+                show_loading_dialog("Opening",
                          f"Opening {self.selected_files.split('\\')[-1]}... \n(GeoCORK may be slower for large databases)")
             QtWidgets.QApplication.processEvents()
             from ui.GeoCORKMain import GeoCORK
@@ -152,12 +150,12 @@ class LandingPage(QWidget):
                 self.db.open()
                 if not self.db.isOpen():
                     logger_setup.get_logger().critical(f"Error opening database: {self.db.lastError().text()}")
-                    self.loading_manager.close_loading_dialog("Opening",
+                    close_loading_dialog("Opening",
                          f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
                     self.show()
                     return
                 if not turn_on_foreign_keys():
-                    self.loading_manager.close_loading_dialog("Opening",
+                    close_loading_dialog("Opening",
                          f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
                     self.show()
                     return
@@ -165,7 +163,7 @@ class LandingPage(QWidget):
             if not skip_update:
                 if not update_database():
                     logger_setup.get_logger().critical('Error updating and displaying database')
-                    self.loading_manager.close_loading_dialog("Opening",
+                    close_loading_dialog("Opening",
                          f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
                     self.show()
                     return
@@ -227,10 +225,10 @@ class LandingPage(QWidget):
 
     def cancel_open(self):
         if '/' in self.selected_files:
-            self.loading_manager.close_loading_dialog("Opening",
+            close_loading_dialog("Opening",
                          f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
         elif '\\' in self.selected_files:
-            self.loading_manager.close_loading_dialog("Opening",
+            close_loading_dialog("Opening",
                          f"Opening {self.selected_files.split('\\')[-1]}... \n(GeoCORK may be slower for large databases)")
         self.db.close()
         self.db = None

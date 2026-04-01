@@ -24,7 +24,8 @@ from Functions import ExportDatabase, Settings_manager
 from Functions import SQLUtils
 from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
 from Functions.Widget_classes import CheckableSqlTableModel, ReadableProxyModel, SQLiteTableModel, find_parent_items, \
-    show_loading_dialog, close_loading_dialog, CheckableSqlQueryModel, columns_as_list, PartiallyCloseableTabWidget
+    show_loading_dialog, close_loading_dialog, CheckableSqlQueryModel, columns_as_list, PartiallyCloseableTabWidget, \
+    get_total_records, populate_combo_box
 from Functions.Settings_manager import SettingsManager
 
 settings = SettingsManager().settings
@@ -117,15 +118,6 @@ class ExportWidget(QWidget):
 
         self.sample_count = 0
 
-        self.samples_model = CheckableSqlQueryModel()
-        self.samples_proxy = ReadableProxyModel()
-
-        self.filter_model = CheckableSqlTableModel()
-        self.filter_proxy = ReadableProxyModel()
-
-        self.groupedfilter_model = CheckableSqlTableModel()
-        self.groupedfilter_proxy = ReadableProxyModel()
-
         self.use_converted_label: QLabel
         # Make the existing label text bold
         text = self.use_converted_label.text()
@@ -202,6 +194,9 @@ class ExportWidget(QWidget):
         start_update_table_view_time = time.time()
         if worksheet_name is None:
             current_worksheet_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
+            if not current_worksheet_name:
+                self.export_format()
+                current_worksheet_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
         else:
             current_worksheet_name = worksheet_name
 
@@ -211,16 +206,16 @@ class ExportWidget(QWidget):
         self.filtered_upb_ids = set()
 
         # Get the current selected samples, filters, and grouped filters
-        if isinstance(self.samplesincluded_comboBox.model(), CheckableSqlQueryModel):
+        if isinstance(self.samplesincluded_comboBox.model(), CheckableSqlTableModel):
             self.checked_sample_list = self.samplesincluded_comboBox.model().return_checked_ids()[0]
         else:
             self.checked_sample_list = []
         self.checked_sample_names = f"({', '.join(map(str, self.checked_sample_list))})"
 
-        self.checked_filter_list = self.filter_model.return_checked_ids()[0]
+        self.checked_filter_list = self.filterselection_comboBox.model().return_checked_ids()[0]
         self.checked_filter_names = f"({', '.join(map(str, self.checked_filter_list))})"
 
-        self.checked_grouped_filter_list = self.groupedfilter_model.return_checked_ids()[0]
+        self.checked_grouped_filter_list = self.groupedfilter_comboBox.model().return_checked_ids()[0]
 
         # Get the current TableView
         tableView: QTableView = self.worksheet_tabs_dict[current_worksheet_name]['tableView']
@@ -700,14 +695,18 @@ class ExportWidget(QWidget):
                 if self.active_filter_sample_ids is None:
                     self.active_filter_sample_ids = []
             except Exception as e:
-                pass  # todo log this
+                logger_setup.get_logger().critical(f'Error updating active filter')
+                return
 
         if len(self.active_filter_sample_ids) > 0 and self.active_filter_sample_checkBox.isChecked():
             # if there are active filter sample ids, and the checkbox is checked, add them to the checked sample list
-            self.samples_model.check_ids_from_list(self.active_filter_sample_ids, state=Qt.CheckState.Checked)
+            self.checked_sample_list.extend(self.active_filter_sample_ids)
+            self.samplesincluded_comboBox.model().update_model_checks(set(self.checked_sample_list), set())
         elif not self.active_filter_sample_checkBox.isChecked():
-            # if the checkbox is not checked, uncheck the active filter sample ids
-            self.samples_model.check_ids_from_list(self.active_filter_sample_ids, state=Qt.CheckState.Unchecked)
+            # if the checkbox is not checked, remove the active filter sample from the checked sample list
+            checked_sample_list = [sample_id for sample_id in self.checked_sample_list if sample_id not in self.active_filter_sample_ids]
+            self.checked_sample_list = checked_sample_list
+            self.samplesincluded_comboBox.model().update_model_checks(set(self.checked_sample_list), set())
 
     def export_format(self):
         """
@@ -770,7 +769,8 @@ class ExportWidget(QWidget):
                     ('UPbAnalyses', "Calculated206Pb/238U"): True,
                     ('UPbAnalyses', "Calculated206Pb/238UError"): True,
 
-                    ('UPbAnalyses', "ErrorCorr/Rho"): True,
+                    ('UPbAnalyses', "ErrorCorr/Rho_68v76"): True,
+                    ('UPbAnalyses', "ErrorCorr/Rho_68v75"): True,
 
                     ('UPbAnalyses', "Calculated207Pb/235UAge"): True,
                     ('UPbAnalyses', "Calculated207Pb/235UAgeError"): True,
@@ -784,7 +784,8 @@ class ExportWidget(QWidget):
                     ('UPbAnalyses', "CalculatedBestAgeFilled"): True,
                     ('UPbAnalyses', "CalculatedBestAgeErrorFilled"): True,
 
-                    ('UPbAnalyses', "CalculatedConcordance_206Pb/238Uv207Pb/206Pb"): True
+                    ('UPbAnalyses', "CalculatedConcordance_206Pb/238Uv207Pb/206Pb"): True,
+                    ('UPbAnalyses', "CalculatedConcordance_206Pb/238Uv207Pb/235U"): True
                 }
 
                 self.column_name_mappings = {
@@ -810,7 +811,8 @@ class ExportWidget(QWidget):
                     "Calculated206Pb/238U": "206Pb_238Pb",
                     "Calculated206Pb/238UError": "206Pb_238Pb_err",
 
-                    "ErrorCorr/Rho": "RHO",
+                    "ErrorCorr/Rho_68v76": "RHO_68v76",
+                    "ErrorCorr/Rho_68v75": "RHO_68v76",
 
                     "Calculated207Pb/235UAge": "75Age",
                     "Calculated207Pb/235UAgeError": "75Age_err",
@@ -824,7 +826,10 @@ class ExportWidget(QWidget):
                     "CalculatedBestAgeFilled": "BestAge",
                     "CalculatedBestAgeErrorFilled": "BestAge_err",
 
-                    "CalculatedConcordance_206Pb/238Uv207Pb/206Pb": "Disc"
+                    "CalculatedConcordance_206Pb/238Uv207Pb/206Pb": "Conc_68v76",
+                    "CalculatedConcordance_206Pb/238Uv207Pb/235U": "Conc_68v75",
+                    "ConcordanceFormat"
+                    "MinimumSegmentedDiscordance": "Min_Seg_Discordance"
                 }
                 self.add_worksheet_tab('ZrUPb', False, False, ZrUPb_columns, ZrUPb_columns, True)
             case 'IsoplotR - 07/35, 06/38, 04/38, 07/06, 04/07, 04/06':
@@ -937,7 +942,7 @@ class ExportWidget(QWidget):
                     ('UPbAnalyses', 'Calculated207Pb/235UError'): True,
                     ('UPbAnalyses', 'Calculated206Pb/238U'): True,
                     ('UPbAnalyses', 'Calculated206Pb/238UError'): True,
-                    ('UPbAnalyses', 'ErrorCorr/Rho'): True
+                    ('UPbAnalyses', 'ErrorCorr/Rho_68v75'): True
                 }
                 self.add_worksheet_tab('AgeCalcML concordia', False, True, UPb_columns, UPb_columns, True)
             case 'Database':
@@ -1046,21 +1051,16 @@ class ExportWidget(QWidget):
          samples by either Samples or FilterGroups """
         logger_setup.get_logger().info(f'Updating Step 2 list for {self.selectionscope_comboBox.currentText()}')
         start_update_step_2_time = time.time()
-        if self.sample_count > 1000:
-            self.samplesincluded_comboBox.setEnabled(False)
-            self.samplesincluded_comboBox.hide()
-            self.selectionscope_comboBox.setCurrentText('Filter Groups')
-        else:
-            self.samplesincluded_comboBox.setEnabled(True)
-            self.samplesincluded_comboBox.show()
+        self.samplesincluded_comboBox.setEnabled(True)
+        self.samplesincluded_comboBox.show()
         self.step_2_label.show()
         self.filters_label.show()
         self.filters_label.setText("Select Additional Filters (optional):")
         self.filters_label.setToolTip(
             "Additional filters to filter the samples, multiple filters are combined with OR.")
-        self.samples_model.clear_checks()
-        self.filter_model.clear_checks()
-        self.groupedfilter_model.clear_checks()
+        self.samplesincluded_comboBox.clear_all_checks()
+        self.filterselection_comboBox.clear_all_checks()
+        self.groupedfilter_comboBox.clear_all_checks()
 
         if self.selectionscope_comboBox.currentText() == 'Filter Groups':
             self.step_2_label.hide()
@@ -1562,23 +1562,14 @@ class ExportWidget(QWidget):
         Method to force a refresh of the dropdowns and table view.
         """
         logger_setup.get_logger().info('Refresh Button Clicked')
-        self.samples_model = CheckableSqlQueryModel()
-        self.samples_model.set_table('')
-        self.samples_proxy = ReadableProxyModel()
-
-        self.filter_model = CheckableSqlTableModel()
-        self.filter_proxy = ReadableProxyModel()
-
-        self.groupedfilter_model = CheckableSqlTableModel()
-        self.groupedfilter_proxy = ReadableProxyModel()
 
         self.save_checkbox_states()
         self.showEvent(None)
 
         # Recheck items
-        self.samples_model.check_ids_from_list(self.checked_sample_list, QtCore.Qt.CheckState.Checked)
-        self.filter_model.check_ids_from_list(self.checked_filter_list, QtCore.Qt.CheckState.Checked)
-        self.groupedfilter_model.check_ids_from_list(self.checked_grouped_filter_list, QtCore.Qt.CheckState.Checked)
+        self.samplesincluded_comboBox.model().update_model_checks(set(self.checked_sample_list), set())
+        self.filterselection_comboBox.model().update_model_checks(set(self.checked_filter_list), set())
+        self.groupedfilter_comboBox.model().update_model_checks(set(self.checked_grouped_filter_list), set())
 
         self.load_checkbox_states()
         self.update_table_view()
@@ -1590,47 +1581,27 @@ class ExportWidget(QWidget):
         start_show_time = time.time()
         show_loading_dialog('Loading', 'Loading data for export...')
 
-        query = QSqlQuery(db=self.database)
-        # Get a count of the number of samples in the database
-        query.prepare('SELECT COUNT(*) FROM Samples')
-        if not query.exec():
-            logger_setup.get_logger().critical('Could not count samples in the database')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-            close_loading_dialog('Loading', 'Loading data for export...')
-            return
-        if not query.next():
-            logger_setup.get_logger().critical('Could not get sample count from database')
-            close_loading_dialog('Loading', 'Loading data for export...')
-            return
-        if self.sample_count != query.value(0):
-            self.sample_count = query.value(0)
+        sample_count = get_total_records('Samples')
+        if self.sample_count != sample_count:
+            self.sample_count = sample_count
             logger_setup.get_logger().info(f'Found {self.sample_count} samples in the database')
-
-            sample_name_query = f'SELECT SampleID, SampleName FROM Samples ORDER BY SampleName LIMIT 1000'
-            self.samples_model.setQuery(sample_name_query)
-            while self.samples_model.canFetchMore():
-                self.samples_model.fetchMore()
-            self.samples_proxy.setSourceModel(self.samples_model)
-
-            self.samplesincluded_comboBox: CheckableComboBox
+            show_loading_dialog('Loading', f'Loading {self.sample_count} Samples...')
             self.samplesincluded_comboBox.enable_context_menu(show_context_menu=True, only_select_deselect=True)
-            self.samplesincluded_comboBox.setModel(self.samples_proxy)
+            populate_combo_box(self.samplesincluded_comboBox, **{'table': 'Samples', 'live': False})
+            self.samplesincluded_comboBox.model().update_model_checks(set(self.checked_sample_list), set())
+            close_loading_dialog('Loading', f'Loading {self.sample_count} Samples...')
 
-            self.samples_model.check_ids_from_list(self.checked_sample_list)
+        filter_count = get_total_records('FilterGroups')
+        logger_setup.get_logger().info(f'Found {filter_count} filters in the database')
 
-
-        self.filter_model = self.set_table(self.filter_model, 'FilterGroups')
-        self.filter_proxy.setSourceModel(self.filter_model)
+        show_loading_dialog('Loading', f'Loading {filter_count} Filter Groups...')
         self.filterselection_comboBox.enable_context_menu(show_context_menu=True, only_select_deselect=True)
-        self.filterselection_comboBox.setModel(self.filter_proxy)
-        self.filter_model.check_ids_from_list(self.checked_filter_list)
-
-        self.groupedfilter_model = self.set_table(self.groupedfilter_model, 'FilterGroups')
-        self.groupedfilter_proxy.setSourceModel(self.groupedfilter_model)
+        populate_combo_box(self.filterselection_comboBox, **{'table': 'FilterGroups', 'live': False})
+        self.filterselection_comboBox.model().update_model_checks(set(self.checked_filter_list), set())
         self.groupedfilter_comboBox.enable_context_menu(show_context_menu=True, only_select_deselect=True)
-        self.groupedfilter_comboBox.setModel(self.groupedfilter_proxy)
-        self.groupedfilter_model.check_ids_from_list(self.checked_grouped_filter_list)
+        populate_combo_box(self.groupedfilter_comboBox, **{'table': 'FilterGroups', 'live': False})
+        self.groupedfilter_comboBox.model().update_model_checks(set(self.checked_grouped_filter_list), set())
+        close_loading_dialog('Loading', f'Loading {filter_count} Filter Groups...')
 
         if self.exportformat_comboBox.currentText() != 'Custom' or len(self.worksheet_tabs_dict.keys()) == 0:
             # Only update the format if the format is not custom or if the format is custom but no sheet has been created yet
@@ -1672,17 +1643,12 @@ class ExportWidget(QWidget):
         self.workbooktabs.currentChanged.connect(self.tab_changed)
         self.workbooktabs.tabBarDoubleClicked.connect(self.rename_worksheet_tab)
 
-        # self.samplesincluded_comboBox.clearEditText()
+        self.samplesincluded_comboBox.clearEditText()
 
         self.update_table_view()
 
         close_loading_dialog('Loading', 'Loading data for export...')
         logger_setup.get_logger().info(f'ExportWidget populated in {time.time() - start_show_time:.2f} seconds')
-        if self.sample_count > 1000:
-            QMessageBox.warning(self, "Large Dataset Warning",
-                                "The database is large, so use filters to select data for export."
-                                )
-
         super().showEvent(a0)
 
     def export_data(self):
@@ -1702,7 +1668,7 @@ class ExportWidget(QWidget):
     def export_to_database(self):
         """Exports the selected samples, either by selection or filter, to a new database file containing all related
         data to the samples, including but not limited to, Samples, Aliquots, Spots, UPbAnalyses, RockTypes,
-        Units, and References... This will only include data that is absolutly related, no unneccessary data will be
+        Units, and References... This will only include data that is absolutely related, no unnecessary data will be
         included."""
         fileName, _ = QFileDialog.getSaveFileName(
             None,
@@ -1805,6 +1771,9 @@ class ExportWidget(QWidget):
         for sheet_name, info in self.worksheet_tabs_dict.items():
             self.update_table_view(worksheet_name=sheet_name)
             sql = info['sql']
+            if not sql:
+                logger_setup.get_logger().warning(f'No SQL query found for sheet "{sheet_name}". Select columns to include in each sheet before exporting.')
+                return False
             if first_sheet:
                 ws = wb.active
                 ws.title = sheet_name

@@ -169,6 +169,37 @@ def insert_rows(database: QSqlDatabase, table_name: str, rows: list[tuple], inse
                 logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
                 return False
+    # This should now be handled in Alter_database when opening the database
+    # # If a tree, close the gaps in parent rows (e.g. ParentRow = 1,2,5,6 -> update to 1,2,3,4)
+    # if any("ParentRow" in col for col in insert_cols):
+    #     # for each ParentID, update the ParentRow to be the row number of that parent in the new table
+    #     item_id_header = insert_cols[0]
+    #     parent_id_header = insert_cols[1]
+    #     parent_row_header = insert_cols[2]
+    #     select_parent_ids = f"SELECT DISTINCT {parent_id_header} FROM '{table_name}'"
+    #     parent_ids = fetchall(select_parent_ids, database)
+    #     for parent_id_tuple in parent_ids:
+    #         parent_id = parent_id_tuple[0]
+    #         if not parent_id:
+    #             select_rows = f"SELECT {item_id_header}, {parent_row_header} FROM '{table_name}' WHERE {parent_id_header} IS NULL ORDER BY {parent_row_header}"
+    #             params = None
+    #         else:
+    #             select_rows = f"SELECT {item_id_header}, {parent_row_header} FROM '{table_name}' WHERE {parent_id_header} = ? ORDER BY {parent_row_header}"
+    #             params = (parent_id,)
+    #         child_rows = fetchall(select_rows, database, params)
+    #         for new_row, child_row in enumerate(child_rows):
+    #             if new_row == child_row[1]:
+    #                 continue  # No update needed if the new row number is the same as the current row number
+    #             update_row = f"UPDATE '{table_name}' SET {parent_row_header} = ? WHERE {item_id_header} = ?"
+    #             query.prepare(update_row)
+    #             query.bindValue(0, new_row)
+    #             query.bindValue(1, child_row[0])
+    #             if not query.exec():
+    #                 logger_setup.get_logger().critical(f'Error adding {table_name}')
+    #                 logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+    #                 logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+    #                 logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+    #                 return False
     return True
 
 def copy_schema(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> bool:
