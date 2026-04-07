@@ -74,7 +74,6 @@ class AddTags(QtW.QDialog):
         while self.model.canFetchMore():
             self.model.fetchMore()
         self.filter_proxy_model.setSourceModel(self.model)
-        self.filter_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
         self.filter_proxy_model.setFilterKeyColumn(1)
         self.tags_tableView.setModel(self.filter_proxy_model)
         self.tags_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)

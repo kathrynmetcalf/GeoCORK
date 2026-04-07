@@ -4,7 +4,6 @@ from PyQt6 import QtCore as QtC
 import logger_setup
 
 
-
 def update_modified_timestamp(table: str, record_ids: list):
     """
     Update the ModifiedTimestamp field for the given records.
@@ -216,12 +215,12 @@ def validate_update(table: str, columns: list, values: list, where: str):
         youngest_unit_error, header = check_update_pairs(all_records, 'YoungestDirectAge', 'DirectAgeUnitID')
         if youngest_unit_error == 'DirectAgeUnitID missing YoungestDirectAge':
             youngest_unit_error = None
-        direct_ages_error, header = check_update_age_range(all_records, 'OldestDirectAge', 'YoungestDirectAge')
+        direct_ages_error, header = check_update_age_range(all_records, 'OldestDirectAge', 'YoungestDirectAge', 'DirectAge')
         if direct_ages_error:
             return direct_ages_error, header
         if unit_error or oldest_unit_error or youngest_unit_error:
             return "Direct age missing units", 'DirectAgeUnitID'
-        relative_error, header = check_update_age_range(all_records, 'OldestAgeID', 'YoungestAgeID')
+        relative_error, header = check_update_age_range(all_records, 'OldestAgeID', 'YoungestAgeID', 'DirectAge')
         if relative_error:
             return relative_error, header
     if table == 'Samples':
@@ -402,7 +401,7 @@ def check_insert_age_range(pairs: list, old_column: str, young_column: str):
                 return f'Oldest direct age is younger than youngest direct age', old_column
     return None, None
 
-def check_update_age_range(all_records: list, old_column: str, young_column: str):
+def check_update_age_range(all_records: list, old_column: str, young_column: str, direct_column: str):
     from Functions.Widget_classes import SQLiteTableModel, get_headers
     if not all_records or not old_column or not young_column:
         return 'Incomplete data given for age range'
@@ -418,6 +417,9 @@ def check_update_age_range(all_records: list, old_column: str, young_column: str
         if record[0] == young_column:
             new_young = record[1]
             old_youngs = record[2]
+        if record[0] == direct_column:
+            new_direct = record[1]
+            old_directs = record[2]
     if age_model:
         if new_old != 'NULL':
             age_model.setQuery(f'SELECT * FROM Ages WHERE {get_headers('Ages')[0]} = {new_old}')
@@ -462,6 +464,12 @@ def check_update_age_range(all_records: list, old_column: str, young_column: str
                     youngest_old = age_model.index(0, 5).data(QtC.Qt.ItemDataRole.DisplayRole)
                     if oldest_old < new_oldest_young and youngest_old < new_youngest_young:
                         return f'Oldest relative age is younger than youngest relative age', old_column
+        if new_old != 'NULL' and new_direct != 'NULL':
+            if new_direct > new_oldest_old:
+                return f'Direct age not in relative age range', direct_column
+        if new_young != 'NULL' and new_direct != 'NULL':
+            if new_direct < new_youngest_young:
+                return f'Direct age not in relative age range', direct_column
     else:
         if new_old != 'NULL' and new_young != 'NULL':
             if new_old < new_young:
@@ -476,6 +484,12 @@ def check_update_age_range(all_records: list, old_column: str, young_column: str
                 if old_old != 'NULL':
                     if old_old < new_young:
                         return f'Oldest direct age is younger than youngest direct age', old_column
+        if new_old != 'NULL' and new_direct != 'NULL':
+            if new_direct > new_old:
+                return f'Direct age not in direct age range', old_column
+        if new_young != 'NULL' and new_direct != 'NULL':
+            if new_direct < new_young:
+                return f'Direct age not in direct age range', old_column
     return None, None
 
 def check_gps_format_insert(pairs: list, format_id: int):
@@ -486,8 +500,8 @@ def check_gps_format_insert(pairs: list, format_id: int):
     gps_format_model.select()
     while gps_format_model.canFetchMore():
         gps_format_model.fetchMore()
-    gps_format_model.setFilter(f'GPSFormatID = {format_id}')
-    gps_format_abbreviation = gps_format_model.data(gps_format_model.index(0, 2))
+    from Functions.Widget_classes import get_name_from_id
+    gps_format_abbreviation = get_name_from_id('GPSFormats', format_id)
     for pair in pairs:
         if pair[0] == 'GPSLatDeg':
             new_latdeg = f'{pair[1]}'
@@ -647,8 +661,8 @@ def check_gps_format_update(all_records: list, new_format_id: int):
     gps_format_model.select()
     while gps_format_model.canFetchMore():
         gps_format_model.fetchMore()
-    gps_format_model.setFilter(f'GPSFormatID = {new_format_id}')
-    gps_format_abbreviation = gps_format_model.data(gps_format_model.index(0, 2))
+    from Functions.Widget_classes import get_name_from_id
+    gps_format_abbreviation = get_name_from_id('GPSFormats', new_format_id)
     for record in all_records:
         if record[0] == 'GPSLatDeg':
             new_latdeg = str(record[1])
@@ -741,20 +755,40 @@ def check_gps_format_update(all_records: list, new_format_id: int):
                 return 'Minutes given without degrees in degree format', 'GPSLatDeg'
             if (new_londeg == 'NULL' and new_lonmin != 'NULL') or (new_londeg == '' and 'NULL' not in old_londegs):
                 return 'Minutes given without degrees in degree format', 'GPSLonDeg'
-        elif 'DDM ' in gps_format_abbreviation:
-            if new_latsec != 'NULL' or (new_latsec == '' and 'NULL' not in old_latsecs):
-                return 'Seconds given in DDM format', 'GPSLatSec'
-            if new_lonsec != 'NULL' or (new_lonsec == '' and 'NULL' not in old_lonsecs):
-                return 'Seconds given in DDM format', 'GPSLonSec'
-        elif 'DMS' in gps_format_abbreviation:
-            if (new_latsec == '' and 'NULL' not in old_latsecs) or (new_latsec == 'NULL' and new_lonsec != 'NULL'):
-                return 'Missing seconds lat in DMS format', 'GPSLatSec'
-            if (new_latsec != 'NULL' and new_lonsec == 'NULL') or (new_lonsec == '' and 'NULL' not in old_lonsecs):
-                return 'Missing seconds lon in DMS format', 'GPSLonSec'
-            if (new_latmin == 'NULL' and new_latsec != 'NULL') or (new_latmin == '' and 'NULL' not in old_latmins):
-                return 'Seconds given without minutes in DMS format', 'GPSLatMin'
-            if (new_lonmin == 'NULL' and new_lonsec != 'NULL') or (new_lonmin == '' and 'NULL' not in old_lonmins):
-                return 'Seconds given without minutes in DMS format', 'GPSLonMin'
+            try:
+                if new_latdeg != '' and new_latdeg != 'NULL':
+                    int(new_latdeg)
+            except ValueError:
+                return f'Decimal degrees given in {gps_format_abbreviation} format', 'GPSLatDeg'
+            try:
+                if new_londeg != '' and new_londeg != 'NULL':
+                    int(new_londeg)
+            except ValueError:
+                return f'Decimal degrees given in {gps_format_abbreviation} format', 'GPSLonDeg'
+            if 'DDM ' in gps_format_abbreviation:
+                if new_latsec != 'NULL' or (new_latsec == '' and 'NULL' not in old_latsecs):
+                    return 'Seconds given in DDM format', 'GPSLatSec'
+                if new_lonsec != 'NULL' or (new_lonsec == '' and 'NULL' not in old_lonsecs):
+                    return 'Seconds given in DDM format', 'GPSLonSec'
+            elif 'DMS' in gps_format_abbreviation:
+                if (new_latsec == '' and 'NULL' not in old_latsecs) or (new_latsec == 'NULL' and new_lonsec != 'NULL'):
+                    return 'Missing seconds lat in DMS format', 'GPSLatSec'
+                if (new_latsec != 'NULL' and new_lonsec == 'NULL') or (new_lonsec == '' and 'NULL' not in old_lonsecs):
+                    return 'Missing seconds lon in DMS format', 'GPSLonSec'
+                if (new_latmin == 'NULL' and new_latsec != 'NULL') or (new_latmin == '' and 'NULL' not in old_latmins):
+                    return 'Seconds given without minutes in DMS format', 'GPSLatMin'
+                if (new_lonmin == 'NULL' and new_lonsec != 'NULL') or (new_lonmin == '' and 'NULL' not in old_lonmins):
+                    return 'Seconds given without minutes in DMS format', 'GPSLonMin'
+                try:
+                    if new_latmin != '' and new_latmin != 'NULL':
+                        int(new_latmin)
+                except ValueError:
+                    return 'Decimal minutes given in DMS format', 'GPSLatMin'
+                try:
+                    if new_lonmin != '' and new_lonmin != 'NULL':
+                        int(new_lonmin)
+                except ValueError:
+                    return 'Decimal minutes given in DMS format', 'GPSLonMin'
         if '+/-' in gps_format_abbreviation:
             if new_latdir != 'NULL' or (new_latdir == '' and 'NULL' not in old_latdirs):
                 return 'Use signs instead of directions in +/- format', 'GPSLatDirectionID'
@@ -834,7 +868,6 @@ def check_insert_concordance(pairs: list, concordance_format_id: int):
     concordance_format_model.select()
     while concordance_format_model.canFetchMore():
         concordance_format_model.fetchMore()
-    concordance_format_model.setFilter(f'ConcordanceFormatID = {concordance_format_id}')
     new_68v76_concordance = 'NULL'
     new_68v75_concordance = 'NULL'
     for pair in pairs:

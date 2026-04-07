@@ -12,15 +12,14 @@ from PyQt6.uic import loadUi
 
 import Functions.Text_manipulations as TxM
 import logger_setup
-from Functions.Database_manager import update_database
-from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 from ui.Merge import MergeDialog
 
 settings = SettingsManager().settings
 from Functions.Widget_classes import (
     set_table, TreeModel, TreeContextMenu, get_selected_tree_ids, expand_collapse, save_expanded_state,
-    restore_expanded_state, add_tree_popup, TreeSortFilterProxyModel, delete_data, show_loading_dialog, close_loading_dialog
+    add_tree_popup, TreeSortFilterProxyModel, delete_data, show_loading_dialog, close_loading_dialog
 )
 from ui.AddTreeTags import AddTreeTags
 
@@ -54,6 +53,7 @@ class EditTree(QtW.QDialog):
         # self.model = SQLiteTableModel(f'SELECT * FROM {self.table}')
         self.model = QtS.QSqlTableModel()
         set_table(self.model, self.table)
+        self.total_records = self.model.rowCount()
         self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
         self.tree_model = TreeModel(self.model)
         self.setWindowTitle(f'Edit {table_name}')
@@ -153,6 +153,8 @@ class EditTree(QtW.QDialog):
         # self.tree_model.save_state.connect(lambda: save_expanded_state(self.table, self.edit_treeView))
         self.tree_model.dataEdited.connect(self.update_proxy)
 
+        self.page_info_label.setText(f'{self.total_records} {self.table_name}')
+
         close_loading_dialog('Loading', f'Displaying {self.model.rowCount()} {self.table_name}...')
         logger_setup.get_logger().info(
             f'Displayed {self.model.rowCount()} {self.table_name} tree in {time.time() - start_display_tree_time} seconds')
@@ -163,6 +165,7 @@ class EditTree(QtW.QDialog):
             self.updated = True
         if self.tree_proxy_model.sourceModel() == self.tree_model:
             self.tree_model.deleteLater()
+        self.total_records = self.model.rowCount()
         self.tree_model = TreeModel(self.model)
         self.tree_model.dataEdited.connect(self.update_proxy)
         self.tree_proxy_model.setSourceModel(self.tree_model)
@@ -298,9 +301,6 @@ class EditTree(QtW.QDialog):
         """
         release_savepoint('before_edit')
         save_expanded_state(self.table, self.edit_treeView)
-        # Check if there is another existing savepoint. If not, go ahead and update the database
-        if not SavepointManager.get_instance().active_savepoints():
-            update_database()
         self.accept()
         self.close_by_dialog = True
         self.close()

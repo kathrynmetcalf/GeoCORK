@@ -109,9 +109,8 @@ class DisplayTables(QtW.QWidget):
         if not all_names:
             return
         list_model = QtC.QStringListModel(sorted(all_names, key=str.casefold))
-        list_proxy_model = QtC.QSortFilterProxyModel()
+        list_proxy_model = ReadableProxyModel()
         list_proxy_model.setSourceModel(list_model)
-        list_proxy_model.setSortCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
         self.name_completer.setModel(list_proxy_model)
         self.name_completer.setFilterMode(QtC.Qt.MatchFlag.MatchContains)
         self.name_completer.setCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
@@ -191,6 +190,7 @@ class DisplayTables(QtW.QWidget):
                 logger_setup.get_logger().critical(f'Error displaying {self.table}')
                 close_loading_dialog('Loading', msg)
                 self.parent().close()
+            self.total_records = self.model.rowCount()
             self.tree_model = TreeModel(self.model, None)
             self.tree_proxy_model.setSourceModel(self.tree_model)
             self.tree_proxy_model.setFilterKeyColumn(-1)
@@ -231,6 +231,8 @@ class DisplayTables(QtW.QWidget):
                 if self.dbTable_treeView.columnWidth(column) > 400:
                     self.dbTable_treeView.setColumnWidth(column, 400)
             logger_setup.get_logger().info(f'Resized columns in {time.time() - start_column_resize_time} seconds')
+
+            self.page_info_label.setText(f'{self.total_records} {self.table}')
 
             logger_setup.get_logger().info(
                 f'Set up tree view for {self.table} in {time.time() - start_display_tree_time} seconds')
@@ -628,7 +630,7 @@ class DisplayTables(QtW.QWidget):
         self.show_per_page_comboBox: QtW.QComboBox
         self.prev_button.show()
         self.next_button.show()
-        self.page_info_label.show()
+        # self.page_info_label.show()
         self.show_per_page_comboBox.show()
         self.show_per_page_label.show()
         self.goto_line_edit.show()
@@ -646,7 +648,7 @@ class DisplayTables(QtW.QWidget):
         self.show_per_page_comboBox: QtW.QComboBox
         self.prev_button.hide()
         self.next_button.hide()
-        self.page_info_label.hide()
+        # self.page_info_label.hide()
         self.show_per_page_comboBox.hide()
         self.show_per_page_label.hide()
         self.goto_line_edit.hide()

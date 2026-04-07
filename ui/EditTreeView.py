@@ -61,10 +61,10 @@ class SetSelectedValues(QtW.QDialog):
         button_layout = QtW.QHBoxLayout()
         button_layout.addWidget(self.cancel_button)
         button_layout.addWidget(self.commit_button)
-        main_layout = QtW.QVBoxLayout()
-        main_layout.addWidget(self.widget)
-        main_layout.addLayout(button_layout)
-        self.setLayout(main_layout)
+        self.main_layout = QtW.QVBoxLayout()
+        self.main_layout.addWidget(self.widget)
+        self.main_layout.addLayout(button_layout)
+        self.setLayout(self.main_layout)
         self.adjustSize()
         if isinstance(self.widget, CheckableComboBox):
             self.widget.add_triggered.connect(self.add_popup)
@@ -115,8 +115,10 @@ class SetSelectedValues(QtW.QDialog):
         dlg.exec()
         if dlg.updated:
             # Update this combo box
+            self.main_layout.removeWidget(self.widget)
             self.parent().create_dropdown()
             self.widget = self.parent().combo
+            self.main_layout.insertWidget(0, self.widget)
             combo.blockSignals(False)
         else:
             combo.blockSignals(False)
@@ -154,8 +156,10 @@ class SetSelectedValues(QtW.QDialog):
         logger_setup.get_logger().info(f"Showing {table} edit dialog")
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             # Update this combo box
+            self.main_layout.removeWidget(self.widget)
             self.parent().create_dropdown()
             self.widget = self.parent().combo
+            self.main_layout.insertWidget(0, self.widget)
             combo.blockSignals(False)
         else:
             combo.blockSignals(False)

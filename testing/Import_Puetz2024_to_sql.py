@@ -1319,7 +1319,6 @@ def Puetz_importer():
     print('Importing U-Pb analysis methods')
 
     # Create the UPbAnalysisMethods table
-    # todo: Populate parent and parent row
 
     static_columns = get_static_columns('UPbAnalysisMethods', db)
 
@@ -1510,7 +1509,6 @@ def Puetz_importer():
     spot_composition_id = 1  # zircon
     grain_composition_id = 1  # zircon
     spot_size_unit_id = 5  # μm
-    concordance_format_id = 5
 
     # Before we change the grain names for duplicate data, merge DB7 (concordant non-metamorphic cores) and
     # DB12 (concordant metamorphic cores) to define non-metamorphic and metamorphic contexts
@@ -1606,7 +1604,7 @@ def Puetz_importer():
     # Add basic/constant information to the UPbAnalyses, Spots, and Grain tables
     grain_sql_df['GrainName'] = upb_analysis_df['Sample&Grain']
     grain_sql_df['GrainID'] = pd.Series(list(range(1, grain_sql_df.shape[0] + 1)), dtype=pd.Int64Dtype())
-    spot_sql_df['GrainID'] = pd.Series(list(range(1, grain_sql_df.shape[0] + 1)), dtype=pd.Int64Dtype())
+    # spot_sql_df['GrainID'] = pd.Series(list(range(1, grain_sql_df.shape[0] + 1)), dtype=pd.Int64Dtype())
     grain_sql_df['GrainCompositionID'] = pd.Series(list(range(1, grain_sql_df.shape[0] + 1)), dtype=pd.Int64Dtype())
     grain_sql_df['GrainCreated'] = pd.to_datetime('now')
     grain_sql_df['GrainModified'] = pd.to_datetime('now')
@@ -1632,7 +1630,6 @@ def Puetz_importer():
     upb_analysis_sql_df['AgeErrorFormatID'] = pd.Series([age_error_format]*upb_analysis_df.shape[0], dtype=pd.Int64Dtype())
     upb_analysis_sql_df['AgeUnitID'] = pd.Series([age_unit_id]*upb_analysis_df.shape[0], dtype=pd.Int64Dtype())
     upb_analysis_sql_df['SpotSizeUnitID'] = pd.Series([spot_size_unit_id]*upb_analysis_df.shape[0], dtype=pd.Int64Dtype())
-    upb_analysis_sql_df['ConcordanceFormatID'] = pd.Series([concordance_format_id]*upb_analysis_df.shape[0], dtype=pd.Int64Dtype())
 
     # Map analyses back to samples
     sample_to_analysis = merged_sample_id_df[['Ref-Sample Key', 'Sample_ID', 'SampleID', 'Mass Spectrometer',
@@ -1804,7 +1801,7 @@ def Puetz_importer():
     upb_analysis_sql_df['207Pb/235UError'] = upb_analysis_df['207Pb/235U            1σ uncert']
     upb_analysis_sql_df['207Pb/206Pb'] = upb_analysis_df['207Pb/206Pb      ratio']
     upb_analysis_sql_df['207Pb/206PbError'] = upb_analysis_df['207Pb/206Pb            1σ uncert']
-    upb_analysis_sql_df['ErrorCorr/Rho'] = upb_analysis_df['Rho (calc.)']
+    upb_analysis_sql_df['ErrorCorr/Rho_68v75'] = upb_analysis_df['Rho (calc.)']
     upb_analysis_sql_df['206Pb/238UAge'] = upb_analysis_df['Calc 206Pb/238U age (Ma)']
     upb_analysis_sql_df['206Pb/238UAgeError'] = upb_analysis_df['Calc 206Pb/238U             2σ uncert']
     upb_analysis_sql_df['207Pb/235UAge'] = upb_analysis_df['Calc 207Pb/235U age (Ma)']
@@ -1813,7 +1810,7 @@ def Puetz_importer():
     upb_analysis_sql_df['207Pb/206PbAgeError'] = upb_analysis_df['Calc 207Pb/206Pb             2σ uncert']
     upb_analysis_sql_df['BestAge'] = upb_analysis_df['Non-Iter. Probability age (Ma)']
     upb_analysis_sql_df['BestAgeError'] = upb_analysis_df['Non iterative           2σ uncert']
-    upb_analysis_sql_df['Concordance_206Pb/238Uv207Pb/206Pb'] = upb_analysis_df['Min. Seg. Disc.']
+    upb_analysis_sql_df['MinimumSegmentedDiscordance'] = upb_analysis_df['Min. Seg. Disc.']
     upb_analysis_sql_df['UPbAnalysisCreated'] = pd.to_datetime('now')
     upb_analysis_sql_df['UPbAnalysisModified'] = pd.to_datetime('now')
 

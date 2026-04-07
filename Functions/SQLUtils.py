@@ -19,6 +19,8 @@ qsample_elev_display = 'NULLIF(COALESCE(SampleGPS.GPSElev, "") || "±" || COALES
 qsample_elev_unit = 'SampleElevationUnits.DistanceUnitAbbreviation AS SampleElevationUnitAbbreviation'
 qsample_column_data = 'NULLIF(COALESCE(Samples.CalculatedHeightDepth, "") || "±" || COALESCE(Samples.CalculatedHeightDepthError, ""), "±") AS ColumnHeightDepthCalculated'
 qsample_column_data_display = 'NULLIF(COALESCE(Samples.HeightDepth, "") || "±" || COALESCE(Samples.HeightDepthError, "") || " (" || COALESCE(ColumnHeightDepthUnits.DistanceUnitAbbreviation, "") || ")", "±") AS ColumnHeightDepth'
+qsample_column_height_depth = 'Samples.HeightDepth AS ColumnHeightDepth'
+qsample_column_height_depth_error = 'Samples.HeightDepthError AS ColumnHeightDepthError'
 qsample_column_data_unit = 'ColumnHeightDepthUnits.DistanceUnitAbbreviation AS ColumnHeightDepthUnitAbbreviation'
 qsample_age = 'SampleAges.SampleAgeConverted AS SampleAgeCalculated'
 qsample_age_display = 'SampleAges.SampleAgeDisplay AS SampleAgeDisplay'
@@ -41,7 +43,8 @@ qsample_modified = 'Samples.SampleModified AS SampleModified'
 #Columns, skip null values
 qcolumn_name = 'Columns.ColumnName AS ColumnName'
 qcolumn_names = 'REPLACE(GROUP_CONCAT(DISTINCT Columns.ColumnName), ",", "; ") AS ColumnName'
-qcolumn_data = f'NULLIF(COALESCE(Columns.HeightDepth, "") || "±" || COALESCE(Columns.HeightDepthError, ""), "±") AS ColumnHeightDepth'
+qcolumn_data = f'NULLIF(COALESCE(Columns.CalculatedHeightDepth, "") || "±" || COALESCE(Columns.CalculatedHeightDepthError, ""), "±") AS ColumnHeightDepth'
+qcolumn_data_display = f'NULLIF(COALESCE(Columns.HeightDepth, "") || "±" || COALESCE(Columns.HeightDepthError, ""), "±") AS ColumnHeightDepth'
 qcolumn_gps = f'ColumnGPS.GPSLocationConverted AS ColumnGPSLocationCalculated'
 qcolumn_gps_display = 'ColumnGPS.GPSLocationDisplay AS ColumnGPSLocationDisplay'
 qcolumn_gps_id = 'Columns.ColumnBaseGPSID AS ColumnGPSLocationID'
@@ -1443,13 +1446,14 @@ view_attributes_dict = {
                    qupb_references, qsample_created, qsample_modified],
     'SampleEditView': [qsample_id, qsample_name, qigsn, qsample_description, qgps_display, qsample_elev_display,
                        qsample_age_display, qsample_age_constraints, qsample_age_interpretations,
-                       qsample_age_references, qcolumn_name, qsample_column_data_display, qsample_column_data_unit,
-                       qage_signatures, qregions, qrock_types, qsample_contexts, qsampling_methods, qsettings, qunits,
-                       qaliquots, qaliquot_contexts, qgrain_count, qgrain_compositions, qgrain_contexts, qspot_count,
-                       qspot_compositions, qspot_contexts, qupb_count, qupb_lab_facilities, qupb_instruments,
-                       qupb_analysis_methods, qupb_ratio_error_formats, qupb_age_units, qupb_age_error_formats,
-                       qconcordance_formats, qspot_size, qspot_size_unit, qupb_rejection_reasons, qupb_references,
-                       qupb_contexts, qupb_age_interpretations, qsample_created, qsample_modified],
+                       qsample_age_references, qcolumn_name, qsample_column_height_depth,
+                       qsample_column_height_depth_error, qsample_column_data_unit, qage_signatures, qregions,
+                       qrock_types, qsample_contexts, qsampling_methods, qsettings, qunits, qaliquots, qaliquot_contexts,
+                       qgrain_count, qgrain_compositions, qgrain_contexts, qspot_count, qspot_compositions,
+                       qspot_contexts, qupb_count, qupb_lab_facilities, qupb_instruments, qupb_analysis_methods,
+                       qupb_ratio_error_formats, qupb_age_units, qupb_age_error_formats, qconcordance_formats,
+                       qspot_size, qspot_size_unit, qupb_rejection_reasons, qupb_references, qupb_contexts,
+                       qupb_age_interpretations, qsample_created, qsample_modified],
     'ColumnView': [qcolumn_id, qcolumn_name, qcolumn_description, qcolumn_calc_total_height_depth, qcolumn_gps,
                    qcolumn_elev, qcolumn_created, qcolumn_modified],
     'ColumnEditView': [qcolumn_id, qcolumn_name, qcolumn_description, qcolumn_total_height_depth,

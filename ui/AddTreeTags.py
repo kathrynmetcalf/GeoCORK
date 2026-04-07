@@ -71,7 +71,6 @@ class AddTreeTags(QtW.QDialog):
         self.description_header = [header for header in self.columns if 'Description' in header][0]
         self.existing_names = set()
 
-        self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
         self.tree_proxy_model.setFilterKeyColumn(0)  # search first column only, look for distinct names
         # self.newName_lineEdit.textChanged.connect(self.search)
 
@@ -177,8 +176,6 @@ class AddTreeTags(QtW.QDialog):
         :return:
         """
         self.newName_lineEdit: QtW.QLineEdit
-        self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
-        self.tree_proxy_model.setRecursiveFilteringEnabled(True)
         search_expression = QtC.QRegularExpression(self.newName_lineEdit.text())
         self.tree_proxy_model.setFilterRegularExpression(search_expression)
 

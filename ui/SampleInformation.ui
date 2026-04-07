@@ -29,7 +29,7 @@
    <item>
     <layout class="QHBoxLayout" name="top_horizontalLayout">
      <item>
-      <layout class="QVBoxLayout" name="verticalLayout_9">
+      <layout class="QVBoxLayout" name="verticalLayout_samples">
        <item>
         <widget class="QLabel" name="bold_label">
          <property name="sizePolicy">
@@ -182,97 +182,6 @@
           </size>
          </property>
         </spacer>
-       </item>
-       <item>
-        <widget class="FocusGroupBox" name="column_groupBox">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="title">
-          <string>Column</string>
-         </property>
-         <layout class="QVBoxLayout" name="verticalLayout_13">
-          <item>
-           <layout class="QHBoxLayout" name="horizontalLayout_8">
-            <item>
-             <widget class="QLabel" name="column_name_label">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="text">
-               <string>Column Name:</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="CheckableComboBox" name="column_name_comboBox">
-              <property name="placeholderText">
-               <string/>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </item>
-          <item>
-           <layout class="QHBoxLayout" name="horizontalLayout_7">
-            <item>
-             <widget class="QLabel" name="height_depth_label">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="text">
-               <string>Height/Depth:</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QLineEdit" name="height_depth_lineEdit"/>
-            </item>
-            <item>
-             <widget class="QLabel" name="height_depth_error_label">
-              <property name="text">
-               <string>±</string>
-              </property>
-              <property name="alignment">
-               <set>Qt::AlignCenter</set>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QLineEdit" name="height_depth_error_lineEdit"/>
-            </item>
-            <item>
-             <widget class="QComboBox" name="height_depth_unit_comboBox">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="maximumSize">
-               <size>
-                <width>80</width>
-                <height>16777215</height>
-               </size>
-              </property>
-              <property name="placeholderText">
-               <string>Unit</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </item>
-         </layout>
-        </widget>
        </item>
        <item>
         <spacer name="verticalSpacer_2">
@@ -553,8 +462,8 @@
           <rect>
            <x>0</x>
            <y>0</y>
-           <width>658</width>
-           <height>79</height>
+           <width>674</width>
+           <height>131</height>
           </rect>
          </property>
          <layout class="QVBoxLayout" name="verticalLayout_15">
@@ -603,12 +512,6 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>FocusGroupBox</class>
-   <extends>QGroupBox</extends>
-   <header>Functions/Widget_classes.h</header>
-   <container>1</container>
-  </customwidget>
-  <customwidget>
    <class>CheckableTreeCombobox</class>
    <extends>QComboBox</extends>
    <header>Functions/Widget_classes.h</header>
@@ -629,10 +532,6 @@
   <tabstop>sample_name_comboBox</tabstop>
   <tabstop>sample_name_lineEdit</tabstop>
   <tabstop>sample_igsn_lineEdit</tabstop>
-  <tabstop>column_name_comboBox</tabstop>
-  <tabstop>height_depth_lineEdit</tabstop>
-  <tabstop>height_depth_error_lineEdit</tabstop>
-  <tabstop>height_depth_unit_comboBox</tabstop>
   <tabstop>sample_context_comboBox</tabstop>
   <tabstop>sampling_method_comboBox</tabstop>
   <tabstop>unit_comboBox</tabstop>

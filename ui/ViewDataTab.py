@@ -77,33 +77,45 @@ class ViewDataTab(QtW.QWidget):
         self.h_layout.addWidget(self.search_label)
         self.h_layout.addWidget(self.search_lineEdit)
         self.h_layout_bottom = QtW.QHBoxLayout()
-        self.goto_line_edit = QtW.QLineEdit()
-        self.goto_line_edit.setPlaceholderText(f'Go to {get_headers(self.table)[get_name_column(self.table)]}')
-        self.prev_button = QPushButton('Back')
-        self.next_button = QPushButton('Next')
-        self.show_label = QLabel('Show per page:')
-        self.show_per_page_comboBox = QtW.QComboBox()
-        self.page_info_label = QLabel('')
-        self.h_layout_bottom.addWidget(self.prev_button)
-        self.h_layout_bottom.addWidget(self.next_button)
-        self.h_layout_bottom.addWidget(self.show_label)
-        self.h_layout_bottom.addWidget(self.show_per_page_comboBox)
-        self.h_layout_bottom.addWidget(self.page_info_label)
-        self.h_layout_bottom.addItem(QtW.QSpacerItem(20, 20, QtW.QSizePolicy.Policy.Expanding, QtW.QSizePolicy.Policy.Minimum))
-        self.h_layout_bottom.addWidget(self.goto_line_edit)
+        if self.table != 'Aliquots':
+            self.goto_line_edit = QtW.QLineEdit()
+            self.goto_line_edit.setPlaceholderText(f'Go to {get_headers(self.table)[get_name_column(self.table)]}')
+            self.prev_button = QPushButton('Back')
+            self.next_button = QPushButton('Next')
+            self.show_label = QLabel('Show per page:')
+            self.show_per_page_comboBox = QtW.QComboBox()
+            self.page_info_label = QLabel('')
+            self.h_layout_bottom.addWidget(self.prev_button)
+            self.h_layout_bottom.addWidget(self.next_button)
+            self.h_layout_bottom.addWidget(self.show_label)
+            self.h_layout_bottom.addWidget(self.show_per_page_comboBox)
+            self.h_layout_bottom.addWidget(self.page_info_label)
+            self.h_layout_bottom.addItem(QtW.QSpacerItem(20, 20, QtW.QSizePolicy.Policy.Expanding, QtW.QSizePolicy.Policy.Minimum))
+            self.h_layout_bottom.addWidget(self.goto_line_edit)
+        else:
+            self.goto_line_edit = None
+            self.prev_button = None
+            self.next_button = None
+            self.show_label = None
+            self.show_per_page_comboBox = None
+            self.page_info_label = QLabel('')
+            self.h_layout_bottom.addWidget(self.page_info_label)
+
         self.v_layout.addLayout(self.h_layout)
 
-        # Pagination variables
-        self.show_per_page_comboBox.addItems(['10', '25', '50', '100', '250', '500', '1000'])
-        self.current_page = 0
-        self.rows_per_page = settings.value('show_per_page')
-        self.show_per_page_comboBox.setCurrentText(str(self.rows_per_page))
+        if self.table != 'Aliquots':
+            # Pagination variables
+            self.show_per_page_comboBox.addItems(['10', '25', '50', '100', '250', '500', '1000'])
+            self.current_page = 0
+            self.rows_per_page = settings.value('show_per_page')
+            self.show_per_page_comboBox.setCurrentText(str(self.rows_per_page))
+            self.goto_line_edit.returnPressed.connect(self.go_to_record)
+            self.prev_button.clicked.connect(self.previous_page)
+            self.next_button.clicked.connect(self.next_page)
+            self.show_per_page_comboBox.currentIndexChanged.connect(self.change_rows_per_page)
+            self.set_go_to_completer()
         self.total_records = 0
 
-        self.goto_line_edit.returnPressed.connect(self.go_to_record)
-        self.prev_button.clicked.connect(self.previous_page)
-        self.next_button.clicked.connect(self.next_page)
-        self.show_per_page_comboBox.currentIndexChanged.connect(self.change_rows_per_page)
         self.search_lineEdit.returnPressed.connect(self.search)
 
         self.resize_timer = QTimer()
@@ -111,7 +123,6 @@ class ViewDataTab(QtW.QWidget):
         if self.model.rowCount() == 0:
             close_loading_dialog('Loading', f'Loading {label}...')
             return
-        self.set_go_to_completer()
         self.v_layout.addLayout(self.h_layout_bottom)
 
         close_loading_dialog('Loading', f'Loading {label}...')
@@ -171,9 +182,8 @@ class ViewDataTab(QtW.QWidget):
         while query.next():
             all_names.add(query.value(0))
         list_model = QtC.QStringListModel(sorted(all_names, key=str.casefold))
-        list_proxy_model = QtC.QSortFilterProxyModel()
+        list_proxy_model = ReadableProxyModel()
         list_proxy_model.setSourceModel(list_model)
-        list_proxy_model.setSortCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
         self.name_completer.setModel(list_proxy_model)
         self.name_completer.setFilterMode(QtC.Qt.MatchFlag.MatchContains)
         self.name_completer.setCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
@@ -211,7 +221,7 @@ class ViewDataTab(QtW.QWidget):
             logger_setup.get_logger().critical(f"Invalid Record {self.name_header}: {self.goto_line_edit.text()}")
             logger_setup.get_logger().debug(f'Error: {e}')
         # self.goto_line_edit.clear()
-        # self.goto_line_edit.setText(self.goto_line_edit.placeholderText())
+        # self.goto_line_edit.setText('')
 
     def display_table(self):
         logger_setup.get_logger().info(
@@ -311,38 +321,36 @@ class ViewDataTab(QtW.QWidget):
                 if self.view.columnWidth(column) > 400:
                     self.view.setColumnWidth(column, 400)
 
+        hidden_columns = []
         match self.table:
             case 'Samples':
-                self.view.hideColumn(0)  # don't show SampleID column
+                hidden_columns = [0]  # don't show SampleID column
             case 'Aliquots':
-                self.view.hideColumn(1)  # don't show AliquotID
-                self.view.hideColumn(2)  # don't show ParentAliquotID
-                self.view.hideColumn(3)  # don't show AliquotParentRow
-                self.view.hideColumn(4)  # don't show SampleID
-                if isinstance(self.view.model(), TreeSortFilterProxyModel):
-                    self.view.model().update_visible_columns()
+                hidden_columns = [1, 2, 3, 4]  # don't show AliquotID, ParentAliquotID, AliquotParentRow, SampleID
             case 'Grains':
-                self.view.hideColumn(0)  # don't show GrainID
-                self.view.hideColumn(1)  # don't show AliquotID
-                self.view.hideColumn(2)  # don't show SampleID
+                hidden_columns = [0, 1, 2]  # don't show GrainID, AliquotID, SampleID
             case 'Spots':
-                self.view.hideColumn(0)  # don't show SpotID
-                self.view.hideColumn(1)  # don't show GrainID
-                self.view.hideColumn(2)  # don't show AliquotID
-                self.view.hideColumn(3)  # don't show SampleID
+                hidden_columns = [0, 1, 2, 3]  # don't show SpotID, GrainID, AliquotID, SampleID
             case 'UPbAnalyses':
-                self.view.hideColumn(0)  # don't show UPbAnalysisID
-                self.view.hideColumn(1)  # don't show SpotID
-                self.view.hideColumn(2)  # don't show GrainID
-                self.view.hideColumn(3)  # don't show AliquotID
-                self.view.hideColumn(4)  # don't show SampleID
+                hidden_columns = [0, 1, 2, 3, 4]  # don't show UPbAnalysisID, SpotID, GrainID, AliquotID, SampleID
+        for column in range(self.view.model().columnCount()):
+            if column in hidden_columns:
+                self.view.hideColumn(column)
+            else:
+                self.view.showColumn(column)
+        if isinstance(self.view.model(), TreeSortFilterProxyModel):
+            self.view.model().update_visible_columns()
+
         query_args = {'show_columns': [self.show_cols[0]], 'where': self.where}
         view_query = ViewQuery(self.table, True, **query_args)
         table_query = view_query.table_query
         self.table_item_ids = columns_as_list(table_query, [0], view_query)[0]
         self.total_records = len(self.table_item_ids)
-        self.page_info_label.setText(
+        if self.table != 'Aliquots':
+            self.page_info_label.setText(
             f'{self.current_page * self.rows_per_page + 1}-{min((self.current_page + 1) * self.rows_per_page, self.total_records)} of {self.total_records}')
+        else:
+            self.page_info_label.setText(f'{self.total_records} {self.table}')
         end_display_table_time = time.time()
         close_loading_dialog('Loading', msg)
         logger_setup.get_logger().info(f'Time to display table: {end_display_table_time - start_display_table_time}')

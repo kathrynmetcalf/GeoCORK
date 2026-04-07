@@ -5,18 +5,15 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
-from PyQt6.QtCore import QPoint, QSize, QSortFilterProxyModel
-from PyQt6.uic import loadUi
+from PyQt6.QtWidgets import QMessageBox
 
 import Functions.Text_manipulations as TxM
 import logger_setup
-from Functions.Database_manager import update_database
-from Functions.Database_views import ViewQuery
-from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
-from Functions.Widget_classes import (close_loading_dialog, get_headers, get_name_column, update_modified_timestamp,
-                                      bulk_update_parent_row)
+from Functions.Widget_classes import (close_loading_dialog, get_headers, get_name_column, bulk_update_parent_row,
+                                      ReadableProxyModel)
 
 
 class AddDataItem(QtW.QDialog):
@@ -63,7 +60,8 @@ class AddDataItem(QtW.QDialog):
         self.ids_updated = []
 
         self.info_text = QtW.QLabel(
-            f'Use the regular edit window to modify {self.table} metadata.\nThis only adds {self.table} with a name and description.')
+            f'Use the regular edit window to modify {self.table} metadata.\nThis only adds {self.table} with a name and description.\n')
+        self.info_text.setAlignment(QtC.Qt.AlignmentFlag.AlignCenter)
         # self.info_layout = QtW.QHBoxLayout()
         self.input_layout = QtW.QHBoxLayout()
         self.name_label = QtW.QLabel('Name:')
@@ -95,6 +93,7 @@ class AddDataItem(QtW.QDialog):
             self.parent_name_header = self.parent_headers[get_name_column(self.parent_table)]
         self.name_header = self.headers[get_name_column(self.table)]
         self.description_header = [header for header in self.headers if 'Description' in header][0]
+        self.completer = QtW.QCompleter()
 
         self.update_completer()
 
@@ -117,16 +116,16 @@ class AddDataItem(QtW.QDialog):
         self.existing_names = set()
         while query.next():
             self.existing_names.add(query.value(0))
-        completer = QtW.QCompleter(self.existing_names)
+        self.completer = QtW.QCompleter(self.existing_names)
         list_model = QtC.QStringListModel(sorted(self.existing_names, key=str.casefold))
-        list_proxy_model = QtC.QSortFilterProxyModel()
+        list_proxy_model = ReadableProxyModel()
         list_proxy_model.setSourceModel(list_model)
-        list_proxy_model.setSortCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
-        completer.setModel(list_proxy_model)
-        completer.setFilterMode(QtC.Qt.MatchFlag.MatchContains)
-        completer.setCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
-        completer.setModelSorting(QtW.QCompleter.ModelSorting.CaseInsensitivelySortedModel)
-        completer.setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
+        self.completer.setModel(list_proxy_model)
+        self.completer.setFilterMode(QtC.Qt.MatchFlag.MatchContains)
+        self.completer.setCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        self.completer.setModelSorting(QtW.QCompleter.ModelSorting.CaseInsensitivelySortedModel)
+        self.completer.setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
+        self.name_lineEdit.setCompleter(self.completer)
         logger_setup.get_logger().info('Completer updated')
 
     def add_data_item(self) -> bool:
@@ -429,6 +428,13 @@ class AddDataItem(QtW.QDialog):
                 return
             elif self.table != 'Aliquots' and not self.add_data_item():
                 return
+        msg = QMessageBox()
+        msg.setIcon(QtW.QMessageBox.Icon.Information)
+        msg.setText(f'Note: The new {self.table} may not show up in a filtered view or if items missing data are hidden in settings.\n')
+        msg.setStandardButtons(QtW.QMessageBox.StandardButton.Cancel | QtW.QMessageBox.StandardButton.Ok)
+        response = msg.exec()
+        if response == QtW.QMessageBox.StandardButton.Cancel:
+            self.rollback()
         release_savepoint('before_add')
         logger_setup.get_logger().info(f'Changes committed to {self.table}')
         self.accept()

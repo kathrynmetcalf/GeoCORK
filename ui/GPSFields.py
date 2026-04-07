@@ -2,19 +2,19 @@
 import os
 import sys
 
-import PyQt6
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
+from PyQt6 import QtGui as QtG
 from PyQt6.uic import loadUi
-from Functions.Widget_classes import (set_table, set_comboBox_text, SQLiteTableModel, populate_combo_box, get_headers,
-                                      return_number, delete_data, show_loading_dialog, close_loading_dialog)
+from Functions.Widget_classes import (set_table, set_comboBox_text, populate_combo_box, get_headers,
+                                      return_number, delete_data, show_loading_dialog, close_loading_dialog,
+                                      get_id_from_name)
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
-from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
 from Functions.Alter_database import convert_gps_location
-import Functions.Database_views as DB_views
 import time
 import logger_setup
 
@@ -56,19 +56,14 @@ class GPSFields(QtW.QWidget):
         QtW.QApplication.instance().installEventFilter(self)
 
         self.item_model = QtS.QSqlQueryModel()
-        self.gps_format_model = QtS.QSqlTableModel()
         self.gps_location_model = QtS.QSqlTableModel()
-        self.direction_unit_model = QtS.QSqlTableModel()
-        self.lat_direction_model = QtS.QSqlTableModel()
-        self.lon_direction_model = QtS.QSqlTableModel()
-        self.distance_unit_model = QtS.QSqlTableModel()
-        self.elevation_unit_model = QtS.QSqlTableModel()
 
         self.gps_location_ids = ""
         self.lost_group_box = None
 
         self.populate_dropdowns()
         self.populate_fields()
+        self.set_validators()
         self.connect_signals()
         close_loading_dialog('Loading', 'Loading GPS Fields...')
         logger_setup.get_logger().info(f'Finished GPSFields initialization in {time.time() - start_gps_time} seconds')
@@ -82,12 +77,7 @@ class GPSFields(QtW.QWidget):
 
     def populate_dropdowns(self):
         start_populate_dropdowns_time = time.time()
-        set_table(self.gps_format_model, 'GPSFormats')
         set_table(self.gps_location_model, 'GPSLocations')
-        set_table(self.direction_unit_model, 'DirectionUnits')
-        # set_table(self.lat_direction_model, 'DirectionUnits')
-        # set_table(self.lon_direction_model, 'DirectionUnits')
-        # set_table(self.elevation_unit_model, 'DistanceUnits')
 
         elevation_unit_abbreviation = settings.value('elevation_unit_abbreviation')
         gps_format_abbreviation = settings.value('gps_format_abbreviation')
@@ -102,7 +92,6 @@ class GPSFields(QtW.QWidget):
         self.lon_direction_model.setFilter('DirectionUnitAbbreviation = "E" OR DirectionUnitAbbreviation = "W"')
         populate_combo_box(self.elevation_unit_comboBox, **{'table': 'DistanceUnits', 'column': 'DistanceUnitAbbreviation'})
         self.elevation_unit_model = self.elevation_unit_comboBox.model()
-        self.elevation_unit_comboBox.setCurrentText(elevation_unit_abbreviation)
         end_populate_dropdowns_time = time.time()
         logger_setup.get_logger().info(f"Populated GPS dropdowns in {end_populate_dropdowns_time - start_populate_dropdowns_time} seconds")
 
@@ -341,6 +330,50 @@ class GPSFields(QtW.QWidget):
         logger_setup.get_logger().info(f"Populated GPS fields in {end_populate_fields_time - start_populate_fields_time} seconds")
         self.display_gps()
 
+    def set_validators(self):
+        float_validator = QtG.QDoubleValidator()
+        float_validator.setNotation(QtG.QDoubleValidator.Notation.StandardNotation)
+
+        self.lat_deg_lineEdit.setPlaceholderText("e.g. 0.0")
+        self.lat_deg_lineEdit.setValidator(float_validator)
+        self.lat_deg_lineEdit.setToolTip("Enter a numeric value")
+
+        self.lat_min_lineEdit.setPlaceholderText("e.g. 0.0")
+        self.lat_min_lineEdit.setValidator(float_validator)
+        self.lat_min_lineEdit.setToolTip("Enter a numeric value")
+
+        self.lat_sec_lineEdit.setPlaceholderText("e.g. 0.0")
+        self.lat_sec_lineEdit.setValidator(float_validator)
+        self.lat_sec_lineEdit.setToolTip("Enter a numeric value")
+
+        self.lon_deg_lineEdit.setPlaceholderText("e.g. 0.0")
+        self.lon_deg_lineEdit.setValidator(float_validator)
+        self.lon_deg_lineEdit.setToolTip("Enter a numeric value")
+
+        self.lon_min_lineEdit.setPlaceholderText("e.g. 0.0")
+        self.lon_min_lineEdit.setValidator(float_validator)
+        self.lon_min_lineEdit.setToolTip("Enter a numeric value")
+
+        self.lon_sec_lineEdit.setPlaceholderText("e.g. 0.0")
+        self.lon_sec_lineEdit.setValidator(float_validator)
+        self.lon_sec_lineEdit.setToolTip("Enter a numeric value")
+
+        self.utm_n_lineEdit.setPlaceholderText("e.g. 0.0")
+        self.utm_n_lineEdit.setValidator(float_validator)
+        self.utm_n_lineEdit.setToolTip("Enter a numeric value")
+
+        self.utm_e_lineEdit.setPlaceholderText("e.g. 0.0")
+        self.utm_e_lineEdit.setValidator(float_validator)
+        self.utm_e_lineEdit.setToolTip("Enter a numeric value")
+
+        self.elevation_lineEdit.setPlaceholderText("e.g. 0.0")
+        self.elevation_lineEdit.setValidator(float_validator)
+        self.elevation_lineEdit.setToolTip("Enter a numeric value")
+
+        self.elevation_error_lineEdit.setPlaceholderText("e.g. 0.0")
+        self.elevation_error_lineEdit.setValidator(float_validator)
+        self.elevation_error_lineEdit.setToolTip("Enter a numeric value")
+
     def display_gps(self):
         current_gps_format = self.gps_format_comboBox.currentText()
         if current_gps_format == '':
@@ -427,15 +460,11 @@ class GPSFields(QtW.QWidget):
             if not lat_dir:
                 lat_dir = 'NULL'
             else:
-                self.direction_unit_model.setFilter(f"DirectionUnitAbbreviation = '{lat_dir}'")
-                lat_dir = self.direction_unit_model.data(self.direction_unit_model.index(0, 0),
-                                                         QtC.Qt.ItemDataRole.DisplayRole)
+                lat_dir = get_id_from_name('DirectionUnits', lat_dir)
             if not lon_dir:
                 lon_dir = 'NULL'
             else:
-                self.direction_unit_model.setFilter(f"DirectionUnitAbbreviation = '{lon_dir}'")
-                lon_dir = self.direction_unit_model.data(self.direction_unit_model.index(0, 0),
-                                                         QtC.Qt.ItemDataRole.DisplayRole)
+                lon_dir = get_id_from_name('DirectionUnits', lon_dir)
             utm_zone = return_number(self.utm_zone_lineEdit.text())
             if not utm_zone:
                 utm_zone = 'NULL'
@@ -450,10 +479,7 @@ class GPSFields(QtW.QWidget):
             elif gps_format_abbreviation == '-':
                 gps_format_id = '-'
         else:
-            self.gps_format_model.setFilter(f"GPSFormatAbbreviation = '{gps_format_abbreviation}'")
-            gps_format_id = self.gps_format_model.data(self.gps_format_model.index(0, 0),
-                                                       QtC.Qt.ItemDataRole.DisplayRole)
-        self.gps_format_model.setFilter('')  # Clear the filter
+            gps_format_id = get_id_from_name('GPSFormats', gps_format_abbreviation)
         if 'D' in gps_format_abbreviation:
             lat_deg = return_number(self.lat_deg_lineEdit.text())
             if not lat_deg:
@@ -492,13 +518,11 @@ class GPSFields(QtW.QWidget):
                 if not lat_dir:
                     lat_dir = 'NULL'
                 else:
-                    self.direction_unit_model.setFilter(f"DirectionUnitAbbreviation = '{lat_dir}'")
-                    lat_dir = self.direction_unit_model.data(self.direction_unit_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
+                    lat_dir = get_id_from_name('DirectionUnits', lat_dir)
                 if not lon_dir:
                     lon_dir = 'NULL'
                 else:
-                    self.direction_unit_model.setFilter(f"DirectionUnitAbbreviation = '{lon_dir}'")
-                    lon_dir = self.direction_unit_model.data(self.direction_unit_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
+                    lon_dir = get_id_from_name('DirectionUnits', lon_dir)
             utm_zone = 'NULL'
             utm_n = 'NULL'
             utm_e = 'NULL'
@@ -530,9 +554,7 @@ class GPSFields(QtW.QWidget):
         if not elevation_unit:
             elevation_unit = 'NULL'
         else:
-            self.elevation_unit_model.setFilter(f"DistanceUnitAbbreviation = '{elevation_unit}'")
-            elevation_unit = self.elevation_unit_model.data(self.elevation_unit_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
-            self.elevation_unit_model.setFilter("")  # Clear the filter
+            elevation_unit = get_id_from_name('DistanceUnits', elevation_unit)
         gps_values = [lat_deg, lat_min, lat_sec, lat_dir, lon_deg, lon_min, lon_sec, lon_dir,
                       utm_zone, utm_n, utm_e, elevation, elevation_error, elevation_unit, gps_format_id]
         return gps_columns, gps_values
@@ -705,6 +727,7 @@ class GPSFields(QtW.QWidget):
             if error:
                 logger_setup.get_logger().error(f"Invalid GPS input: {error}")
                 rollback_savepoint('before_update')
+                self.lost_group_box.setFocus()
                 return False
 
             if not query.exec(f'''INSERT INTO GPSLocations ({qgps_columns}) VALUES ({qgps_values})'''):
@@ -737,6 +760,7 @@ class GPSFields(QtW.QWidget):
                 if error:
                     logger_setup.get_logger().error(f"Invalid GPS input: {error}")
                     rollback_savepoint('before_update')
+                    self.lost_group_box.setFocus()
                     return False
                 logger_setup.get_logger().info(f"Valid GPS information")
                 if not query.exec(f'''UPDATE GPSLocations SET ({qgps_columns}) = ({qgps_values}) WHERE GPSLocationID = {gps_id}'''):

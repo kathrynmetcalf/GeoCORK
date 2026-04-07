@@ -91,7 +91,7 @@ def default_settings():
     # Reference format settings, sets to "Authors, Year, Source"
     settings.setValue('default_reference_format',
                       '''(ifnull(Authors, "") || ", " || ifnull(Year, "") || ", " || ifnull(Source, ""))''')
-    settings.setValue('round_values', 'false')
+    settings.setValue('default_round_values', 'false')
     settings.setValue('default_decimals_to_show', 4)
 
     settings.setValue('default_show_items_missing_data', 'true')

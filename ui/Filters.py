@@ -1469,21 +1469,31 @@ class QueryBuilder(QWidget):
 
         # views Aliquots that match the criteria
         self.view_aliquots_button = QPushButton('View Aliquots')
+        self.view_aliquots_button.setToolTip('View aliquots that pass the filter')
         buttons_layout.addWidget(self.view_aliquots_button)
         self.view_aliquots_button.clicked.connect(self.view_aliquots)
 
+        # views Grains that match the criteria
+        self.view_grains_button = QPushButton('View Grains')
+        self.view_grains_button.setToolTip('View grains that pass the filter')
+        buttons_layout.addWidget(self.view_grains_button)
+        self.view_grains_button.clicked.connect(self.view_grains)
+
         # views Spots that match the criteria
         self.view_spots_button = QPushButton('View Spots')
+        self.view_spots_button.setToolTip('View spots that pass the filter')
         buttons_layout.addWidget(self.view_spots_button)
         self.view_spots_button.clicked.connect(self.view_spots)
 
         # views UPbAnalyses that match the criteria
         self.view_analyses_button = QPushButton('View Analyses')
+        self.view_analyses_button.setToolTip('View analyses that pass the filter')
         buttons_layout.addWidget(self.view_analyses_button)
         self.view_analyses_button.clicked.connect(self.view_analyses)
 
         # Saves the current filter
         self.save_filter_button = QPushButton('Save Filter')
+        self.save_filter_button.setToolTip('Save current filter criteria for later use')
         buttons_layout.addWidget(self.save_filter_button)
         self.save_filter_button.clicked.connect(self.save_filter)
 
@@ -1601,6 +1611,7 @@ class QueryBuilder(QWidget):
         if len(set(filtered_ids)) > 1000:
             if not self.view_many_results(len(set(filtered_ids))):
                 return
+        show_loading_dialog('Loading', f'Loading {len(set(filtered_ids))} Samples...')
         dataviewer = DataViewerWidget(self, set(filtered_ids), 'Samples')
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         loop = QEventLoop()
@@ -1618,7 +1629,26 @@ class QueryBuilder(QWidget):
         if len(set(filtered_ids)) > 1000:
             if not self.view_many_results(len(set(filtered_ids))):
                 return
+        show_loading_dialog('Loading', f'Loading {len(set(filtered_ids))} Aliquots...')
         dataviewer = DataViewerWidget(self, set(filtered_ids), 'Aliquots', )
+        dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        loop = QEventLoop()
+        dataviewer.destroyed.connect(loop.quit)
+        loop.exec()
+
+    def view_grains(self):
+        """
+        Opens a DataviewerWidget with Grains filtered IDs.
+        """
+        filtered_ids = self.get_filtered_ids('Grains')
+        if filtered_ids is None:
+            QMessageBox.information(self, "No results", f'No matching Grains for given filter(s)')
+            return
+        if len(set(filtered_ids)) > 1000:
+            if not self.view_many_results(len(set(filtered_ids))):
+                return
+        show_loading_dialog('Loading', f'Loading {len(set(filtered_ids))} Grains...')
+        dataviewer = DataViewerWidget(self, set(filtered_ids), 'Grains', )
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         loop = QEventLoop()
         dataviewer.destroyed.connect(loop.quit)
@@ -1635,6 +1665,7 @@ class QueryBuilder(QWidget):
         if len(set(filtered_ids)) > 1000:
             if not self.view_many_results(len(set(filtered_ids))):
                 return
+        show_loading_dialog('Loading', f'Loading {len(set(filtered_ids))} Spots...')
         dataviewer = DataViewerWidget(self, set(filtered_ids), 'Spots')
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         loop = QEventLoop()
@@ -1652,6 +1683,7 @@ class QueryBuilder(QWidget):
         if len(set(filtered_ids)) > 1000:
             if not self.view_many_results(len(set(filtered_ids))):
                 return
+        show_loading_dialog('Loading', f'Loading {len(set(filtered_ids))} UPb Analyses...')
         dataviewer = DataViewerWidget(self, set(filtered_ids), 'UPbAnalyses')
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         loop = QEventLoop()
@@ -1711,7 +1743,7 @@ class QueryBuilder(QWidget):
     def get_sql(self, type: str) -> str:
         """
         Generates a full SQL query based on the given main group box structuree of RuleWidgets and GroupBoxes
-        :param type: Samples, Aliquots, Spots, or UPbAnalyses to query the database for
+        :param type: Samples, Aliquots, Grains, Spots, or UPbAnalyses to query the database for
         :return: final SQL query
         :rtype str
         """
@@ -1772,6 +1804,7 @@ class QueryBuilder(QWidget):
             {join}
             {where}
             """
+
         elif type == 'Aliquots':
             # where = where_clause.replace('Items', 'Aliquots').replace('ItemID', 'AliquotID')
             # Generate join string
@@ -1811,6 +1844,16 @@ class QueryBuilder(QWidget):
                     sql_query = cte + ',\n' + full_sql.split('WITH ')[1] + aliquot_select
             else:
                 sql_query = cte + aliquot_select
+
+        elif type == 'Grains':
+            join = SQLUtils.get_join_from_table(join, ['Spots'])
+            sql_query = full_sql + f"""
+            SELECT DISTINCT GrainID FROM (
+            SELECT Spots.GrainID
+            FROM Samples {join}
+            {where})
+            WHERE GrainID IS NOT NULL;"""
+
         elif type == 'Spots':
             # where = where_clause.replace('Items', 'Spots').replace('ItemID', 'SpotID')
             join = SQLUtils.get_join_from_table(join, ['Spots'])
@@ -1819,6 +1862,7 @@ class QueryBuilder(QWidget):
                 FROM Samples {join}
                 {where})
                 WHERE SpotID IS NOT NULL;"""
+
         elif type == 'UPbAnalyses':
             # where = where_clause.replace('Items', 'UPbAnalyses').replace('ItemID', 'UPbAnalysisID')
             join = SQLUtils.get_join_from_table(join, ['UPbAnalyses'])

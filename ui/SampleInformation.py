@@ -7,23 +7,18 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
-from PyQt6.QtCore import QSortFilterProxyModel
 
 from PyQt6.uic import loadUi
 
 import logger_setup
 
-import Functions.Database_views as DB_views
 import Functions.SQLUtils as SQLUtils
 
 from Functions.Widget_classes import (
-    CheckableSqlTableModel, SampleAgeTableModel, set_table, FontDelegate, SQLiteTableModel, CheckableSqlQueryModel,
-    CheckableSqlTableModel, get_name_column, TreeModel, CheckableTreeCombobox, CheckableTreeModel,
-    CheckableTreeView, save_expanded_state, set_comboBox_text, find_upb_from_samples, delete_data,
-    find_tree_model, CheckableComboBox, get_selected_tree_ids, get_headers, add_tree_popup, restore_expanded_state,
-    DisplayRoundedQueryModel, populate_combo_box, populate_many_combo_checks, ReadableProxyModel, show_column,
-    get_view_from_table, close_loading_dialog, show_loading_dialog, get_name_from_id, get_id_from_name,
-    LazyCheckableTreeModel, update_many_table_with_checks
+    set_table, SQLiteTableModel, CheckableSqlTableModel, TreeModel, CheckableTreeCombobox, save_expanded_state,
+    delete_data, find_tree_model, CheckableComboBox, get_headers, add_tree_popup, populate_combo_box,
+    populate_many_combo_checks, ReadableProxyModel, get_view_from_table, close_loading_dialog, show_loading_dialog,
+    get_id_from_name
 )
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
@@ -31,9 +26,9 @@ from Functions.Settings_manager import SettingsManager
 from ui.EditView import EditView
 
 settings = SettingsManager().settings
-from Functions.Database_views import ViewQuery
 from ui.GPSFields import GPSFields
 from ui.AgeFields import AgeFields
+from ui.ColumnFields import ColumnFields
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
 from ui.AddTags import AddTags
@@ -58,6 +53,8 @@ class SampleInformation(QtW.QDialog):
 
         self.selected_sample_label: QtW.QLabel
         self.selected_sample_label.setWordWrap(True)
+        self.columns = ColumnFields(sample_id_list)
+        self.verticalLayout_samples.insertWidget(9, self.columns)
         self.gps = GPSFields('Samples', sample_id_list)
         self.top_horizontalLayout: QtW.QHBoxLayout
         self.top_horizontalLayout.addWidget(self.gps)
@@ -179,6 +176,8 @@ class SampleInformation(QtW.QDialog):
             self.gps.update_list(self.checked_sample_list)
         if set(self.age.sample_ids) != set(self.checked_sample_list):
             self.age.update_list(self.checked_sample_list)
+        if set(self.columns.checked_sample_list) != set(self.checked_sample_list):
+            self.columns.update_list(self.checked_sample_list)
         self.populate_fields()
         self.connect_signals()
         logger_setup.get_logger().info("Fields updated")
@@ -188,16 +187,6 @@ class SampleInformation(QtW.QDialog):
         start_populate_dropdown_time = time.time()
         logger_setup.get_logger().info("Populating dropdowns")
         show_loading_dialog('Loading', 'Populating dropdowns...')
-        column_cols = settings.value('column_view_columns')
-        query_args = {'show_columns': column_cols}
-        view_query = ViewQuery('Columns', False, **query_args)
-        column_query = view_query.table_query
-        populate_combo_box(self.column_name_comboBox, **{'table': 'Columns', 'query': column_query,'column': 'ColumnName'})
-        self.column_name_comboBox.model_modifiable = True
-        self.column_name_comboBox.enable_context_menu(True)
-        self.column_name_comboBox.set_single_click(True)
-        self.column_name_comboBox.setPlaceholderText("Name of column, core, etc.")
-        populate_combo_box(self.height_depth_unit_comboBox, **{'table': 'DistanceUnits', 'column': 'DistanceUnitAbbreviation'})
         self.sample_context_comboBox.model_modifiable = True
         self.sample_context_comboBox.enable_context_menu(True)
         populate_combo_box(self.sample_context_comboBox, **{'table': 'SampleContexts'})
@@ -222,7 +211,6 @@ class SampleInformation(QtW.QDialog):
 
         self.sample_name_comboBox: CheckableComboBox
         self.sample_name_comboBox.view().setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
-        self.column_name_comboBox.view().setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         end_populate_dropdown_time = time.time()
         close_loading_dialog('Loading', 'Populating dropdowns...')
         logger_setup.get_logger().info(f"Populated dropdowns in {end_populate_dropdown_time - start_populate_dropdown_time} seconds")
@@ -240,7 +228,6 @@ class SampleInformation(QtW.QDialog):
         self.sample_name_comboBox.edit_triggered.connect(self.edit_popup)
         self.sample_name_comboBox.delete_triggered.connect(self.delete_item)
         self.sample_igsn_lineEdit.editingFinished.connect(lambda: self.update_field('SampleIGSN', f'{self.sample_igsn_lineEdit.text()}'))
-        self.column_groupBox.focusLost.connect(self.focus_lost_delay)
         self.sample_context_comboBox.closing.connect(lambda: self.update_sample_tags(self.sample_context_comboBox))
         self.sample_context_comboBox.add_triggered.connect(self.add_popup)
         self.sample_context_comboBox.edit_triggered.connect(self.edit_popup)
@@ -267,14 +254,6 @@ class SampleInformation(QtW.QDialog):
 
     def disconnect_text_signals(self):
         logger_setup.get_logger().info("Disconnecting text signals")
-        try:
-            self.column_name_comboBox.currentTextChanged.disconnect()
-        except TypeError:
-            pass
-        try:
-            self.column_groupBox.focusLost.disconnect()
-        except TypeError:
-            pass
         try:
             self.sample_description_textEdit.editingFinished.disconnect()
         except TypeError:
@@ -312,71 +291,19 @@ class SampleInformation(QtW.QDialog):
                 text = "-"
             if 'SampleName' in header:
                 if text is None or text == '':
-                    self.sample_name_lineEdit.setText(self.sample_name_lineEdit.placeholderText())
+                    self.sample_name_lineEdit.setText('')
                 else:
                     self.sample_name_lineEdit.setText(f"{text}")
             elif 'IGSN' in header:
                 if text is None or text == '':
-                    self.sample_igsn_lineEdit.setText(self.sample_igsn_lineEdit.placeholderText())
+                    self.sample_igsn_lineEdit.setText('')
                 else:
                     self.sample_igsn_lineEdit.setText(f"{text}")
-            elif 'ColumnID' in header:
-                if text is None or text == '':
-                    set_comboBox_text(self.column_name_comboBox, self.column_name_comboBox.placeholderText())
-                elif text == "-":
-                    set_comboBox_text(self.column_name_comboBox, text)
-                else:
-                    column_id = text
-                    query = QtS.QSqlQuery()
-                    if not query.exec(f"SELECT ColumnName FROM Columns WHERE ColumnID = {column_id}"):
-                        logger_setup.get_logger().critical(f"Error finding column name")
-                        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-                        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-                        return
-                    query.next()
-                    text = query.value(0)
-                    combo_index = self.column_name_comboBox.findText(text)
-                    combo_model = self.column_name_comboBox.model()
-                    combo_model_index = combo_model.index(combo_index, get_name_column(get_view_from_table('Columns')))
-                    combo_model.setData(combo_model_index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
-            elif 'HeightDepthError' in header and 'Calculated' not in header:
-                if text is None or text == '':
-                    self.height_depth_error_lineEdit.setText(self.height_depth_error_lineEdit.placeholderText())
-                else:
-                    self.height_depth_error_lineEdit.setText(f"{text}")
-            elif 'HeightDepth' in header:
-                if text is None or text == '':
-                    self.height_depth_lineEdit.setText(self.height_depth_lineEdit.placeholderText())
-                else:
-                    self.height_depth_lineEdit.setText(f"{text}")
-            elif 'HeightDepthUnit' in header:
-                if text is None or text == '':
-                    set_comboBox_text(self.height_depth_unit_comboBox, settings.value('heightdepth_unit_abbreviation'))
-                elif text == "-":
-                    set_comboBox_text(self.height_depth_unit_comboBox, text)
-                else:
-                    unit_id = text
-                    query = QtS.QSqlQuery()
-                    if not query.exec(f"SELECT DistanceUnitAbbreviation FROM DistanceUnits WHERE DistanceUnitID = {unit_id}"):
-                        logger_setup.get_logger().critical(f"Error finding height depth unit")
-                        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-                        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-                        return
-                    query.next()
-                    text = query.value(0)
-                    set_comboBox_text(self.height_depth_unit_comboBox, text)
-            elif 'HeightDepth' in header and 'Calculated' not in header:
-                if text is None or text == '':
-                    self.height_depth_lineEdit.setText(self.height_depth_lineEdit.placeholderText())
-                else:
-                    self.height_depth_lineEdit.setText(f"{text}")
             elif 'SampleDescription' in header:
                 if text is None or text == '':
-                    self.sample_description_textEdit.setText(self.sample_description_textEdit.placeholderText())
+                    self.sample_description_textEdit.setText('')
                 else:
                     self.sample_description_textEdit.setText(f"{text}")
-        # if len(self.sample_dictionary) == 0:
-        #     self.populate_sample_dictionary()
 
         # Sample tags
         populate_many_combo_checks('Samples_SampleContexts',self.sample_context_comboBox, self.checked_sample_list)
@@ -393,13 +320,9 @@ class SampleInformation(QtW.QDialog):
 
     def clear_fields(self):
         logger_setup.get_logger().info("Clearing fields")
-        self.sample_name_lineEdit.setText(self.sample_name_lineEdit.placeholderText())
-        self.sample_igsn_lineEdit.setText(self.sample_igsn_lineEdit.placeholderText())
-        self.column_name_comboBox.set_line_edit_text(self.column_name_comboBox.placeholderText())
-        self.height_depth_error_lineEdit.setText(self.height_depth_error_lineEdit.placeholderText())
-        self.height_depth_lineEdit.setText(self.height_depth_lineEdit.placeholderText())
-        set_comboBox_text(self.height_depth_unit_comboBox, settings.value('heightdepth_unit_abbreviation'))
-        self.sample_description_textEdit.setText(self.sample_description_textEdit.placeholderText())
+        self.sample_name_lineEdit.setText('')
+        self.sample_igsn_lineEdit.setText('')
+        self.sample_description_textEdit.setText('')
 
         # Sample tags
         if self.sample_context_comboBox.model().rowCount() > 0:
@@ -476,14 +399,7 @@ class SampleInformation(QtW.QDialog):
     def update_id(self, id_field: str, name_field:str, text: str, table: str):
         logger_setup.get_logger().info(f'update_id called with {id_field}, {name_field}, {text}, {table}')
         start_update_id_time = time.time()
-        table_model = QtS.QSqlTableModel()
-        table_model.setTable(table)
-        table_model.select()
-        while table_model.canFetchMore():
-            table_model.fetchMore()
-        # table_model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-        table_model.setFilter(f"{name_field} is '{text}'")
-        item_id = table_model.data(table_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
+        item_id = get_id_from_name(table, text)
         if len(self.checked_sample_list) > 0:
             logger_setup.get_logger().info(f"Updating {id_field} to {item_id} for {len(self.checked_sample_list)} samples")
             query = QtS.QSqlQuery()
@@ -540,53 +456,6 @@ class SampleInformation(QtW.QDialog):
         logger_setup.get_logger().info(f"Updated {table} for {len(self.checked_sample_list)} samples in {end_update_sample_tags_time - start_update_sample_tags} seconds")
         release_savepoint('before_update')
         return True
-
-    def update_column_info(self):
-        logger_setup.get_logger().info("Update column height called")
-        if not self.column_groupBox.edited:
-            logger_setup.get_logger().info(f"No changes to column height")
-            return
-        if len(self.checked_sample_list) == 0:
-            logger_setup.get_logger().info("No samples selected")
-            return
-        start_update_column_height_time = time.time()
-        create_savepoint('before_update')
-        query = QtS.QSqlQuery()
-        if not query.exec(f"SELECT ColumnID FROM Columns WHERE ColumnName = '{self.column_name_comboBox.currentText()}'"):
-            logger_setup.get_logger().critical(f"Failed to select ColumnID for {self.column_name_comboBox.currentText()}")
-            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-            rollback_savepoint('before_update')
-            return
-        query.next()
-        column_id = query.value(0)
-        if not query.exec(f"SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = '{self.height_depth_unit_comboBox.currentText()}'"):
-            logger_setup.get_logger().critical(f"Failed to select DistanceUnitID for {self.height_depth_unit_comboBox.currentText()}")
-            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-            rollback_savepoint('before_update')
-            return
-        query.next()
-        unit_id = query.value(0)
-        for sample_id in self.checked_sample_list:
-            query.prepare(f'''UPDATE Samples SET SampleColumnID = :columnID, HeightDepth = :height, 
-                            HeightDepthError = :error, HeightDepthUnitID = :unitID WHERE SampleID = :sample_id''')
-            query.bindValue(":columnID", column_id)
-            query.bindValue(":height", self.height_depth_lineEdit.text())
-            query.bindValue(":error", self.height_depth_error_lineEdit.text())
-            query.bindValue(":unitID", unit_id)
-            query.bindValue(":sample_id", sample_id)
-            if not query.exec():
-                logger_setup.get_logger().critical(f"Failed to update column information")
-                logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-                logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-                rollback_savepoint('before_update')
-                return
-        update_modified_timestamp('Samples', self.checked_sample_list)
-        self.updated = True
-        end_update_column_height_time = time.time()
-        logger_setup.get_logger().info(f"Updated column height in {end_update_column_height_time - start_update_column_height_time} seconds")
-        release_savepoint('before_update')
 
     def add_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
         combo.blockSignals(True)
@@ -724,18 +593,8 @@ class SampleInformation(QtW.QDialog):
             return
 
     def check_focus(self):
-        if self.column_groupBox.any_child_has_focus() and self.column_groupBox.edited:
-            self.column_groupBox.focusLost.emit()
         if self.sample_description_textEdit.hasFocus():
             self.sample_description_textEdit.editingFinished.emit()
-
-    def focus_lost_delay(self):
-        if self._isApplicationFocused:
-            self.lost_group_box = self.sender()
-            self.focus_timer.setSingleShot(True)
-            if self.lost_group_box == self.column_groupBox:
-                self.focus_timer.timeout.connect(self.update_column_info)
-                self.focus_timer.start(100)
 
     def discard_clicked(self):
         logger_setup.get_logger().info("Discard clicked")
@@ -752,7 +611,7 @@ class SampleInformation(QtW.QDialog):
 
     def discard_question(self):
         logger_setup.get_logger().info("Discard question called")
-        if self.updated or self.gps.updated or self.age.updated:
+        if self.updated or self.gps.updated or self.age.updated or self.columns.updated:
             msg_box = QtW.QMessageBox()
             msg_box.setIcon(QtW.QMessageBox.Icon.Question)
             msg_box.setText('Are you sure you want to discard all changes?')
@@ -762,6 +621,10 @@ class SampleInformation(QtW.QDialog):
             response = msg_box.exec()
             if response == QtW.QMessageBox.StandardButton.Yes:
                 logger_setup.get_logger().info("Discarding changes")
+                self.updated = False
+                self.gps.updated = False
+                self.age.updated = False
+                self.columns.updated = False
                 rollback_savepoint('before_edit_samples')
                 self.reject()
                 self.close_by_dialog = True
@@ -774,6 +637,7 @@ class SampleInformation(QtW.QDialog):
             self.updated = False
             self.gps.updated = False
             self.age.updated = False
+            self.columns.updated = False
             self.reject()
             self.close_by_dialog = True
             self.close()
@@ -782,8 +646,9 @@ class SampleInformation(QtW.QDialog):
     def commit_question(self):
         self.age.check_focus()
         self.gps.check_focus()
+        self.columns.check_focus()
         self.check_focus()
-        if self.updated or self.gps.updated or self.age.updated:
+        if self.updated or self.gps.updated or self.age.updated or self.columns.updated:
             msg_box = QtW.QMessageBox()
             msg_box.setIcon(QtW.QMessageBox.Icon.Question)
             msg_box.setText('Are you sure you want to commit all changes to the database?')
@@ -812,7 +677,7 @@ class SampleInformation(QtW.QDialog):
 
     def closeEvent(self, event: QtG.QCloseEvent):
         if not self.close_by_dialog:
-            if self.updated or self.gps.updated or self.age.updated:
+            if self.updated or self.gps.updated or self.age.updated or self.columns.updated:
                 self.discard_question()
                 event.ignore()
             else:
