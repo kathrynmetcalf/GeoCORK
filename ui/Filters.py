@@ -1265,7 +1265,20 @@ class GroupBox(QGroupBox):
         # Group logical operator
         self.group_operator_combo = FocusWheelComboBox()
         self.group_operator_combo.addItems(['Match all', 'Match any', 'Match none'])
+
+        #Trying to add tooltips
+        tooltips = [
+            "Returns data fulfilling all rules and subgroup rules",
+            "Returns data fulfilling any rule or subgroup rules",
+            "Returns data that do not fulfill all rules and subgroup rules"
+        ]
+
+        for index, tooltip in enumerate(tooltips):
+            self.group_operator_combo.setItemData(index, tooltip, Qt.ItemDataRole.ToolTipRole)
+
         self.layout.addWidget(self.group_operator_combo)
+
+
 
         # Buttons to add rule or group
         buttons_layout = QHBoxLayout()

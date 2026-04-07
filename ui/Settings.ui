@@ -97,7 +97,7 @@
              </widget>
             </item>
             <item row="0" column="1">
-             <widget class="QComboBox" name="elev_unit_comboBox">
+             <widget class="FormatComboBox" name="elev_unit_comboBox">
               <property name="minimumSize">
                <size>
                 <width>0</width>
@@ -949,6 +949,13 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>FormatComboBox</class>
+   <extends>QComboBox</extends>
+   <header location="global">Functions/Widget_classes.h</header>
+  </customwidget>
+ </customwidgets>
  <tabstops>
   <tabstop>settings_tabWidget</tabstop>
   <tabstop>decimals_comboBox</tabstop>

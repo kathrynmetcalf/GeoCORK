@@ -900,6 +900,10 @@ class DisplayRoundedModel(QtS.QSqlTableModel):
                 return return_rounded(value)
             else:
                 return value
+        if (self.tableName().endswith('Formats') or self.tableName().endswith('Units')) and role == QtC.Qt.ItemDataRole.ToolTipRole:
+            format_name = self.index(index.row(), 1).data(QtC.Qt.ItemDataRole.DisplayRole)
+            return format_name
+
         return super().data(index, role)
 
     def unrounded_data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
