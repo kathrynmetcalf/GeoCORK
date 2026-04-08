@@ -21,7 +21,7 @@ from Functions.Widget_classes import (
     get_id_from_name, add_tree_popup, save_expanded_state, get_readable_header,
     get_name_from_id, find_tree_model, get_view_from_table, TreeSortFilterProxyModel, populate_tree_model_checks,
     columns_as_list, show_loading_dialog, close_loading_dialog, CheckableTreeView,
-    CheckableSQLiteTableModel
+    CheckableSQLiteTableModel, get_edit_view_from_table
 )
 from Functions import SQLUtils
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint, SavepointManager
@@ -920,7 +920,8 @@ class EditView(QtW.QDialog):
                     logger_setup.get_logger().info(
                         f'New {header} value: {model_index.data(QtC.Qt.ItemDataRole.DisplayRole)}')
                     # Changes were already written to the database
-                    self.model.edited_indexes.remove(model_index)
+                    if model_index in self.model.edited_indexes:
+                        self.model.edited_indexes.remove(model_index)
         close_loading_dialog('Loading', f'Updating {fields}...')
         return True
 
@@ -1479,7 +1480,7 @@ class EditView(QtW.QDialog):
                                 # The ID of the edit table is not in the current view, e.g. SpotID not in Samples
                                 if self.table == 'Samples':
                                     # None of its sub-item IDs are in the current view, so we need to find the IDs of the sub-items
-                                    aliquot_ids, spot_ids, grain_ids, upb_analysis_ids = find_current_sub_items(selected_ids, self.table)
+                                    aliquot_ids, grain_ids, spot_ids, upb_analysis_ids = find_current_sub_items(selected_ids, self.table)
                                     if table == 'Aliquots' or 'Aliquots_' in table:
                                         item_ids = aliquot_ids
                                     elif table == 'Grains' or 'Grains_' in table:
@@ -2230,6 +2231,7 @@ class EditView(QtW.QDialog):
             self.updated = True
             show_loading_dialog('Loading', f'Loading...')
             self.find_added(dlg.ids_added)
+            self.total_records = self.model.rowCount()
         self.display_table()
 
     def add_child_popup(self):
@@ -2281,39 +2283,41 @@ class EditView(QtW.QDialog):
         else:
             logger_setup.get_logger().critical(f'Unexpected table {self.table} for getting parent data ID')
             return None, None
+        show_cols = settings.value(SQLUtils.view_setting_dict[get_edit_view_from_table(parent_table)])
         for col in range(self.model.columnCount()):
             header = self.model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
             if header == parent_data_id_header:
                 break
         if not self.edit_tableView.selectedIndexes():
-            for row in self.model.rowCount():
-                parent_data_id = self.model.data(row, col, QtC.Qt.ItemDataRole.DisplayRole)
-                if parent_data_id not in parent_data_ids:
+            for row in range(self.model.rowCount()):
+                parent_data_id = self.model.index(row, col).data(QtC.Qt.ItemDataRole.DisplayRole)
+                if parent_data_id and parent_data_id not in parent_data_ids:
                     parent_data_ids.append(parent_data_id)
         else:
             for selected_index in self.edit_tableView.selectedIndexes():
                 model_index = self.proxy_model.mapToSource(selected_index)
-                parent_data_id = self.model.data(model_index.row(), col, QtC.Qt.ItemDataRole.DisplayRole)
-                if parent_data_id not in parent_data_ids:
+                parent_data_id = self.model.index(model_index.row(), col).data(QtC.Qt.ItemDataRole.DisplayRole)
+                if parent_data_id and parent_data_id not in parent_data_ids:
                     parent_data_ids.append(parent_data_id)
         if not parent_data_ids and parent_table == 'Grains':
             # No grains selected, but we can get the parent data ID from the selected aliquots
             parent_table = 'Aliquots'
             parent_data_id_header = 'AliquotID'
+            show_cols = settings.value(SQLUtils.view_setting_dict[get_edit_view_from_table(parent_table)])
             for col in range(self.model.columnCount()):
                 header = self.model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
                 if header == parent_data_id_header:
                     break
             if not self.edit_tableView.selectedIndexes():
-                for row in self.model.rowCount():
-                    parent_data_id = self.model.data(row, col, QtC.Qt.ItemDataRole.DisplayRole)
-                    if parent_data_id not in parent_data_ids:
+                for row in range(self.model.rowCount()):
+                    parent_data_id = self.model.index(row, col).data(QtC.Qt.ItemDataRole.DisplayRole)
+                    if parent_data_id and parent_data_id not in parent_data_ids:
                         parent_data_ids.append(parent_data_id)
             else:
                 for selected_index in self.edit_tableView.selectedIndexes():
                     model_index = self.proxy_model.mapToSource(selected_index)
-                    parent_data_id = self.model.data(model_index.row(), col, QtC.Qt.ItemDataRole.DisplayRole)
-                    if parent_data_id not in parent_data_ids:
+                    parent_data_id = self.model.index(model_index.row(), col).data(QtC.Qt.ItemDataRole.DisplayRole)
+                    if parent_data_id and parent_data_id not in parent_data_ids:
                         parent_data_ids.append(parent_data_id)
         if not parent_data_ids:
             logger_setup.get_logger().critical(f'Error finding parent {parent_table} for {self.table}')
@@ -2324,11 +2328,16 @@ class EditView(QtW.QDialog):
             dlg.setWindowTitle(f'Multiple {parent_table} Found')
             layout = QtW.QVBoxLayout()
             label = QtW.QLabel(
-                f'Multiple {parent_table} found for the selected aliquots. Please select a {get_headers(parent_table)[get_name_column(parent_table)]} for the new {self.table}.')
+                f'Multiple {parent_table} found for the selected aliquots.\nPlease select a {get_headers(parent_table)[get_name_column(parent_table)]} for the new {self.table}.')
             layout.addWidget(label)
-            combo = QtW.QComboBox()
-            populate_combo_box(combo, **{'table': parent_table,
-                                         'query': f'SELECT {get_headers(parent_table)[0]}, {get_headers(parent_table)[get_name_column(parent_table)]} FROM {parent_table} WHERE {get_headers(parent_table)[0]} IN {tuple(parent_data_ids)}'})
+            if parent_table == 'Aliquots':
+                combo = CheckableTreeCombobox()
+            else:
+                combo = CheckableComboBox()
+            view_query = ViewQuery(parent_table, True, **{'show_columns': show_cols,
+                                   'where': self.where})
+            populate_combo_box(combo, **{'table': parent_table, 'query': view_query.table_query, 'view_query': view_query})
+            combo.set_single_click(True)
             layout.addWidget(combo)
             button_box = QtW.QDialogButtonBox(
                 QtW.QDialogButtonBox.StandardButton.Ok | QtW.QDialogButtonBox.StandardButton.Cancel)
@@ -2337,8 +2346,11 @@ class EditView(QtW.QDialog):
             layout.addWidget(button_box)
             dlg.setLayout(layout)
             if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
-                parent_data_index = combo.currentIndex()
-                parent_data_id = combo.model().index(parent_data_index, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
+                if isinstance(combo, CheckableTreeCombobox):
+                    checked_parent_ids = combo.tree_model.return_checked_ids()[0]
+                else:
+                    checked_parent_ids = combo.model().return_checked_ids()[0]
+                parent_data_id = checked_parent_ids[0] if len(checked_parent_ids) > 0 else None
                 return parent_data_id, parent_table
             else:
                 return None, None
@@ -2370,6 +2382,7 @@ class EditView(QtW.QDialog):
             for i in range(query.record().count()):
                 row.append(query.value(i))
             self.model.insertRow(row)
+        self.table_item_ids.extend(ids_added)
         logger_setup.get_logger().info(f'Updated {self.table}')
         close_loading_dialog('Loading', f'Adding new {self.table}...')
 
@@ -2411,6 +2424,8 @@ class EditView(QtW.QDialog):
             self.display_widget()
             self.combo.showPopup()
             close_loading_dialog('Loading', f'Loading...')
+        else:
+            close_loading_dialog('Loading', f'Opening add window for {self.table}...')
 
     def edit_tag_popup(self):
         combo = self.sender()

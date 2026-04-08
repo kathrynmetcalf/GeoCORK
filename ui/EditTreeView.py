@@ -224,6 +224,7 @@ class EditTreeView(QtW.QDialog):
             self.parent_id = int(self.parent_id)
 
         self.table = TxM.remove_spaces(table_name)
+        self.total_records = 0
         self.msg = QtW.QMessageBox()
         self.edited_timer = QtC.QTimer(self)
         self.model = None
@@ -320,6 +321,7 @@ class EditTreeView(QtW.QDialog):
         if self.tree_model:
             self.tree_model.deleteLater()
         self.tree_model = TreeModel(self.model)
+        self.total_records = self.model.rowCount()
         self.display_tree()
         self.edit_treeView.selectionModel().currentChanged.connect(self.on_index_change)
         self.updated_timestamp = time.time()
@@ -447,6 +449,8 @@ class EditTreeView(QtW.QDialog):
         self.resize_timer = QtC.QTimer()
         self.resize_timer.setSingleShot(True)
         self.resize_timer.timeout.connect(self.resizeRowsOptimized)
+
+        self.page_info_label.setText(f'{self.total_records} {self.table}')
 
         close_loading_dialog('Loading', f'Displaying {self.table}...')
         logger_setup.get_logger().info(f'Display {self.table} table complete')
@@ -896,9 +900,11 @@ class EditTreeView(QtW.QDialog):
                         # The ID of the edit table is not in the current view, e.g. SpotID not in Samples
                         if self.table == 'Samples':
                             # None of its sub-item IDs are in the current view, so we need to find the IDs of the sub-items
-                            aliquot_ids, spot_ids, upb_analysis_ids = find_current_sub_items(selected_ids)
+                            aliquot_ids, grain_ids, spot_ids, upb_analysis_ids = find_current_sub_items(selected_ids)
                             if table == 'Aliquots':
                                 item_ids = aliquot_ids
+                            elif table == 'Grains':
+                                item_ids = grain_ids
                             elif table == 'Spots':
                                 item_ids = spot_ids
                             elif table == 'UPbAnalyses':
@@ -1034,12 +1040,13 @@ class EditTreeView(QtW.QDialog):
         msg_box.setIcon(QtW.QMessageBox.Icon.Question)
         if self.table == 'Aliquots':
             # Aliquots have a special case where they are related to Samples, Spots, and UPbAnalyses
-            aliquot_spot_ids, aliquot_upb_ids = find_current_sub_items(item_ids, self.table)
-            child_spot_ids, child_upb_analysis_ids = find_current_sub_items(children, self.table)
+            aliquot_grain_ids, aliquot_spot_ids, aliquot_upb_ids = find_current_sub_items(item_ids, self.table)
+            child_grain_ids, child_spot_ids, child_upb_analysis_ids = find_current_sub_items(children, self.table)
+            total_grain_ids = aliquot_grain_ids + child_grain_ids
             total_spot_ids = aliquot_spot_ids + child_spot_ids
             total_upb_ids = aliquot_upb_ids + child_upb_analysis_ids
             msg_box.setText(f'Are you sure you want to delete these {self.table}{child_string}?\n'
-                            f'Associated with {len(total_spot_ids)} spots and {len(total_upb_ids)} U-Pb analyses')
+                            f'Associated with {len(total_grain_ids)} grains, {len(total_spot_ids)} spots, and {len(total_upb_ids)} U-Pb analyses')
         else:
             msg_box.setText(f'Are you sure you want to delete these {self.table}{child_string}?')
         msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
@@ -1072,6 +1079,8 @@ class EditTreeView(QtW.QDialog):
             self.tree_model.dataEdited.emit()
             restore_expanded_state(self.table, self.edit_treeView)
         self.updated = True
+        self.total_records = self.model.rowCount()
+        self.display_tree()
         return
 
     def on_index_change(self, selected, deselected):
@@ -1303,6 +1312,7 @@ class EditTreeView(QtW.QDialog):
                     logger_setup.get_logger().critical(f'Error updating view')
                     self.model.endResetModel()
                     return
+                self.total_records = self.model.rowCount()
                 logger_setup.get_logger().info(f'Added {len(added_ids)} items to the view model')
             if updated_ids and isinstance(self.model, SQLiteTableModel):
                 if not self.model.update_id_rows_from_db(updated_ids):
@@ -1314,6 +1324,7 @@ class EditTreeView(QtW.QDialog):
             if (added_ids or updated_ids) and isinstance(self.model, SQLiteTableModel):
                 self.tree_model.dataEdited.emit()
                 restore_expanded_state(self.table, self.edit_treeView)
+            self.display_tree()
 
     def get_sample_id(self):
         logger_setup.get_logger().info(f'Getting sample ID for {self.table}...')

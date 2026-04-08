@@ -444,14 +444,14 @@ class SQLiteTableModel(QAbstractTableModel):
             order_col = self.view_query.order_col
             limit = self.view_query.limit
         for add_id in add_ids:
-            where = f'{get_headers(self.table)[0]} = {add_id}'
+            where = f'WHERE {get_headers(self.table)[0]} = {add_id}'
             if self.view_query:
                 view_query = ViewQuery(self.table, True, **{'show_columns': show_columns, 'where': where,
                                                             'group_col': group_col, 'order_col': order_col,
                                                             'limit': limit})
                 query_text = view_query.table_query
             else:
-                query_text = f'{self.query_text.split(' WHERE ')[0]} WHERE {where}'
+                query_text = f'{self.query_text.split(' WHERE ')[0]} {where}'
             if not query.exec(query_text):
                 logger_setup.get_logger().critical(f'Error updating {self.table} display')
                 logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
@@ -2699,14 +2699,14 @@ def delete_data(table: str, data_ids: list, enable_message=True):
     childless_spots = []
     spotless_grains = []
     if table == 'Samples':
-        aliquot_ids, spot_ids, grain_ids, upb_analysis_ids = find_current_sub_items(data_ids, table)
+        aliquot_ids, grain_ids, spot_ids, upb_analysis_ids = find_current_sub_items(data_ids, table)
         aliquot_child_ids = []
         for parent_id in aliquot_ids:
             aliquot_child_ids = find_child_ids('Aliquots', parent_id, aliquot_child_ids)
         sample_ids = data_ids
         logger_setup.get_logger().info(f"Deleting {len(sample_ids)} samples, {len(aliquot_ids)} aliquots, {len(aliquot_child_ids)} sub-aliquots, {len(grain_ids)} grains, {len(spot_ids)} spots, and {len(upb_analysis_ids)} UPb analyses")
     elif table == 'Aliquots':
-        spot_ids, grain_ids, upb_analysis_ids = find_current_sub_items(data_ids, table)
+        grain_ids, spot_ids, upb_analysis_ids = find_current_sub_items(data_ids, table)
         aliquot_ids = data_ids
         aliquot_child_ids = []
         for parent_id in aliquot_ids:
@@ -2716,7 +2716,7 @@ def delete_data(table: str, data_ids: list, enable_message=True):
         if parent_samples:
             # Determine if all aliquots of these samples are being deleted
             for sample_id in parent_samples:
-                sub_aliquot_ids, sub_spot_ids, sub_grain_ids, sub_upb_analysis_ids = find_current_sub_items([sample_id], 'Samples')
+                sub_aliquot_ids, sub_grain_ids, sub_spot_ids, sub_upb_analysis_ids = find_current_sub_items([sample_id], 'Samples')
                 if not any(aliquot_id not in aliquot_ids for aliquot_id in sub_aliquot_ids):
                     # If all aliquots of the sample are being deleted, add the sample to the list
                     if sample_id not in childless_samples:
@@ -2727,19 +2727,19 @@ def delete_data(table: str, data_ids: list, enable_message=True):
         logger_setup.get_logger().info(f"Deleting {len(grain_ids)} grains, {len(spot_ids)} spots, and {len(upb_analysis_ids)} UPb analyses")
         parent_samples, parent_aliquots, parent_spots = find_current_parent_items(data_ids, table)
         if parent_aliquots:
-            # Determine if all grains of these aliquots are being deleted
+            # Determine if all spots of these aliquots are being deleted
             for aliquot_id in parent_aliquots:
-                sub_spot_ids, sub_grain_ids, sub_upb_analysis_ids = find_current_sub_items([aliquot_id], 'Aliquots')
-                if not any(grain_id not in grain_ids for grain_id in sub_grain_ids):
-                    # If all grains of the aliquot are being deleted, add the aliquot to the list
+                sub_grain_ids, sub_spot_ids, sub_upb_analysis_ids = find_current_sub_items([aliquot_id], 'Aliquots')
+                if not any(spot_id not in spot_ids for spot_id in sub_spot_ids):
+                    # If all spots of the aliquot are being deleted, add the aliquot to the list
                     if aliquot_id not in childless_aliquots:
                         childless_aliquots.append(aliquot_id)
         if childless_aliquots:
-            # Determine if all grains of these samples are being deleted
+            # Determine if all spots of these samples are being deleted
             for sample_id in parent_samples:
-                sub_spot_ids, sub_grain_ids, sub_upb_analysis_ids = find_current_sub_items([sample_id], 'Samples')
-                if not any(grain_id not in grain_ids for grain_id in sub_grain_ids):
-                    # If all grains of the sample are being deleted, add the sample to the list
+                sub_grain_ids, sub_spot_ids, sub_upb_analysis_ids = find_current_sub_items([sample_id], 'Samples')
+                if not any(spot_id not in spot_ids for spot_id in sub_spot_ids):
+                    # If all spots of the sample are being deleted, add the sample to the list
                     if sample_id not in childless_samples:
                         childless_samples.append(sample_id)
 
@@ -2751,7 +2751,7 @@ def delete_data(table: str, data_ids: list, enable_message=True):
         if parent_aliquots:
             # Determine if all spots of these aliquots are being deleted
             for aliquot_id in parent_aliquots:
-                sub_spot_ids, sub_grain_ids, sub_upb_analysis_ids = find_current_sub_items([aliquot_id], 'Aliquots')
+                sub_grain_ids, sub_spot_ids, sub_upb_analysis_ids = find_current_sub_items([aliquot_id], 'Aliquots')
                 if not any(spot_id not in spot_ids for spot_id in sub_spot_ids):
                     # If all spots of the aliquot are being deleted, add the aliquot to the list
                     if aliquot_id not in childless_aliquots:
@@ -2759,7 +2759,7 @@ def delete_data(table: str, data_ids: list, enable_message=True):
         if childless_aliquots:
             # Determine if all spots of these samples are being deleted
             for sample_id in parent_samples:
-                sub_spot_ids, sub_grain_ids, sub_upb_analysis_ids = find_current_sub_items([sample_id], 'Samples')
+                sub_grain_ids, sub_spot_ids, sub_upb_analysis_ids = find_current_sub_items([sample_id], 'Samples')
                 if not any(spot_id not in spot_ids for spot_id in sub_spot_ids):
                     # If all spots of the sample are being deleted, add the sample to the list
                     if sample_id not in childless_samples:
@@ -2788,7 +2788,7 @@ def delete_data(table: str, data_ids: list, enable_message=True):
         if childless_spots:
             # Determine if all UPb analyses of these aliquots are being deleted
             for aliquot_id in parent_aliquots:
-                sub_spot_ids, sub_grain_ids, sub_upb_analysis_ids = find_current_sub_items([aliquot_id], 'Aliquots')
+                sub_grain_ids, sub_spot_ids, sub_upb_analysis_ids = find_current_sub_items([aliquot_id], 'Aliquots')
                 if not any(upb_analysis_id not in upb_analysis_ids for upb_analysis_id in sub_upb_analysis_ids):
                     # If all UPb analyses of the aliquot are being deleted, add the aliquot to the list
                     if aliquot_id not in childless_aliquots:
@@ -2803,7 +2803,7 @@ def delete_data(table: str, data_ids: list, enable_message=True):
         if childless_aliquots:
             # Determine if all UPb analyses of these samples are being deleted
             for sample_id in parent_samples:
-                sub_aliquot_ids, sub_spot_ids, sub_grain_ids, sub_upb_analysis_ids = find_current_sub_items([sample_id], 'Samples')
+                sub_aliquot_ids, sub_grain_ids, sub_spot_ids, sub_upb_analysis_ids = find_current_sub_items([sample_id], 'Samples')
                 if not any(upb_analysis_id not in upb_analysis_ids for upb_analysis_id in sub_upb_analysis_ids):
                     # If all UPb analyses of the sample are being deleted, add the sample to the list
                     if sample_id not in childless_samples:
@@ -2918,7 +2918,7 @@ def delete_question(table, delete_ids):
             close_loading_dialog('Preparing', 'Gathering information...')
             return False
         # Samples have a special case where they are related to Aliquots, Spots, and UPbAnalyses
-        aliquot_ids, spot_ids, grain_ids, upb_analysis_ids = find_current_sub_items(delete_ids, table)
+        aliquot_ids, grain_ids, spot_ids, upb_analysis_ids = find_current_sub_items(delete_ids, table)
         msg_text = f'Are you sure you want to delete these {len(delete_ids)} {table}?\n'
         if len(delete_ids) < 11:
             msg_text += f'\nSamples: {", ".join(sample_names)}\n'
@@ -2934,7 +2934,7 @@ def delete_question(table, delete_ids):
             child_aliquot_ids = (aliquot_id, child_aliquot_ids)
 
         # Aliquots have a special case where they are related to Spots and UPbAnalyses
-        spot_ids, grain_ids, upb_analysis_ids = find_current_sub_items(delete_ids, table)
+        grain_ids, spot_ids, upb_analysis_ids = find_current_sub_items(delete_ids, table)
         msg_text = f'Are you sure you want to delete these {len(delete_ids)} {table}?\n'
         if len(delete_ids) < 11:
             msg_text += f'\nAliquots: {", ".join(aliquot_names)}\n'
@@ -3246,9 +3246,9 @@ def find_current_sub_items(data_ids: list, table: str):
         elif table == 'Grains':
             return spot_ids, upb_analysis_ids
         elif table == 'Aliquots':
-            return spot_ids, grain_ids, upb_analysis_ids
+            return grain_ids, spot_ids, upb_analysis_ids
         elif table == 'Samples':
-            return aliquot_ids, spot_ids, grain_ids, upb_analysis_ids
+            return aliquot_ids, grain_ids, spot_ids, upb_analysis_ids
         else:
             logger_setup.get_logger().critical(f"Table {table} in not supported for finding sub items")
             return None, None, None, None
@@ -3265,7 +3265,7 @@ def find_current_sub_items(data_ids: list, table: str):
                         WHERE Aliquots.SampleID {where}"""
         aliquot_ids, spot_ids, grain_ids, upb_analysis_ids = columns_as_list_current(sql_query, [0, 1, 2, 3])
         close_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
-        return aliquot_ids, spot_ids, grain_ids, upb_analysis_ids
+        return aliquot_ids, grain_ids, spot_ids, upb_analysis_ids
     elif table == 'Aliquots':
         sql_query = f"""SELECT Spots.SpotID, Grains.GrainID, UPbAnalyses.UPbAnalysisID FROM Spots
                         {SQLUtils.spot_upb_analysis_join}
@@ -3273,7 +3273,7 @@ def find_current_sub_items(data_ids: list, table: str):
                         WHERE Spots.AliquotID {where}"""
         spot_ids, grain_ids, upb_analysis_ids = columns_as_list_current(sql_query, [0, 1, 2])
         close_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
-        return spot_ids, grain_ids, upb_analysis_ids
+        return grain_ids, spot_ids, upb_analysis_ids
     elif table == 'Spots':
         sql_query = f"""SELECT Grains.GrainID, UPbAnalyses.UPbAnalysisID FROM UPbAnalyses
                         {SQLUtils.upb_spot_join}
@@ -3540,6 +3540,12 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.db = db
         self._map_to_source_cache = {}
 
+        self.id_header = None
+        self.parent_id_header = None
+        self.parent_row_header = None
+        self.item_name_header = None
+        self.item_description_header = None
+
         if self.source_model:
             # Check if a table model was set
             if isinstance(self.source_model, QSqlTableModel):
@@ -3758,7 +3764,11 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.parent_id_header = self.sourceHeaders[1]
         self.parent_row_header = self.sourceHeaders[2]
         self.item_name_header = self.sourceHeaders[3]
-        self.item_description_header = self.sourceHeaders[4]
+        self.item_description_header = None
+        for col in range(4,self.columnCount()):
+            header = self.source_model.headerData(col, QtC.Qt.Orientation.Horizontal)
+            if 'Description' in header:
+                self.item_description_header = self.sourceHeaders[col]
 
     def tableName(self) -> str:
         """
@@ -4156,15 +4166,21 @@ class TreeModel(QtC.QAbstractProxyModel):
         while filtered_model.canFetchMore():
             filtered_model.fetchMore()
         child_count = filtered_model.rowCount()
-        if self.table == 'Aliquots':
-            query.prepare(f'INSERT INTO {self.table}({self.parent_row_header}, {self.item_name_header}, {self.item_description_header}, SampleID) VALUES(:parent_row, :item_name, :item_description, :data_parent_id)')
-            query.bindValue(':data_parent_id', data_parent_id)
+        if self.item_description_header:
+            insert_columns_list = [self.parent_row_header, self.item_name_header, self.item_description_header]
+            insert_placeholder_list = [':parent_row', ':item_name', ':item_description']
+            insert_values_list = [child_count+1, item_name, item_description]
         else:
-            query.prepare(
-                f'INSERT INTO {self.table}({self.parent_row_header}, {self.item_name_header}, {self.item_description_header}) VALUES(:parent_row, :item_name, :item_description)')
-        query.bindValue(':parent_row', child_count)
-        query.bindValue(':item_name', item_name)
-        query.bindValue(':item_description', None if item_description=='' else item_description)
+            insert_columns_list = [self.parent_row_header, self.item_name_header]
+            insert_placeholder_list = [':parent_row', ':item_name']
+            insert_values_list = [child_count+1, item_name]
+        if self.table == 'Aliquots':
+            insert_columns_list.append('SampleID')
+            insert_placeholder_list.append(':data_parent_id')
+            insert_values_list.append(data_parent_id)
+        query.prepare(f'INSERT INTO {self.table}({", ".join(insert_columns_list)}) VALUES({", ".join(insert_placeholder_list)})')
+        for placeholder, value in zip(insert_placeholder_list, insert_values_list):
+            query.bindValue(placeholder, value)
         create_savepoint('before_insert')
         if not query.exec():
             logger_setup.get_logger().critical(f'Error inserting new item {item_name}')
@@ -4214,7 +4230,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         release_savepoint('before_insert')
         self.dataEdited.emit()
         close_loading_dialog('Inserting', f'Inserting new {self.table} item...')
-        logger_setup.get_logger().info(f'Successfully inserted new item {item_name} in {time.time() - start_insert_time} seconds')
+        logger_setup.get_logger().info(f'Successfully inserted new item {item_name} in {time.time() - start_time} seconds')
         return True
 
     def removeItem(self, item_id: int, parent_row: int, parent_id=None):
@@ -5161,18 +5177,6 @@ class TreeSortFilterProxyModel(ReadableProxyModel):
             # For other roles, use the default implementation
             return super().data(index, role)
 
-    # def mapToSource(self, proxy_index):
-    #     # Maps the proxy index to the source model index
-    #     if not proxy_index:
-    #         print('Passed None instead of index')
-    #     if not proxy_index.isValid():
-    #         return QtC.QModelIndex()
-    #     source_index = super().mapToSource(proxy_index)
-    #     if source_index.isValid():
-    #         pointed_index = self.sourceModel().index(source_index.row(), source_index.column(), source_index.parent())
-    #         pointer = pointed_index.internalPointer()
-    #         return pointed_index
-
     def filterAcceptsRow(self, source_row: int, source_parent: QtC.QModelIndex = QtC.QModelIndex()) -> bool:
         """
         Determines whether a row in the source model should be accepted or rejected based on the filter criteria.
@@ -5226,7 +5230,7 @@ class TreeSortFilterProxyModel(ReadableProxyModel):
 # ---------------------------
 
 
-def bulk_update_parent_row(table, parent_id, spaces_to_move: int, new_row: int | None = None, old_row: int | None = None) -> (bool, list):
+def bulk_update_parent_row(table, parent_id, spaces_to_move: int, new_row: int | None = None, old_row: int | None = None) -> tuple[bool, list[int]]:
     """
     Update the parent row for a given range of child rows in the database.
     :param table: table name
@@ -6008,7 +6012,6 @@ class CheckableComboBox(QtW.QComboBox):
         self.table = ''
         self.popup_shown = False
 
-
         self.only_select_deselect = False
         """Used to only show select and deselect all for Sample, Aliquot, Spot, UPbAnalyses table. Used mainly for the exporter widget"""
 
@@ -6320,13 +6323,10 @@ class CheckableComboBox(QtW.QComboBox):
         else:
             self.view().setFixedWidth(total_width)
         self.view().setFixedHeight(self.view().sizeHint().height())
-        try:
-            super().showPopup()
-            self.view().setFocus()
-            self.popup_shown = True
-        finally:
-            close_loading_dialog('Loading', f'Loading {self.proxy_model.rowCount()} items...')
-            logger_setup.get_logger().debug(f'Popup shown in {self.table} combo box in {time.time() - start_time} seconds')
+        close_loading_dialog('Loading', f'Loading {self.proxy_model.rowCount()} items...')
+        super().showPopup()
+        logger_setup.get_logger().debug(f'Popup shown in {self.table} combo box in {time.time() - start_time} seconds')
+        self.popup_shown = True
 
     def hidePopup(self):
         """
@@ -7667,19 +7667,22 @@ def show_column(comboBox: QtW.QComboBox, column: str | int):
         show_loading_dialog('Loading', f'Loading {count} items...')
         if isinstance(column, str):
             # If the column is a string, find the index of the column by its header data
+            column_int = None
             if isinstance(model, ReadableProxyModel):
                 # If the model is a ReadableProxyModel, get the readable header to compare
                 column = get_readable_header(column)
             for col in range(model.columnCount()):
                 header = model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
                 if header == column:
-                    column = col
+                    column_int = col
                     break
+        else:
+            column_int = column
         comboBox.setCompleter(None)
-        comboBox.setModelColumn(column)
+        comboBox.setModelColumn(column_int)
         if not isinstance(comboBox.view(), QtW.QListView):
             for model_column in range(model.columnCount()):
-                if model_column != column:
+                if model_column != column_int:
                     try:
                         comboBox.view().hideColumn(model_column)
                     except AttributeError:
@@ -7991,10 +7994,7 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
             tree_model = TreeModel()
         tree_model.setSourceModel(model)
         comboBox.setModel(tree_model)
-        if column:
-            show_column(comboBox, column)
-        else:
-            show_column(comboBox, tree_model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+        show_column(comboBox, tree_model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
     else:
         checkable_model = None
         if isinstance(comboBox, CheckableComboBox) and not query and not view_query:
@@ -8008,9 +8008,6 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
             if not isinstance(checkable_model, LazyCheckableSqlTableModel):
                 while checkable_model.canFetchMore():
                     checkable_model.fetchMore()
-            # if settings.value('lazy_loading_enabled') == 'true' and checkable_model.rowCount() > settings.value('lazy_loading_batch_size'):
-            #     checkable_model = LazyCheckableSqlTableModel()
-            #     set_table(checkable_model, table)
             comboBox.setModel(checkable_model)
         elif isinstance(comboBox, CheckableComboBox) and view_query:
             checkable_model = CheckableSQLiteTableModel()
@@ -8018,9 +8015,6 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
             if not isinstance(checkable_model, LazyCheckableSqlQueryModel):
                 while checkable_model.canFetchMore():
                     checkable_model.fetchMore(QtC.QModelIndex())
-            # if settings.value('lazy_loading_enabled') == 'true' and checkable_model.rowCount() > settings.setValue('lazy_loading_batch_size'):
-            #     checkable_model = LazyCheckableSqlQueryModel()
-            #     checkable_model.setQuery(view_query)
             checkable_model.set_table(table)
             comboBox.setModel(checkable_model)
         elif isinstance(comboBox, CheckableComboBox) and query:
@@ -8031,12 +8025,6 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
             checkable_model.setQuery(query)
             while checkable_model.canFetchMore():
                 checkable_model.fetchMore()
-            # if settings.value('lazy_loading_enabled') == 'true' and checkable_model.rowCount() > settings.value('lazy_loading_batch_size'):
-            #     checkable_model = LazyCheckableSqlQueryModel()
-            #     if view_query:
-            #         checkable_model.setQuery(view_query)
-            #     elif query:
-            #         checkable_model.setQuery(query)
             checkable_model.set_table(table)
             comboBox.setModel(checkable_model)
         else:
@@ -8055,11 +8043,12 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
             show_column(comboBox, column)
         else:
             if isinstance(model, SampleAgeProxyModel):
-                name_col = get_name_column('SampleAges')
+                name_col = get_headers('SampleAges')[get_name_column('SampleAges')]
             else:
                 name_table = get_view_from_table(model.tableName())
-                name_col = get_name_column(name_table)
-            show_column(comboBox, model.headerData(name_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+                name_col = get_headers(name_table)[get_name_column(name_table)]
+            if name_col:
+                show_column(comboBox, name_col)
     close_loading_dialog('Loading', f'Populating {model.rowCount()} {table}')
     logger_setup.get_logger().debug(f'Populated combo box {comboBox.objectName()} in {time.time() - start_populate_combo_time} seconds')
 

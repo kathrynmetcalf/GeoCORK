@@ -266,9 +266,11 @@ class ViewDataTab(QtW.QWidget):
             self.show_cols = settings.value('spot_view_columns')
         elif self.child_type == 'UPbAnalyses':
             self.show_cols = settings.value('upb_analysis_view_columns')
-        query_args = {'show_columns': self.show_cols,
-                              'limit': f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}',
-                              'where': self.where}
+        if self.child_type != 'Aliquots':
+            limit = f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'
+            query_args = {'show_columns': self.show_cols, 'limit': limit, 'where': self.where}
+        else:
+            query_args = {'show_columns': self.show_cols, 'where': self.where}
         view_query = ViewQuery(self.table, False, **query_args)
         table_query = view_query.table_query
         if settings.value('show_items_missing_data'):

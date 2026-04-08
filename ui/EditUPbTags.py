@@ -55,7 +55,7 @@ class EditUPbTags(QtW.QDialog):
 
         # Sample names table
         self.sample_id_list = sample_id_list if sample_id_list is not None else []
-        aliquot_ids, spot_ids, grain_ids, upb_analysis_ids = find_current_sub_items(self.sample_id_list, 'Samples')
+        aliquot_ids, grain_ids, spot_ids, upb_analysis_ids = find_current_sub_items(self.sample_id_list, 'Samples')
         self.upb_analysis_ids = upb_analysis_ids
         if len(self.upb_analysis_ids) == 0 or len(self.sample_id_list) == 0:
             logger_setup.get_logger().error("No UPb Analyses for selected samples")

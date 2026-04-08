@@ -23,9 +23,9 @@ from Functions.Database_manager import update_database
 from Functions import ExportDatabase, Settings_manager
 from Functions import SQLUtils
 from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
-from Functions.Widget_classes import CheckableSqlTableModel, ReadableProxyModel, SQLiteTableModel, find_parent_items, \
-    show_loading_dialog, close_loading_dialog, CheckableSqlQueryModel, columns_as_list, PartiallyCloseableTabWidget, \
-    get_total_records, populate_combo_box
+from Functions.Database_views import ViewQuery
+from Functions.Widget_classes import (ReadableProxyModel, SQLiteTableModel, find_parent_items, show_loading_dialog,
+                                      close_loading_dialog, columns_as_list, get_total_records, populate_combo_box)
 from Functions.Settings_manager import SettingsManager
 
 settings = SettingsManager().settings
@@ -52,7 +52,7 @@ class ExportWidget(QWidget):
         self.checked_sample_list = []
         """List of SampleIDs that are currently checked to be included in the export"""
 
-        self.checked_sample_names = '()'
+        self.checked_sample_ids_str = '()'
         """checked SampleIDs in the format (1, 2, 3) to be used in the SQL query to limit the results to only those 
         samples"""
 
@@ -61,7 +61,7 @@ class ExportWidget(QWidget):
         selected but are OR'd together, so if Filter 1 and Filter 2 are selected, then the both filter;s data will be
         included."""
 
-        self.checked_filter_names = '()'
+        self.checked_filter_ids_str = '()'
         """checked FilterGroupIDs in the format (1, 2, 3) to be used in the SQL query to limit the results to only 
         those filter groups"""
 
@@ -206,14 +206,11 @@ class ExportWidget(QWidget):
         self.filtered_upb_ids = set()
 
         # Get the current selected samples, filters, and grouped filters
-        if isinstance(self.samplesincluded_comboBox.model(), CheckableSqlTableModel):
-            self.checked_sample_list = self.samplesincluded_comboBox.model().return_checked_ids()[0]
-        else:
-            self.checked_sample_list = []
-        self.checked_sample_names = f"({', '.join(map(str, self.checked_sample_list))})"
+        self.checked_sample_list = self.samplesincluded_comboBox.model().return_checked_ids()[0]
+        self.checked_sample_ids_str = f"({', '.join(map(str, self.checked_sample_list))})"
 
         self.checked_filter_list = self.filterselection_comboBox.model().return_checked_ids()[0]
-        self.checked_filter_names = f"({', '.join(map(str, self.checked_filter_list))})"
+        self.checked_filter_ids_str = f"({', '.join(map(str, self.checked_filter_list))})"
 
         self.checked_grouped_filter_list = self.groupedfilter_comboBox.model().return_checked_ids()[0]
 
@@ -384,7 +381,7 @@ class ExportWidget(QWidget):
         filtered_upb_ids_sql = f"({', '.join(self.filtered_upb_ids)})"
 
         # checks for logic to see what kind of SQL query is needed.
-        # self.checked_sample_names defaults to '()', so length of 2,
+        # self.checked_sample_ids_str defaults to '()', so length of 2,
         # if a sample is checked then len > 2, so UPbAnalysisID are needed, so we limit to LIMIT {self.max_rows_to_display} so its quicker and
         # still shows example data to be exported.
         # if filtered where clause is not blank, len > 0, then we need to filter by UPbAnalysisID
@@ -392,11 +389,11 @@ class ExportWidget(QWidget):
             group_by = 'GROUP BY Sample_ID'
         else:
             group_by = 'GROUP BY UPbAnalyses.UPbAnalysisID'
-        if len(self.checked_sample_names) > 2:
+        if len(self.checked_sample_ids_str) > 2:
             if len(filtered_where_clause) > 0:
-                where_clause = f"WHERE Samples.SampleID IN {self.checked_sample_names} AND UPbAnalyses.UPbAnalysisID IN {filtered_upb_ids_sql}"
+                where_clause = f"WHERE Samples.SampleID IN {self.checked_sample_ids_str} AND UPbAnalyses.UPbAnalysisID IN {filtered_upb_ids_sql}"
             else:
-                where_clause = f"WHERE Samples.SampleID IN {self.checked_sample_names}"
+                where_clause = f"WHERE Samples.SampleID IN {self.checked_sample_ids_str}"
         else:
             if len(filtered_where_clause) > 0:
                 where_clause = f"WHERE UPbAnalyses.UPbAnalysisID IN {filtered_upb_ids_sql}"
@@ -1030,6 +1027,7 @@ class ExportWidget(QWidget):
             case 'Custom':
                 self.clear_worksheet_data()
                 self.create_first_worksheet_tab()
+        self.update_table_view()
 
     def clear_worksheet_data(self):
         self.delete_all_worksheet_tabs()
@@ -1073,6 +1071,7 @@ class ExportWidget(QWidget):
 
             # self.update_table_view()
         logger_setup.get_logger().info(f'Update Step 2 list took {time.time() - start_update_step_2_time:.2f} seconds')
+        self.update_table_view()
 
     def tab_changed(self):
         """Method to update the table view when a tab/worksheet is changed or switched by the user. QTabWidgets
@@ -1111,6 +1110,12 @@ class ExportWidget(QWidget):
             if worksheet_name in self.worksheet_tabs_dict:
                 QMessageBox.warning(self, "Duplicate Name", "A worksheet with that name already exists.")
                 return
+
+            if self.exportformat_comboBox.currentText() != 'Custom':
+                self.exportformat_comboBox.currentIndexChanged.disconnect()
+                self.exportformat_comboBox.setCurrentText('Custom')
+                self.exportformat_comboBox.currentIndexChanged.connect(self.export_format)
+                self.save_checkbox_states()
 
         # Save previous sheet information
         self.previous_worksheet = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
@@ -1299,6 +1304,12 @@ class ExportWidget(QWidget):
         # Remove the workbook from the dictionary
         del self.worksheet_tabs_dict[current_worksheet_name]
 
+        if self.exportformat_comboBox.currentText() != 'Custom':
+            self.exportformat_comboBox.currentIndexChanged.disconnect()
+            self.exportformat_comboBox.setCurrentText('Custom')
+            self.exportformat_comboBox.currentIndexChanged.connect(self.export_format)
+            self.save_checkbox_states()
+
     def populate_stack(self):
         """
         Method to populate the stacked widget with the column attributes for each table. This is used to show the
@@ -1316,10 +1327,11 @@ class ExportWidget(QWidget):
             if table_name == "GPSLocations":
                 # sets the GPSLocations table to have a different set of fields based on user-selection
                 if SettingsManager().settings.value('gps_format_id', 1) == 7:  # UTM Selected
-                    field_items = ['GPSLocationConverted', 'GPSLocationDisplay', 'CalculatedZone', 'CalculatedEasting',
-                                   'CalculatedNorthing', 'CalculatedGPSElev', 'CalculatedGPSElevError']
+                    field_items = ['GPSLocationConverted', 'GPSLocationDisplay', 'CalculatedZoneDisplay',
+                                   'CalculatedEastingDisplay', 'CalculatedNorthingDisplay', 'CalculatedGPSElev',
+                                   'CalculatedGPSElevError']
                 else:
-                    field_items = ['GPSLocationConverted', 'GPSLocationDisplay', 'CalculatedLat', 'CalculatedLon',
+                    field_items = ['GPSLocationConverted', 'GPSLocationDisplay', 'CalculatedLatDisplay', 'CalculatedLonDisplay',
                                    'CalculatedGPSElev', 'CalculatedGPSElevError']
 
             # Create container widget with QVBoxLayout
@@ -1359,7 +1371,7 @@ class ExportWidget(QWidget):
                 # Save field metadata
                 checkbox.setProperty("field_name", field)
                 checkbox.setProperty("table_name", table_name)
-                checkbox.checkStateChanged.connect(lambda: self.update_table_view())
+                checkbox.checkStateChanged.connect(self.field_check_state_changed)
 
             # Add a vertical spacer to push content up
             vertical_spacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
@@ -1385,6 +1397,19 @@ class ExportWidget(QWidget):
         self.save_checkbox_states()
         self.load_checkbox_states()
 
+        self.update_table_view()
+
+    def field_check_state_changed(self, previous_worksheet=None):
+        """
+        Called when a field is checked or unchecked.
+        :param previous_worksheet: The name of the previous worksheet, if any. If None, use the current worksheet.
+        """
+        if self.exportformat_comboBox.currentText() != 'Custom':
+            self.exportformat_comboBox.currentIndexChanged.disconnect()
+            self.exportformat_comboBox.setCurrentText('Custom')
+            self.exportformat_comboBox.currentIndexChanged.connect(self.export_format)
+            self.save_checkbox_states()
+            self.load_checkbox_states()
         self.update_table_view()
 
     def save_checkbox_states(self, previous_worksheet=None):
@@ -1587,7 +1612,9 @@ class ExportWidget(QWidget):
             logger_setup.get_logger().info(f'Found {self.sample_count} samples in the database')
             show_loading_dialog('Loading', f'Loading {self.sample_count} Samples...')
             self.samplesincluded_comboBox.enable_context_menu(show_context_menu=True, only_select_deselect=True)
-            populate_combo_box(self.samplesincluded_comboBox, **{'table': 'Samples', 'live': False})
+            view_query = ViewQuery('Samples', True, **{'show_columns': settings.value('sample_edit_columns')[0:4]})
+            populate_combo_box(self.samplesincluded_comboBox, **{'table': 'Samples', 'live': False,
+                                                                 'query': view_query.table_query, 'view_query': view_query})
             self.samplesincluded_comboBox.model().update_model_checks(set(self.checked_sample_list), set())
             close_loading_dialog('Loading', f'Loading {self.sample_count} Samples...')
 
@@ -1612,7 +1639,7 @@ class ExportWidget(QWidget):
         except TypeError: pass
 
         self.exportformat_comboBox.currentIndexChanged.connect(self.export_format)
-        self.exportformat_comboBox.currentIndexChanged.connect(self.update_table_view)
+        # self.exportformat_comboBox.currentIndexChanged.connect(self.update_table_view)
 
         try:
             self.selectionscope_comboBox.currentIndexChanged.disconnect()
@@ -1924,6 +1951,14 @@ class ExportWidget(QWidget):
 
         # Update the tab text
         self.workbooktabs.setTabText(index, new_name)
+        self.previous_worksheet = new_name
+
+        # Change the format type to custom
+        if self.exportformat_comboBox.currentText() != 'Custom':
+            self.exportformat_comboBox.currentIndexChanged.disconnect()
+            self.exportformat_comboBox.setCurrentText('Custom')
+            self.exportformat_comboBox.currentIndexChanged.connect(self.export_format)
+            self.save_checkbox_states()
 
     def rename_column(self, column_index, model):
         """Show an input dialog to rename a column header."""
@@ -1934,6 +1969,12 @@ class ExportWidget(QWidget):
                                             text=current_name)
         if ok and new_name.strip():
             model.setHeaderData(column_index, Qt.Orientation.Horizontal, new_name)
+
+        if self.exportformat_comboBox.currentText() != 'Custom':
+            self.exportformat_comboBox.currentIndexChanged.disconnect()
+            self.exportformat_comboBox.setCurrentText('Custom')
+            self.exportformat_comboBox.currentIndexChanged.connect(self.export_format)
+            self.save_checkbox_states()
 
     def open_columnname_mapping_dialog(self):
         """
@@ -1952,6 +1993,11 @@ class ExportWidget(QWidget):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             # Get adjusted columns
             self.column_name_mappings = dialog.get_adjusted_columns()
+            if self.exportformat_comboBox.currentText() != 'Custom':
+                self.exportformat_comboBox.currentIndexChanged.disconnect()
+                self.exportformat_comboBox.setCurrentText('Custom')
+                self.exportformat_comboBox.currentIndexChanged.connect(self.export_format)
+                self.save_checkbox_states()
             self.update_table_view()
 
     def open_column_order_dialog(self):
@@ -1974,6 +2020,11 @@ class ExportWidget(QWidget):
             # Update the selected columns
             self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns'] = adjusted_columns
             # Update the table view with the new column order
+            if self.exportformat_comboBox.currentText() != 'Custom':
+                self.exportformat_comboBox.currentIndexChanged.disconnect()
+                self.exportformat_comboBox.setCurrentText('Custom')
+                self.exportformat_comboBox.currentIndexChanged.connect(self.export_format)
+                self.save_checkbox_states()
             self.update_table_view(order_changed=True)
 
 

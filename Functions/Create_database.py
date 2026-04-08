@@ -2852,19 +2852,7 @@ def update_schema_v104(database: QtS.QSqlDatabase = None) -> bool:
                        'spot_edit_columns', 'grain_edit_columns', 'grain_view_columns', 'aliquot_view_columns',
                        'aliquot_edit_columns', 'sample_edit_columns', 'sample_view_columns']
     for column_setting in update_column_settings:
-        current_columns = settings.value(column_setting)
-        default_columns = settings.value(f'default_{column_setting}')
-        if set(current_columns) != set(default_columns):
-            update_columns = []
-            for column in current_columns:
-                # Keep any column that still exists in the new schema
-                if column in default_columns:
-                    update_columns.append(column)
-            for column in default_columns:
-                # Add any new columns from default columns that have to do with the new columns
-                if column not in update_columns and ('ErrorCorr/Rho' in column or 'MinimumSegmentedDiscordance' in column):
-                    update_columns.append(column)
-            settings.setValue(column_setting, update_columns)
+        settings.setValue(column_setting, settings.value(f'default_{column_setting}'))
     other_settings = ['show_items_missing_data']
     for setting in other_settings:
         if not setting in settings.allKeys():

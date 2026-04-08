@@ -108,7 +108,10 @@ class AddDataItem(QtW.QDialog):
         logger_setup.get_logger().info('Updating completer')
         query = QtS.QSqlQuery()
         # Get a list of the existing tag names
-        query.prepare(f'SELECT {self.name_header} FROM {self.table}')
+        where = ''
+        if self.parent_data_id and self.parent_data_id_header:
+            where = f'WHERE {self.parent_data_id_header} = {self.parent_data_id}'
+        query.prepare(f'SELECT {self.name_header} FROM {self.table} {where}')
         if not query.exec():
             logger_setup.get_logger().critical(
                 f'Error selecting display column from {self.table}: {query.lastError().text()}')
@@ -234,7 +237,7 @@ class AddDataItem(QtW.QDialog):
                 self.ids_added.append(query.lastInsertId())
             else:
                 # If the new item is being inserted in the middle, create a space for the new item
-                result, updated_ids = bulk_update_parent_row(self.table, self.parent_id, 1, None)
+                result, updated_ids = bulk_update_parent_row(self.table, self.parent_id, 1, self.parent_row+1)
                 if not result:
                     logger_setup.get_logger().critical(f'Error adding {self.table} item: {name}')
                     return False

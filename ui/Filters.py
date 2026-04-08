@@ -966,6 +966,15 @@ class RuleWidget(QWidget):
         if self.table_combo.currentText() == 'SampleAges':
             self.attribute_combo.addItems(['SampleAge', 'SampleAgeOldest', 'SampleAgeYoungest', 'SampleAgeError',
                                            'SampleAgeDescription', 'SampleAgeCreated', 'SampleAgeModified'])
+        elif self.table_combo.currentText() == 'GPSLocations':
+            gps_fields = SQLUtils.table_attributes_dict[self.table_combo.currentText()]
+            if settings.value('gps_format_id') == 7:
+                # UTM format, remove Lat and Lon fields
+                gps_fields = [field for field in gps_fields if not any(latlon in field for latlon in ['Lat', 'Lon'])]
+            else:
+                # Not UTM format, remove UTM fields
+                gps_fields = [field for field in gps_fields if not any(utm in field for utm in ['Zone', 'Easting', 'Northing'])]
+            self.attribute_combo.addItems(gps_fields)
         else:
             self.attribute_combo.addItems(SQLUtils.table_attributes_dict[self.table_combo.currentText()])
         self.attribute_switcher()
@@ -1266,7 +1275,7 @@ class GroupBox(QGroupBox):
         self.group_operator_combo = FocusWheelComboBox()
         self.group_operator_combo.addItems(['Match all', 'Match any', 'Match none'])
 
-        #Trying to add tooltips
+        #Adding tooltips
         tooltips = [
             "Returns data fulfilling all rules and subgroup rules",
             "Returns data fulfilling any rule or subgroup rules",
@@ -1796,9 +1805,9 @@ class QueryBuilder(QWidget):
         if as_tables is not None:
             for as_table in as_tables:
                 replace_table = SQLUtils.as_table_dict[as_table]
-                if replace_table in select_tables:
+                if select_tables and replace_table in select_tables:
                     selects = selects.replace(replace_table, as_table)
-                if replace_table in where_tables:
+                if where_tables and replace_table in where_tables:
                     where_clause = where_clause.replace(replace_table, as_table)
 
         # final code to determine the scope of query based on type, also ensures the selected type's table is found

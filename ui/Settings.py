@@ -10,10 +10,11 @@ from PyQt6.QtWidgets import QDoubleSpinBox
 from PyQt6.uic import loadUi
 
 import logger_setup
+import Functions.SQLUtils as SQLUtils
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
-from Functions.Widget_classes import get_headers, loading_manager
+from Functions.Widget_classes import get_headers, show_loading_dialog, close_loading_dialog
 from ui.SelectColumns import SelectColumns
 
 settings_list = [
@@ -31,7 +32,7 @@ settings_list = [
     'reference_view_freeze', 'checkable_combobox_height_scaler',
     'checkable_combobox_width_scaler', 'font_family', 'font_size', 'table_font_size', 'debug_level', 'show_per_page',
     'autofill_best_age', 'young_fill_best_age', 'old_fill_best_age', 'best_age_cutoff', 'geocork_version',
-    'current_db_path', 'display_tooltips'
+    'current_db_path', 'display_tooltips', 'show_items_missing_data'
 ]
 """List of all setting keys used by GeoCORK. This list is used to check for missing settings and to reset settings to default values."""
 
@@ -91,153 +92,143 @@ def default_settings():
     # Reference format settings, sets to "Authors, Year, Source"
     settings.setValue('default_reference_format',
                       '''(ifnull(Authors, "") || ", " || ifnull(Year, "") || ", " || ifnull(Source, ""))''')
-    settings.setValue('round_values', 'false')
+    settings.setValue('default_round_values', 'false')
     settings.setValue('default_decimals_to_show', 4)
 
+    settings.setValue('default_show_items_missing_data', 'true')
+
+    default_sample_view_columns = []
+    sample_view_columns = SQLUtils.view_attributes_dict['SampleView']
+    for column in sample_view_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_sample_view_columns.append(column_name)
     # Column display settings
-    settings.setValue('default_sample_view_columns', [
-        'SampleID', 'SampleName', 'SampleIGSN', 'SampleDescription', 'GPSSampleLocationCalculated',
-        'SampleElevationCalculated', 'SampleAgeCalculated', 'SampleAgeConstraintName', 'SampleAgeInterpretationName',
-        'SampleAgeReferenceDisplay', 'ColumnName', 'ColumnHeightDepthCalculated', 'SampleAgeSignatureName',
-        'RegionName', 'RockTypeName', 'SampleContextName', 'SamplingMethodName', 'SettingName', 'UnitName',
-        'AliquotName', 'AliquotContextName', 'GrainCount', 'GrainCompositionName', 'GrainContextName', 'SpotCount',
-        'SpotCompositionName', 'SpotContextName', '"Accepted/TotalUPbAnalyses"', 'LabFacilityName',
-        'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation',
-        'ConcordanceFormatAbbreviation', 'CalculatedSpotSize', 'RejectionReasonName', 'UPbAnalysisContextName',
-        'UPbAgeInterpretationName', 'UPbReference', 'SampleCreated', 'SampleModified'
-    ])
+    settings.setValue('default_sample_view_columns', default_sample_view_columns)
 
-    settings.setValue('default_sample_edit_columns', [
-        'SampleID', 'SampleName', 'SampleIGSN', 'SampleDescription', 'SampleGPSLocationDisplay', 'SampleElevation',
-        'SampleElevationUnitAbbreviation', 'SampleAgeCalculated', 'SampleAgeConstraintName',
-        'SampleAgeInterpretationName', 'SampleAgeReferenceDisplay', 'ColumnName', 'ColumnHeightDepth',
-        'ColumnHeightDepthUnitAbbreviation','SampleAgeSignatureName', 'RegionName', 'RockTypeName', 'SampleContextName',
-        'SamplingMethodName', 'SettingName', 'UnitName', 'AliquotName', 'AliquotContextName', 'GrainCount',
-        'GrainCompositionName', 'GrainContextName', 'SpotCount', 'SpotCompositionName', 'SpotContextName',
-        '"Accepted/TotalUPbAnalyses"', 'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation',
-        'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'SpotSize',
-        'SpotSizeUnitAbbreviation', 'RejectionReasonName', 'UPbReference', 'UPbAnalysisContextName',
-        'UPbAgeInterpretationName', 'SampleCreated', 'SampleModified'
-    ])
+    default_sample_edit_columns = []
+    sample_edit_columns = SQLUtils.view_attributes_dict['SampleEditView']
+    for column in sample_edit_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_sample_edit_columns.append(column_name)
+    settings.setValue('default_sample_edit_columns', default_sample_edit_columns)
 
-    settings.setValue('default_aliquot_view_columns', [
-        'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'AliquotName', 'SampleID', 'SampleName',
-        'AliquotContextName', 'GrainCount', 'GrainCompositionName', 'GrainContextName', 'SpotCount',
-        'SpotCompositionName', 'SpotContextName', '"Accepted/TotalUPbAnalyses"',
-        'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation',
-        'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize', 'RejectionReasonName',
-        'UPbAnalysisContextName', 'UPbAgeInterpretationName', 'UPbReference', 'AliquotCreated', 'AliquotModified'
-    ])
+    default_aliquot_view_columns = []
+    aliquot_view_columns = SQLUtils.view_attributes_dict['AliquotView']
+    for column in aliquot_view_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_aliquot_view_columns.append(column_name)
+    settings.setValue('default_aliquot_view_columns', default_aliquot_view_columns)
 
-    settings.setValue('default_aliquot_edit_columns', [
-        'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'AliquotName', 'SampleID', 'SampleName',
-        'AliquotContextName', 'AliquotCreated', 'AliquotModified'
-    ])
+    default_aliquot_edit_columns = []
+    aliquot_edit_columns = SQLUtils.view_attributes_dict['AliquotEditView']
+    for column in aliquot_edit_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_aliquot_edit_columns.append(column_name)
+    settings.setValue('default_aliquot_edit_columns', default_aliquot_edit_columns)
 
-    settings.setValue('default_grain_view_columns', [
-        'GrainID', 'SpotID', 'AliquotID', 'SampleID', 'GrainName', 'GrainDescription', 'SpotName', 'AliquotName',
-        'SampleName', 'GrainCompositionName', 'GrainContextName', 'SpotCompositionName', 'SpotContextName',
-        'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation',
-        'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize', '"Accepted/TotalUPbAnalyses"',
-        'UPbAnalysisContextName', 'UPbAgeInterpretationName', 'RejectionReasonName', 'UPbReference',
-        'GrainCreated', 'GrainModified',
-    ])
+    default_grain_view_columns = []
+    grain_view_columns = SQLUtils.view_attributes_dict['GrainView']
+    for column in grain_view_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_grain_view_columns.append(column_name)
+    settings.setValue('default_grain_view_columns', default_grain_view_columns)
 
-    settings.setValue('default_grain_edit_columns', [
-        'GrainID', 'SpotID', 'AliquotID', 'SampleID', 'GrainName', 'AliquotName', 'SampleName', 'GrainCompositionName',
-        'GrainContextName', 'GrainDescription', 'GrainCreated', 'GrainModified'
-    ])
+    default_grain_edit_columns = []
+    grain_edit_columns = SQLUtils.view_attributes_dict['GrainEditView']
+    for column in grain_edit_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_grain_edit_columns.append(column_name)
+    settings.setValue('default_grain_edit_columns', default_grain_edit_columns)
 
-    settings.setValue('default_spot_view_columns', [
-        'SpotID', 'AliquotID', 'SampleID', 'SpotName', 'UPbAnalysisNames', 'GrainName', 'AliquotName', 'SampleName',
-        'SpotCompositionName', 'SpotContextName', 'GrainCompositionName', 'GrainContextName', 'LabFacilityName',
-        'InstrumentName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation',
-        'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize', '"Accepted/TotalUPbAnalyses"',
-        'UPbAnalysisContextName', 'UPbAgeInterpretationName', 'RejectionReasonName', 'UPbReference',
-        'SpotCreated', 'SpotModified'
-    ])
+    default_spot_view_columns = []
+    spot_view_columns = SQLUtils.view_attributes_dict['SpotView']
+    for column in spot_view_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_spot_view_columns.append(column_name)
+    settings.setValue('default_spot_view_columns', default_spot_view_columns)
 
-    settings.setValue('default_spot_edit_columns', [
-        'SpotID', 'AliquotID', 'SampleID', 'SpotName', 'UPbAnalysisNames', 'GrainName', 'AliquotName', 'SampleName',
-        'SpotCompositionName', 'SpotContextName', 'GrainCompositionName', 'GrainContextName',
-        'SpotCreated', 'SpotModified'
-    ])
+    default_spot_edit_columns = []
+    spot_edit_columns = SQLUtils.view_attributes_dict['SpotEditView']
+    for column in spot_edit_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_spot_edit_columns.append(column_name)
+    settings.setValue('default_spot_edit_columns', default_spot_edit_columns)
 
-    settings.setValue('default_upb_analysis_view_columns', [
-        'UPbAnalysisID', 'SpotID', 'AliquotID', 'SampleID', 'UPbAnalysisName', 'SpotName', 'GrainName', 'AliquotName',
-        'SampleName', 'UPbReference', 'LabFacilityName', 'InstrumentName', 'UPbAnalysisMethodName',
-        '"Pb204cps"', '"Pb206cps"', '"Pb207cps"','"Pb208cps"', '"Pb*cps"', '"Th232cps"', '"U235cps"', '"U238cps"',
-        '"Uppm"', '"Thppm"', '"CalculatedU/Th"', '"CalculatedTh/U"',
-        '"Calculated206Pb/207Pb"', '"Calculated206Pb/207PbError"', '"Calculated207Pb/206Pb"',
-        '"Calculated207Pb/206PbError"',
-        '"Calculated207Pb/235U"', '"Calculated207Pb/235UError"', '"Calculated235U/207Pb"',
-        '"Calculated235U/207PbError"',
-        '"Calculated206Pb/238U"', '"Calculated206Pb/238UError"', '"Calculated238U/206Pb"',
-        '"Calculated238U/206PbError"',
-        '"Calculated208Pb/232Th"', '"Calculated208Pb/232ThError"', '"Calculated232Th/208Pb"',
-        '"Calculated232Th/208PbError"',
-        '"Calculated238U/232Th"', '"Calculated238U/232ThError"', '"Calculated232Th/238U"',
-        '"Calculated232Th/238UError"',
-        '"Calculated204Pb/238U"', '"Calculated204Pb/238UError"', '"Calculated238U/204Pb"',
-        '"Calculated238U/204PbError"',
-        '"Calculated206Pb/204Pb"', '"Calculated206Pb/204PbError"', '"Calculated204Pb/206Pb"',
-        '"Calculated204Pb/206PbError"',
-        '"Calculated207Pb/204Pb"', '"Calculated207Pb/204PbError"', '"Calculated204Pb/207Pb"',
-        '"Calculated204Pb/207PbError"',
-        '"Calculated208Pb/204Pb"', '"Calculated208Pb/204PbError"', '"Calculated204Pb/208Pb"',
-        '"Calculated204Pb/208PbError"',
-        '"ErrorCorr/Rho"', '"Calculated207Pb/206PbAge"', '"Calculated207Pb/206PbAgeError"', '"Calculated206Pb/238UAge"',
-        '"Calculated206Pb/238UAgeError"', '"Calculated207Pb/235UAge"', '"Calculated207Pb/235UAgeError"',
-        '"Calculated208Pb/232ThAge"', '"Calculated208Pb/232ThAgeError"', '"CalculatedBestAgeFilled"',
-        '"CalculatedBestAgeErrorFilled"',
-        '"CalculatedSpotSize"', '"CalculatedConcordance_206Pb/238Uv207Pb/206Pb"',
-        '"CalculatedConcordance_206Pb/238Uv207Pb/235U"', 'Rejected', 'RejectionReasonName', 'UPbAnalysisContextName',
-        'UPbAgeInterpretationName', 'SpotCompositionName', 'SpotContextName', 'GrainCompositionName', 'GrainContextName',
-        'UPbAnalysisCreated', 'UPbAnalysisModified'
-    ])
+    default_upb_analysis_view_columns = []
+    upb_analysis_view_columns = SQLUtils.view_attributes_dict['UPbView']
+    for column in upb_analysis_view_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_upb_analysis_view_columns.append(column_name)
+    settings.setValue('default_upb_analysis_view_columns', default_upb_analysis_view_columns)
 
-    settings.setValue('default_upb_analysis_edit_columns', [
-        'UPbAnalysisID', 'SpotID', 'AliquotID', 'SampleID', 'UPbAnalysisName', 'SpotName', 'GrainName', 'AliquotName',
-        'SampleName', 'UPbReference', 'LabFacilityName', 'InstrumentName', 'UPbAnalysisMethodName',
-        '"Pb204cps"', '"Pb206cps"', '"Pb207cps"', '"Pb208cps"', '"Pb*cps"', '"Th232cps"', '"U235cps"', '"U238cps"',
-        '"Uppm"', '"Thppm"', '"U/Th"', '"Th/U"',
-        '"206Pb/207Pb"', '"206Pb/207PbError"', '"207Pb/206Pb"', '"207Pb/206PbError"',
-        '"207Pb/235U"', '"207Pb/235UError"', '"235U/207Pb"', '"235U/207PbError"',
-        '"206Pb/238U"', '"206Pb/238UError"', '"238U/206Pb"', '"238U/206PbError"',
-        '"208Pb/232Th"', '"208Pb/232ThError"', '"232Th/208Pb"', '"232Th/208PbError"',
-        '"238U/232Th"', '"238U/232ThError"', '"232Th/238U"', '"232Th/238UError"',
-        '"204Pb/238U"', '"204Pb/238UError"', '"238U/204Pb"', '"238U/204PbError"',
-        '"206Pb/204Pb"', '"206Pb/204PbError"', '"204Pb/206Pb"', '"204Pb/206PbError"',
-        '"207Pb/204Pb"', '"207Pb/204PbError"', '"204Pb/207Pb"', '"204Pb/207PbError"',
-        '"208Pb/204Pb"', '"208Pb/204PbError"', '"204Pb/208Pb"', '"204Pb/208PbError"',
-        '"204Pb/208PbError"', 'RatioErrorFormatAbbreviation', '"ErrorCorr/Rho"',
-        '"207Pb/206PbAge"', '"207Pb/206PbAgeError"', '"207Pb/235UAge"', '"207Pb/235UAgeError"',
-        '"206Pb/238UAge"', '"206Pb/238UAgeError"', '"208Pb/232ThAge"', '"208Pb/232ThAgeError"',
-        '"BestAge"', '"BestAgeError"', '"BestAgeFilled"', '"BestAgeErrorFilled"',
-        'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', '"Concordance_206Pb/238Uv207Pb/206Pb"',
-        '"Concordance_206Pb/238Uv207Pb/235U"', 'ConcordanceFormatAbbreviation',
-        '"SpotSize"', 'SpotSizeUnitAbbreviation', 'Rejected', 'RejectionReasonName', 'UPbAnalysisContextName',
-        'UPbAgeInterpretationName', 'SpotCompositionName', 'SpotContextName', 'GrainCompositionName', 'GrainContextName',
-        'UPbAnalysisCreated', 'UPbAnalysisModified'
-    ])
+    default_upb_analysis_edit_columns = []
+    upb_analysis_edit_columns = SQLUtils.view_attributes_dict['UPbEditView']
+    for column in upb_analysis_edit_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_upb_analysis_edit_columns.append(column_name)
+    settings.setValue('default_upb_analysis_edit_columns', default_upb_analysis_edit_columns)
 
-    settings.setValue('default_column_view_columns', [
-        'ColumnID', 'ColumnName', 'ColumnTotalHeightDepthCalculated', 'ColumnGPSLocationCalculated',
-        'ColumnElevationCalculated', 'ColumnDescription', 'ColumnCreated', 'ColumnModified'
-    ])
+    default_column_view_columns = []
+    column_view_columns = SQLUtils.view_attributes_dict['ColumnView']
+    for column in column_view_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_column_view_columns.append(column_name)
+    settings.setValue('default_column_view_columns', default_column_view_columns)
 
-    settings.setValue('default_column_edit_columns', [
-        'ColumnID', 'ColumnName', 'ColumnTotalHeightDepth', 'ColumnTotalHeightDepthUnitAbbreviation',
-        'ColumnGPSLocationDisplay', 'ColumnElevation', 'ColumnElevationUnitAbbreviation', 'ColumnDescription',
-        'ColumnCreated', 'ColumnModified'
-    ])
+    default_column_edit_columns = []
+    column_edit_columns = SQLUtils.view_attributes_dict['ColumnEditView']
+    for column in column_edit_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_column_edit_columns.append(column_name)
+    settings.setValue('default_column_edit_columns', default_column_edit_columns)
 
-    settings.setValue('default_reference_view_columns', [
-        'ReferenceID', 'ReferenceDisplay', 'Authors', 'Year', 'Title', 'Source', 'DOI', 'ReferenceDescription',
-        'ReferenceCreated', 'ReferenceModified'
-    ])
+    default_reference_view_columns = []
+    reference_view_columns = SQLUtils.view_attributes_dict['ReferenceView']
+    for column in reference_view_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_reference_view_columns.append(column_name)
+    settings.setValue('default_reference_view_columns', default_reference_view_columns)
 
-    settings.setValue('default_geocork_version', 'v1.0.3')
+    settings.setValue('default_geocork_version', 'v1.0.4')
     settings.setValue('db_file', '')
 
     settings.setValue('default_checkable_combobox_height_scaler', 1.0)
@@ -250,6 +241,9 @@ def default_settings():
     settings.setValue('default_young_fill_best_age', '"206Pb/238UAge"')
     settings.setValue('default_old_fill_best_age', '"207Pb/206PbAge"')
     settings.setValue('default_best_age_cutoff', 1000)
+
+    # settings.setValue('default_lazy_loading_enabled', 'true')
+    # settings.setValue('default_loading_batch_size', 1000)
 
     settings.setValue('default_display_tooltips', True)
 
@@ -372,8 +366,6 @@ class SettingsDialog(QtW.QDialog):
         sources_ui_file = os.path.join(base_path, "Settings.ui")
         loadUi(sources_ui_file, self)
 
-        self.loading_manager = LoadingDialogManager.get_instance()
-
         self.setWindowTitle('Settings')
         self.loadWindowState()
         self.settings_tabWidget.setCurrentIndex(0)
@@ -397,6 +389,8 @@ class SettingsDialog(QtW.QDialog):
         self.updated = False
 
         self.populate_fields()
+
+        self.view_rounded_checkBox.checkStateChanged.connect(self.set_rounding)
 
         self.autofill_best_checkBox.checkStateChanged.connect(self.populate_best_age_fields)
 
@@ -502,6 +496,15 @@ class SettingsDialog(QtW.QDialog):
             self.fontComboBox.addItems([settings.value('default_font_family')])
         self.fontComboBox.setCurrentFont(QFont(settings.value('font_family')))
 
+        # self.lazy_batch_comboBox.addItems(['100', '250', '500', '1000', '2500', '5000', '10000'])
+        # self.lazy_batch_comboBox.setCurrentText(str(settings.value('lazy_loading_batch_size')))
+        # if settings.value('lazy_loading_enabled') == 'true':
+        #     self.lazy_checkBox.setChecked(True)
+        #     self.lazy_batch_comboBox.setEnabled(True)
+        # else:
+        #     self.lazy_checkBox.setChecked(False)
+        #     self.lazy_batch_comboBox.setEnabled(False)
+
         self.display_tooltips_checkBox.setChecked(settings.value('display_tooltips', type=bool))
 
     def populate_best_age_fields(self):
@@ -534,6 +537,14 @@ class SettingsDialog(QtW.QDialog):
             self.old_age_fill_comboBox.setEnabled(False)
             self.cutoff_age_lineEdit.setEnabled(False)
 
+    def set_rounding(self):
+        if self.view_rounded_checkBox.isChecked():
+            settings.setValue('round_values', 'true')
+            self.decimals_comboBox.setEnabled(True)
+        else:
+            settings.setValue('round_values', 'false')
+            self.decimals_comboBox.setEnabled(False)
+
     def update_settings(self):
         """
         Updates the settings to current values within the various comboboxes and lineedits. Updates the database
@@ -541,7 +552,7 @@ class SettingsDialog(QtW.QDialog):
         """
         # No longer using default settings
         logger_setup.get_logger().info('Updating settings')
-        self.loading_manager.show_loading_dialog('Updating', 'Updating settings...')
+        show_loading_dialog('Updating', 'Updating settings...')
         settings.setValue('default_settings', 'false')
 
         # Save the settings to the QSettings object
@@ -605,35 +616,42 @@ class SettingsDialog(QtW.QDialog):
                 update_setting('table_font_size', float(self.table_font_size_comboBox.currentText()))
                 update_setting('font_family', self.fontComboBox.currentFont().family())
 
-                self.loading_manager.show_loading_dialog('Updating', 'Updating style...')
+                show_loading_dialog('Updating', 'Updating style...')
                 update_stylesheet()
-                self.loading_manager.close_loading_dialog('Updating', 'Updating style...')
+                close_loading_dialog('Updating', 'Updating style...')
                 break
 
-        update_setting('display_tooltips', self.display_tooltips_checkBox.isChecked())
+        # if self.lazy_checkBox.isChecked():
+        #     update_setting('lazy_loading_enabled', 'true')
+        #     update_setting('lazy_loading_batch_size', int(self.lazy_batch_comboBox.currentText()))
+        # else:
+        #     update_setting('lazy_loading_enabled', 'false')
+        #
+        # update_setting('display_tooltips', self.display_tooltips_checkBox.isChecked())
 
         self.populate_fields()
-        self.loading_manager.close_loading_dialog('Updating', 'Updating settings...')
+        close_loading_dialog('Updating', 'Updating settings...')
         logger_setup.get_logger().info('Updated settings successfully')
         self.updated = True
 
+
     def update_settings_close(self):
-        """
-        Updates the settings and closes the dialog.
-        """
-        self.update_settings()
-        self.close()
+            """
+            Updates the settings and closes the dialog.
+            """
+            self.update_settings()
+            self.close()
 
     def restore_defaults(self):
         """
         Restores the default settings for the application. This is called when the user clicks the Restore Defaults
         """
-        self.loading_manager.show_loading_dialog('Restoring Default Settings', 'Currently updating settings...')
+        show_loading_dialog('Restoring Default Settings', 'Currently updating settings...')
         logger_setup.get_logger().info('Restoring default settings')
         settings.setValue('default_settings', 'true')
         reset_to_default_settings()
         self.populate_fields()
-        self.loading_manager.close_loading_dialog('Restoring Default Settings', 'Currently updating settings...')
+        close_loading_dialog('Restoring Default Settings', 'Currently updating settings...')
 
     def set_combobox(self, comboBox: QtW.QComboBox, model: QSqlQueryModel):
         """

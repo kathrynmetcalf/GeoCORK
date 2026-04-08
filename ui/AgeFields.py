@@ -1319,7 +1319,7 @@ class AgeFields(QtW.QWidget):
             # Update this combo box
             populate_combo_box(combo, **{'table': table})
             sample_age_list = [self.sample_age_id] if self.sample_age_id else []
-            populate_many_combo_checks(f'Samples_{table}', combo, sample_age_list)
+            populate_many_combo_checks(f'SampleAges_{table}', combo, sample_age_list)
 
     def edit_popup(self, combo: QtW.QComboBox):
         if combo == self.edit_age_comboBox:
