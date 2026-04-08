@@ -99,7 +99,8 @@ class SampleChainEdit(QtW.QDialog):
             if value != 'Move':
                 self.sample_mode_comboBox.addItem(value)
                 self.sample_mode_comboBox.setItemData(i, self.mode_tooltips[i], QtC.Qt.ItemDataRole.ToolTipRole)
-        populate_combo_box(self.sample_comboBox, **{'table': 'Samples'})
+        view_query = ViewQuery('Samples', True, **{'show_columns': settings.value('sample_edit_columns')[0:4]})
+        populate_combo_box(self.sample_comboBox, **{'table': 'Samples', 'query': view_query.table_query, 'view_query': view_query})
         if 'Samples' in self.current_parents and self.current_parents["Samples"]:
             self.current_sample_id = self.current_parents["Samples"][0]
             current_sample_name = get_name_from_id('Samples', self.current_sample_id)
