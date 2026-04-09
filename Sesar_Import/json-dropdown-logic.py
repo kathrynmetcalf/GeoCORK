@@ -79,8 +79,8 @@ def get_children_table(data):
     
     return rows
 
-#this prints a table to the screen with indices on the left
-#the user uses these indices to make selections
+#this prints a table to the screen with row numbers on the left
+#the user uses these row numbers to make selections
 def display_table(rows, title):
     if not rows:
         print(f"\nNo {title.lower()} found")

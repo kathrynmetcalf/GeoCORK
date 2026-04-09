@@ -14,3 +14,8 @@ Add the basic importing from igsn functionality into the new ImportFromSesar.py 
 sample igsn:
 10.58052/IENWUC821
 Make sure to let Kayla know that she needs to install requests for it to work
+
+Step 3:
+In ImportFromSesar.py is were all the drop down code is to see the nested relationships. 
+Click Explore to view the nested relationships. 
+Click the arrows 
