@@ -21,18 +21,13 @@ ParentRow rule:
         1. Query MAX(ParentRow) WHERE ParentID matches (NULL or specific ID)
         2. new ParentRow = MAX + 1, or 0 if no siblings exist yet
 """
+# NOTE - considered outdated since this creates a copy db everytime, not working directly with QSqlDatabase and made a new sqlite3 connection
 
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import logger_setup
-
-
-def is_filled(x: Any) -> bool:
-    """Return False for values that are None, empty string, empty list, or empty dict."""
-    return x not in (None, "", [], {})
-
 
 # Helpers — QSqlQuery layer (used by import_staging_inplace only)
 # ---------------------------------------------------------------------------
@@ -75,15 +70,11 @@ def _q_next_sibling_parent_row(table: str, id_col: str, parent_id_col: str,
             f"SELECT MAX({parent_row_col}) FROM {table} WHERE {parent_id_col} = ?")
         q.addBindValue(parent_id)
     q.exec()
-    # MAX() on an empty table returns SQL NULL; the Qt SQLite driver may
-    # surface this as Python None, empty string "", or 0 depending on the
-    # driver version. Treat any non-integer-castable value as "no rows yet".
-    raw = q.value(0) if q.next() else None
-    try:
-        max_row = int(raw)
-    except (TypeError, ValueError):
+    max_row = q.value(0) if q.next() and q.value(0) is not None else -1
+    # QSqlQuery returns None for SQL NULL — guard against it
+    if max_row is None:
         max_row = -1
-    return max_row + 1
+    return int(max_row) + 1
 
 
 def _q_insert_tree_row(
