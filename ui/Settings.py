@@ -29,8 +29,8 @@ settings_list = [
     'spot_view_columns', 'spot_view_freeze', 'spot_edit_columns', 'spot_edit_freeze',
     'upb_analysis_view_columns', 'upb_analysis_view_freeze', 'upb_analysis_edit_columns', 'upb_analysis_edit_freeze',
     'column_view_columns', 'column_view_freeze', 'column_edit_columns', 'column_edit_freeze', 'reference_view_columns',
-    'reference_view_freeze', 'checkable_combobox_height_scaler',
-    'checkable_combobox_width_scaler', 'font_family', 'font_size', 'table_font_size', 'debug_level', 'show_per_page',
+    'reference_view_freeze', 'checkable_combobox_height_scalar',
+    'checkable_combobox_width_scalar', 'font_family', 'font_size', 'table_font_size', 'debug_level', 'show_per_page',
     'autofill_best_age', 'young_fill_best_age', 'old_fill_best_age', 'best_age_cutoff', 'geocork_version',
     'current_db_path', 'display_tooltips', 'show_items_missing_data'
 ]
@@ -231,8 +231,8 @@ def default_settings():
     settings.setValue('default_geocork_version', 'v1.0.4')
     settings.setValue('db_file', '')
 
-    settings.setValue('default_checkable_combobox_height_scaler', 1.0)
-    settings.setValue('default_checkable_combobox_width_scaler', 1.0)
+    settings.setValue('default_checkable_combobox_height_scalar', 1.0)
+    settings.setValue('default_checkable_combobox_width_scalar', 1.0)
 
     settings.setValue('default_debug_level', 'INFO')
     settings.setValue('default_show_per_page', 100)
@@ -479,8 +479,8 @@ class SettingsDialog(QtW.QDialog):
 
         self.select_columns.populate_stack()
 
-        self.combobox_height_scaler_spinbox.setValue(float(settings.value('checkable_combobox_height_scaler')))
-        self.combobox_width_scaler_spinbox.setValue(float(settings.value('checkable_combobox_width_scaler')))
+        self.combobox_height_scalar_spinbox.setValue(float(settings.value('checkable_combobox_height_scalar')))
+        self.combobox_width_scalar_spinbox.setValue(float(settings.value('checkable_combobox_width_scalar')))
 
         # List of font sizes to populate the font size comboboxes
         font_sizes = [str(i) for i in range(6, 21)]
@@ -600,17 +600,17 @@ class SettingsDialog(QtW.QDialog):
         self.select_columns.save_list_states()
 
         # Style sheet related values
-        self.combobox_height_scaler_spinbox: QDoubleSpinBox
-        style_settings = {'checkable_combobox_height_scaler': self.combobox_height_scaler_spinbox.value(),
-                          'checkable_combobox_width_scaler': self.combobox_width_scaler_spinbox.value(),
+        self.combobox_height_scalar_spinbox: QDoubleSpinBox
+        style_settings = {'checkable_combobox_height_scalar': self.combobox_height_scalar_spinbox.value(),
+                          'checkable_combobox_width_scalar': self.combobox_width_scalar_spinbox.value(),
                           'font_size': float(self.font_size_comboBox.currentText()),
                           'table_font_size': float(self.table_font_size_comboBox.currentText()),
                           'font_family': self.fontComboBox.currentFont().family()}
         # Updating the style sheet takes time, so only do it if necessary
         for key, value in style_settings.items():
             if settings.value(key) != value:
-                update_setting('checkable_combobox_height_scaler', self.combobox_height_scaler_spinbox.value())
-                update_setting('checkable_combobox_width_scaler', self.combobox_width_scaler_spinbox.value())
+                update_setting('checkable_combobox_height_scalar', self.combobox_height_scalar_spinbox.value())
+                update_setting('checkable_combobox_width_scalar', self.combobox_width_scalar_spinbox.value())
 
                 update_setting('font_size', float(self.font_size_comboBox.currentText()))
                 update_setting('table_font_size', float(self.table_font_size_comboBox.currentText()))

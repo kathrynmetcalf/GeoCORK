@@ -501,7 +501,7 @@
             </size>
            </property>
            <property name="text">
-            <string>Combobox Height Scaler:</string>
+            <string>Combobox Height Scalar:</string>
            </property>
            <property name="wordWrap">
             <bool>true</bool>
@@ -509,7 +509,7 @@
           </widget>
          </item>
          <item row="3" column="1">
-          <widget class="QDoubleSpinBox" name="combobox_height_scaler_spinbox">
+          <widget class="QDoubleSpinBox" name="combobox_height_scalar_spinbox">
            <property name="minimumSize">
             <size>
              <width>0</width>
@@ -547,7 +547,7 @@
           </widget>
          </item>
          <item row="4" column="1">
-          <widget class="QDoubleSpinBox" name="combobox_width_scaler_spinbox">
+          <widget class="QDoubleSpinBox" name="combobox_width_scalar_spinbox">
            <property name="minimumSize">
             <size>
              <width>0</width>
@@ -651,7 +651,7 @@
             </size>
            </property>
            <property name="text">
-            <string>Combobox Width Scaler:</string>
+            <string>Combobox Width Scalar:</string>
            </property>
            <property name="wordWrap">
             <bool>true</bool>
@@ -980,8 +980,8 @@
   <tabstop>fontComboBox</tabstop>
   <tabstop>font_size_comboBox</tabstop>
   <tabstop>table_font_size_comboBox</tabstop>
-  <tabstop>combobox_height_scaler_spinbox</tabstop>
-  <tabstop>combobox_width_scaler_spinbox</tabstop>
+  <tabstop>combobox_height_scalar_spinbox</tabstop>
+  <tabstop>combobox_width_scalar_spinbox</tabstop>
   <tabstop>db_name_lineEdit</tabstop>
   <tabstop>db_description_lineEdit</tabstop>
   <tabstop>db_created_by_lineEdit</tabstop>
