@@ -17,6 +17,14 @@
 #     (with an in-memory cache) — acceptable for an explorer that isn't part of
 #     the core import pipeline.
 
+# added checkboxes next to each igsn so users can select multiple at once
+# added select all and clear all buttons to make bulk selection easier
+# added download selected button with a confirmation popup that shows how many files
+# added a counter that shows how many are selected
+# right click menu now has checkand uncheck options
+# batch download shows progress and tells you which ones failed at the end
+# each igsn downloads as a separate json file named sesar_[igsn].json
+
 import sys
 import json
 import requests
@@ -25,7 +33,7 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QLineEdit, QTextEdit, QMessageBox,
                              QWidget, QSplitter, QTreeWidget, QTreeWidgetItem,
-                             QMenu)
+                             QMenu, QApplication)
 from PyQt6.QtGui import QTextCursor, QAction
 
 import pandas as pd
@@ -117,12 +125,38 @@ class SampleHierarchyWidget(QWidget):
         self.current_label = QLabel("No sample selected")
         layout.addWidget(self.current_label)
 
+        #button layout for download controls
+        button_layout = QHBoxLayout()
+        
+        #download selected button
+        self.download_selected_button = QPushButton("Download Selected IGSNs")
+        self.download_selected_button.clicked.connect(self._download_selected)
+        self.download_selected_button.setEnabled(False)
+        button_layout.addWidget(self.download_selected_button)
+        
+        #select all button
+        self.select_all_button = QPushButton("Select All")
+        self.select_all_button.clicked.connect(self._select_all)
+        button_layout.addWidget(self.select_all_button)
+        
+        #clear all button
+        self.clear_all_button = QPushButton("Clear All")
+        self.clear_all_button.clicked.connect(self._clear_all)
+        button_layout.addWidget(self.clear_all_button)
+        
+        #selected count label
+        self.selected_count_label = QLabel("Selected: 0")
+        button_layout.addWidget(self.selected_count_label)
+        
+        layout.addLayout(button_layout)
+
         # Lazy-loading tree: top-level nodes are siblings; children expand on demand
         self.tree = QTreeWidget()
         self.tree.setHeaderLabel("Sample Hierarchy")
         self.tree.itemExpanded.connect(self._on_item_expanded)
         self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self._show_context_menu)
+        self.tree.itemChanged.connect(self._on_item_checked)
         layout.addWidget(self.tree)
 
         # Read-only text area for tabular relationship data
@@ -131,6 +165,144 @@ class SampleHierarchyWidget(QWidget):
         layout.addWidget(self.table_text)
 
         self.setLayout(layout)
+
+    # ------------------------------------------------------------------
+    # Checkbox helpers
+    # ------------------------------------------------------------------
+    
+    def _get_checked_igsns(self):
+        """collect all checked IGSNs from the tree"""
+        checked_igsns = []
+        
+        def collect_checked(parent_item):
+            for i in range(parent_item.childCount()):
+                child = parent_item.child(i)
+                igsn = child.text(0)
+                if igsn != "No children found":
+                    if child.checkState(0) == Qt.CheckState.Checked:
+                        checked_igsns.append(igsn)
+                    collect_checked(child)
+        
+        for i in range(self.tree.topLevelItemCount()):
+            item = self.tree.topLevelItem(i)
+            igsn = item.text(0)
+            if item.checkState(0) == Qt.CheckState.Checked:
+                checked_igsns.append(igsn)
+            collect_checked(item)
+        
+        return checked_igsns
+    
+    def _on_item_checked(self, item, column):
+        """enable download button if any items are checked"""
+        checked = self._get_checked_igsns()
+        count = len(checked)
+        self.download_selected_button.setEnabled(count > 0)
+        self.selected_count_label.setText(f"Selected: {count}")
+        
+        #warning colors for rate limit awareness
+        if count > 10:
+            self.selected_count_label.setStyleSheet("color: orange")
+        elif count > 20:
+            self.selected_count_label.setStyleSheet("color: red")
+        else:
+            self.selected_count_label.setStyleSheet("")
+    
+    def _select_all(self):
+        """check all IGSNs in the tree"""
+        def select_all_items(parent_item):
+            for i in range(parent_item.childCount()):
+                child = parent_item.child(i)
+                igsn = child.text(0)
+                if igsn != "No children found":
+                    child.setCheckState(0, Qt.CheckState.Checked)
+                    select_all_items(child)
+        
+        for i in range(self.tree.topLevelItemCount()):
+            item = self.tree.topLevelItem(i)
+            item.setCheckState(0, Qt.CheckState.Checked)
+            select_all_items(item)
+        
+        self.download_selected_button.setEnabled(True)
+    
+    def _clear_all(self):
+        """uncheck all IGSNs in the tree"""
+        def clear_all_items(parent_item):
+            for i in range(parent_item.childCount()):
+                child = parent_item.child(i)
+                igsn = child.text(0)
+                if igsn != "No children found":
+                    child.setCheckState(0, Qt.CheckState.Unchecked)
+                    clear_all_items(child)
+        
+        for i in range(self.tree.topLevelItemCount()):
+            item = self.tree.topLevelItem(i)
+            item.setCheckState(0, Qt.CheckState.Unchecked)
+            clear_all_items(item)
+        
+        self.download_selected_button.setEnabled(False)
+        self.selected_count_label.setText("Selected: 0")
+        self.selected_count_label.setStyleSheet("")
+    
+    def _download_selected(self):
+        """show confirmation dialog then download all selected IGSNs"""
+        checked_igsns = self._get_checked_igsns()
+        if not checked_igsns:
+            QMessageBox.warning(self, "No Selection", "No IGSNs selected for download")
+            return
+        
+        #confirmation dialog
+        confirm_dialog = QMessageBox(self)
+        confirm_dialog.setWindowTitle("Confirm Download")
+        confirm_dialog.setIcon(QMessageBox.Icon.Question)
+        confirm_dialog.setText(f"You are about to download {len(checked_igsns)} IGSN(s)")
+        
+        if len(checked_igsns) <= 10:
+            igsn_list = "\n".join(checked_igsns)
+            confirm_dialog.setInformativeText(f"The following IGSNs will be downloaded:\n\n{igsn_list}")
+        else:
+            igsn_list = "\n".join(checked_igsns[:10])
+            confirm_dialog.setInformativeText(f"The following IGSNs will be downloaded (showing first 10 of {len(checked_igsns)}):\n\n{igsn_list}\n\n...and {len(checked_igsns) - 10} more")
+        
+        confirm_dialog.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        confirm_dialog.setDefaultButton(QMessageBox.StandardButton.No)
+        
+        if confirm_dialog.exec() == QMessageBox.StandardButton.Yes:
+            self._perform_download(checked_igsns)
+    
+    def _perform_download(self, checked_igsns):
+        """download all selected IGSNs with progress indication"""
+        success_count = 0
+        fail_count = 0
+        failed_igsns = []
+        
+        #progress dialog
+        progress = QMessageBox(self)
+        progress.setWindowTitle("Downloading")
+        progress.setText(f"Downloading 0 of {len(checked_igsns)} IGSNs...")
+        progress.setStandardButtons(QMessageBox.StandardButton.NoButton)
+        progress.setIcon(QMessageBox.Icon.Information)
+        progress.show()
+        
+        for i, igsn in enumerate(checked_igsns):
+            progress.setText(f"Downloading {i+1} of {len(checked_igsns)} IGSNs...\nCurrent: {igsn}")
+            QApplication.processEvents()
+            
+            if self._save_sample_data(igsn, show_message=False):
+                success_count += 1
+            else:
+                fail_count += 1
+                failed_igsns.append(igsn)
+        
+        progress.accept()
+        
+        #show results
+        result_msg = f"Download Complete!\n\nSuccessfully downloaded: {success_count}\nFailed: {fail_count}"
+        if failed_igsns and len(failed_igsns) <= 10:
+            result_msg += f"\n\nFailed IGSNs:\n" + "\n".join(failed_igsns)
+        elif failed_igsns:
+            result_msg += f"\n\nFailed IGSNs (showing first 10 of {len(failed_igsns)}):\n" + "\n".join(failed_igsns[:10])
+        
+        QMessageBox.information(self, "Download Results", result_msg)
 
     # ------------------------------------------------------------------
     # Network helpers
@@ -155,7 +327,7 @@ class SampleHierarchyWidget(QWidget):
         except Exception:
             return None
 
-    def _save_sample_data(self, igsn):
+    def _save_sample_data(self, igsn, show_message=True):
         """Fetch *igsn* and write it to a local JSON file (context-menu action)."""
         data = self._fetch_sample_data(igsn)
         if not data:
@@ -326,6 +498,8 @@ class SampleHierarchyWidget(QWidget):
         self.current_label.setText(f"Current Sample: {igsn}")
         self.table_text.clear()
         self.tree.clear()
+        self.selected_count_label.setText("Selected: 0")
+        self.download_selected_button.setEnabled(False)
 
         data = self._fetch_sample_data(igsn)
         if not data:
