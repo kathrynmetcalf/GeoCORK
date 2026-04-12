@@ -2,16 +2,31 @@
 # this file handles importing sample data from sesar using igsn numbers
 # needs error handling logic but it does the basic stuff
 # error handling logic added but needs to be tested fully
-# added the 
+
+# ImportFromSesar.py
+# this file handles importing sample data from sesar using igsn numbers
+# needs error handling logic but it does the basic stuff
+# error handling logic added but needs to be tested fully
 
 import json
 import requests
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                              QPushButton, QLineEdit, QTextEdit, QMessageBox, 
-                             QFileDialog, QComboBox, QWidget, QSplitter, QTreeWidget, QTreeWidgetItem, QMenu)
+                             QFileDialog, QComboBox, QWidget, QSplitter, QTreeWidget, QTreeWidgetItem, QMenu,
+                             QApplication)  #added QApplication here
 from PyQt6.QtGui import QTextCursor, QAction
 import pandas as pd
+
+
+class CheckableTreeWidgetItem(QTreeWidgetItem):
+    #tree item with checkbox functionality
+    
+    def __init__(self, text):
+        super().__init__()
+        self.setText(0, text)
+        self.setFlags(self.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+        self.setCheckState(0, Qt.CheckState.Unchecked)
 
 
 class SampleHierarchyWidget(QWidget):
@@ -31,12 +46,34 @@ class SampleHierarchyWidget(QWidget):
         self.current_label = QLabel("No sample selected")
         layout.addWidget(self.current_label)
         
+        #horizontal layout for download buttons
+        button_layout = QHBoxLayout()
+        
+        #download selected button
+        self.download_selected_button = QPushButton("Download Selected IGSNs")
+        self.download_selected_button.clicked.connect(self.download_selected)
+        self.download_selected_button.setEnabled(False)
+        button_layout.addWidget(self.download_selected_button)
+        
+        #select all button maybe we shouldnt have this because it could lead to downloading a lot of data by accident but it is convenient for users who do want to download everything
+        self.select_all_button = QPushButton("Select All")
+        self.select_all_button.clicked.connect(self.select_all)
+        button_layout.addWidget(self.select_all_button)
+        
+        #clear all button
+        self.clear_all_button = QPushButton("Clear All")
+        self.clear_all_button.clicked.connect(self.clear_all)
+        button_layout.addWidget(self.clear_all_button)
+        
+        layout.addLayout(button_layout)
+        
         #tree widget for hierarchical display
         self.tree = QTreeWidget()
         self.tree.setHeaderLabel("Sample Hierarchy")
         self.tree.itemExpanded.connect(self.on_item_expanded)
         self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self.show_context_menu)
+        self.tree.itemChanged.connect(self.on_item_checked)
         layout.addWidget(self.tree)
         
         #text area to display table info
@@ -45,6 +82,133 @@ class SampleHierarchyWidget(QWidget):
         layout.addWidget(self.table_text)
         
         self.setLayout(layout)
+    
+    #collect all checked IGSNs from the tree
+    def get_checked_igsns(self):
+        checked_igsns = []
+        
+        def collect_checked(parent_item):
+            for i in range(parent_item.childCount()):
+                child = parent_item.child(i)
+                igsn = child.text(0)
+                if igsn != "No children found":
+                    if child.checkState(0) == Qt.CheckState.Checked:
+                        checked_igsns.append(igsn)
+                    collect_checked(child)
+        
+        #start from root items
+        for i in range(self.tree.topLevelItemCount()):
+            item = self.tree.topLevelItem(i)
+            igsn = item.text(0)
+            if item.checkState(0) == Qt.CheckState.Checked:
+                checked_igsns.append(igsn)
+            collect_checked(item)
+        
+        return checked_igsns
+    
+    #show confirmation dialog before downloading
+    def download_selected(self):
+        checked_igsns = self.get_checked_igsns()
+        if not checked_igsns:
+            QMessageBox.warning(self, "No Selection", "No IGSNs selected for download")
+            return
+        
+        #create confirmation dialog
+        confirm_dialog = QMessageBox(self)
+        confirm_dialog.setWindowTitle("Confirm Download")
+        confirm_dialog.setIcon(QMessageBox.Icon.Question)
+        confirm_dialog.setText(f"You are about to download {len(checked_igsns)} IGSN(s)")
+        
+        #show the list of IGSNs to be downloaded limit to first 10 for readability but we can make a scrollable dialog if needed in the future
+        if len(checked_igsns) <= 10:
+            igsn_list = "\n".join(checked_igsns)
+            confirm_dialog.setInformativeText(f"The following IGSNs will be downloaded:\n\n{igsn_list}")
+        else:
+            igsn_list = "\n".join(checked_igsns[:10])
+            confirm_dialog.setInformativeText(f"The following IGSNs will be downloaded (showing first 10 of {len(checked_igsns)}):\n\n{igsn_list}\n\n...and {len(checked_igsns) - 10} more")
+        
+        confirm_dialog.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        confirm_dialog.setDefaultButton(QMessageBox.StandardButton.No)
+        
+        reply = confirm_dialog.exec()
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            self.perform_download(checked_igsns)
+    
+    #perform the actual download after confirmation
+    def perform_download(self, checked_igsns):
+        success_count = 0
+        fail_count = 0
+        failed_igsns = []
+        
+        #create a progress dialog
+        progress = QMessageBox(self)
+        progress.setWindowTitle("Downloading")
+        progress.setText(f"Downloading 0 of {len(checked_igsns)} IGSNs...")
+        progress.setStandardButtons(QMessageBox.StandardButton.NoButton)
+        progress.setIcon(QMessageBox.Icon.Information)
+        progress.show()
+        
+        for i, igsn in enumerate(checked_igsns):
+            progress.setText(f"Downloading {i+1} of {len(checked_igsns)} IGSNs...\nCurrent: {igsn}")
+            QApplication.processEvents()  #keep the UI responsive
+            
+            if self.save_sample_data(igsn, show_message=False):
+                success_count += 1
+            else:
+                fail_count += 1
+                failed_igsns.append(igsn)
+        
+        progress.accept()
+        
+        #show results
+        result_msg = f"Download Complete!\n\nSuccessfully downloaded: {success_count}\nFailed: {fail_count}"
+        if failed_igsns and len(failed_igsns) <= 10:
+            result_msg += f"\n\nFailed IGSNs:\n" + "\n".join(failed_igsns)
+        elif failed_igsns:
+            result_msg += f"\n\nFailed IGSNs (showing first 10 of {len(failed_igsns)}):\n" + "\n".join(failed_igsns[:10])
+        
+        QMessageBox.information(self, "Download Results", result_msg)
+    
+    #select all IGSNs in the tree
+    def select_all(self):
+        def select_all_items(parent_item):
+            for i in range(parent_item.childCount()):
+                child = parent_item.child(i)
+                igsn = child.text(0)
+                if igsn != "No children found":
+                    child.setCheckState(0, Qt.CheckState.Checked)
+                    select_all_items(child)
+        
+        for i in range(self.tree.topLevelItemCount()):
+            item = self.tree.topLevelItem(i)
+            item.setCheckState(0, Qt.CheckState.Checked)
+            select_all_items(item)
+        
+        self.download_selected_button.setEnabled(True)
+    
+    #clear all checkboxes in the tree
+    def clear_all(self):
+        def clear_all_items(parent_item):
+            for i in range(parent_item.childCount()):
+                child = parent_item.child(i)
+                igsn = child.text(0)
+                if igsn != "No children found":
+                    child.setCheckState(0, Qt.CheckState.Unchecked)
+                    clear_all_items(child)
+        
+        for i in range(self.tree.topLevelItemCount()):
+            item = self.tree.topLevelItem(i)
+            item.setCheckState(0, Qt.CheckState.Unchecked)
+            clear_all_items(item)
+        
+        self.download_selected_button.setEnabled(False)
+    
+    #when an item is checked/unchecked
+    def on_item_checked(self, item, column):
+        #enable download button if any items are checked
+        checked = self.get_checked_igsns()
+        self.download_selected_button.setEnabled(len(checked) > 0)
     
     #this function contacts the sesar website to get sample information
     def fetch_sample_data(self, igsn):
@@ -65,10 +229,11 @@ class SampleHierarchyWidget(QWidget):
             return None
     
     #save sample data to a json file
-    def save_sample_data(self, igsn):
+    def save_sample_data(self, igsn, show_message=True):
         data = self.fetch_sample_data(igsn)
         if not data:
-            QMessageBox.warning(self, "Download Failed", f"Could not fetch data for {igsn}")
+            if show_message:
+                QMessageBox.warning(self, "Download Failed", f"Could not fetch data for {igsn}")
             return False
         
         safe_igsn = igsn.replace("/", "_")
@@ -77,13 +242,15 @@ class SampleHierarchyWidget(QWidget):
         try:
             with open(filename, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
-            QMessageBox.information(self, "Download Complete", f"Data saved to {filename}")
+            if show_message:
+                QMessageBox.information(self, "Download Complete", f"Data saved to {filename}")
             return True
         except IOError as e:
-            QMessageBox.critical(self, "Save Failed", f"Could not save file: {e}")
+            if show_message:
+                QMessageBox.critical(self, "Save Failed", f"Could not save file: {e}")
             return False
     
-    #show context menu on right click so users can download the choosen igsn
+    #show context menu on right click so users can download the chosen igsn
     def show_context_menu(self, position):
         item = self.tree.itemAt(position)
         if not item:
@@ -98,6 +265,17 @@ class SampleHierarchyWidget(QWidget):
         download_action = QAction("Download IGSN Data", self)
         download_action.triggered.connect(lambda: self.save_sample_data(igsn))
         menu.addAction(download_action)
+        
+        #add checkbox toggle options
+        menu.addSeparator()
+        check_action = QAction("Check this item", self)
+        check_action.triggered.connect(lambda: item.setCheckState(0, Qt.CheckState.Checked))
+        menu.addAction(check_action)
+        
+        uncheck_action = QAction("Uncheck this item", self)
+        uncheck_action.triggered.connect(lambda: item.setCheckState(0, Qt.CheckState.Unchecked))
+        menu.addAction(uncheck_action)
+        
         menu.exec(self.tree.viewport().mapToGlobal(position))
     
     #this pulls out all siblings from a sample's data
@@ -207,14 +385,16 @@ class SampleHierarchyWidget(QWidget):
             #display message in text area
             self.table_text.append(f"\nNo children found for {igsn}")
         else:
-            #add real children
+            #add real children with checkboxes
             for child in children:
-                child_item = QTreeWidgetItem(parent_item)
-                child_item.setText(0, child["ItemID"])
+                child_item = CheckableTreeWidgetItem(child["ItemID"])
+                parent_item.addChild(child_item)
                 child_item.setData(0, Qt.ItemDataRole.UserRole, child)
                 #add a dummy child to make expand arrow appear
                 #actual children will be loaded when expanded
-                child_item.addChild(QTreeWidgetItem())
+                dummy = QTreeWidgetItem()
+                dummy.setText(0, "")
+                child_item.addChild(dummy)
             
             #display children table in text area
             self.display_table_text(children, f"CHILDREN OF {igsn}")
@@ -251,14 +431,16 @@ class SampleHierarchyWidget(QWidget):
         
         self.display_table_text(siblings_with_current, f"SIBLINGS TABLE (Current: {igsn})")
         
-        #populate the tree
+        #populate the tree with checkable items
         for row in siblings_with_current:
-            item = QTreeWidgetItem(self.tree)
-            item.setText(0, row["ItemID"])
+            item = CheckableTreeWidgetItem(row["ItemID"])
+            self.tree.addTopLevelItem(item)
             item.setData(0, Qt.ItemDataRole.UserRole, row)
             #add a dummy child to make expand arrow appear
             #actual children will be loaded when expanded
-            item.addChild(QTreeWidgetItem())
+            dummy = QTreeWidgetItem()
+            dummy.setText(0, "")
+            item.addChild(dummy)
 
 
 class ImportFromSesar(QDialog):
