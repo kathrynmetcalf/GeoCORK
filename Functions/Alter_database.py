@@ -789,20 +789,21 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
                 exec(gps_code, global_vars, local_vars)
                 gps_display = local_vars.get('converted')
                 gps_elements = gps_display.split(', ')
-                for sql_gps_alter in sql_gps_alters:
-                    if 'Display' in sql_gps_alter:
-                        continue
-                    gps_column = sql_gps_alter.split('COLUMN ')[1].split(" VIRTUAL")[0]
-                    update_query.prepare(f'UPDATE {table} SET {gps_column}=:value WHERE "GPSLocationID"={gps_id}')
-                    update_query.bindValue(':value', float(gps_elements[sql_gps_alters.index(sql_gps_alter)]))
-                    if not update_query.exec():
-                        logger_setup.get_logger().critical(
-                            f'Error adding the calculated column {gps_column}')
-                        logger_setup.get_logger().debug(f'Error: {update_query.lastError().text()}')
-                        logger_setup.get_logger().debug(f'SQL query: {update_query.lastQuery()}')
-                        logger_setup.get_logger().debug(f'Bound values: {update_query.boundValues()}')
-                        rollback_savepoint('before_populate')
-                        return False
+                if gps_elements[0]:
+                    for sql_gps_alter in sql_gps_alters:
+                        if 'Display' in sql_gps_alter:
+                            continue
+                        gps_column = sql_gps_alter.split('COLUMN ')[1].split(" VIRTUAL")[0]
+                        update_query.prepare(f'UPDATE {table} SET {gps_column}=:value WHERE "GPSLocationID"={gps_id}')
+                        update_query.bindValue(':value', float(gps_elements[sql_gps_alters.index(sql_gps_alter)]))
+                        if not update_query.exec():
+                            logger_setup.get_logger().critical(
+                                f'Error adding the calculated column {gps_column}')
+                            logger_setup.get_logger().debug(f'Error: {update_query.lastError().text()}')
+                            logger_setup.get_logger().debug(f'SQL query: {update_query.lastQuery()}')
+                            logger_setup.get_logger().debug(f'Bound values: {update_query.boundValues()}')
+                            rollback_savepoint('before_populate')
+                            return False
                 break
         for conversion in conversions:
             if conversion[0] == gps_format_id:
