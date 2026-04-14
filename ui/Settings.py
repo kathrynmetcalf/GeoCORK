@@ -73,29 +73,85 @@ def default_settings():
     """
     # set the default settings values
     # Unit and Format settings
-    settings.setValue('default_age_unit_id', 2)  # Ma
-    settings.setValue('default_age_unit_abbreviation', 'Ma')
-    settings.setValue('default_elevation_unit_id', 2)  # m
-    settings.setValue('default_elevation_unit_abbreviation', 'm')
-    settings.setValue('default_gps_format_id', 1)  # DD +/-
-    settings.setValue('default_gps_format_abbreviation', 'DD +/-')
-    settings.setValue('default_heightdepth_unit_id', 2)  # m
-    settings.setValue('default_heightdepth_unit_abbreviation', 'm')
-    settings.setValue('default_spotsize_unit_id', 5)  # µm
-    settings.setValue('default_spotsize_unit_abbreviation', 'µm')
-    settings.setValue('default_age_error_format_id', 1)  # 1 sigma abs
-    settings.setValue('default_age_error_format_abbreviation', '1σ abs')
-    settings.setValue('default_ratio_error_format_id', 3)  # 1 sigma %
-    settings.setValue('default_ratio_error_format_abbreviation', '1σ %')
-    settings.setValue('default_concordance_format_id', 2)  # Con%
-    settings.setValue('default_concordance_format_abbreviation', 'Con%')
-    # Reference format settings, sets to "Authors, Year, Source"
-    settings.setValue('default_reference_format',
-                      '''(ifnull(Authors, "") || ", " || ifnull(Year, "") || ", " || ifnull(Source, ""))''')
-    settings.setValue('default_round_values', 'false')
-    settings.setValue('default_decimals_to_show', 4)
+    default_dict = {'default_geocork_version': 'v1.0.4',
+                    'default_age_unit_id': 2,
+                    'default_age_unit_abbreviation': 'Ma',
+                    'default_elevation_unit_id': 2,
+                    'default_elevation_unit_abbreviation': 'm',
+                    'default_gps_format_id': 1,
+                    'default_gps_format_abbreviation': 'DD +/-',
+                    'default_heightdepth_unit_id': 2,
+                    'default_heightdepth_unit_abbreviation': 'm',
+                    'default_spotsize_unit_id': 5,
+                    'default_spotsize_unit_abbreviation': 'µm',
+                    'default_age_error_format_id': 1,
+                    'default_age_error_format_abbreviation': '1σ abs',
+                    'default_ratio_error_format_id': 3,
+                    'default_ratio_error_format_abbreviation': '1σ %',
+                    'default_concordance_format_id': 2,
+                    'default_concordance_format_abbreviation': 'Con%',
+                    'default_reference_format': '''(ifnull(Authors, "") || ", " || ifnull(Year, "") || ", " || ifnull(Source, ""))''',
+                    'default_round_values': 'false',
+                    'default_decimals_to_show': 4,
+                    'default_db_file': '',
+                    'default_checkable_combobox_height_scalar': 1.0,
+                    'default_checkable_combobox_width_scalar': 1.0,
+                    'default_debug_level': 'INFO',
+                    'default_show_per_page': 100,
+                    'default_autofill_best_age': 'true',
+                    'default_young_fill_best_age': '"206Pb/238UAge"',
+                    'default_old_fill_best_age': '"207Pb/206PbAge"',
+                    'default_best_age_cutoff': 1000,
+                    'default_display_tooltips': 'true',
+                    'default_show_items_missing_data': 'true'}
+    for default_key, default_value in default_dict.items():
+        custom_key = default_key.split('default_')[1]
+        if not settings.contains(default_key) or (settings.contains(default_key) and settings.value(default_key) != default_value):
+            settings.setValue(default_key, default_value)
+            settings.setValue(custom_key, default_value)
+        if not settings.contains(custom_key):
+            settings.setValue(custom_key, default_value)
+    # settings.setValue('default_age_unit_id', 2)  # Ma
+    # settings.setValue('default_age_unit_abbreviation', 'Ma')
+    # settings.setValue('default_elevation_unit_id', 2)  # m
+    # settings.setValue('default_elevation_unit_abbreviation', 'm')
+    # settings.setValue('default_gps_format_id', 1)  # DD +/-
+    # settings.setValue('default_gps_format_abbreviation', 'DD +/-')
+    # settings.setValue('default_heightdepth_unit_id', 2)  # m
+    # settings.setValue('default_heightdepth_unit_abbreviation', 'm')
+    # settings.setValue('default_spotsize_unit_id', 5)  # µm
+    # settings.setValue('default_spotsize_unit_abbreviation', 'µm')
+    # settings.setValue('default_age_error_format_id', 1)  # 1 sigma abs
+    # settings.setValue('default_age_error_format_abbreviation', '1σ abs')
+    # settings.setValue('default_ratio_error_format_id', 3)  # 1 sigma %
+    # settings.setValue('default_ratio_error_format_abbreviation', '1σ %')
+    # settings.setValue('default_concordance_format_id', 2)  # Con%
+    # settings.setValue('default_concordance_format_abbreviation', 'Con%')
+    # # Reference format settings, sets to "Authors, Year, Source"
+    # settings.setValue('default_reference_format',
+    #                   '''(ifnull(Authors, "") || ", " || ifnull(Year, "") || ", " || ifnull(Source, ""))''')
+    # settings.setValue('default_round_values', 'false')
+    # settings.setValue('default_decimals_to_show', 4)
+    # settings.setValue('default_geocork_version', 'v1.0.4')
+    # settings.setValue('db_file', '')
+    #
+    # settings.setValue('default_checkable_combobox_height_scalar', 1.0)
+    # settings.setValue('default_checkable_combobox_width_scalar', 1.0)
+    #
+    # settings.setValue('default_debug_level', 'INFO')
+    # settings.setValue('default_show_per_page', 100)
+    #
+    # settings.setValue('default_autofill_best_age', 'true')
+    # settings.setValue('default_young_fill_best_age', '"206Pb/238UAge"')
+    # settings.setValue('default_old_fill_best_age', '"207Pb/206PbAge"')
+    # settings.setValue('default_best_age_cutoff', 1000)
 
-    settings.setValue('default_show_items_missing_data', 'true')
+    # settings.setValue('default_lazy_loading_enabled', 'true')
+    # settings.setValue('default_loading_batch_size', 1000)
+
+    # settings.setValue('default_display_tooltips', True)
+    #
+    # settings.setValue('default_show_items_missing_data', 'true')
 
     default_sample_view_columns = []
     sample_view_columns = SQLUtils.view_attributes_dict['SampleView']
@@ -106,7 +162,11 @@ def default_settings():
             column_name = column.strip('"')
         default_sample_view_columns.append(column_name)
     # Column display settings
-    settings.setValue('default_sample_view_columns', default_sample_view_columns)
+    if (not settings.contains('default_sample_view_columns') or
+            (settings.contains('default_sample_view_columns') and
+            set(settings.value('default_sample_view_columns')) != set(default_sample_view_columns))):
+        settings.setValue('default_sample_view_columns', default_sample_view_columns)
+        settings.setValue('sample_view_columns', default_sample_view_columns)
 
     default_sample_edit_columns = []
     sample_edit_columns = SQLUtils.view_attributes_dict['SampleEditView']
@@ -116,7 +176,11 @@ def default_settings():
         else:
             column_name = column.strip('"')
         default_sample_edit_columns.append(column_name)
-    settings.setValue('default_sample_edit_columns', default_sample_edit_columns)
+    if (not settings.contains('default_sample_edit_columns') or
+            (settings.contains('default_sample_edit_columns') and
+            set(settings.value('default_sample_edit_columns')) != set(default_sample_edit_columns))):
+        settings.setValue('default_sample_edit_columns', default_sample_edit_columns)
+        settings.setValue('sample_edit_columns', default_sample_edit_columns)
 
     default_aliquot_view_columns = []
     aliquot_view_columns = SQLUtils.view_attributes_dict['AliquotView']
@@ -126,7 +190,11 @@ def default_settings():
         else:
             column_name = column.strip('"')
         default_aliquot_view_columns.append(column_name)
-    settings.setValue('default_aliquot_view_columns', default_aliquot_view_columns)
+    if (not settings.contains('default_aliquot_view_columns') or
+            (settings.contains('default_aliquot_view_columns') and
+            set(settings.value('default_aliquot_view_columns')) != set(default_aliquot_view_columns))):
+        settings.setValue('default_aliquot_view_columns', default_aliquot_view_columns)
+        settings.setValue('aliquot_view_columns', default_aliquot_view_columns)
 
     default_aliquot_edit_columns = []
     aliquot_edit_columns = SQLUtils.view_attributes_dict['AliquotEditView']
@@ -136,7 +204,11 @@ def default_settings():
         else:
             column_name = column.strip('"')
         default_aliquot_edit_columns.append(column_name)
-    settings.setValue('default_aliquot_edit_columns', default_aliquot_edit_columns)
+    if (not settings.contains('default_aliquot_edit_columns') or
+            (settings.contains('default_aliquot_edit_columns') and
+            set(settings.value('default_aliquot_edit_columns')) != set(default_aliquot_edit_columns))):
+        settings.setValue('default_aliquot_edit_columns', default_aliquot_edit_columns)
+        settings.setValue('aliquot_edit_columns', default_aliquot_edit_columns)
 
     default_grain_view_columns = []
     grain_view_columns = SQLUtils.view_attributes_dict['GrainView']
@@ -146,7 +218,10 @@ def default_settings():
         else:
             column_name = column.strip('"')
         default_grain_view_columns.append(column_name)
-    settings.setValue('default_grain_view_columns', default_grain_view_columns)
+    if (not settings.contains('default_grain_view_columns') or
+            (settings.contains('default_grain_view_columns') and
+             set(settings.value('default_grain_view_columns')) != set(default_grain_view_columns))):
+        settings.setValue('default_grain_view_columns', default_grain_view_columns)
 
     default_grain_edit_columns = []
     grain_edit_columns = SQLUtils.view_attributes_dict['GrainEditView']
@@ -156,7 +231,11 @@ def default_settings():
         else:
             column_name = column.strip('"')
         default_grain_edit_columns.append(column_name)
-    settings.setValue('default_grain_edit_columns', default_grain_edit_columns)
+    if (not settings.contains('default_grain_edit_columns') or
+            (settings.contains('default_grain_edit_columns') and
+            set(settings.value('default_grain_edit_columns')) != set(default_grain_edit_columns))):
+        settings.setValue('default_grain_edit_columns', default_grain_edit_columns)
+        settings.setValue('grain_edit_columns', default_grain_edit_columns)
 
     default_spot_view_columns = []
     spot_view_columns = SQLUtils.view_attributes_dict['SpotView']
@@ -166,7 +245,10 @@ def default_settings():
         else:
             column_name = column.strip('"')
         default_spot_view_columns.append(column_name)
-    settings.setValue('default_spot_view_columns', default_spot_view_columns)
+    if (not settings.contains('default_spot_view_columns') or
+            (settings.contains('default_spot_view_columns') and
+            set(settings.value('default_spot_view_columns')) != set(default_spot_view_columns))):
+        settings.setValue('default_spot_view_columns', default_spot_view_columns)
 
     default_spot_edit_columns = []
     spot_edit_columns = SQLUtils.view_attributes_dict['SpotEditView']
@@ -176,7 +258,11 @@ def default_settings():
         else:
             column_name = column.strip('"')
         default_spot_edit_columns.append(column_name)
-    settings.setValue('default_spot_edit_columns', default_spot_edit_columns)
+    if (not settings.contains('default_spot_edit_columns') or
+            (settings.contains('default_spot_edit_columns') and
+            set(settings.value('default_spot_edit_columns')) != set(default_spot_edit_columns))):
+        settings.setValue('default_spot_edit_columns', default_spot_edit_columns)
+        settings.setValue('spot_edit_columns', default_spot_edit_columns)
 
     default_upb_analysis_view_columns = []
     upb_analysis_view_columns = SQLUtils.view_attributes_dict['UPbView']
@@ -186,7 +272,11 @@ def default_settings():
         else:
             column_name = column.strip('"')
         default_upb_analysis_view_columns.append(column_name)
-    settings.setValue('default_upb_analysis_view_columns', default_upb_analysis_view_columns)
+    if (not settings.contains('default_upb_analysis_view_columns') or
+            (settings.contains('default_upb_analysis_view_columns') and
+            set(settings.value('default_upb_analysis_view_columns')) != set(default_upb_analysis_view_columns))):
+        settings.setValue('default_upb_analysis_view_columns', default_upb_analysis_view_columns)
+        settings.setValue('upb_analysis_view_columns', default_upb_analysis_view_columns)
 
     default_upb_analysis_edit_columns = []
     upb_analysis_edit_columns = SQLUtils.view_attributes_dict['UPbEditView']
@@ -196,7 +286,11 @@ def default_settings():
         else:
             column_name = column.strip('"')
         default_upb_analysis_edit_columns.append(column_name)
-    settings.setValue('default_upb_analysis_edit_columns', default_upb_analysis_edit_columns)
+    if (not settings.contains('default_upb_analysis_edit_columns') or
+            (settings.contains('default_upb_analysis_edit_columns') and
+            set('default_upb_analysis_edit_columns') == set(default_upb_analysis_edit_columns))):
+        settings.setValue('default_upb_analysis_edit_columns', default_upb_analysis_edit_columns)
+        settings.setValue('upb_analysis_edit_columns', default_upb_analysis_edit_columns)
 
     default_column_view_columns = []
     column_view_columns = SQLUtils.view_attributes_dict['ColumnView']
@@ -206,7 +300,11 @@ def default_settings():
         else:
             column_name = column.strip('"')
         default_column_view_columns.append(column_name)
-    settings.setValue('default_column_view_columns', default_column_view_columns)
+    if (not settings.contains('default_column_view_columns') or
+            (settings.contains('default_column_view_columns') and
+            set(settings.value('default_column_view_columns')) != set(default_column_view_columns))):
+        settings.setValue('default_column_view_columns', default_column_view_columns)
+        settings.setValue('column_view_columns', default_column_view_columns)
 
     default_column_edit_columns = []
     column_edit_columns = SQLUtils.view_attributes_dict['ColumnEditView']
@@ -216,7 +314,11 @@ def default_settings():
         else:
             column_name = column.strip('"')
         default_column_edit_columns.append(column_name)
-    settings.setValue('default_column_edit_columns', default_column_edit_columns)
+    if (not settings.contains('default_column_edit_columns') or
+            (settings.contains('default_column_edit_columns') and
+            set(settings.value('default_column_edit_columns')) != set(default_column_edit_columns))):
+        settings.setValue('default_column_edit_columns', default_column_edit_columns)
+        settings.setValue('column_edit_columns', default_column_edit_columns)
 
     default_reference_view_columns = []
     reference_view_columns = SQLUtils.view_attributes_dict['ReferenceView']
@@ -226,26 +328,11 @@ def default_settings():
         else:
             column_name = column.strip('"')
         default_reference_view_columns.append(column_name)
-    settings.setValue('default_reference_view_columns', default_reference_view_columns)
-
-    settings.setValue('default_geocork_version', 'v1.0.4')
-    settings.setValue('db_file', '')
-
-    settings.setValue('default_checkable_combobox_height_scalar', 1.0)
-    settings.setValue('default_checkable_combobox_width_scalar', 1.0)
-
-    settings.setValue('default_debug_level', 'INFO')
-    settings.setValue('default_show_per_page', 100)
-
-    settings.setValue('default_autofill_best_age', 'true')
-    settings.setValue('default_young_fill_best_age', '"206Pb/238UAge"')
-    settings.setValue('default_old_fill_best_age', '"207Pb/206PbAge"')
-    settings.setValue('default_best_age_cutoff', 1000)
-
-    # settings.setValue('default_lazy_loading_enabled', 'true')
-    # settings.setValue('default_loading_batch_size', 1000)
-
-    settings.setValue('default_display_tooltips', True)
+    if (not settings.contains('default_reference_view_columns') or
+            (settings.contains('default_reference_view_columns') and
+            set(settings.value('default_reference_view_columns')) != set(default_reference_view_columns))):
+        settings.setValue('default_reference_view_columns', default_reference_view_columns)
+        settings.setValue('reference_view_columns', default_reference_view_columns)
 
 def reset_to_default_settings():
     """
