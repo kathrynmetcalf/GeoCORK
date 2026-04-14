@@ -128,6 +128,7 @@ class AddTreeTags(QtW.QDialog):
         self.tags_treeView.hideColumn(3)  # Don't show parent row column
         if isinstance(self.tags_treeView.model(), TreeSortFilterProxyModel):
             self.tags_treeView.model().update_visible_columns()
+        restore_expanded_state(self.table, self.tags_treeView)
         self.add_label()
 
         # Get a list of the existing tag names

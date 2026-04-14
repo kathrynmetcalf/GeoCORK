@@ -2085,7 +2085,7 @@ def get_edit_view_from_table(table: str):
         return 'UPbEditView'
     elif table == 'Columns':
         return 'ColumnEditView'
-    elif table == 'References':
+    elif table == 'References' or table == '"References"':
         return 'ReferenceView'
     else:
         return table
@@ -2666,7 +2666,8 @@ def delete_query(table: str, ids: list):
                     return False, moved_ids
                 if affected_id not in ids and affected_id not in moved_ids:
                     moved_ids.append(affected_id)
-            update_modified_timestamp(table, moved_ids)
+            if moved_ids:
+                update_modified_timestamp(table, moved_ids)
     logger_setup.get_logger().info(f"Deleted {len(ids)} records from {table}")
     release_savepoint('before_delete')
     return True, moved_ids
@@ -3322,10 +3323,9 @@ def find_current_parent_items(data_ids: list, table: str):
         close_loading_dialog('Finding Parent Items', f'Finding parent items for {len(data_ids)} {table}...')
         return sample_ids, aliquot_ids, grain_ids, spot_ids
     elif table == 'Grains':
-        sql_query = f"""SELECT Aliquots.SampleID, Spots.AliquotID, Spots.SpotID FROM Grains
-                        {SQLUtils.grain_spot_join}
+        sql_query = f"""SELECT Aliquots.SampleID, Spots.AliquotID, Spots.SpotID FROM Spots
                         {SQLUtils.spot_aliquot_join}
-                        WHERE GrainID {where}"""
+                        WHERE Spots.GrainID {where}"""
         sample_ids, aliquot_ids, spot_ids = columns_as_list_current(sql_query, [0, 1, 2])
         close_loading_dialog('Finding Parent Items', f'Finding parent items for {len(data_ids)} {table}...')
         return sample_ids, aliquot_ids, spot_ids
@@ -3997,12 +3997,13 @@ class TreeModel(QtC.QAbstractProxyModel):
             return True
         return super().setData(index, value, role)
 
-    def moveItem(self, item_id: int, row: int, p_id: str) -> bool:
+    def moveItem(self, item_id: int, row: int, p_id: str, modifier: int = 0) -> bool:
         """
         Move an item to a new parent and parent row. Updates the changes in the source model and the database.
         :param item_id: unique ID of the item to move
         :param row: new parent row number for the item
         :param p_id: new parent ID for the item, either 'IS NULL' or 'is parentID'
+        :param modifier: number of items added or removed from the table since the source model was set
         :return: True if the item was successfully moved, False if there was an error
         """
         # Try making change to database, then reset the tree model
@@ -4013,7 +4014,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         else:
             parentID = int(p_id[2:])
         filtered_model = QtS.QSqlQueryModel()
-        if get_total_records(self.table) > self.source_model.rowCount():
+        if get_total_records(self.table) > self.source_model.rowCount()+modifier:
             # Not all items are loaded in the model, so we need to distinguish between model row and table parent row
             model_row = row
             item = self.find_id_in_tree(item_id)
@@ -4214,16 +4215,8 @@ class TreeModel(QtC.QAbstractProxyModel):
                     filtered_model.fetchMore()
                 child_count = filtered_model.rowCount()
                 parent_row = child_count
-            if isinstance(self.source_model, SQLiteTableModel) and self.view_query:
-                view_where = f"{self.base_where_sql} {self.item_name_header} is '{item_name}'"
-                updated_table_query = self.update_view_query(**{'where': view_where})
-                filtered_model.setQuery(updated_table_query)
-            else:
-                filtered_model.setQuery(f"{self.base_query_sql} {self.item_name_header} is '{item_name}'")
-            while filtered_model.canFetchMore():
-                filtered_model.fetchMore()
-            item_id = filtered_model.record(0).value(0)
-            if not self.moveItem(item_id, parent_row, p_id):
+            item_id = query.lastInsertId()
+            if not self.moveItem(item_id, parent_row, p_id, 1):
                 rollback_savepoint('before_insert')
                 close_loading_dialog('Inserting', f'Inserting new {self.table} item...')
                 return False
@@ -5257,19 +5250,19 @@ def bulk_update_parent_row(table, parent_id, spaces_to_move: int, new_row: int |
         parent_id_sql = 'IS NULL'
     else:
         parent_id_sql = f'= {parent_id}'
-    if new_row and not old_row:
+    if new_row is not None and old_row is None:
         logger_setup.get_logger().info(f'Making space to insert new child at {new_row}')
         query.prepare(f'''UPDATE {table} SET {parent_row_header} = {parent_row_header} + {spaces_to_move} WHERE {parent_id_header} {parent_id_sql} AND {parent_row_header} >= :new_row''')
         query.bindValue(':new_row', new_row)
         select_query.prepare(f'SELECT {id_header} FROM {table} WHERE {parent_id_header} {parent_id_sql} AND {parent_row_header} >= :new_row')
         select_query.bindValue(':new_row', new_row)
-    elif old_row and not new_row:
+    elif old_row is not None and new_row is None:
         logger_setup.get_logger().info(f'Closing space from removed child at {old_row}')
         query.prepare(f'''UPDATE {table} SET {parent_row_header} = {parent_row_header} - {spaces_to_move} WHERE {parent_id_header} {parent_id_sql} AND {parent_row_header} > :old_row''')
         query.bindValue(':old_row', old_row)
         select_query.prepare(f'SELECT {id_header} FROM {table} WHERE {parent_id_header} {parent_id_sql} AND {parent_row_header} > :old_row')
         select_query.bindValue(':old_row', old_row)
-    elif new_row and old_row:
+    elif new_row is not None and old_row is not None:
         if new_row < old_row:
             logger_setup.get_logger().info(f'Moving child up from {old_row} to {new_row}')
             query.prepare(f'''UPDATE {table} SET {parent_row_header} = {parent_row_header} + {spaces_to_move} WHERE {parent_id_header} {parent_id_sql} AND {parent_row_header} >= :new_row AND {parent_row_header} < :old_row''')

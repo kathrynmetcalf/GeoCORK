@@ -275,12 +275,12 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
     sampleagebypass = False
     if field_key == 'SampleAges.[OldestAge]':
         field_key = 'SampleAges.[OldestAgeID]'
-        value = f"(SELECT AgeID FROM Ages WHERE AgeName = '{value}')"
+        value = f"(SELECT AgeID FROM Ages WHERE AgeName = '{value}' COLLATE NOCASE)"
         sampleagebypass = True
 
     if field_key == 'SampleAges.[YoungestAge]':
         field_key = 'SampleAges.[YoungestAgeID]'
-        value = f"(SELECT AgeID FROM Ages WHERE AgeName = '{value}')"
+        value = f"(SELECT AgeID FROM Ages WHERE AgeName = '{value}' COLLATE NOCASE)"
         sampleagebypass = True
 
     # ---------- TREE TABLE? (Regions, Ages hierarchy, etc.) ----------
@@ -304,7 +304,7 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
             where = f"{table}.{meta['name_column']} {operator_sql.replace('NOT ', '')}"
         elif '!=' in operator_sql:
             # "is not X" – we want the children of the matching node, so seed with "="
-            where = f"{table}.{meta['name_column']} = '{value}'"
+            where = f"{table}.{meta['name_column']} = '{value}' COLLATE NOCASE"
         else:
             # simple comparisons, case-insensitive on the name
             where = f"{table}.{meta['name_column']} {operator_sql} '{value}' COLLATE NOCASE"
@@ -416,6 +416,8 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
             cond_sql = f"{field_key} {operator_sql} {value}"
         else:
             cond_sql = f"{field_key} {operator_sql} '{value}'"
+            if operator_sql == "=":
+                cond_sql += f" COLLATE NOCASE"
 
     return cond_sql, [], field_key
 
@@ -781,7 +783,7 @@ class InsertFilterGroupDialog(QDialog):
 
         query = QSqlQuery()
 
-        check_query = "SELECT FilterGroupName FROM FilterGroups WHERE FilterGroupName = :name"
+        check_query = "SELECT FilterGroupName FROM FilterGroups WHERE FilterGroupName = :name COLLATE NOCASE"
         query.prepare(check_query)
         query.bindValue(":name", name)
         logger_setup.get_logger().info(f'Checking if name: {name} already exists in FilterGroups table')
@@ -1568,7 +1570,7 @@ class QueryBuilder(QWidget):
             query = QSqlQuery()
             sql_query = """
                     DELETE FROM FilterGroups 
-                    WHERE FilterGroupName = :filter_name;
+                    WHERE FilterGroupName = :filter_name COLLATE NOCASE;
                 """
             query.prepare(sql_query)
             query.bindValue(":filter_name", item.text())
@@ -1593,7 +1595,7 @@ class QueryBuilder(QWidget):
         sql_query = """
                 SELECT SQLQuery, FilterGroupName 
                 FROM FilterGroups 
-                WHERE FilterGroupName = :filter_name;
+                WHERE FilterGroupName = :filter_name COLLATE NOCASE;
             """
         query.prepare(sql_query)
         query.bindValue(":filter_name", filter_name)

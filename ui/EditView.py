@@ -588,7 +588,7 @@ class EditView(QtW.QDialog):
         else:
             set_selected_action = None
         if len(selected_rows) == 1:
-            if self.table == 'Samples' and not self.combo and not self.lineEdit:
+            if self.table == 'Samples' and self.combo is None and self.lineEdit is None:
                 add_action = menu.addAction('Add Aliquot')
             elif self.table == 'Grains':
                 add_action = menu.addAction('Add Spot')
@@ -610,7 +610,7 @@ class EditView(QtW.QDialog):
             self.clear_data()
         elif action == set_selected_action:
             self.determine_widget(indexes[0])
-            if self.lineEdit:
+            if self.lineEdit is not None:
                 dlg = SetSelectedValues(self, self.lineEdit)
                 if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
                     self.lineEdit = dlg.widget
@@ -620,7 +620,7 @@ class EditView(QtW.QDialog):
                     close_loading_dialog('Loading', f'Loading...')
                 else:
                     self.destroy_lineedit()
-            elif self.combo:
+            elif self.combo is not None:
                 dlg = SetSelectedValues(self, self.combo)
                 if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
                     self.combo = dlg.widget
@@ -1062,7 +1062,7 @@ class EditView(QtW.QDialog):
             for model_index in model_indexes:
                 header = self.model.headerData(model_index.column(), QtC.Qt.Orientation.Horizontal,
                                                QtC.Qt.ItemDataRole.DisplayRole)
-                if header in SQLUtils.not_null[self.table]:
+                if self.table in SQLUtils.not_null and header in SQLUtils.not_null[self.table] and not edit_value:
                     logger_setup.get_logger().error(f'{get_readable_header(header)} cannot be empty')
                     return
                 if self.model.setData(model_index, edit_value, QtC.Qt.ItemDataRole.EditRole):
@@ -1978,7 +1978,7 @@ class EditView(QtW.QDialog):
         if self.combo is not None:
             self.save_dropdown_data()
         if self.lineEdit is not None:
-            self.destroy_lineedit()
+            self.save_lineedit_data()
 
     def on_row_change(self, selected, deselected):
         # Close and save the data from any open widgets

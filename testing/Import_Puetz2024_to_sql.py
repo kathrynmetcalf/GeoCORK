@@ -8,8 +8,8 @@ from Additional_units_Puetz2024 import additional_unit_tags_dict
 
 """
 This module contains functions to import data from Puetz et al. (2024) into a GeoCORK database. Make sure that you have
-the following files in the same directory as this script:
-From Metcalf and Burges (2025): 
+the following files in the same directory as this script or past the full file paths:
+From Metcalf and Burges (2026): 
 DB1_2019_edited.xlsx, DB2_2021_edited.xlsx, DB3_2023_edited.xlsx, Additional_units_Puetz2024
 From Puetz et al. (2024):
 DB7_nonmetamorphic_cores.xlsx, DB11_rims.xlsx, DB12_metamorphic_cores.xlsx
@@ -217,10 +217,10 @@ def Puetz_importer():
     Method to import the data from Puetz et al. (2024) and convert it into a format
     that can be used by the model.
     """
-    data_files = ['DB1_2019_edited.xlsx',
-                  'DB2_2021_edited.xlsx',
-                  'DB3_2023_edited.xlsx']
-    db = 'Puetz_et_al_2024_all.db'
+    data_files = ['/Users/kametcalf/Documents/Research/GeoChron_non_git/DB1_2019_edited.xlsx',
+                  '/Users/kametcalf/Documents/Research/GeoChron_non_git/DB2_2021_edited.xlsx',
+                  '/Users/kametcalf/Documents/Research/GeoChron_non_git/DB3_2023_edited.xlsx']
+    db = '/Users/kametcalf/Downloads/Puetz_test.db'
 
     # --------------------
     # Get the headers for the tables to import into the database
@@ -1513,7 +1513,7 @@ def Puetz_importer():
     # Before we change the grain names for duplicate data, merge DB7 (concordant non-metamorphic cores) and
     # DB12 (concordant metamorphic cores) to define non-metamorphic and metamorphic contexts
 
-    db7_data = 'DB7_nonmetamorphic_cores.xlsx'
+    db7_data = '/Users/kametcalf/Documents/Research/GeoChron_non_git/DB7_nonmetamorphic_cores.xlsx'
     print('Loading DB7 data')
     start_time = time.time()
     sheet_name = 'UPb_Data'
@@ -1528,7 +1528,7 @@ def Puetz_importer():
     upb_db7_df = upb_db7_df.map(strip_strings)
     print(f'Loaded DB7 data in {time.time() - start_time} seconds')
 
-    db12_data = 'DB12_metamorphic_cores.xlsx'
+    db12_data = '/Users/kametcalf/Documents/Research/GeoChron_non_git/DB12_metamorphic_cores.xlsx'
     print('Loading DB12 data')
     start_time = time.time()
     sheet_name = 'UPb_Data'
@@ -1543,7 +1543,7 @@ def Puetz_importer():
     upb_db12_df = upb_db12_df.map(strip_strings)
     print(f'Loaded DB12 data in {time.time() - start_time} seconds')
 
-    db11_data = 'DB11_rims.xlsx'
+    db11_data = '/Users/kametcalf/Documents/Research/GeoChron_non_git/DB11_rims.xlsx'
     print('Loading DB11 data')
     start_time = time.time()
     sheet_name = 'UPb_Data'

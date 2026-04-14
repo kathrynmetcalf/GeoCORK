@@ -19,7 +19,8 @@ from ui.Merge import MergeDialog
 settings = SettingsManager().settings
 from Functions.Widget_classes import (
     set_table, TreeModel, TreeContextMenu, get_selected_tree_ids, expand_collapse, save_expanded_state,
-    add_tree_popup, TreeSortFilterProxyModel, delete_data, show_loading_dialog, close_loading_dialog
+    add_tree_popup, TreeSortFilterProxyModel, delete_data, show_loading_dialog, close_loading_dialog,
+    restore_expanded_state
 )
 from ui.AddTreeTags import AddTreeTags
 
@@ -150,7 +151,7 @@ class EditTree(QtW.QDialog):
         self.edit_treeView.setDragDropMode(QtW.QAbstractItemView.DragDropMode.InternalMove)
         self.edit_treeView.setDefaultDropAction(QtC.Qt.DropAction.MoveAction)
         self.edit_treeView.setSelectionMode(QtW.QAbstractItemView.SelectionMode.ExtendedSelection)
-        # self.tree_model.save_state.connect(lambda: save_expanded_state(self.table, self.edit_treeView))
+        restore_expanded_state(self.table, self.edit_treeView)
         self.tree_model.dataEdited.connect(self.update_proxy)
 
         self.page_info_label.setText(f'{self.total_records} {self.table_name}')

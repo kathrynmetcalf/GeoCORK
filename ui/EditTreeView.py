@@ -444,6 +444,7 @@ class EditTreeView(QtW.QDialog):
         self.edit_treeView.setDefaultDropAction(QtC.Qt.DropAction.MoveAction)
         self.edit_treeView.setSelectionMode(QtW.QAbstractItemView.SelectionMode.ExtendedSelection)
         self.edit_treeView.setSelectionBehavior(QtW.QAbstractItemView.SelectionBehavior.SelectItems)
+        self.restore_expanded()
 
         # Optimize window resizing
         self.resize_timer = QtC.QTimer()

@@ -18,7 +18,7 @@ from Functions.Widget_classes import (
     set_table, SQLiteTableModel, CheckableSqlTableModel, TreeModel, CheckableTreeCombobox, save_expanded_state,
     delete_data, find_tree_model, CheckableComboBox, get_headers, add_tree_popup, populate_combo_box,
     populate_many_combo_checks, ReadableProxyModel, get_view_from_table, close_loading_dialog, show_loading_dialog,
-    get_id_from_name
+    get_id_from_name, get_name_column
 )
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
@@ -163,6 +163,7 @@ class SampleInformation(QtW.QDialog):
         self.sample_name_comboBox.set_line_edit_text(self.checked_sample_names)
         self.sample_names_proxy = ReadableProxyModel()
         self.sample_names_proxy.setSourceModel(self.sample_names_model)
+        self.sample_names_proxy.sort(get_name_column('Samples'), QtC.Qt.SortOrder.AscendingOrder)
         logger_setup.get_logger().info(f"Updated sample list: {self.checked_sample_names}")
         end_update_sample_list_time = time.time()
         logger_setup.get_logger().info(f"Updated sample list: {self.checked_sample_names} in {end_update_sample_list_time - start_update_sample_list_time} seconds")
@@ -265,11 +266,12 @@ class SampleInformation(QtW.QDialog):
         start_populate_fields_time = time.time()
         headers = get_headers('Samples')
         if len(self.checked_sample_list) > 1:
-            sample_query = f'SELECT * FROM Samples WHERE SampleID in {tuple(self.checked_sample_list)}'
+            where_sql = f'SampleID IN {tuple(self.checked_sample_list)}'
         elif len(self.checked_sample_list) == 1:
-            sample_query = f'SELECT * FROM Samples WHERE SampleID = {self.checked_sample_list[0]}'
+            where_sql = f'SampleID = {self.checked_sample_list[0]}'
         else:
-            sample_query = f'SELECT * FROM Samples WHERE SampleID IS NULL'
+            where_sql = f'SampleID IS NULL'
+        sample_query = f'SELECT * FROM Samples WHERE {where_sql} ORDER BY SampleName'
         self.samples_table = QtS.QSqlQueryModel()
         self.samples_table.setQuery(sample_query)
         while self.samples_table.canFetchMore():
