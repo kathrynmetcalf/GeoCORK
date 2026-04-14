@@ -641,14 +641,18 @@ for table, abbreviation in limited_table_abbreviations.items():
 
 # Many-to-many columns for each table key, key-value pairs for column in the view and table to edit that information, populate multiple selection dropdowns
 many_editable = {
-    'Samples': {'SampleAgeSignatureName': 'AgeSignatures', 'RegionName': 'Regions', 'RockTypeName': 'RockTypes',
-                'SampleContextName': 'SampleContexts', 'SamplingMethodName': 'SamplingMethods',
-                'SettingName': 'Settings',
-                'UnitName': 'Units'},
-    'Aliquots': {'AliquotContextName': 'AliquotContexts'},
-    'Grains': {'GrainContextName': 'GrainContexts'},
-    'Spots': {'SpotContextName': 'SpotContexts'},
-    'UPbAnalyses': {'RejectionReasonName': 'RejectionReasons', 'UPbAnalysisContextName': 'UPbAnalysisContexts'},
+    'Samples': {'SampleAgeSignatureName': 'AgeSignatures', 'SampleAgeSignatureDescription': 'AgeSignatures',
+                'RegionName': 'Regions', 'RegionDescription': 'Regions',
+                'RockTypeName': 'RockTypes', 'RockTypeDescription': 'RockTypes',
+                'SampleContextName': 'SampleContexts', 'SampleContextDescription': 'SampleContexts',
+                'SamplingMethodName': 'SamplingMethods', 'SamplingMethodDescription': 'SamplingMethods',
+                'SettingName': 'Settings', 'SettingDescription': 'Settings',
+                'UnitName': 'Units', 'UnitDescription': 'Units'},
+    'Aliquots': {'AliquotContextName': 'AliquotContexts', 'AliquotContextDescription': 'AliquotContexts'},
+    'Grains': {'GrainContextName': 'GrainContexts', 'GrainContextDescription': 'GrainContexts'},
+    'Spots': {'SpotContextName': 'SpotContexts', 'SpotContextDescription': 'SpotContexts'},
+    'UPbAnalyses': {'RejectionReasonName': 'RejectionReasons', 'RejectionReasonDescription': 'RejectionReasons',
+                    'UPbAnalysisContextName': 'UPbAnalysisContexts', 'UPbAnalysisContextDescription': 'UPbAnalysisContexts'},
     'References': {'ReferenceDisplay': 'ReferenceDisplay'}
 }
 # One-to-many columns for each table key, key-value pairs for column in the view and table to edit that information, populate single selection dropdowns
@@ -1550,11 +1554,17 @@ sample_possible_user_input_fields = {
         'Sample IGSN': ['Samples', 'SampleIGSN'],
         'Sample Description': ['Samples', 'SampleDescription'],
         'Sample Context': ['SampleContexts', 'SampleContextName'],
+        'Sample Context Description': ['SampleContexts', 'SampleContextDescription'],
         'Sampling Method': ['SamplingMethods', 'SamplingMethodName'],
+        'Sampling Method Description': ['SamplingMethods', 'SamplingMethodDescription'],
         'Region': ['Regions', 'RegionName'],
+        'Region Description': ['Regions', 'RegionDescription'],
         'Setting': ['Settings', 'SettingName'],
+        'Setting Description': ['Settings', 'SettingDescription'],
         'Rock Type': ['RockTypes', 'RockTypeName'],
-        'Unit': ['Units', 'UnitName']
+        'Rock Type Description': ['RockTypes', 'RockTypeDescription'],
+        'Unit': ['Units', 'UnitName'],
+        'Unit Description': ['Units', 'UnitDescription']
     },
     'Default Sample Age': {
         'Direct Age': ['SampleAges', 'DirectAge'],
@@ -1567,8 +1577,11 @@ sample_possible_user_input_fields = {
         'Youngest Relative Age': ['SampleAges', 'YoungestAgeID'],
         'Age Description': ['SampleAges', 'SampleAgeDescription'],
         'Age Constraint': ['AgeConstraints', 'AgeConstraintName'],
+        'Age Constraint Description': ['AgeConstraints', 'AgeConstraintDescription'],
         'Age Interpretation': ['AgeInterpretations', 'AgeInterpretationName'],
+        'Age Interpretation Description': ['AgeInterpretations', 'AgeInterpretationDescription'],
         'Age Signature': ['AgeSignatures', 'AgeSignatureName'],
+        'Age Signature Description': ['AgeSignatures', 'AgeSignatureDescription']
     }
 }
 
@@ -1623,19 +1636,24 @@ aliquot_grain_spot_possible_user_input_fields = {
     'Aliquot Info': {
         'Aliquot Name': ['Aliquots', 'AliquotName'],
         'Aliquot Description': ['Aliquots', 'AliquotDescription'],
-        'Aliquot Context': ['AliquotContexts', 'AliquotContextName']
+        'Aliquot Context': ['AliquotContexts', 'AliquotContextName'],
+        'Aliquot Context Description': ['AliquotContexts', 'AliquotContextDescription']
     },
     'Grain Info': {
         'Grain Name': ['Grains', 'GrainName'],
         'Grain Description': ['Grains', 'GrainDescription'],
         'Grain Composition': ['GrainCompositions', 'GrainCompositionName'],
-        'Grain Context': ['GrainContexts', 'GrainContextName']
+        'Grain Composition Description': ['GrainCompositions', 'GrainCompositionDescription'],
+        'Grain Context': ['GrainContexts', 'GrainContextName'],
+        'Grain Context Description': ['GrainContexts', 'GrainContextDescription']
     },
     'Spot Info': {
         'Spot Name': ['Spots', 'SpotName'],
         'Spot Description': ['Spots', 'SpotDescription'],
         'Spot Composition': ['SpotCompositions', 'SpotCompositionName'],
+        'Spot Composition Description': ['SpotCompositions', 'SpotCompositionDescription'],
         'Spot Context': ['SpotContexts', 'SpotContextName'],
+        'Spot Context Description': ['SpotContexts', 'SpotContextDescription'],
         'Spot Size': ['UPbAnalyses', 'SpotSize'],
         'Spot Size Unit': ['UPbAnalyses', 'SpotSizeUnitID']
     }
@@ -1656,6 +1674,9 @@ reference_possible_user_input_fields = {
 upb_possible_user_input_fields = {
     'U-Pb Base Info': {
         'UPb Analysis Name': ['UPbAnalyses', 'UPbAnalysisName'],
+        'UPb Analysis Description': ['UPbAnalyses', 'UPbAnalysesDescription'],
+        'UPb Analysis Context': ['UPbAnalysisContexts', 'UPbAnalysisContext'],
+        'UPb Analysis Context Description': ['UPbAnalysisContexts', 'UPbAnalysisContextDescription'],
         'Lab Facility Name': ['LabFacilities', 'LabFacilityName'],
         'Lab Facility Description': ['LabFacilities', 'LabFacilityDescription'],
         'Instrument Name': ['Instruments', 'InstrumentName'],
@@ -1664,6 +1685,7 @@ upb_possible_user_input_fields = {
         'UPb Analysis Method Description': ['UPbAnalysisMethods', 'UPbAnalysisMethodDescription'],
         'Rejected': ['UPbAnalyses', 'Rejected'],
         'Rejection Reason': ['UPbRejectionReasons', 'UPbRejectionReasonName'],
+        'Rejection Reason Description': ['UPbRejectionReasons', 'UPbRejectionReasonDescription'],
     },
     'Ratios': {
         'U/Th': ['UPbAnalyses', 'U/Th'],
@@ -1725,6 +1747,7 @@ upb_possible_user_input_fields = {
         'Concordance Format': ['UPbAnalyses', 'ConcordanceFormatID'],
         'Minimum Segmented Discordance': ['UPbAnalyses', 'MinimumSegmentedDiscordance'],
         'Age Interpretation': ['AgeInterpretations', 'AgeInterpretationName'],
+        'Age Interpretation Description': ['AgeInterpretations', 'AgeInterpretationDescription']
     },
     'Isotope Counts': {
         'Pb204cps': ['UPbAnalyses', 'Pb204cps'],
@@ -1736,7 +1759,8 @@ upb_possible_user_input_fields = {
         'U235cps': ['UPbAnalyses', 'U235cps'],
         'U238cps': ['UPbAnalyses', 'U238cps'],
         'Uppm': ['UPbAnalyses', 'Uppm'],
-        'Thppm': ['UPbAnalyses', 'Thppm']
+        'Thppm': ['UPbAnalyses', 'Thppm'],
+        'Pbppm': ['UPbAnalyses', 'Pbppm'],
     },
 }
 """Dictionaries of User-readable columns/info able to be imported into the database with list of their associated table 

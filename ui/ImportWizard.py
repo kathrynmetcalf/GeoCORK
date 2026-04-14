@@ -3653,11 +3653,11 @@ class ImportWizardDialog(QWidget):
                 if "Sample Name" not in column_mapping.values() and sheet != self.upb_sheet_name:
                     sample_mapped = False
                     break
-        if not sample_mapped:
-            QMessageBox.warning(self, "Sample Mapping Error",
-                                f"One or more columns mapped to Sample Info, Sample Age, or Sample GPS fields, but no columns are mapped to 'Sample Name' in the same sheet(s).\n\n"
-                                "At least one column must be mapped to 'Sample Name' in the same sheet(s) as any Sample Info, Sample Age, or Sample GPS fields.")
-            return False
+        # if not sample_mapped:
+        #     QMessageBox.warning(self, "Sample Mapping Error",
+        #                         f"One or more columns mapped to Sample Info, Sample Age, or Sample GPS fields, but no columns are mapped to 'Sample Name' in the same sheet(s).\n\n"
+        #                         "At least one column must be mapped to 'Sample Name' in the same sheet(s) as any Sample Info, Sample Age, or Sample GPS fields.")
+        #     return False
 
         # Check if any Column GPS or Column Info fields are mapped without 'Column Name' in the same sheet
         column_mapped = True
@@ -3672,11 +3672,23 @@ class ImportWizardDialog(QWidget):
                 if "Column Name" not in column_mapping.values():
                     column_mapped = False
                     break
-        if not column_mapped:
-            QMessageBox.warning(self, "Column Mapping Error",
+        # if not column_mapped:
+        #     QMessageBox.warning(self, "Column Mapping Error",
+        #                         f"One or more columns mapped to Column Info or Column GPS fields, but no columns are mapped to 'Column Name' in the same sheet(s).\n\n"
+        #                         "At least one column must be mapped to 'Column Name' in the same sheet(s) as any Column Info or Column GPS fields.")
+        #     return False
+        if not sample_mapped and not column_mapped:
+            QMessageBox.warning(self, "Unmapped Samples and Columns",
+                                "Sample Name and Column Name are not mapped in sheet containing Sample Info, Sample GPS, Column Info, and/or Column GPS.\n\n"
+                                "Double check that these are not needed.")
+        elif not sample_mapped:
+            QMessageBox.warning(self, "Unmapped Samples",
+                                f"One or more columns mapped to Sample Info, Sample Age, or Sample GPS fields, but no columns are mapped to 'Sample Name' in the same sheet(s).\n\n"
+                                "Double check that the sample names are not needed.")
+        elif not column_mapped:
+            QMessageBox.warning(self, "Unmapped Columns",
                                 f"One or more columns mapped to Column Info or Column GPS fields, but no columns are mapped to 'Column Name' in the same sheet(s).\n\n"
-                                "At least one column must be mapped to 'Column Name' in the same sheet(s) as any Column Info or Column GPS fields.")
-            return False
+                                "Double check that the column names are not needed.")
         return True
 
     def check_unmapped_aliquots_spots_analyses(self):
@@ -3689,11 +3701,11 @@ class ImportWizardDialog(QWidget):
                 if "Aliquot Name" not in column_mapping.values() and sheet != self.upb_sheet_name:
                     aliquot_mapped = False
                     break
-        if not aliquot_mapped:
-            QMessageBox.warning(self, "Aliquot Mapping Error",
-                                f"One or more columns mapped to Aliquot Info fields, but no columns are mapped to 'Aliquot Name' in the same sheet(s).\n\n"
-                                "At least one column must be mapped to 'Aliquot Name' in the same sheet(s) as any Aliquot Info fields.")
-            return False
+        # if not aliquot_mapped:
+        #     QMessageBox.warning(self, "Aliquot Mapping Error",
+        #                         f"One or more columns mapped to Aliquot Info fields, but no columns are mapped to 'Aliquot Name' in the same sheet(s).\n\n"
+        #                         "At least one column must be mapped to 'Aliquot Name' in the same sheet(s) as any Aliquot Info fields.")
+        #     return False
 
         # Check if any Spot Info fields are mapped without 'Spot Name' in the same sheet
         spot_mapped = True
@@ -3704,11 +3716,11 @@ class ImportWizardDialog(QWidget):
                 if "Spot Name" not in column_mapping.values() and sheet != self.upb_sheet_name:
                     spot_mapped = False
                     break
-        if not spot_mapped:
-            QMessageBox.warning(self, "Spot Mapping Error",
-                                f"One or more columns mapped to Spot Info fields, but no columns are mapped to 'Spot Name' in the same sheet(s).\n\n"
-                                "At least one column must be mapped to 'Spot Name' in the same sheet(s) as any Spot Info fields.")
-            return False
+        # if not spot_mapped:
+        #     QMessageBox.warning(self, "Spot Mapping Error",
+        #                         f"One or more columns mapped to Spot Info fields, but no columns are mapped to 'Spot Name' in the same sheet(s).\n\n"
+        #                         "At least one column must be mapped to 'Spot Name' in the same sheet(s) as any Spot Info fields.")
+        #     return False
 
         # Check if any Grain Info fields are mapped without 'Grain Name' in the same sheet
         grain_mapped = True
@@ -3719,11 +3731,11 @@ class ImportWizardDialog(QWidget):
                 if "Grain Name" not in column_mapping.values():
                     grain_mapped = False
                     break
-        if not grain_mapped:
-            QMessageBox.warning(self, "Grain Mapping Error",
-                                f"One or more columns mapped to Grain Info fields, but no columns are mapped to 'Grain Name' in the same sheet(s).\n\n"
-                                "At least one column must be mapped to 'Grain Name' in the same sheet(s) as any Grain Info fields.")
-            return False
+        # if not grain_mapped:
+        #     QMessageBox.warning(self, "Grain Mapping Error",
+        #                         f"One or more columns mapped to Grain Info fields, but no columns are mapped to 'Grain Name' in the same sheet(s).\n\n"
+        #                         "At least one column must be mapped to 'Grain Name' in the same sheet(s) as any Grain Info fields.")
+        #     return False
 
         # Check if any UPb Analysis Info fields are mapped without 'UPb Analysis Name' in the same sheet
         upb_analysis_mapped = True
@@ -3742,11 +3754,41 @@ class ImportWizardDialog(QWidget):
                 if "UPb Analysis Name" not in column_mapping.values() and sheet != self.upb_sheet_name:
                     upb_analysis_mapped = False
                     break
+        # if not upb_analysis_mapped:
+        #     QMessageBox.warning(self, "U-Pb Analysis Mapping Error",
+        #                         f"One or more columns mapped to U-Pb Analysis Info fields, but no columns are mapped to 'UPb Analysis Name' in the same sheet(s).\n\n"
+        #                         "At least one column must be mapped to 'UPb Analysis Name' in the same sheet(s) as any U-Pb Analysis Info fields.")
+        #     return False
+        unmapped_tables = ''
+        unmapped_names = ''
+        if not aliquot_mapped:
+            unmapped_tables += 'Aliquot'
+            unmapped_names += "'Aliquot Name'"
+        if not grain_mapped:
+            if not unmapped_tables:
+                unmapped_tables += 'Grain'
+                unmapped_names += "'Grain Name'"
+            else:
+                unmapped_tables += ', Grain'
+                unmapped_names += ', Grain Name'
+        if not spot_mapped:
+            if not unmapped_tables:
+                unmapped_tables += 'Spot'
+                unmapped_names += "'Spot Name'"
+            else:
+                unmapped_tables += ', Spot'
+                unmapped_names += ", 'Spot Name'"
         if not upb_analysis_mapped:
-            QMessageBox.warning(self, "U-Pb Analysis Mapping Error",
-                                f"One or more columns mapped to U-Pb Analysis Info fields, but no columns are mapped to 'UPb Analysis Name' in the same sheet(s).\n\n"
-                                "At least one column must be mapped to 'UPb Analysis Name' in the same sheet(s) as any U-Pb Analysis Info fields.")
-            return False
+            if not unmapped_tables:
+                unmapped_tables += 'U-Pb Analysis'
+                unmapped_names += "'U-Pb Analysis Name'"
+            else:
+                unmapped_tables += ', U-Pb Analysis'
+                unmapped_names += ', U-Pb Analysis Name'
+        if unmapped_tables and unmapped_names:
+            QMessageBox.warning(self, "Unmapped Columns",
+                                f"Columns mapped to {unmapped_tables} info fields, but no columns are mapped to {unmapped_names} in the same sheet(s).\n\n"
+                                f"Double check that the {unmapped_tables} names are not needed.")
         return True
 
     def check_new_items_no_upb(self):
@@ -4024,7 +4066,7 @@ class ImportWizardDialog(QWidget):
                     item_description = self.right_tables[sheet].model().index(row_idx, description_column).data().strip()
                     if item_name and item_name not in ['NULL', None]:
                         query = QSqlQuery()
-                        query.prepare(f'SELECT "{description_header}" FROM "{table}" WHERE "{name_header}"=:item_name')
+                        query.prepare(f'SELECT "{description_header}" FROM "{table}" WHERE "{name_header}"=:item_name COLLATE NOCASE')
                         query.bindValue(':item_name', item_name)
                         if query.exec():
                             if query.next():
@@ -4172,7 +4214,7 @@ class ImportWizardDialog(QWidget):
         progress_dialog = QProgressDialog(
             "Importing items...", "Cancel", 0, import_count, self
         )
-        progress_dialog.setMinimumDuration(0)
+        progress_dialog.setMinimumDuration(1)
         create_savepoint('before_upb_import')
         inserted_count = 0
         try:
@@ -4557,6 +4599,8 @@ class ImportWizardDialog(QWidget):
                             logger_setup.get_logger().debug(f"Values: {insert_query.boundValues()}")
                             rollback_savepoint('before_upb_import')
                             return False
+                        grain_id = insert_query.lastInsertId()
+                        record["GrainID"] = grain_id
                         update_sql = "UPDATE Spots SET GrainID=:grain_id WHERE SpotID=:spot_id"
                         update_query = QSqlQuery()
                         if not update_query.prepare(update_sql):
@@ -4578,7 +4622,6 @@ class ImportWizardDialog(QWidget):
                             logger_setup.get_logger().debug(f"Values: {insert_query.boundValues()}")
                             rollback_savepoint('before_upb_import')
                             return False
-                        record['GrainID'] = insert_query.lastInsertId()
                         self.upb_imports['GrainID'].append(record["GrainID"])
                         imported_names_list = imported_names['Grains']
                         imported_names_list.append(record["Grain Name"])
@@ -4826,6 +4869,7 @@ class ImportWizardDialog(QWidget):
                 logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                 logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 rollback_savepoint('before_import_items')
+                import_progress_dialog.close()
                 return False
             while query.next():
                 foreign_keys[query.value(3)] = {'foreign_table': query.value(2), 'foreign_column': query.value(4)}
@@ -4864,6 +4908,7 @@ class ImportWizardDialog(QWidget):
                         logger_setup.get_logger().critical(f"Unknown mapping for table {table} items")
                         logger_setup.get_logger().debug(f"Could not find name header {name_header} or  parent column {parent_name_header} in sheet {sheet}")
                         rollback_savepoint('before_import_items')
+                        import_progress_dialog.close()
                         return False
                 if name_header and not search_dictionary(self.item_ids[table][sheet], name_header):
                     # This table requires a name column, but none of the mapped columns correspond to the name column
@@ -4871,6 +4916,7 @@ class ImportWizardDialog(QWidget):
                         f'Cannot import info into {table} without a value for the {name_header} field in sheet {sheet}')
                     rollback_savepoint('before_import_items')
                     self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[sheet]))
+                    import_progress_dialog.close()
                     return False
                 # Get any data directly related to the columns in this table
                 table_name_columns[sheet] = name_columns
@@ -5026,6 +5072,8 @@ class ImportWizardDialog(QWidget):
                 if item_progress_dialog.wasCanceled():
                     logger_setup.get_logger().info('Canceled importing data')
                     rollback_savepoint('before_import_items')
+                    item_progress_dialog.close()
+                    import_progress_dialog.close()
                     return False
                 input_values = {}
                 item_id = None
@@ -5047,6 +5095,8 @@ class ImportWizardDialog(QWidget):
                     if not gps_format_id:
                         logger_setup.get_logger().error(f'Could not determine GPS format for {table} entry "{item_name}"')
                         rollback_savepoint('before_import_items')
+                        item_progress_dialog.close()
+                        import_progress_dialog.close()
                         return False
                     input_values['GPSFormatID'] = gps_format_id
                 if get_headers(db_table)[get_name_column(db_table)] in query_columns:
@@ -5065,13 +5115,15 @@ class ImportWizardDialog(QWidget):
                     continue
                 else:
                     if name:
-                        search_query = f'SELECT {get_headers(db_table)[0]} FROM "{db_table}" WHERE {get_headers(db_table)[get_name_column(db_table)]}=:name'
+                        search_query = f'SELECT {get_headers(db_table)[0]} FROM "{db_table}" WHERE {get_headers(db_table)[get_name_column(db_table)]}=:name COLLATE NOCASE'
                         if not query.prepare(search_query):
                             logger_setup.get_logger().critical(f'Error importing {table} entry')
                             logger_setup.get_logger().debug(f'Failed to prepare query to find existing item')
                             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                             logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                             rollback_savepoint('before_import_items')
+                            item_progress_dialog.close()
+                            import_progress_dialog.close()
                             return False
                         query.bindValue(':name', name)
                         if not query.exec():
@@ -5081,6 +5133,8 @@ class ImportWizardDialog(QWidget):
                             logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                             logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
                             rollback_savepoint('before_import_items')
+                            item_progress_dialog.close()
+                            import_progress_dialog.close()
                             return False
                         if query.next():
                             item_id = query.value(0)
@@ -5110,6 +5164,8 @@ class ImportWizardDialog(QWidget):
                             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                             logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                             rollback_savepoint('before_import_items')
+                            item_progress_dialog.close()
+                            import_progress_dialog.close()
                             return False
                         for column_name in query_columns:
                             if column_name in item_data[table][name_header][item_name]:
@@ -5123,6 +5179,8 @@ class ImportWizardDialog(QWidget):
                             logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                             logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
                             rollback_savepoint('before_import_items')
+                            item_progress_dialog.close()
+                            import_progress_dialog.close()
                             return False
                         if query.next():
                             item_id = query.value(0)
@@ -5164,6 +5222,8 @@ class ImportWizardDialog(QWidget):
                                     logger_setup.get_logger().critical(f'Could not overwrite existing {table} in the database')
                                     logger_setup.get_logger().debug(f'Failed to delete values from {table} for ID {item_id}')
                                     rollback_savepoint('before_import_items')
+                                    item_progress_dialog.close()
+                                    import_progress_dialog.close()
                                     return False
                                 item_id = None
                         elif ((get_headers(table)[0] in self.upb_imports and item_id in self.upb_imports[
@@ -5179,6 +5239,8 @@ class ImportWizardDialog(QWidget):
                                 logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                                 logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                                 rollback_savepoint('before_import_items')
+                                item_progress_dialog.close()
+                                import_progress_dialog.close()
                                 return False
                             if not query.exec():
                                 logger_setup.get_logger().critical(f'Error importing {table} "{name}"')
@@ -5187,6 +5249,8 @@ class ImportWizardDialog(QWidget):
                                 logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                                 logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
                                 rollback_savepoint('before_import_items')
+                                item_progress_dialog.close()
+                                import_progress_dialog.close()
                                 return False
                             if query.next():
                                 for col_idx in range(query.record().count()):
@@ -5233,6 +5297,8 @@ class ImportWizardDialog(QWidget):
                                                 logger_setup.get_logger().error(
                                                     f'{name_header} already has values with {column.replace('ID','')} = {existing_name}, but importing values with {column.replace('ID','')} = {input_name}\n\nImport conflict mode "add to" requires that additional data be in the same format as existing data')
                                                 rollback_savepoint('before_import_items')
+                                                item_progress_dialog.close()
+                                                import_progress_dialog.close()
                                                 return False
                                         else:
                                             # No existing values depending on this one, so fine to overwrite
@@ -5246,6 +5312,8 @@ class ImportWizardDialog(QWidget):
                                     logger_setup.get_logger().debug(
                                         f'Error validating data to update for table {table}')
                                     rollback_savepoint('before_import_items')
+                                    item_progress_dialog.close()
+                                    import_progress_dialog.close()
                                     return False
                             if update_values:
                                 update_query = f'UPDATE "{db_table}" SET '
@@ -5260,6 +5328,8 @@ class ImportWizardDialog(QWidget):
                                     logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                                     logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                                     rollback_savepoint('before_import_items')
+                                    item_progress_dialog.close()
+                                    import_progress_dialog.close()
                                     return False
                                 for column in update_values:
                                     column_placeholder = f':{column.replace('/', '').replace('*', '').replace(' ', '_')}'
@@ -5274,6 +5344,8 @@ class ImportWizardDialog(QWidget):
                                     logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                                     logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
                                     rollback_savepoint('before_import_items')
+                                    item_progress_dialog.close()
+                                    import_progress_dialog.close()
                                     return False
                                 logger_setup.get_logger().info(f'Successfully updated {table} "{name}"')
                             for sheet in self.item_ids[table]:
@@ -5295,6 +5367,8 @@ class ImportWizardDialog(QWidget):
                             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                             logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                             rollback_savepoint('before_import_items')
+                            item_progress_dialog.close()
+                            import_progress_dialog.close()
                             return False
                         if not query.exec():
                             logger_setup.get_logger().critical(f'Could not search for existing {table} in database')
@@ -5303,6 +5377,8 @@ class ImportWizardDialog(QWidget):
                             logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                             logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
                             rollback_savepoint('before_import_items')
+                            item_progress_dialog.close()
+                            import_progress_dialog.close()
                             return False
                         if query.next():
                             parent_row = query.value(0) + 1
@@ -5319,6 +5395,8 @@ class ImportWizardDialog(QWidget):
                             logger_setup.get_logger().error(f'Error inserting new {db_table} for {name}: {error}')
                             logger_setup.get_logger().debug(f'Error validating data to insert for table {table}')
                             rollback_savepoint('before_import_items')
+                            item_progress_dialog.close()
+                            import_progress_dialog.close()
                             return False
                     if db_table in ['Samples', 'Aliquots', 'Grains', 'Spots', 'UPbAnalyses'] and not upb_data:
                         logger_setup.get_logger().error(f'Error inserting new Sample. New samples cannot be imported without U-Pb data')
@@ -5338,6 +5416,8 @@ class ImportWizardDialog(QWidget):
                         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                         rollback_savepoint('before_import_items')
+                        item_progress_dialog.close()
+                        import_progress_dialog.close()
                         return False
                     for column, value in input_values.items():
                         if value in ['NULL', '', None]:
@@ -5352,6 +5432,8 @@ class ImportWizardDialog(QWidget):
                         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                         logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
                         rollback_savepoint('before_import_items')
+                        item_progress_dialog.close()
+                        import_progress_dialog.close()
                         return False
                     item_id = query.lastInsertId()
                     for sheet in self.item_ids[table]:
