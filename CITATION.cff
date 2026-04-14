@@ -6,7 +6,28 @@ title: GeoCORK
 message: >-
   If you use this software, please cite it using the
   metadata from this file.
+preferred-citation:
+  authors:
+    - given-names: Kathryn
+      family-names: Metcalf
+      email: kametcalf@fullerton.edu
+      affiliation: 'California State University, Fullerton'
+      orcid: 'https://orcid.org/0000-0003-0676-0978'
+    - given-names: Jarrod
+      family-names: Burges
+      email: jarrod.burges@rutgers.edu
+      affiliation: Rutgers University
+      orcid: 'https://orcid.org/0009-0007-9044-1174'
+  title: "GeoCORK: An improved workflow for U-Pb geochronology data management"
+  type: article
+  year: 2026
+  doi: 10.5281/zenodo.15833658
 type: software
+version: 1.0.5
+identifiers: 
+  - description: This the permanent DOI link to all archived versions of GeoCORK.
+    type: doi
+    value: 10.5281/zenodo.15833658
 authors:
   - given-names: Kathryn
     family-names: Metcalf
