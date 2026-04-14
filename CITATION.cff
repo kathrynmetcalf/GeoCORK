@@ -1,0 +1,67 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: GeoCORK
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Kathryn
+    family-names: Metcalf
+    email: kametcalf@fullerton.edu
+    affiliation: 'California State University, Fullerton'
+    orcid: 'https://orcid.org/0000-0003-0676-0978'
+  - given-names: Jarrod
+    family-names: Burges
+    email: jarrod.burges@rutgers.edu
+    affiliation: Rutgers University
+    orcid: 'https://orcid.org/0009-0007-9044-1174'
+  - given-names: Elsie
+    family-names: Romero
+    email: elsieromero@csu.fullerton.edu
+    affiliation: 'California State University, Fullerton'
+    orcid: 'https://orcid.org/0009-0005-2043-0280'
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.15833658
+    description: >-
+      Permanent link for zenodo archive of GeoCORK
+      repository.
+repository-code: 'https://github.com/kathrynmetcalf/GeoCORK'
+abstract: >-
+  'Geochronological data are used across many different
+  fields of geology. As analyses become cheaper and easier
+  and online databases grow, researchers have access to an
+  abundance of data for large-scale studies. However,
+  datasets reported from different labs, researchers, and
+  institutions all have their own formatting, and community
+  reporting standards continue to evolve. Existing databases
+  and compilations are incomplete and may not have all the
+  metadata a researcher wants. Powerful analysis tools also
+  require a variety of input formats. The current common
+  workflow of spreadsheet manipulation is time-consuming and
+  tedious. We present GeoCORK, an open-source desktop
+  application to address this problem by importing and
+  storing U-Pb geochronology data in a personal, local SQL
+  database. The researcher interacts with the database
+  through user-friendly interfaces which require no coding
+  experience to import, organize, filter, and export U-Pb
+  analyses and metadata. Data can be imported and exported
+  in preset or custom formats and filtered into groups based
+  on custom criteria. Tag categories are intentionally broad
+  to allow for personalized metadata. We also present two
+  example zircon U-Pb databases: a small compilation from
+  the Klamath Mountains (5,764 analyses) with several
+  different data types and formats and a large global
+  compilation (>1.8 million analyses) with more uniform
+  formatting. GeoCORK allows researchers to make the most of
+  available U-Pb data, and it is designed to incorporate
+  other geologic methods in the future.'
+keywords:
+  - geochronology
+  - uranium lead dating
+  - research data management
+  - geochemistry
+license: GPL-3.0
