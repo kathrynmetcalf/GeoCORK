@@ -136,6 +136,8 @@ class EditTree(QtW.QDialog):
         logger_setup.get_logger().info(f'Displaying {self.model.rowCount()} {self.table_name}...')
         start_display_tree_time = time.time()
         show_loading_dialog('Loading', f'Displaying {self.model.rowCount()} {self.table_name}...')
+        self.tree_proxy_model = TreeSortFilterProxyModel()
+        self.tree_proxy_model.setSourceModel(self.tree_model)
         self.edit_treeView.setModel(self.tree_proxy_model)
         self.edit_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
         start_hide_columns_time = time.time()
@@ -152,7 +154,8 @@ class EditTree(QtW.QDialog):
         self.edit_treeView.setDefaultDropAction(QtC.Qt.DropAction.MoveAction)
         self.edit_treeView.setSelectionMode(QtW.QAbstractItemView.SelectionMode.ExtendedSelection)
         restore_expanded_state(self.table, self.edit_treeView)
-        self.tree_model.dataEdited.connect(self.update_proxy)
+        self.tree_model.dataEdited.connect(self.save_expanded)
+        self.tree_model.modelReset.connect(self.update_proxy)
 
         self.page_info_label.setText(f'{self.total_records} {self.table_name}')
 
@@ -160,17 +163,20 @@ class EditTree(QtW.QDialog):
         logger_setup.get_logger().info(
             f'Displayed {self.model.rowCount()} {self.table_name} tree in {time.time() - start_display_tree_time} seconds')
 
-    def update_proxy(self):
+    def save_expanded(self):
         save_expanded_state(self.table, self.edit_treeView)
         if self.sender() == self.tree_model:
             self.updated = True
-        if self.tree_proxy_model.sourceModel() == self.tree_model:
-            self.tree_model.deleteLater()
+
+    def update_proxy(self):
+        # if self.tree_proxy_model.sourceModel() == self.tree_model:
+        #     self.tree_model.deleteLater()
         self.total_records = self.model.rowCount()
-        self.tree_model = TreeModel(self.model)
-        self.tree_model.dataEdited.connect(self.update_proxy)
-        self.tree_proxy_model.setSourceModel(self.tree_model)
-        self.display_tree()
+        self.edit_treeView.expand_from_ids()
+        # self.tree_model = TreeModel(self.model)
+        # self.tree_model.dataEdited.connect(self.update_proxy)
+        # self.tree_proxy_model.setSourceModel(self.tree_model)
+        # self.display_tree()
 
     def add_popup(self, action: QtG.QAction | None = None):
         save_expanded_state(self.table, self.edit_treeView)
@@ -184,32 +190,8 @@ class EditTree(QtW.QDialog):
             return
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
-        self.update_proxy()
-
-    def add_parent(self, item_ids: list, parent_ids: list, parent_rows: list):
-        """
-        Add a parent to the selected items. This is used when adding a new item to the tree.
-        :param item_ids:
-        :param parent_ids:
-        :param parent_rows:
-        :return:
-        """
-        n_item = 0
-        new_child_ids = []
-        new_parent_rows = []
-        for item in range(len(item_ids)):
-            item_id = item_ids[item]
-            parent_id = parent_ids[item]
-            if not parent_id in item_ids:
-                # This is a child of the new parent, not a grandchild or lower
-                new_child_ids.append(item_id)
-                new_parent_rows.append(n_item)
-                n_item += 1
-        # Find the top child and get its parent and parent row, that will become the position of the new parent
-        output = self.tree_model.top_node(new_child_ids)
-        parent_id = output[0]
-        row = output[1]
-        self.add_popup(None, parent_id, row, 'parent', new_child_ids, new_parent_rows)
+            self.tree_model.dataEdited.emit()
+            self.update_proxy()
 
     def merge_items(self):
         """
@@ -228,6 +210,7 @@ class EditTree(QtW.QDialog):
             return
         if MergeDialog(self.table, ids_to_merge, self).exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
+            self.tree_model.dataEdited.emit()
             self.update_proxy()
 
     def delete_item(self):
@@ -246,6 +229,7 @@ class EditTree(QtW.QDialog):
 
         if delete_data(self.table, item_ids):
             self.updated = True
+            self.tree_model.dataEdited.emit()
             self.update_proxy()
 
     def commit_question(self):

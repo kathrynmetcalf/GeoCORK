@@ -11,7 +11,6 @@ from PyQt6.uic import loadUi
 
 import logger_setup
 import Functions.SQLUtils as SQLUtils
-from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.Widget_classes import get_headers, show_loading_dialog, close_loading_dialog

@@ -91,7 +91,7 @@
       </layout>
      </item>
      <item>
-      <widget class="QTreeView" name="edit_treeView">
+      <widget class="TrackExpandedTreeView" name="edit_treeView">
        <property name="contextMenuPolicy">
         <enum>Qt::CustomContextMenu</enum>
        </property>
@@ -169,6 +169,13 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>TrackExpandedTreeView</class>
+   <extends>QTreeView</extends>
+   <header>Functions/Widget_classes.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

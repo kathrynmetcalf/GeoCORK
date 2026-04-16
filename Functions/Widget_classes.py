@@ -1991,6 +1991,8 @@ def get_name_column(table: str) -> int | None:
     elif 'Format' in table or 'Unit' in table:
         # return the column for the abbreviation
         return 2
+    elif table == 'References' or table == '"References"':
+        return 9
     elif (table in SQLUtils.user_viewable_tables or
           table in ['SampleView', 'SampleEditView', 'Spots', 'GPSLocations', 'FilterGroups', 'ReferenceView',
                     'ReferenceEditView', 'ColumnView', 'ColumnEditView', 'Grains', 'UPbAnalyses']):
@@ -1999,8 +2001,6 @@ def get_name_column(table: str) -> int | None:
         return 4
     elif table in ['UPbView', 'UPbEditView']:
         return 5
-    elif table == 'References' or table == '"References"':
-        return 9
     elif table == 'SampleAges':
         return 16
     else:
@@ -3571,7 +3571,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         """
         return self.source_model
 
-    def setSourceModel(self, source_model: QSqlTableModel | QSqlQueryModel | SQLiteTableModel):
+    def setSourceModel(self, source_model: QSqlTableModel | QSqlQueryModel | SQLiteTableModel | None = None):
         """
         Set the source model for the tree model. This method initializes the tree model with the given source model,
         retrieves the table name, and sets up the base query and filter for the model. It also clears any previous tree
@@ -3582,6 +3582,8 @@ class TreeModel(QtC.QAbstractProxyModel):
         :return: Nothing if there is an error
         """
         logger_setup.get_logger().info(f'Setting source model for tree model...')
+        if not source_model and self.source_model:
+            source_model = self.source_model
         try:
             if source_model.tableName() != '':
                 self.table = source_model.tableName()
@@ -3648,7 +3650,17 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.column_headers()
         self.header_variables()
         self.setup_model_data()
-        self.dataEdited.connect(self.setup_model_data)
+        self.dataEdited.connect(self.reset_source_model)
+
+    def reset_source_model(self):
+        """
+        Call setSourceModel again unless the source model is a SQLiteTableModel
+        """
+        if not isinstance(self.source_model, SQLiteTableModel):
+            self.source_model.setQuery(f'{self.base_query}')
+            while self.source_model.canFetchMore():
+                self.source_model.fetchMore()
+        self.setup_model_data()
 
     def setup_model_data(self):
         """
@@ -3662,6 +3674,8 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.child_item = TreeItem(QtS.QSqlRecord(), None)
         self.parent_to_children = {}
         self.item_data = {}
+        self.id_to_item = {}
+        self._map_to_source_cache = {}
         try:
             while self.source_model.canFetchMore():
                 self.source_model.fetchMore()
@@ -3686,7 +3700,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         # Add all nodes to the tree model
         # start with root item, look for children
         logger_setup.get_logger().info(f'Building the {self.table} tree from the model...')
-        show_loading_dialog('Loading', f'Building the {self.table} tree with {self.source_model.rowCount()} items...')
+        # show_loading_dialog('Loading', f'Building the {self.table} tree with {self.source_model.rowCount()} items...')
         start_build_time = time.time()
         # add each child to model with parent (root)
         self.add_to_tree(self.root_item)
@@ -3694,7 +3708,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         # add each child to the model with parent
         # etc. until there are no more children
         self.endResetModel()
-        close_loading_dialog('Loading', f'Building the {self.table} tree with {self.source_model.rowCount()} items...')
+        # close_loading_dialog('Loading', f'Building the {self.table} tree with {self.source_model.rowCount()} items...')
         logger_setup.get_logger().info(f'Finished building the {self.table} tree with {self.source_model.rowCount()} items in {time.time() - start_build_time:.2f} seconds')
 
     def add_to_tree(self, parent: TreeItem):
@@ -4070,6 +4084,9 @@ class TreeModel(QtC.QAbstractProxyModel):
             oldParentID = 'NULL'
         oldParentRow = filtered_model.record(0).value(2)  # Get the current parent row
         if oldParentID == parentID:
+            if oldParentRow is not None and row > oldParentRow:
+                # Moving an item down, so its final position will be row-1
+                row = row - 1
             # Create space at the new row
             if not bulk_update_parent_row(self.table, parentID, 1, row, oldParentRow)[0]:
                 close_loading_dialog('Moving', f'Moving {self.table} data')
@@ -4115,7 +4132,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         query.bindValue(':item_id', item_id)
         if not query.exec():
             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-            logger_setup.get_logger().debug(f"SQL query: {query.lastError().text()}")
+            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
             logger_setup.get_logger().debug(f"Bound values: {query.boundValues()}")
             return False
         update_modified_timestamp(self.table, [item_id])
@@ -4551,11 +4568,6 @@ class TreeModel(QtC.QAbstractProxyModel):
                     f"{self.base_query_sql} {self.id_header} is {item_ids[move]}")  # Only one record for each item ID
             while filtered_model.canFetchMore():
                 filtered_model.fetchMore()
-            oldParentID = filtered_model.record(0).value(1)  # Get the current parent ID
-            # if self.table == 'Aliquots' and parentID == oldParentID:
-            #     logger_setup.get_logger().info(f"Cannot reorder top-level aliquots")
-            #     rollback_savepoint('drop_mime_data')
-            #     return False
             if not self.moveItem(item_ids[move], rows[move], p_id):
                 logger_setup.get_logger().critical(f'Error moving item')
                 logger_setup.get_logger().debug(f'Item: {item_ids[move]}, rows: {rows[move]}, parent_ID: {p_id}')
@@ -5239,62 +5251,154 @@ def bulk_update_parent_row(table, parent_id, spaces_to_move: int, new_row: int |
     parent_id_header = headers[1]
     parent_row_header = headers[2]
     updated_ids = []
-    if (not new_row and not old_row) or new_row == old_row:
+    if (new_row is None and old_row is None) or new_row == old_row:
         logger_setup.get_logger().critical(f'Error shifting {table} data')
         logger_setup.get_logger().debug(f'Missing parent row constraints')
         return False, []
     logger_setup.get_logger().info(f'Bulk updating {table} data for children of {parent_id} from old row {old_row} to new row {new_row}')
-    query = QtS.QSqlQuery()
+    query1 = QtS.QSqlQuery()
+    query2 = QtS.QSqlQuery()
     select_query = QtS.QSqlQuery()
     if parent_id in ['NULL', '', None]:
+        parent_id = 'NULL'
         parent_id_sql = 'IS NULL'
     else:
         parent_id_sql = f'= {parent_id}'
+    move_size_query = QtS.QSqlQuery()
+    move_size_query.prepare(f'''SELECT COALESCE(MAX({parent_row_header}), -{spaces_to_move}) AS maximum
+                FROM {table} WHERE {parent_id_header} IS :parent_id''')
+    move_size_query.bindValue(':parent_id', parent_id if parent_id != 'NULL' else QtC.QVariant())
+    if not move_size_query.exec():
+        logger_setup.get_logger().critical(f'Error shifting {table} data')
+        logger_setup.get_logger().debug(f"Error: {move_size_query.lastError().text()}")
+        logger_setup.get_logger().debug(f"SQL query: {move_size_query.lastQuery()}")
+        logger_setup.get_logger().debug(f"Bound values: {move_size_query.boundValues()}")
+        return False, []
+    max_child_row = 0
+    if move_size_query.next():
+        max_child_row = move_size_query.value(0)
     if new_row is not None and old_row is None:
         logger_setup.get_logger().info(f'Making space to insert new child at {new_row}')
-        query.prepare(f'''UPDATE {table} SET {parent_row_header} = {parent_row_header} + {spaces_to_move} WHERE {parent_id_header} {parent_id_sql} AND {parent_row_header} >= :new_row''')
-        query.bindValue(':new_row', new_row)
+        k = max_child_row + spaces_to_move - new_row
+        query1.prepare(f'''UPDATE {table} SET {parent_row_header} = {parent_row_header} + :k_value + ({spaces_to_move} - 1)
+        WHERE {parent_id_header} IS :parent_id AND {parent_row_header} >= :new_row;
+        ''')
+        query1.bindValue(':parent_id', parent_id if parent_id != 'NULL' else QtC.QVariant())
+        query1.bindValue(':new_row', new_row)
+        query1.bindValue(':k_value', k)
+
+        query2.prepare(f'''
+        UPDATE {table} SET {parent_row_header} = {parent_row_header} - (:k_value - {spaces_to_move})
+        WHERE {parent_id_header} IS :parent_id AND {parent_row_header} > :new_row + {spaces_to_move}
+        ''')
+        query2.bindValue(':parent_id', parent_id if parent_id != 'NULL' else QtC.QVariant())
+        query2.bindValue(':new_row', new_row)
+        query2.bindValue(':k_value', k)
+
         select_query.prepare(f'SELECT {id_header} FROM {table} WHERE {parent_id_header} {parent_id_sql} AND {parent_row_header} >= :new_row')
         select_query.bindValue(':new_row', new_row)
     elif old_row is not None and new_row is None:
         logger_setup.get_logger().info(f'Closing space from removed child at {old_row}')
-        query.prepare(f'''UPDATE {table} SET {parent_row_header} = {parent_row_header} - {spaces_to_move} WHERE {parent_id_header} {parent_id_sql} AND {parent_row_header} > :old_row''')
-        query.bindValue(':old_row', old_row)
+        if old_row > max_child_row:
+            logger_setup.get_logger().info(f'Space already closed')
+        k = max_child_row + spaces_to_move - (old_row + spaces_to_move)
+        query1.prepare(f'''UPDATE {table} SET {parent_row_header} = {parent_row_header} + :k_value 
+        WHERE {parent_id_header} IS :parent_id AND {parent_row_header} > :old_row;
+        ''')
+        query1.bindValue(':parent_id', parent_id if parent_id != 'NULL' else QtC.QVariant())
+        query1.bindValue(':old_row', old_row)
+        query1.bindValue(':k_value', k)
+
+        query2.prepare(f'''UPDATE {table} SET {parent_row_header} = {parent_row_header} - (:k_value + {spaces_to_move})
+        WHERE {parent_id_header} IS :parent_id 
+        AND {parent_row_header} >= (:old_row + {spaces_to_move})
+        ''')
+        query2.bindValue(':parent_id', parent_id if parent_id != 'NULL' else QtC.QVariant())
+        query2.bindValue(':old_row', old_row)
+        query2.bindValue(':k_value', k)
+
         select_query.prepare(f'SELECT {id_header} FROM {table} WHERE {parent_id_header} {parent_id_sql} AND {parent_row_header} > :old_row')
         select_query.bindValue(':old_row', old_row)
     elif new_row is not None and old_row is not None:
         if new_row < old_row:
             logger_setup.get_logger().info(f'Moving child up from {old_row} to {new_row}')
-            query.prepare(f'''UPDATE {table} SET {parent_row_header} = {parent_row_header} + {spaces_to_move} WHERE {parent_id_header} {parent_id_sql} AND {parent_row_header} >= :new_row AND {parent_row_header} < :old_row''')
-            query.bindValue(':new_row', new_row)
-            query.bindValue(':old_row', old_row)
-            select_query.prepare(f'''SELECT {id_header} FROM {table} WHERE {parent_id_header} {parent_id_sql} AND {parent_row_header} >= :new_row AND {parent_row_header} < :old_row''')
+            k = max_child_row - (new_row - spaces_to_move)
+            query1.prepare(f'''UPDATE {table} SET {parent_row_header} = {parent_row_header} + :k_value 
+            WHERE {parent_id_header} IS :parent_id 
+                AND {parent_row_header} >= :new_row 
+                AND {parent_row_header} <= :old_row;
+            ''')
+            query1.bindValue(':parent_id', parent_id if parent_id != 'NULL' else QtC.QVariant())
+            query1.bindValue(':new_row', new_row)
+            query1.bindValue(':old_row', old_row)
+            query1.bindValue(':k_value', k)
+
+            query2.prepare(f'''UPDATE {table} SET {parent_row_header} = {parent_row_header} - (:k_value - {spaces_to_move})
+            WHERE {parent_id_header} IS :parent_id
+                AND {parent_row_header} > {max_child_row}
+                AND {parent_row_header} < {max_child_row} + (:old_row - :new_row) + 1;
+            ''')
+            query2.bindValue(':parent_id', parent_id if parent_id != 'NULL' else QtC.QVariant())
+            query2.bindValue(':new_row', new_row)
+            query2.bindValue(':old_row', old_row)
+            query2.bindValue(':k_value', k)
+
+            select_query.prepare(f'''SELECT {id_header} FROM {table} 
+            WHERE {parent_id_header} {parent_id_sql} 
+            AND {parent_row_header} >= :new_row 
+            AND {parent_row_header} < :old_row''')
             select_query.bindValue(':new_row', new_row)
             select_query.bindValue(':old_row', old_row)
         elif new_row > old_row:
             logger_setup.get_logger().info(f'Moving child down from {old_row} to {new_row}')
-            query.prepare(f'''UPDATE {table} SET {parent_row_header} = {parent_row_header} - {spaces_to_move} WHERE {parent_id_header} {parent_id_sql} AND {parent_row_header} > :old_row AND {parent_row_header} <= :new_row''')
-            query.bindValue(':new_row', new_row)
-            query.bindValue(':old_row', old_row)
-            select_query.prepare(f'''SELECT {id_header} FROM {table} WHERE {parent_id_header} {parent_id_sql} AND {parent_row_header} > :old_row AND {parent_row_header} <= :new_row''')
+            k = max_child_row - (old_row - spaces_to_move)
+            query1.prepare(f'''UPDATE {table} SET {parent_row_header} = {parent_row_header} + :k_value
+            WHERE {parent_id_header} IS :parent_id 
+                AND {parent_row_header} >= :old_row
+                AND {parent_row_header} <= :new_row;
+            ''')
+            query1.bindValue(':parent_id', parent_id if parent_id != 'NULL' else QtC.QVariant())
+            query1.bindValue(':new_row', new_row)
+            query1.bindValue(':old_row', old_row)
+            query1.bindValue(':k_value', k)
+
+            query2.prepare(f'''UPDATE {table} SET {parent_row_header} = {parent_row_header} - (:k_value + {spaces_to_move})
+            WHERE {parent_id_header} IS :parent_id
+                AND {parent_row_header} > {max_child_row} + 1;
+            ''')
+            query2.bindValue(':parent_id', parent_id if parent_id != 'NULL' else QtC.QVariant())
+            query2.bindValue(':k_value', k)
+
+            select_query.prepare(f'''SELECT {id_header} FROM {table} 
+            WHERE {parent_id_header} {parent_id_sql} 
+                AND {parent_row_header} > :old_row 
+                AND {parent_row_header} <= :new_row''')
             select_query.bindValue(':new_row', new_row)
             select_query.bindValue(':old_row', old_row)
     if not select_query.exec():
         logger_setup.get_logger().critical(f'Error shifting {table} data')
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-        logger_setup.get_logger().debug(f"Bound values: {query.boundValues()}")
+        logger_setup.get_logger().debug(f"Error: {select_query.lastError().text()}")
+        logger_setup.get_logger().debug(f"SQL query: {select_query.lastQuery()}")
+        logger_setup.get_logger().debug(f"Bound values: {select_query.boundValues()}")
         return False, []
     while select_query.next():
         updated_ids.append(select_query.value(0))
     if not updated_ids:
         logger_setup.get_logger().info(f'No items to shift for {table}')
         return True, []
-    if not query.exec():
+    # Move items well out of the way to avoid unique ParentID, ParentRow errors
+    if not query1.exec():
         logger_setup.get_logger().critical(f'Error shifting {table} data')
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-        logger_setup.get_logger().debug(f"Bound values: {query.boundValues()}")
+        logger_setup.get_logger().debug(f"Error: {query1.lastError().text()}")
+        logger_setup.get_logger().debug(f"SQL query: {query1.lastQuery()}")
+        logger_setup.get_logger().debug(f"Bound values: {query1.boundValues()}")
+        return False, []
+    # Move items to the new position
+    if not query2.exec():
+        logger_setup.get_logger().critical(f'Error shifting {table} data')
+        logger_setup.get_logger().debug(f"Error: {query2.lastError().text()}")
+        logger_setup.get_logger().debug(f"SQL query: {query2.lastQuery()}")
+        logger_setup.get_logger().debug(f"Bound values: {query2.boundValues()}")
         return False, []
     update_modified_timestamp(table, updated_ids)
     return True, updated_ids
@@ -6558,12 +6662,18 @@ class TrackExpandedTreeView(QtW.QTreeView):
         if not self.expanded_ids:
             self.expanded_ids = set()
         self.expand_from_ids()
-        tree_model.modelReset.connect(self.expand_from_ids)
+        # tree_model.modelReset.connect(self.on_model_reset)
         self.expanded.connect(self.on_expanded)
         self.collapsed.connect(self.on_collapsed)
 
+    # def on_model_reset(self):
+    #     QtC.QTimer.singleShot(0, self.expand_from_ids)
+
     def expand_from_ids(self):
         if not self.expanded_ids:
+            return
+        tree_model = find_tree_model(self.model(), [])[0]
+        if not tree_model:
             return
         logger_setup.get_logger().info(f'Expanding {len(self.expanded_ids)} items')
         start_time = time.time()
