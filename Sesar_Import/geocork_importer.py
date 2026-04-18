@@ -266,9 +266,18 @@ def import_staging_inplace(staging: dict, db_path: str) -> None:
         # ---------------------------------------------------------------
         sample_nk_to_id: Dict[str, int] = {}
 
+        # Sort so that within each natural key (IGSN / sample name) instance 1
+        # always comes before instances 2/3/4.  The primary sort key is the
+        # natural key itself so that all rows for one sample are processed
+        # together before moving to the next — this is important in batch mode
+        # where the merged staging list interleaves rows from multiple samples.
         sample_rows = sorted(
             staging.get("Samples", []),
-            key=lambda r: r.get("_DescriptionInstance", 1))
+            key=lambda r: (
+                r.get("SampleIGSN") or r.get("SampleName") or "",
+                r.get("_DescriptionInstance", 1),
+            )
+        )
 
         for s in sample_rows:
             instance = s.get("_DescriptionInstance", 1)

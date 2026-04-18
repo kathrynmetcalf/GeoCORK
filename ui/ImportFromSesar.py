@@ -112,10 +112,13 @@ class SampleHierarchyWidget(QWidget):
 
     _URL = "https://app.geosamples.org/webservices/display.php"
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, on_cancelled_callback=None):
         super().__init__(parent)
         self.current_igsn = None
         self.sibling_data = {}  # in-memory cache: igsn -> response dict
+        # Forwarded from ImportFromSesar so that Back in PreviewWindow
+        # re-shows the ImportFromSesar dialog correctly.
+        self._on_cancelled_callback = on_cancelled_callback
         self._setup_ui()
 
     def _setup_ui(self):
@@ -125,29 +128,30 @@ class SampleHierarchyWidget(QWidget):
         self.current_label = QLabel("No sample selected")
         layout.addWidget(self.current_label)
 
-        #button layout for download controls
+        #button layout for controls
         button_layout = QHBoxLayout()
-        
-        #download selected button
-        self.download_selected_button = QPushButton("Download Selected IGSNs")
-        self.download_selected_button.clicked.connect(self._download_selected)
+
+        # Primary batch action: import all checked IGSNs into GeoCORK.
+        # The disk-save path is still available via right-click context menu.
+        self.download_selected_button = QPushButton("Import Selected into GeoCORK")
+        self.download_selected_button.clicked.connect(self._import_selected_to_geocork)
         self.download_selected_button.setEnabled(False)
         button_layout.addWidget(self.download_selected_button)
-        
+
         #select all button
         self.select_all_button = QPushButton("Select All")
         self.select_all_button.clicked.connect(self._select_all)
         button_layout.addWidget(self.select_all_button)
-        
+
         #clear all button
         self.clear_all_button = QPushButton("Clear All")
         self.clear_all_button.clicked.connect(self._clear_all)
         button_layout.addWidget(self.clear_all_button)
-        
+
         #selected count label
         self.selected_count_label = QLabel("Selected: 0")
         button_layout.addWidget(self.selected_count_label)
-        
+
         layout.addLayout(button_layout)
 
         # Lazy-loading tree: top-level nodes are siblings; children expand on demand
@@ -243,66 +247,70 @@ class SampleHierarchyWidget(QWidget):
         self.selected_count_label.setText("Selected: 0")
         self.selected_count_label.setStyleSheet("")
     
-    def _download_selected(self):
-        """show confirmation dialog then download all selected IGSNs"""
+    def _import_selected_to_geocork(self):
+        """
+        Fetch all checked IGSNs (using the in-memory cache where possible),
+        then pass the complete list of raw dicts to SesarImportWindow so
+        they go through the normal transform → preview → import pipeline.
+        Each IGSN becomes one independent sample in GeoCORK.
+        """
         checked_igsns = self._get_checked_igsns()
         if not checked_igsns:
-            QMessageBox.warning(self, "No Selection", "No IGSNs selected for download")
+            QMessageBox.warning(self, "No Selection",
+                                "No IGSNs are checked for import.")
             return
-        
-        #confirmation dialog
-        confirm_dialog = QMessageBox(self)
-        confirm_dialog.setWindowTitle("Confirm Download")
-        confirm_dialog.setIcon(QMessageBox.Icon.Question)
-        confirm_dialog.setText(f"You are about to download {len(checked_igsns)} IGSN(s)")
-        
-        if len(checked_igsns) <= 10:
-            igsn_list = "\n".join(checked_igsns)
-            confirm_dialog.setInformativeText(f"The following IGSNs will be downloaded:\n\n{igsn_list}")
+
+        count = len(checked_igsns)
+        if count <= 10:
+            detail = "The following IGSNs will be imported:\n\n" + "\n".join(checked_igsns)
         else:
-            igsn_list = "\n".join(checked_igsns[:10])
-            confirm_dialog.setInformativeText(f"The following IGSNs will be downloaded (showing first 10 of {len(checked_igsns)}):\n\n{igsn_list}\n\n...and {len(checked_igsns) - 10} more")
-        
-        confirm_dialog.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        confirm_dialog.setDefaultButton(QMessageBox.StandardButton.No)
-        
-        if confirm_dialog.exec() == QMessageBox.StandardButton.Yes:
-            self._perform_download(checked_igsns)
-    
-    def _perform_download(self, checked_igsns):
-        """download all selected IGSNs with progress indication"""
-        success_count = 0
-        fail_count = 0
-        failed_igsns = []
-        
-        #progress dialog
-        progress = QMessageBox(self)
-        progress.setWindowTitle("Downloading")
-        progress.setText(f"Downloading 0 of {len(checked_igsns)} IGSNs...")
-        progress.setStandardButtons(QMessageBox.StandardButton.NoButton)
-        progress.setIcon(QMessageBox.Icon.Information)
-        progress.show()
-        
-        for i, igsn in enumerate(checked_igsns):
-            progress.setText(f"Downloading {i+1} of {len(checked_igsns)} IGSNs...\nCurrent: {igsn}")
-            QApplication.processEvents()
-            
-            if self._save_sample_data(igsn, show_message=False):
-                success_count += 1
+            detail = (
+                f"The following IGSNs will be imported "
+                f"(showing first 10 of {count}):\n\n"
+                + "\n".join(checked_igsns[:10])
+                + f"\n\n…and {count - 10} more"
+            )
+
+        confirm = QMessageBox(self)
+        confirm.setWindowTitle("Confirm Batch Import")
+        confirm.setIcon(QMessageBox.Icon.Question)
+        confirm.setText(f"Import {count} IGSN(s) into GeoCORK?")
+        confirm.setInformativeText(detail)
+        confirm.setStandardButtons(
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        confirm.setDefaultButton(QMessageBox.StandardButton.No)
+        if confirm.exec() != QMessageBox.StandardButton.Yes:
+            return
+
+        # Fetch any IGSNs not already cached.
+        raw_data_list = []
+        failed = []
+        for igsn in checked_igsns:
+            data = self._fetch_sample_data(igsn)
+            if data:
+                raw_data_list.append(data)
             else:
-                fail_count += 1
-                failed_igsns.append(igsn)
-        
-        progress.accept()
-        
-        #show results
-        result_msg = f"Download Complete!\n\nSuccessfully downloaded: {success_count}\nFailed: {fail_count}"
-        if failed_igsns and len(failed_igsns) <= 10:
-            result_msg += f"\n\nFailed IGSNs:\n" + "\n".join(failed_igsns)
-        elif failed_igsns:
-            result_msg += f"\n\nFailed IGSNs (showing first 10 of {len(failed_igsns)}):\n" + "\n".join(failed_igsns[:10])
-        
-        QMessageBox.information(self, "Download Results", result_msg)
+                failed.append(igsn)
+
+        if failed:
+            QMessageBox.warning(
+                self, "Fetch Errors",
+                f"Could not retrieve data for {len(failed)} IGSN(s):\n\n"
+                + "\n".join(failed)
+                + "\n\nThe rest will still be previewed."
+            )
+
+        if not raw_data_list:
+            QMessageBox.critical(self, "No Data",
+                                 "No data could be fetched for the selected IGSNs.")
+            return
+
+        build_win = SesarImportWindow(
+            raw_data_list=raw_data_list,
+            parent=self.parent(),
+            on_cancelled=self._on_cancelled_callback,
+        )
 
     # ------------------------------------------------------------------
     # Network helpers
@@ -586,12 +594,6 @@ class ImportFromSesar(QDialog):
         self.fetch_button.clicked.connect(self._on_fetch_clicked)
         button_layout.addWidget(self.fetch_button)
 
-        # Disabled until a successful fetch
-        self.load_button = QPushButton("Load into GeoCORK")
-        self.load_button.setEnabled(False)
-        self.load_button.clicked.connect(self._on_load_clicked)
-        button_layout.addWidget(self.load_button)
-
         # Shows/hides the SampleHierarchyWidget pane below
         self.explore_button = QPushButton("Explore Hierarchy")
         self.explore_button.setCheckable(True)
@@ -613,7 +615,9 @@ class ImportFromSesar(QDialog):
         splitter.addWidget(fetch_widget)
 
         # ---- Bottom pane: hierarchy explorer (hidden by default) -----------
-        self.explorer_widget = SampleHierarchyWidget()
+        self.explorer_widget = SampleHierarchyWidget(
+            on_cancelled_callback=self._on_preview_cancelled
+        )
         self.explorer_widget.setVisible(False)
         splitter.addWidget(self.explorer_widget)
 
@@ -631,7 +635,6 @@ class ImportFromSesar(QDialog):
             return
 
         self._raw_data = None
-        self.load_button.setEnabled(False)
         self.fetch_button.setEnabled(False)
         self.results_text.clear()
         self.results_text.append(f"Fetching data for IGSN: {igsn}...")
@@ -679,33 +682,14 @@ class ImportFromSesar(QDialog):
         self.results_text.append("\n--- Raw JSON ---")
         self.results_text.append(json.dumps(data, indent=2))
 
-        self.load_button.setEnabled(True)
         self.results_text.append(
-            "\n\u2192 Click 'Load into GeoCORK' to transform and preview this sample."
+            "\n\u2192 Use 'Explore Hierarchy' to browse siblings and select IGSNs to import."
         )
 
     def _on_fetch_error(self, msg: str):
         self.fetch_button.setEnabled(True)
         self.results_text.append(f"\u2717 Error: {msg}")
         QMessageBox.critical(self, "Fetch Error", f"Failed to fetch data:\n\n{msg}")
-
-    def _on_load_clicked(self):
-        """Open SesarImportWindow with the pre-fetched raw dict."""
-        if self._raw_data is None:
-            return
-
-        # SesarImportWindow is never shown in API mode — it is a pure
-        # coordinator object. We hide ImportFromSesar first, then pass
-        # a callback so SesarImportWindow can re-show us on Back.
-        self.hide()
-
-        build_win = SesarImportWindow(
-            raw_data=self._raw_data,
-            parent=self.parent(),
-            on_cancelled=self._on_preview_cancelled,
-        )
-        # build_win is never shown — it runs the transform internally
-        # and calls PreviewWindow.exec() on the main thread via its worker.
 
     def _on_preview_cancelled(self):
         """Called by SesarImportWindow when the user pressed Back."""

@@ -10,8 +10,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from Functions.GPS_conversions import convert_utm_to_dd
 
 # update path for directory
-IN_PATH = Path(r"C:\Users\Kayla Gutierrez\OneDrive - Cal State Fullerton\Documents\CSUF\GeoChronology\Sesar JSON files\sesar_10.58052_URI0000KE.json")
-OUT_PATH = Path(r"C:\Users\Kayla Gutierrez\OneDrive - Cal State Fullerton\Documents\CSUF\GeoChronology\Transformer_Output\geocork_staging_with_bridges.json")
+IN_PATH = Path("sesar_file.json")
+OUT_PATH = Path("geocork_staging_with_bridges.json")
 
 
 # -------------------------
@@ -829,9 +829,15 @@ def build_raw_sesar_table(raw_data: dict) -> list[tuple[str, str]]: #for compari
     one tuple per field — intended to be rendered as one data row with field
     names as column headers.
     """
+    # Fields excluded from the preview table (display-only — the full raw
+    # dict is still kept in memory and used for the actual import).
+    _DISPLAY_SKIP: set = {"qrcode_img_src", "parents", "siblings", "sesar_code"}
+
     sample = raw_data.get("sample") or raw_data.get("data") or {}
     pairs: list[tuple[str, str]] = []
     for key, val in sample.items():
+        if key in _DISPLAY_SKIP:
+            continue
         if val is None or val == "" or val == [] or val == {}:
             display = "—"
         elif isinstance(val, (dict, list)):
@@ -841,6 +847,53 @@ def build_raw_sesar_table(raw_data: dict) -> list[tuple[str, str]]: #for compari
         pairs.append((key, display))
     return pairs
 
+
+
+
+def transform_multiple_sesar_samples(raw_data_list):
+    """
+    Transform a list of raw SESAR API dicts into a single combined
+    GeoCORK staging dict suitable for passing to import_staging_inplace.
+
+    Parameters
+    ----------
+    raw_data_list : list of dict
+        One raw SESAR API response per IGSN (order is preserved).
+
+    Returns
+    -------
+    dict
+        A merged staging dict whose lists contain the rows from ALL
+        samples. Structure is identical to the single-sample output
+        so the importer requires no changes.
+    """
+    combined = {
+        "GPSLocations":                [],
+        "Samples":                     [],
+        "Aliquots":                    [],
+        "Regions":                     [],
+        "Samples_Regions":             [],
+        "SamplingMethods":             [],
+        "Samples_SamplingMethods":     [],
+        "RockTypes":                   [],
+        "Samples_RockTypes":           [],
+        "SampleContexts":              [],
+        "Samples_SampleContexts":      [],
+        "References":                  [],
+        "_Samples_References_staging": [],
+        "SampleAges":                  [],
+        "Samples_SampleAges":          [],
+        "SampleAges_References":       [],
+        "Ages":                        [],
+        "Units":                       [],
+        "Samples_Units":               [],
+        "Columns":                     [],
+    }
+    for raw in raw_data_list:
+        staging = transform_sesar_to_geocork_staging_format(raw)
+        for key in combined:
+            combined[key].extend(staging.get(key, []))
+    return combined
 
 def main():
     data = json.loads(IN_PATH.read_text(encoding="utf-8"))
