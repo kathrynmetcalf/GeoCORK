@@ -43,6 +43,13 @@ from Sesar_Import.json_staging_transformer import (
 )
 from Sesar_Import.geocork_importer import import_staging_inplace
 
+# SESAR-specific logger. Imported alongside the pipeline modules since it's
+# part of the same feature scope. The session is set up by
+# ImportWizard.open_import_sesar before this file's classes are ever
+# constructed, so get_sesar_logger() always returns the active logger.
+import logging
+from Sesar_Import.sesar_logger import get_sesar_logger, SesarTimer, log_sesar_event
+
 # ---------------------------------------------------------------------------
 # PyQt6
 # ---------------------------------------------------------------------------
@@ -478,18 +485,42 @@ class TransformWorker(QThread):
         import time as _dbg_time
         _dbg_t0 = _dbg_time.perf_counter()
         print(f"[SESAR DEBUG] TransformWorker.run: started", flush=True)
+
+        # Determine mode for log context. Mutually exclusive in practice but
+        # we report it explicitly so the log tells the story clearly.
+        if self.raw_data_list is not None:
+            mode = "batch"
+            igsn_count = len(self.raw_data_list)
+        elif self.raw_data is not None:
+            mode = "single"
+            igsn_count = 1
+        elif self.json_path is not None:
+            mode = "file"
+            igsn_count = 1
+        else:
+            mode = "unknown"
+            igsn_count = 0
+
         try:
-            if self.raw_data_list is not None:
-                staging = transform_multiple_sesar_samples(self.raw_data_list)
-            elif self.raw_data is not None:
-                staging = transform_sesar_to_geocork_staging_format(self.raw_data)
-            elif self.json_path is not None:
-                raw = json.loads(Path(self.json_path).read_text(encoding="utf-8"))
-                staging = transform_sesar_to_geocork_staging_format(raw)
-            else:
-                raise ValueError(
-                    "TransformWorker: none of json_path, raw_data, or "
-                    "raw_data_list was provided.")
+            # SesarTimer logs "Starting: SESAR transform [mode=..., count=...]"
+            # on entry and "Finished in X.XXXs" / "FAILED ... in X.XXXs" on
+            # exit. On exception it also re-raises (after logging), so our
+            # outer `except` still catches it and emits the Qt error signal.
+            # Calling get_sesar_logger() here inside run() is thread-safe
+            # because Python's logging module is threadsafe and our logger
+            # uses a QueueHandler designed for cross-thread use.
+            with SesarTimer("SESAR transform", mode=mode, igsn_count=igsn_count):
+                if self.raw_data_list is not None:
+                    staging = transform_multiple_sesar_samples(self.raw_data_list)
+                elif self.raw_data is not None:
+                    staging = transform_sesar_to_geocork_staging_format(self.raw_data)
+                elif self.json_path is not None:
+                    raw = json.loads(Path(self.json_path).read_text(encoding="utf-8"))
+                    staging = transform_sesar_to_geocork_staging_format(raw)
+                else:
+                    raise ValueError(
+                        "TransformWorker: none of json_path, raw_data, or "
+                        "raw_data_list was provided.")
             _dbg_elapsed = _dbg_time.perf_counter() - _dbg_t0
             print(f"[SESAR DEBUG] TransformWorker.run: finished "
                   f"in {_dbg_elapsed*1000:.1f} ms", flush=True)
@@ -1090,6 +1121,19 @@ class SesarImportWindow(QDialog):
         parent:        Optional[QWidget] = None,
     ):
         super().__init__(parent)
+
+        # Determine launch mode up-front for both the logger and the debug
+        # print. Keeps them consistent so they can be cross-referenced later.
+        if raw_data_list is not None:
+            _mode = f"api-batch (count={len(raw_data_list)})"
+        elif raw_data is not None:
+            _mode = "api-single"
+        else:
+            _mode = "file-browse"
+        get_sesar_logger().info(
+            f"SesarImportWindow coordinator constructed [mode={_mode}]"
+        )
+
         # [SESAR DEBUG] Coordinator constructor reached. In API mode this
         # widget is intentionally never shown — it just coordinates the
         # transform + preview.
@@ -1174,6 +1218,8 @@ class SesarImportWindow(QDialog):
 
     # ------------------------------------------------------------------
     def _start_transform(self) -> None:
+        get_sesar_logger().info("Transform phase starting — showing LoadingDialog")
+
         # [SESAR DEBUG] Transform phase beginning. Next line creates the
         # LoadingDialog; we print immediately after so we can see whether
         # the dialog construction itself succeeded or raised.
@@ -1210,6 +1256,20 @@ class SesarImportWindow(QDialog):
         self._start_transform()
 
     def _on_transform_done(self, staging: dict) -> None:
+        # Summarize the staging dict for the log: "Samples=2, GPSLocations=2,
+        # Regions=1, ..." — a quick sanity check that the transform produced
+        # the expected row counts. Sorted by table name for stability.
+        if isinstance(staging, dict):
+            row_summary = ", ".join(
+                f"{table}={len(rows) if isinstance(rows, list) else '?'}"
+                for table, rows in sorted(staging.items())
+            )
+        else:
+            row_summary = f"<staging is not a dict: {type(staging).__name__}>"
+        get_sesar_logger().info(
+            f"Transform succeeded — building preview [staging: {row_summary}]"
+        )
+
         # [SESAR DEBUG] Transform finished signal received. If this line
         # appears in the console a few ms after the worker finished line,
         # the transform is blazingly fast and the dialog had no time to show.
@@ -1261,6 +1321,7 @@ class SesarImportWindow(QDialog):
         self._preview_win.exec()
 
     def _on_transform_error(self, msg: str) -> None:
+        get_sesar_logger().error(f"Transform FAILED: {msg}")
         if self._loading_dlg:
             self._loading_dlg.close()
             self._loading_dlg = None
@@ -1273,6 +1334,18 @@ class SesarImportWindow(QDialog):
 
     # ------------------------------------------------------------------
     def _on_import_requested(self, staging: dict) -> None:
+        # Sample count from the staging dict — tells us how many samples we're
+        # about to write. Handles the "staging structure is unexpected" case
+        # gracefully so logging can't itself break the import.
+        try:
+            sample_count = len(staging.get("Samples", []))
+        except Exception:
+            sample_count = -1
+        get_sesar_logger().info(
+            f"GeoCORK import starting "
+            f"[sample_count={sample_count}, db={Path(self._db_path).name}]"
+        )
+
         if self._loading_dlg:
             self._loading_dlg.close()
 
@@ -1281,12 +1354,23 @@ class SesarImportWindow(QDialog):
         )
 
         try:
-            import_staging_inplace(staging, self._db_path)
+            # SesarTimer wraps the synchronous DB write. On exception it
+            # logs "FAILED" + re-raises, which our outer except catches as
+            # before, so the error popup path is unchanged.
+            with SesarTimer(
+                "GeoCORK staging import",
+                sample_count=sample_count,
+                db=Path(self._db_path).name,
+            ):
+                import_staging_inplace(staging, self._db_path)
             self._on_import_done(self._db_path)
         except Exception as exc:
             self._on_import_error(str(exc))
 
     def _on_import_done(self, out_db: str) -> None:
+        get_sesar_logger().info(
+            f"GeoCORK import SUCCEEDED [db={Path(out_db).name}]"
+        )
         if self._loading_dlg:
             self._loading_dlg.close()
             self._loading_dlg = None
@@ -1304,6 +1388,9 @@ class SesarImportWindow(QDialog):
         self.accept()
 
     def _on_import_error(self, msg: str) -> None:
+        get_sesar_logger().error(
+            f"GeoCORK import FAILED — database was not modified: {msg}"
+        )
         if self._loading_dlg:
             self._loading_dlg.close()
             self._loading_dlg = None

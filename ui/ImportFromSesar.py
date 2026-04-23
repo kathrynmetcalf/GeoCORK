@@ -26,13 +26,16 @@
 
 import sys
 import json
+import logging
+import time
 import requests
 from pathlib import Path
 from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSignal
+from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QLineEdit, QTextEdit, QMessageBox,
                              QWidget, QSplitter, QTreeWidget, QTreeWidgetItem,
-                             QMenu, QApplication, QProgressBar)
+                             QMenu, QApplication)
 from PyQt6.QtGui import QAction
 
 import pandas as pd
@@ -46,6 +49,11 @@ if str(_GEOCORK_ROOT) not in sys.path:
     sys.path.insert(0, str(_GEOCORK_ROOT))
 
 from ui.ImportFromSesarBuildWindow import SesarImportWindow
+
+# SESAR-specific logger. get_sesar_logger() returns the currently-active
+# session logger (set up by ImportWizard.open_import_sesar); SesarTimer is a
+# context manager that logs start/end/duration of a named operation.
+from Sesar_Import.sesar_logger import get_sesar_logger, SesarTimer, log_sesar_event
 
 
 # ===========================================================================
@@ -211,202 +219,6 @@ class SearchingDialog(QDialog):
         self._label.setText(text)
 
 
-# ===========================================================================
-# BatchSesarFetchWorker
-# Runs an N-IGSN SESAR API fetch loop off the main thread so the UI can show
-# a progress popup instead of freezing. Used by SampleHierarchyWidget's
-# "Import Selected into GeoCORK" flow, which may fetch anywhere from 1 to
-# dozens of IGSNs before handing the full raw-dict list to SesarImportWindow.
-#
-# Design notes:
-#   - Accepts a shared cache dict (sibling_data) from SampleHierarchyWidget.
-#     Already-cached IGSNs are skipped (no network call) but still emit a
-#     progress tick so the UI counter advances smoothly.
-#   - Emits `progress(current_index, total, igsn)` BEFORE each fetch so the
-#     dialog can update "Current: <igsn>" before the request starts.
-#   - Emits a single `finished(raw_list, failed_list)` at the end. Any
-#     per-IGSN fetch failure is collected into failed_list rather than
-#     aborting the whole batch — matches the behavior of the old synchronous
-#     loop in _import_selected_to_geocork.
-#   - Respects `_cancelled` between iterations. If the user clicks X on the
-#     progress dialog mid-batch, the worker stops at the next iteration and
-#     emits nothing (the UI-side cancellation handler tears everything down
-#     without touching raw_data_list).
-# ===========================================================================
-
-class BatchSesarFetchWorker(QThread):
-    """Background HTTP fetcher for a list of IGSNs."""
-
-    # (current_index_1based, total_count, igsn_being_fetched)
-    progress = pyqtSignal(int, int, str)
-    # (list_of_raw_dicts_successfully_fetched, list_of_failed_igsns)
-    finished = pyqtSignal(list, list)
-
-    _URL = "https://app.geosamples.org/webservices/display.php"
-    # Per-request timeout. Shorter than SiblingsFetchWorker's 600s because
-    # we have N requests to get through and one hung request shouldn't
-    # stall the entire batch for 10 minutes.
-    _PER_REQUEST_TIMEOUT = 30
-
-    def __init__(self, igsns: list, cache: dict, parent=None):
-        """
-        Parameters
-        ----------
-        igsns : list[str]
-            The IGSNs to fetch, in display order.
-        cache : dict
-            Shared in-memory cache mapping igsn -> raw_data_dict. Read from
-            for hits, written to for misses. This is the same dict owned by
-            SampleHierarchyWidget.sibling_data, so cache entries added here
-            remain available to subsequent explorer interactions.
-        """
-        super().__init__(parent)
-        self._igsns     = list(igsns)
-        self._cache     = cache
-        self._cancelled = False
-
-    def cancel(self) -> None:
-        """Mark this worker as cancelled; the loop exits at the next iteration."""
-        self._cancelled = True
-
-    def run(self):
-        total       = len(self._igsns)
-        raw_list    = []
-        failed_list = []
-
-        for idx, igsn in enumerate(self._igsns, start=1):
-            # Bail out at each iteration boundary if the UI cancelled.
-            # We can't preempt a requests.get() mid-flight, but we can
-            # avoid starting new ones.
-            if self._cancelled:
-                return
-
-            # Emit progress BEFORE the fetch so the dialog can display
-            # "Current: <igsn>" for the IGSN we're about to download.
-            self.progress.emit(idx, total, igsn)
-
-            # Cache hit — no network call needed.
-            if igsn in self._cache:
-                raw_list.append(self._cache[igsn])
-                continue
-
-            # Cache miss — fetch from SESAR.
-            try:
-                response = requests.get(
-                    self._URL,
-                    params={"igsn": igsn},
-                    headers={"Accept": "application/json"},
-                    timeout=self._PER_REQUEST_TIMEOUT,
-                )
-                response.raise_for_status()
-                data = response.json()
-                self._cache[igsn] = data
-                raw_list.append(data)
-            except Exception:
-                # Any failure — connection, HTTP error, timeout, bad JSON —
-                # gets collected into failed_list so the UI can report the
-                # full set of failures at the end instead of aborting the
-                # first time something goes wrong.
-                failed_list.append(igsn)
-
-        # Final cancellation check — if the user clicked X right as the
-        # last request returned, suppress the finished signal so we don't
-        # trigger the preview window after the dialog is already gone.
-        if self._cancelled:
-            return
-
-        self.finished.emit(raw_list, failed_list)
-
-
-# ===========================================================================
-# BatchDownloadDialog
-# Modal progress popup shown while BatchSesarFetchWorker is downloading the
-# selected IGSNs. Visually matches the screenshot spec: a header counter
-# ("Downloading X of Y IGSNs…"), a current-IGSN label ("Current: …"),
-# and a determinate progress bar.
-#
-# Like SearchingDialog, it emits a single `cancelled` signal when the user
-# dismisses it (via X or Esc), so the owner can tear down the worker without
-# this class needing to know about the worker directly.
-# ===========================================================================
-
-class BatchDownloadDialog(QDialog):
-    """Modal 'Downloading N IGSNs…' popup with progress tracking."""
-
-    cancelled = pyqtSignal()
-
-    def __init__(self, total: int, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Downloading")
-        self.setModal(True)
-        self.setMinimumWidth(340)
-
-        # Same window-flag stack as SearchingDialog for visual consistency:
-        # visible title bar + X button, stays on top of the parent dialog.
-        self.setWindowFlags(
-            Qt.WindowType.Dialog |
-            Qt.WindowType.WindowTitleHint |
-            Qt.WindowType.WindowCloseButtonHint |
-            Qt.WindowType.WindowStaysOnTopHint
-        )
-
-        self._total = total
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 18, 20, 18)
-        layout.setSpacing(10)
-
-        # Header: "Downloading X of Y IGSNs…"
-        # Initialized at 1/total because progress.emit fires BEFORE each
-        # fetch, so the very first tick will arrive as (1, total, igsn).
-        self._header_label = QLabel(f"Downloading 1 of {total} IGSNs…")
-        self._header_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._header_label.setWordWrap(True)
-        layout.addWidget(self._header_label)
-
-        # Subheader: "Current: <igsn>"
-        # Starts blank; filled in by the first update_progress call.
-        self._current_label = QLabel("")
-        self._current_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._current_label.setWordWrap(True)
-        layout.addWidget(self._current_label)
-
-        # Determinate progress bar. Range is 0..total, so the bar fills
-        # one notch per IGSN finished. We drive `setValue` from the
-        # progress signal's current_index (1-based), which means the bar
-        # sits one step ahead of visually-completed work — but since the
-        # update arrives BEFORE the fetch, this actually matches the user's
-        # intuition of "we're now working on item N".
-        self._progress_bar = QProgressBar()
-        self._progress_bar.setRange(0, total)
-        self._progress_bar.setValue(0)
-        layout.addWidget(self._progress_bar)
-
-        # Funnel Esc (-> reject -> rejected signal) through our cancelled
-        # signal so Esc and the X button both reach the same teardown path.
-        self.rejected.connect(self.cancelled.emit)
-
-    # --- Close (X button) ---------------------------------------------------
-
-    def closeEvent(self, event):
-        """User clicked the window X — emit cancelled before closing."""
-        self.cancelled.emit()
-        super().closeEvent(event)
-
-    # --- Progress slot ------------------------------------------------------
-
-    def update_progress(self, current: int, total: int, igsn: str) -> None:
-        """
-        Slot for BatchSesarFetchWorker.progress.
-
-        Updates the header counter, the current-IGSN label, and the
-        progress bar. `current` is 1-based (1..total).
-        """
-        self._header_label.setText(f"Downloading {current} of {total} IGSNs…")
-        self._current_label.setText(f"Current: {igsn}")
-        self._progress_bar.setValue(current)
-
-
 class SampleHierarchyWidget(QWidget):
     """Widget for exploring IGSN parent/sibling/child relationships."""
 
@@ -419,17 +231,6 @@ class SampleHierarchyWidget(QWidget):
         # Forwarded from ImportFromSesar so that Back in PreviewWindow
         # re-shows the ImportFromSesar dialog correctly.
         self._on_cancelled_callback = on_cancelled_callback
-
-        # ------------------------------------------------------------------
-        # Batch-download state for "Import Selected into GeoCORK".
-        #
-        # Only one batch can be in flight at a time — the progress dialog
-        # is modal, so the user can't click the Import button again until
-        # the current batch finishes or is cancelled. So we only need one
-        # slot each for the worker and the dialog.
-        # ------------------------------------------------------------------
-        self._batch_worker: BatchSesarFetchWorker | None = None
-        self._batch_dialog: BatchDownloadDialog | None   = None
         self._setup_ui()
 
     def _setup_ui(self):
@@ -557,95 +358,252 @@ class SampleHierarchyWidget(QWidget):
         self.download_selected_button.setEnabled(False)
         self.selected_count_label.setText("Selected: 0")
         self.selected_count_label.setStyleSheet("")
-    
+
+    # ------------------------------------------------------------------
+    # Duplicate-IGSN check against the currently-open GeoCORK database.
+    # ------------------------------------------------------------------
+    def _find_existing_igsns_in_db(self, igsns):
+        """
+        Query the currently-open GeoCORK database for any IGSNs in `igsns`
+        that are already present in the Samples table.
+
+        We use QSqlDatabase.database() (the default connection) rather than
+        requiring the caller to pass one — this is the same pattern
+        Database_manager.py uses throughout. It returns the connection that
+        GeoCORKMain opened for the current DB, which is what we want: the
+        user is about to import into that same DB.
+
+        Args:
+            igsns: list of IGSN strings to check.
+
+        Returns:
+            (existing_set, error_message)
+              existing_set    — set of IGSN strings that were found.
+                                Empty set on clean "no duplicates" result.
+              error_message   — None on success, or a short human-readable
+                                error string if the query couldn't run
+                                (DB not open, query failed, etc.). Caller
+                                should fail hard on any non-None error —
+                                if we can't verify, we shouldn't import.
+        """
+        if not igsns:
+            return set(), None
+
+        db = QSqlDatabase.database()
+        if not db.isValid() or not db.isOpen():
+            return set(), "The GeoCORK database is not currently open."
+
+        # Build a parameterized IN-clause. Using placeholders instead of
+        # string interpolation is important both for SQL safety and because
+        # IGSNs can contain characters like '/' that don't need escaping
+        # but look messy in logs. Qt's QSqlQuery with positional '?'
+        # placeholders handles this cleanly.
+        placeholders = ",".join(["?"] * len(igsns))
+        sql = f"SELECT SampleIGSN FROM Samples WHERE SampleIGSN IN ({placeholders})"
+
+        query = QSqlQuery(db)
+        if not query.prepare(sql):
+            return set(), f"Could not prepare duplicate-check query: {query.lastError().text()}"
+
+        for igsn in igsns:
+            query.addBindValue(igsn)
+
+        if not query.exec():
+            return set(), f"Duplicate-check query failed: {query.lastError().text()}"
+
+        # Collect results. The SELECT returns one row per matching IGSN;
+        # put them in a set so membership testing is O(1) for the caller.
+        existing = set()
+        while query.next():
+            value = query.value(0)
+            if value is not None:
+                existing.add(str(value))
+
+        return existing, None
+
     def _import_selected_to_geocork(self):
         """
-        Fetch all checked IGSNs and pass the complete list of raw dicts to
-        SesarImportWindow so they go through the normal transform → preview
-        → import pipeline. Each IGSN becomes one independent sample in
-        GeoCORK.
-
-        The fetch itself runs on a background thread (BatchSesarFetchWorker)
-        while a modal BatchDownloadDialog shows progress. This replaces the
-        old synchronous loop that froze the UI while downloading.
+        Fetch all checked IGSNs (using the in-memory cache where possible),
+        then pass the complete list of raw dicts to SesarImportWindow so
+        they go through the normal transform → preview → import pipeline.
+        Each IGSN becomes one independent sample in GeoCORK.
         """
         checked_igsns = self._get_checked_igsns()
         if not checked_igsns:
+            get_sesar_logger().info(
+                "Batch import clicked but no IGSNs are checked — aborting."
+            )
             QMessageBox.warning(self, "No Selection",
                                 "No IGSNs are checked for import.")
             return
 
-        count = len(checked_igsns)
-        if count <= 10:
-            detail = "The following IGSNs will be imported:\n\n" + "\n".join(checked_igsns)
-        else:
-            detail = (
-                f"The following IGSNs will be imported "
-                f"(showing first 10 of {count}):\n\n"
-                + "\n".join(checked_igsns[:10])
-                + f"\n\n…and {count - 10} more"
+        total_checked = len(checked_igsns)
+
+        # Log the full list of IGSNs the user checked — before any filtering,
+        # because "what did the user ask for" is a different question from
+        # "what ended up getting imported."
+        get_sesar_logger().info(
+            f"Batch import requested [count={total_checked}]\n"
+            + "\n".join(f"  - {igsn}" for igsn in checked_igsns)
+        )
+
+        # ----------------------------------------------------------------
+        # Decision 1: Run the duplicate-IGSN check against the GeoCORK DB
+        # BEFORE the confirm dialog, so the confirm dialog can show which
+        # ones will be skipped.
+        # ----------------------------------------------------------------
+        existing_set, query_error = self._find_existing_igsns_in_db(checked_igsns)
+
+        # Decision 3 (Q3 fail-hard): if the query couldn't run, refuse to
+        # proceed. We can't verify uniqueness, and blind-importing could
+        # create inconsistent rows. Better a clear error now than a subtle
+        # data issue later.
+        if query_error is not None:
+            get_sesar_logger().error(
+                f"Duplicate-IGSN pre-check failed — aborting import. "
+                f"Reason: {query_error}"
             )
+            QMessageBox.critical(
+                self, "Database Error",
+                f"Could not check for duplicate IGSNs:\n\n{query_error}\n\n"
+                f"Import has been cancelled."
+            )
+            return
+
+        # Partition the user's selection into two ordered lists. Ordered so
+        # the confirm dialog shows them in the same order the user saw them
+        # in the hierarchy tree, not in set-iteration order.
+        to_import = [i for i in checked_igsns if i not in existing_set]
+        to_skip   = [i for i in checked_igsns if i in existing_set]
+
+        # Log the partition result — companion to the "requested" line above.
+        get_sesar_logger().info(
+            f"Duplicate check complete "
+            f"[requested={total_checked}, to_import={len(to_import)}, "
+            f"already_in_db={len(to_skip)}]"
+        )
+        if to_skip:
+            get_sesar_logger().info(
+                "Skipping (already in database):\n"
+                + "\n".join(f"  - {igsn}" for igsn in to_skip)
+            )
+
+        # ----------------------------------------------------------------
+        # Decision 4: ALL selected IGSNs are duplicates → info dialog only,
+        # no confirm step, no import.
+        # ----------------------------------------------------------------
+        if not to_import:
+            info = QMessageBox(self)
+            info.setWindowTitle("Nothing to Import")
+            info.setIcon(QMessageBox.Icon.Information)
+            info.setText(
+                f"All {total_checked} selected IGSN(s) are already in the database."
+            )
+            info.setInformativeText(
+                "Already present:\n\n" + "\n".join(f"    {i}" for i in to_skip)
+            )
+            info.setStandardButtons(QMessageBox.StandardButton.Ok)
+            info.exec()
+            get_sesar_logger().info(
+                "All selected IGSNs were duplicates — nothing imported."
+            )
+            return
+
+        # ----------------------------------------------------------------
+        # Decision 5: Confirm dialog shows both the to-import list and the
+        # skipped list (if any). Button text is still Yes/No.
+        # ----------------------------------------------------------------
+        to_import_count = len(to_import)
+
+        # Build the informative-text body. Truncate long lists at 10 entries
+        # each to keep the dialog readable.
+        def _format_list(items, max_shown=10):
+            if len(items) <= max_shown:
+                return "\n".join(f"    {i}" for i in items)
+            shown = "\n".join(f"    {i}" for i in items[:max_shown])
+            return shown + f"\n    …and {len(items) - max_shown} more"
+
+        detail_parts = [
+            "The following IGSNs will be imported:",
+            _format_list(to_import),
+        ]
+        if to_skip:
+            detail_parts.append("")  # blank line separator
+            detail_parts.append("Skipped (already in database):")
+            detail_parts.append(_format_list(to_skip))
+        detail = "\n".join(detail_parts)
 
         confirm = QMessageBox(self)
         confirm.setWindowTitle("Confirm Batch Import")
         confirm.setIcon(QMessageBox.Icon.Question)
-        confirm.setText(f"Import {count} IGSN(s) into GeoCORK?")
+        confirm.setText(f"Import {to_import_count} IGSN(s) into GeoCORK?")
         confirm.setInformativeText(detail)
         confirm.setStandardButtons(
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         confirm.setDefaultButton(QMessageBox.StandardButton.No)
         if confirm.exec() != QMessageBox.StandardButton.Yes:
+            get_sesar_logger().info(
+                "User cancelled at the batch-import confirmation dialog"
+            )
             return
 
-        # ------------------------------------------------------------------
-        # Kick off the async download flow.
+        # Fetch any IGSNs not already cached. Per-IGSN outcomes are logged
+        # at DEBUG level (one line each) so they don't flood the file for
+        # large batches — the INFO summary at the end of the loop gives the
+        # high-level view. SesarTimer wraps the whole loop so we get a
+        # single "batch pre-fetch took Xms" record.
         #
-        # Dialog + worker are both stored on self so the cancellation handler
-        # (_on_batch_cancelled) can tear them down cleanly if the user
-        # clicks X on the dialog partway through.
-        #
-        # The worker shares self.sibling_data as its cache — cache hits avoid
-        # a network call but still emit a progress tick, and cache misses
-        # populate the dict so subsequent explorer interactions see the data.
-        # ------------------------------------------------------------------
-        self._batch_dialog = BatchDownloadDialog(total=count, parent=self)
-        self._batch_worker = BatchSesarFetchWorker(
-            igsns=checked_igsns,
-            cache=self.sibling_data,
-            parent=self,
+        # Note: we iterate to_import (post duplicate filter), not
+        # checked_igsns. The duplicates were already skipped above.
+        raw_data_list = []
+        failed = []
+        cached_count = 0
+        fetched_count = 0
+
+        with SesarTimer("Batch pre-fetch for import", igsn_count=to_import_count):
+            for igsn in to_import:
+                # Track cache-hit vs network-fetch by checking the cache
+                # BEFORE calling _fetch_sample_data (which hides the distinction
+                # behind its own logic). This gives us a useful "how many of
+                # these had to hit the network" number for performance debugging.
+                was_cached = igsn in self.sibling_data
+                data = self._fetch_sample_data(igsn)
+                if data:
+                    raw_data_list.append(data)
+                    if was_cached:
+                        cached_count += 1
+                        log_sesar_event(
+                            "Batch pre-fetch: cache hit",
+                            level=logging.DEBUG, igsn=igsn,
+                        )
+                    else:
+                        fetched_count += 1
+                        log_sesar_event(
+                            "Batch pre-fetch: network fetch OK",
+                            level=logging.DEBUG, igsn=igsn,
+                        )
+                else:
+                    failed.append(igsn)
+                    log_sesar_event(
+                        "Batch pre-fetch: FAILED",
+                        level=logging.DEBUG, igsn=igsn,
+                    )
+
+        # INFO-level summary — the single line most users will care about
+        # when skimming the log.
+        get_sesar_logger().info(
+            f"Batch pre-fetch summary "
+            f"[total={to_import_count}, cached={cached_count}, "
+            f"fetched={fetched_count}, failed={len(failed)}]"
         )
-
-        # Worker emits progress -> dialog updates counter/label/bar.
-        self._batch_worker.progress.connect(self._batch_dialog.update_progress)
-        # Worker emits finished -> we open the preview window (or show errors).
-        self._batch_worker.finished.connect(self._on_batch_finished)
-        # Dialog emits cancelled (X or Esc) -> we cancel the worker.
-        self._batch_dialog.cancelled.connect(self._on_batch_cancelled)
-
-        # Start the thread BEFORE exec'ing the dialog. exec() blocks this
-        # method until the dialog is closed — either by us calling accept()
-        # in _on_batch_finished, or by the user cancelling.
-        self._batch_worker.start()
-        self._batch_dialog.exec()
-
-    def _on_batch_finished(self, raw_data_list, failed):
-        """
-        Slot for BatchSesarFetchWorker.finished.
-
-        Called on the main thread once every IGSN has been attempted.
-        Closes the progress dialog, reports any failures, and hands the
-        successful raw dicts off to SesarImportWindow — the same handoff
-        the old synchronous method did, just moved here.
-        """
-        # Close the progress dialog. accept() exits the exec() blocking
-        # call in _import_selected_to_geocork, but we guard against None
-        # in case cancellation beat us to the punch.
-        if self._batch_dialog is not None:
-            self._batch_dialog.accept()
-            self._batch_dialog = None
-        # Worker has already finished its run loop; drop the reference.
-        self._batch_worker = None
+        # If there were failures, log them explicitly by IGSN so the log
+        # doesn't require cross-referencing the DEBUG lines.
+        if failed:
+            get_sesar_logger().warning(
+                f"Failed IGSNs ({len(failed)}):\n"
+                + "\n".join(f"  - {igsn}" for igsn in failed)
+            )
 
         if failed:
             QMessageBox.warning(
@@ -656,9 +614,17 @@ class SampleHierarchyWidget(QWidget):
             )
 
         if not raw_data_list:
+            get_sesar_logger().error(
+                "Batch import aborted — no IGSN fetches succeeded"
+            )
             QMessageBox.critical(self, "No Data",
                                  "No data could be fetched for the selected IGSNs.")
             return
+
+        get_sesar_logger().info(
+            f"Handing {len(raw_data_list)} sample(s) to SesarImportWindow "
+            f"for transform+preview+import"
+        )
 
         # [SESAR DEBUG] Entry point into the batch-import handoff.
         # Shows (a) how many samples we have, (b) what parent we're about to
@@ -675,29 +641,6 @@ class SampleHierarchyWidget(QWidget):
             parent=self.parent(),
             on_cancelled=self._on_cancelled_callback,
         )
-
-    def _on_batch_cancelled(self):
-        """
-        Slot for BatchDownloadDialog.cancelled.
-
-        User clicked X or pressed Esc on the progress dialog. Cancel the
-        worker (it will stop at its next iteration boundary), drop our
-        references, and do NOT open the preview window — the user is
-        backing out of the whole batch.
-
-        The worker may finish one more in-flight requests.get() before
-        seeing the _cancelled flag, but its finished signal is suppressed
-        inside run() so _on_batch_finished won't fire.
-        """
-        if self._batch_worker is not None:
-            self._batch_worker.cancel()
-            # We don't wait() here because the worker may be mid-request;
-            # letting it finish naturally on its own thread is fine since
-            # it won't emit any signals after cancel().
-            self._batch_worker = None
-        # Dialog is closing itself (closeEvent is what triggered us);
-        # just drop the reference so future imports get a fresh one.
-        self._batch_dialog = None
 
     # ------------------------------------------------------------------
     # Network helpers
@@ -940,6 +883,13 @@ class ImportFromSesar(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+
+        # First log entry of the SESAR import session. The logger itself is
+        # already set up by ImportWizard.open_import_sesar (which ran just
+        # before this constructor was called), so get_sesar_logger() returns
+        # the live session logger here.
+        get_sesar_logger().info("ImportFromSesar dialog opened")
+
         self.setWindowTitle("Import from SESAR (IGSN)")
         # Dialog opens compact — just room for the title, IGSN input, and
         # buttons. It expands to ~850px tall when the user toggles Explore
@@ -1034,6 +984,12 @@ class ImportFromSesar(QDialog):
         it's already open we reload it with the current IGSN value so the
         user can type a new IGSN and press Enter to re-explore.
         """
+        log_sesar_event(
+            "User pressed Enter on IGSN input",
+            level=logging.DEBUG,
+            igsn=self.igsn_input.text().strip() or "<empty>",
+            explore_already_open=self.explore_button.isChecked(),
+        )
         if not self.explore_button.isChecked():
             # Not yet open — click the button. This fires clicked(True) which
             # routes through _on_explore_toggled and handles the "missing IGSN"
@@ -1112,6 +1068,17 @@ class ImportFromSesar(QDialog):
         # data dict on success, but not the IGSN, so we need our own copy.
         self._pending_explore_igsn = igsn
 
+        # Stash a start timestamp so the matching done/error handler can
+        # compute elapsed time. perf_counter is monotonic and the right
+        # clock for short real-world durations. Stored on self rather than
+        # closed over because the fetch is asynchronous — the handler runs
+        # on a different stack frame in response to a Qt signal.
+        self._explore_fetch_started_at = time.perf_counter()
+
+        get_sesar_logger().info(
+            f"Explore-Hierarchy fetch starting [igsn={igsn}]"
+        )
+
         # Disable the Explore button during the search so the user can't
         # double-click into two overlapping fetches.
         self.explore_button.setEnabled(False)
@@ -1146,6 +1113,16 @@ class ImportFromSesar(QDialog):
     def _on_explore_fetch_done(self, data: dict) -> None:
         """Worker success path: cache the data and show the hierarchy."""
         igsn = self._pending_explore_igsn
+        # Compute elapsed from the timestamp stashed by _start_explore_fetch.
+        # Using getattr with a default handles the (unlikely) case where a
+        # late signal arrives after teardown has cleared the attribute.
+        elapsed_ms = (time.perf_counter()
+                      - getattr(self, "_explore_fetch_started_at", 0)) * 1000
+        get_sesar_logger().info(
+            f"Explore-Hierarchy fetch succeeded "
+            f"[igsn={igsn}, elapsed_ms={elapsed_ms:.1f}]"
+        )
+
         self._teardown_explore_fetch()
 
         if igsn is None:
@@ -1161,6 +1138,13 @@ class ImportFromSesar(QDialog):
 
     def _on_explore_fetch_error(self, msg: str) -> None:
         """Worker error path: tear down and show the error to the user."""
+        igsn = self._pending_explore_igsn
+        elapsed_ms = (time.perf_counter()
+                      - getattr(self, "_explore_fetch_started_at", 0)) * 1000
+        get_sesar_logger().error(
+            f"Explore-Hierarchy fetch FAILED "
+            f"[igsn={igsn}, elapsed_ms={elapsed_ms:.1f}] — {msg}"
+        )
         self._teardown_explore_fetch()
         QMessageBox.critical(
             self, "Search Error",
@@ -1181,6 +1165,14 @@ class ImportFromSesar(QDialog):
         # tearing down (e.g. the error path just closed the dialog).
         if self._explore_dialog is None:
             return
+
+        igsn = self._pending_explore_igsn
+        elapsed_ms = (time.perf_counter()
+                      - getattr(self, "_explore_fetch_started_at", 0)) * 1000
+        get_sesar_logger().info(
+            f"Explore-Hierarchy fetch CANCELLED by user "
+            f"[igsn={igsn}, elapsed_ms={elapsed_ms:.1f}]"
+        )
         self._teardown_explore_fetch()
 
     def _on_explore_nag_fired(self) -> None:
@@ -1198,6 +1190,11 @@ class ImportFromSesar(QDialog):
         if self._explore_dialog is None:
             # Teardown already happened — nothing to nag about. Defensive.
             return
+
+        igsn = self._pending_explore_igsn
+        get_sesar_logger().info(
+            f"30-second nag prompt shown [igsn={igsn}]"
+        )
 
         prompt = QMessageBox(self)
         prompt.setWindowTitle("Taking longer than expected")
@@ -1222,11 +1219,17 @@ class ImportFromSesar(QDialog):
             return
 
         if prompt.clickedButton() is cancel_btn:
+            get_sesar_logger().info(
+                f"User cancelled fetch via nag prompt [igsn={igsn}]"
+            )
             self._teardown_explore_fetch()
         else:
             # Keep Waiting — reset the nag timer for another full interval.
             # The worker's own hard timeout (see SiblingsFetchWorker._HARD_
             # TIMEOUT_SECONDS) still applies as the ultimate backstop.
+            get_sesar_logger().info(
+                f"User chose Keep Waiting — resetting 30s nag timer [igsn={igsn}]"
+            )
             if self._explore_nag_timer is not None:
                 self._explore_nag_timer.start()
 

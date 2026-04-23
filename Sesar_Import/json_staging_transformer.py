@@ -9,6 +9,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from Functions.GPS_conversions import convert_utm_to_dd
 
+# SESAR-specific logger for tracing transform-phase activity. `logging` is
+# imported purely so we can reference logging.DEBUG as the level argument
+# below — the file doesn't do any other logging setup itself; the SESAR
+# session logger is already running by the time these transform functions
+# get called (it's set up by ImportWizard.open_import_sesar).
+import logging
+from Sesar_Import.sesar_logger import get_sesar_logger
+
 # update path for directory
 IN_PATH = Path(r"C:\Users\Kayla Gutierrez\OneDrive - Cal State Fullerton\Documents\CSUF\GeoChronology\Sesar JSON files\sesar_10.58052_URI0000KE.json")
 OUT_PATH = Path(r"C:\Users\Kayla Gutierrez\OneDrive - Cal State Fullerton\Documents\CSUF\GeoChronology\Transformer_Output\geocork_staging_with_bridges.json")
@@ -216,6 +224,15 @@ def split_sampling_method_hierarchy(method_str: str) -> List[str]:
 # =========================================================
 def transform_sesar_to_geocork_staging_format(data: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
     s = data.get("sample", {})
+    # NEW: DEBUG log documenting which IGSN is being transformed. Using the
+    # already-defined `s` rather than re-derive a separate copy. igsn/name
+    # fallback mirrors the sample_nk logic below — worst case we log
+    # "<unknown>" rather than crash.
+    get_sesar_logger().log(
+        logging.DEBUG,
+        f"transform_sesar_to_geocork_staging_format called "
+        f"[igsn={s.get('igsn') or s.get('name') or '<unknown>'}]"
+    )
     sample_type = (s.get("sample_type") or "").lower()
     is_core = "core" in sample_type
     sample_nk = s.get("igsn") or s.get("name")
@@ -867,6 +884,12 @@ def transform_multiple_sesar_samples(raw_data_list):
         samples. Structure is identical to the single-sample output
         so the importer requires no changes.
     """
+    get_sesar_logger().log(
+        logging.DEBUG,
+        f"transform_multiple_sesar_samples called "
+        f"[count={len(raw_data_list) if raw_data_list else 0}]"
+    )
+    
     combined = {
         "GPSLocations":                [],
         "Samples":                     [],
