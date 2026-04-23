@@ -33,6 +33,9 @@ from ui.EditView import EditView
 # ImportFromSesar Logic
 # importing from ImportFromSesar.py
 from .ImportFromSesar import ImportFromSesar
+# The SESAR logger is set up and torn down around every opening of
+# ImportFromSesar — one log file per session. See open_import_sesar().
+from Sesar_Import.sesar_logger import setup_sesar_logger, stop_sesar_logger
 ##############################################
 
 settings = SettingsManager().settings
@@ -1979,7 +1982,28 @@ class ImportWizardDialog(QWidget):
     def open_import_sesar(self):
         """Open the Import from Sesar window"""
         logger_setup.get_logger().info("Opening Import from Sesar window")
+
+        # Start a fresh SESAR log session. One timestamped log file is created
+        # per opening of this window; it gets flushed and closed when the user
+        # exits the window (see the `finished` signal connection below).
+        #
+        # Done here rather than inside ImportFromSesar.__init__ so the dialog
+        # class itself stays unaware of the logger — ImportWizard owns the
+        # session lifecycle and the log file boundaries match what the user
+        # would naturally call a "session" (one open → close of the window).
+        setup_sesar_logger()
+
         sesar_dialog = ImportFromSesar(self)
+
+        # QDialog.finished fires after accept(), reject(), or any other path
+        # that ends exec(). That means stop_sesar_logger runs whether the
+        # user clicks Close, clicks the window X, or presses Esc — covering
+        # every way the user can "exit out of the import sesar window."
+        # Connecting to finished (rather than wrapping exec() in try/finally)
+        # also keeps the cleanup in place if someone later changes this to
+        # show() for a non-modal variant.
+        sesar_dialog.finished.connect(lambda _result: stop_sesar_logger())
+
         sesar_dialog.exec()
     ##########################################
     def resize_tables(self):

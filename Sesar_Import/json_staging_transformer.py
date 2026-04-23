@@ -10,8 +10,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from Functions.GPS_conversions import convert_utm_to_dd
 
 # update path for directory
-IN_PATH = Path("sesar_file.json")
-OUT_PATH = Path("geocork_staging_with_bridges.json")
+IN_PATH = Path(r"C:\Users\Kayla Gutierrez\OneDrive - Cal State Fullerton\Documents\CSUF\GeoChronology\Sesar JSON files\sesar_10.58052_URI0000KE.json")
+OUT_PATH = Path(r"C:\Users\Kayla Gutierrez\OneDrive - Cal State Fullerton\Documents\CSUF\GeoChronology\Transformer_Output\geocork_staging_with_bridges.json")
 
 
 # -------------------------

@@ -46,7 +46,7 @@ from Sesar_Import.geocork_importer import import_staging_inplace
 # ---------------------------------------------------------------------------
 # PyQt6
 # ---------------------------------------------------------------------------
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QElapsedTimer, QEventLoop, QTimer
 from PyQt6.QtGui import QFont, QColor, QBrush
 from PyQt6.QtWidgets import (
     QApplication, QVBoxLayout, QHBoxLayout,
@@ -472,6 +472,12 @@ class TransformWorker(QThread):
         self.raw_data_list = raw_data_list
 
     def run(self):
+        # [SESAR DEBUG] Time the transform. If this block completes in e.g.
+        # 30ms, the loading dialog never has a chance to paint no matter
+        # what we do about parenting — we'd need a different approach.
+        import time as _dbg_time
+        _dbg_t0 = _dbg_time.perf_counter()
+        print(f"[SESAR DEBUG] TransformWorker.run: started", flush=True)
         try:
             if self.raw_data_list is not None:
                 staging = transform_multiple_sesar_samples(self.raw_data_list)
@@ -484,8 +490,14 @@ class TransformWorker(QThread):
                 raise ValueError(
                     "TransformWorker: none of json_path, raw_data, or "
                     "raw_data_list was provided.")
+            _dbg_elapsed = _dbg_time.perf_counter() - _dbg_t0
+            print(f"[SESAR DEBUG] TransformWorker.run: finished "
+                  f"in {_dbg_elapsed*1000:.1f} ms", flush=True)
             self.finished.emit(staging)
         except Exception as exc:
+            _dbg_elapsed = _dbg_time.perf_counter() - _dbg_t0
+            print(f"[SESAR DEBUG] TransformWorker.run: errored "
+                  f"after {_dbg_elapsed*1000:.1f} ms — {exc}", flush=True)
             self.error.emit(str(exc))
 
 
@@ -499,13 +511,83 @@ class TransformWorker(QThread):
 class LoadingDialog(QDialog):
     """Simple modal loading indicator shown during background operations."""
 
-    def __init__(self, title: str, message: str, parent: Optional[QWidget] = None):
-        super().__init__(parent)
+    def __init__(
+        self,
+        title: str,
+        message: str,
+        parent: Optional[QWidget] = None,
+        min_display_ms: int = 0,
+    ):
+        """
+        Args:
+            title:          Shown in the title bar and as a bold label.
+            message:        Body text.
+            parent:         Qt parent. We walk up from here to find a visible
+                            ancestor for rendering, and the top-level window
+                            for positioning — see below.
+            min_display_ms: If > 0, close() is held open until at least this
+                            many milliseconds have elapsed since show(). This
+                            exists because transforms can finish in under 1ms,
+                            which closes the dialog before Qt ever gets a
+                            chance to paint it. Using a generous default of 0
+                            so existing callers are unaffected; opt in at the
+                            call site by passing e.g. min_display_ms=400.
+        """
+        # --- Resolve a reliably-visible parent ----------------------------
+        # Problem: SesarImportWindow is an invisible coordinator (per GeoCORK's
+        # API-mode pattern — it never has show()/exec() called). If we parent
+        # this loading dialog directly to that invisible SesarImportWindow,
+        # Qt can't reliably place us on screen: the window manager has no
+        # visible anchor to position us relative to, and on Windows the dialog
+        # may render behind other windows or not appear at all.
+        #
+        # Fix: walk up from the caller's `parent` through the parentWidget()
+        # chain until we find a widget that's currently visible. That becomes
+        # the Qt parent for this dialog, so we sit visibly on top of the
+        # nearest real, on-screen window. If nothing in the chain is visible
+        # (shouldn't happen in the normal flow), we fall back to the caller's
+        # original parent and let Qt do its best.
+        effective_parent = parent
+        walker = parent
+        while walker is not None:
+            if walker.isVisible():
+                effective_parent = walker
+                break
+            walker = walker.parentWidget()
+
+        # [SESAR DEBUG] Report the parent walk outcome. This tells us whether
+        # the walk found anyone visible, and if so who. Expected in the
+        # batch-import flow: SesarImportWindow (invisible) -> SampleHierarchyWidget
+        # or QSplitter -> ImportFromSesar (visible, should resolve here) ->
+        # ImportWizard.
+        _dbg_given = type(parent).__name__ if parent else None
+        _dbg_given_vis = parent.isVisible() if parent else None
+        _dbg_eff = type(effective_parent).__name__ if effective_parent else None
+        _dbg_eff_vis = effective_parent.isVisible() if effective_parent else None
+        print(f"[SESAR DEBUG] LoadingDialog parent walk: "
+              f"given={_dbg_given}(visible={_dbg_given_vis}) -> "
+              f"effective={_dbg_eff}(visible={_dbg_eff_vis})", flush=True)
+
+        super().__init__(effective_parent)
         self.setWindowTitle(title)
+
+        # Store for use in close()
+        self._min_display_ms = min_display_ms
+        self._elapsed = QElapsedTimer()  # started below, right after show()
+
+        # --- Window flags -------------------------------------------------
+        # Standard dialog chrome (title bar visible) so the user sees a real
+        # window, not a floating frameless blob. WindowStaysOnTopHint keeps
+        # us above the effective parent while we're working. We explicitly
+        # suppress the close X because there's no cancel path for the
+        # underlying background operation (TransformWorker, synchronous
+        # import_staging_inplace) — letting the user close this dialog
+        # would leave the app in an inconsistent state.
         self.setWindowFlags(
             Qt.WindowType.Dialog |
             Qt.WindowType.WindowStaysOnTopHint |
-            Qt.WindowType.FramelessWindowHint
+            Qt.WindowType.WindowTitleHint
+            # Intentionally NOT WindowCloseButtonHint.
         )
         self.setMinimumWidth(260)
 
@@ -529,13 +611,95 @@ class LoadingDialog(QDialog):
         static_root_Layout_Loading.addWidget(self.static_message_Label_LoadingMessage)
 
         self.setModal(True)
+
+        # --- Center on the top-level window, not the effective parent ----
+        # Prior behavior: Qt positioned us relative to effective_parent, which
+        # in the batch-import flow is a QSplitter sitting near the bottom of
+        # the ImportFromSesar dialog — so the LoadingDialog rendered near
+        # y=900 on a 1080p screen, potentially behind the taskbar and
+        # effectively invisible.
+        #
+        # Fix: explicitly reposition to the center of the top-level window
+        # (usually ImportFromSesar itself, or ImportWizard above it). We
+        # use effective_parent.window() which returns the top-level widget
+        # containing effective_parent — exactly what we want.
+        #
+        # This happens BEFORE show() so the dialog appears at the right
+        # place on first paint, rather than flashing in the wrong position
+        # and then jumping.
+        top_level = effective_parent.window() if effective_parent is not None else None
+        if top_level is not None and top_level.isVisible():
+            # adjustSize() ensures our sizeHint() is populated before we
+            # compute the center offset; otherwise the dialog would have
+            # width=0, height=0 and we'd "center" a point-sized blob.
+            self.adjustSize()
+            tl_center = top_level.geometry().center()
+            # Subtract half our own width/height from the top-level's center.
+            self.move(tl_center.x() - self.width() // 2,
+                      tl_center.y() - self.height() // 2)
+
         self.show()
+        # Start the stopwatch AFTER show() so we're measuring "how long has
+        # the user had a chance to see this" from the actual show moment.
+        self._elapsed.start()
+
+        # [SESAR DEBUG] Post-show state. isVisible()=True doesn't guarantee
+        # pixels-on-screen (Qt returns True as soon as show() is queued), but
+        # combined with geometry() + pos() we can tell whether the window was
+        # placed somewhere reasonable. If x/y are (0,0) or negative, the
+        # window manager may have dumped us off-screen.
+        print(f"[SESAR DEBUG] LoadingDialog.show() done: "
+              f"isVisible={self.isVisible()}, "
+              f"geometry={self.geometry().getRect()}, "
+              f"isActiveWindow={self.isActiveWindow()}", flush=True)
+        # One processEvents() is usually enough to force a paint, but on
+        # some platforms a single call only drains the top event. Two calls
+        # is cheap insurance that the dialog actually hits the screen before
+        # we return to the caller, which may immediately kick off a worker
+        # thread or a synchronous operation and starve the event loop.
         QApplication.processEvents()
+        QApplication.processEvents()
+        print(f"[SESAR DEBUG] LoadingDialog post-processEvents: "
+              f"isVisible={self.isVisible()}, "
+              f"isActiveWindow={self.isActiveWindow()}", flush=True)
 
     def set_message(self, message: str) -> None:
         self.static_message_Label_LoadingMessage.setText(message)
         self.adjustSize()
         QApplication.processEvents()
+
+    def close(self) -> bool:
+        """
+        Close the dialog, honoring the minimum display duration.
+
+        If the caller passed min_display_ms > 0 and not enough time has
+        passed since show(), we spin a local QEventLoop until the remaining
+        time elapses. This means:
+          - The calling thread's logic stays paused at `close()` until
+            the minimum is met (so `self._loading_dlg = None` doesn't run
+            prematurely).
+          - Qt continues processing paint, input, and other events during
+            the wait, so the UI feels responsive.
+          - The PreviewWindow (which was show()n just before close() was
+            called in _on_transform_done) gets to paint during the wait.
+
+        Returns QDialog.close()'s return value so the signature matches.
+        """
+        if self._min_display_ms > 0:
+            elapsed_ms = self._elapsed.elapsed()
+            remaining = self._min_display_ms - elapsed_ms
+            if remaining > 0:
+                # Spin a scoped event loop that exits after `remaining` ms.
+                # QTimer.singleShot with a target of loop.quit is the idiomatic
+                # way to do "wait N ms while keeping the UI responsive."
+                print(f"[SESAR DEBUG] LoadingDialog.close: holding open "
+                      f"{remaining} ms more (elapsed={elapsed_ms}, "
+                      f"min={self._min_display_ms})", flush=True)
+                loop = QEventLoop()
+                QTimer.singleShot(remaining, loop.quit)
+                loop.exec()
+
+        return super().close()
 
 
 # ===========================================================================
@@ -926,6 +1090,15 @@ class SesarImportWindow(QDialog):
         parent:        Optional[QWidget] = None,
     ):
         super().__init__(parent)
+        # [SESAR DEBUG] Coordinator constructor reached. In API mode this
+        # widget is intentionally never shown — it just coordinates the
+        # transform + preview.
+        print(f"[SESAR DEBUG] SesarImportWindow.__init__: "
+              f"raw_data={'dict' if raw_data else None}, "
+              f"raw_data_list_len={len(raw_data_list) if raw_data_list else None}, "
+              f"parent={type(parent).__name__ if parent else None}, "
+              f"parent.isVisible()="
+              f"{parent.isVisible() if parent else 'N/A'}", flush=True)
         self.setWindowTitle("SESAR → GeoCORK Importer")
         self.setMinimumWidth(560)
         self.resize(600, 230)
@@ -1001,7 +1174,26 @@ class SesarImportWindow(QDialog):
 
     # ------------------------------------------------------------------
     def _start_transform(self) -> None:
-        self._loading_dlg = LoadingDialog("Loading", "Transforming SESAR data…", self)
+        # [SESAR DEBUG] Transform phase beginning. Next line creates the
+        # LoadingDialog; we print immediately after so we can see whether
+        # the dialog construction itself succeeded or raised.
+        print(f"[SESAR DEBUG] _start_transform: self.isVisible()="
+              f"{self.isVisible()}, about to create LoadingDialog", flush=True)
+        self._loading_dlg = LoadingDialog(
+            "Loading",
+            "Transforming SESAR data…",
+            self,
+            # Transforms can finish in <1ms (measured in the [SESAR DEBUG]
+            # output: "TransformWorker.run: finished in 0.2 ms"). Without a
+            # minimum, the dialog is created and destroyed before Qt ever
+            # paints it — hence the "I never see the loading popup" symptom.
+            # 400ms is long enough to read "Transforming SESAR data…" and
+            # register it as a real step, short enough that multi-IGSN
+            # batches that legitimately take 300-500ms don't feel held up.
+            min_display_ms=400,
+        )
+        print(f"[SESAR DEBUG] _start_transform: LoadingDialog constructed, "
+              f"dlg.isVisible()={self._loading_dlg.isVisible()}", flush=True)
         self._transform_worker = TransformWorker(
             json_path=self._json_path,
             raw_data=self._raw_data,
@@ -1010,16 +1202,26 @@ class SesarImportWindow(QDialog):
         self._transform_worker.finished.connect(self._on_transform_done)
         self._transform_worker.error.connect(self._on_transform_error)
         self._transform_worker.start()
+        print(f"[SESAR DEBUG] _start_transform: worker.start() returned, "
+              f"worker.isRunning()={self._transform_worker.isRunning()}", flush=True)
 
     def _on_load_preview(self) -> None:
         self.btn_loadPreview_Action.setEnabled(False)
         self._start_transform()
 
     def _on_transform_done(self, staging: dict) -> None:
+        # [SESAR DEBUG] Transform finished signal received. If this line
+        # appears in the console a few ms after the worker finished line,
+        # the transform is blazingly fast and the dialog had no time to show.
+        print(f"[SESAR DEBUG] _on_transform_done: entered, "
+              f"dlg is {'alive' if self._loading_dlg else 'None'}", flush=True)
         self._staging = staging
         if self._loading_dlg:
             self._loading_dlg.set_message("Building preview…")
 
+        # Build and wire the PreviewWindow while the loading dialog is still
+        # visible on screen — the "Building preview…" message above keeps the
+        # user informed that we're still working.
         self._preview_win = PreviewWindow(
             staging,
             raw_data=self._raw_data,
@@ -1032,12 +1234,29 @@ class SesarImportWindow(QDialog):
         if self._on_cancelled is not None:
             self._preview_win.rejected.connect(self._on_cancelled)
 
+        if self._raw_data is None and self._raw_data_list is None:
+            self.btn_loadPreview_Action.setEnabled(True)
+
+        # Ordering is important here. We want the user to see a continuous
+        # transition: loading dialog visible → preview window appears →
+        # loading dialog disappears. Never an empty desktop between the two.
+        #
+        # Step 1: show() the PreviewWindow. This queues a show + paint event
+        #         but doesn't actually paint yet.
+        # Step 2: processEvents() forces the paint to happen now, so the
+        #         preview window is really on screen before we move on.
+        # Step 3: close the loading dialog. The preview is now behind/under
+        #         where the loading dialog was, so the visual transition
+        #         is immediate and seamless.
+        # Step 4: exec() enters the modal event loop for the preview. Since
+        #         show() already happened, this doesn't re-show anything —
+        #         it just blocks until the user accepts or rejects.
+        self._preview_win.show()
+        QApplication.processEvents()
+
         if self._loading_dlg:
             self._loading_dlg.close()
             self._loading_dlg = None
-
-        if self._raw_data is None and self._raw_data_list is None:
-            self.btn_loadPreview_Action.setEnabled(True)
 
         self._preview_win.exec()
 
