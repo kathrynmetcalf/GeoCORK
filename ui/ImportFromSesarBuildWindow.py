@@ -134,12 +134,48 @@ _STAGING_MULTIROW_JOIN = " | "
 # collected from the staging dict that isn't in this list gets appended to the
 # right in alphabetical order, so nothing is ever hidden if the transformer
 # grows new fields — but the common stuff stays in a predictable place.
+#
+# SampleDescription layout (per the "one cell per field" refactor):
+#   - "SampleDescription (SD)" is a banner-style header column that holds the
+#     SESAR sample_type value; think of it as the group heading announcing
+#     that every following "SD: <label>" column belongs to the same logical
+#     description field in the DB. All the "SD: <label>" cells are synthesized
+#     by the importer into a single SampleDescription TEXT column at write.
+#   - Per-field columns are listed in the same sd1 -> sd2 -> sd3 -> sd4 order
+#     the old code produced, so visually scanning left-to-right matches the
+#     reading order of the final concatenated DB string.
 _STAGING_PREFERRED_COLUMN_ORDER: list[str] = [
     # Sample identity
     "SampleName", "SampleIGSN", "SampleType",
-    # Description instances (the transformer emits multiple instances per sample)
-    "SampleDescription", "SampleDescription [2]", "SampleDescription [3]",
-    "SampleDescription [4]",
+    # Description group header (holds SESAR sample_type, formerly the first
+    # line of the old sd1 blob). The "(SD)" suffix signals that the following
+    # columns prefixed with "SD:" all belong to this description block.
+    "SampleDescription (SD)",
+    # Group 1 — base description fields (old sd1)
+    "SD: Description",
+    "SD: Other names",
+    "SD: Comment",
+    "SD: Classification comment",
+    "SD: Purpose",
+    "SD: Size",
+    "SD: Size unit",
+    # Group 2 — registrants (old sd2)
+    "SD: Original registrant name",
+    "SD: Current registrant name",
+    # Group 3 — collection event (old sd3)
+    "SD: Collector/Chief Scientist",
+    "SD: Collector address",
+    "SD: Collection date",
+    "SD: Collection time",
+    "SD: Collection date (end)",
+    "SD: Collection time (end)",
+    "SD: Collection date precision",
+    # Group 4 — archive (old sd4)
+    "SD: Current archive",
+    "SD: Current archive contact",
+    "SD: Original archive contact",
+    "SD: Original archive",
+    "SD: Is archived",
     # GPS / location
     "GPSLatDeg", "GPSLonDeg", "GPSElev", "GPSElevUnit",
     "GPSUTMZone", "GPSUTME", "GPSUTMN",
@@ -297,20 +333,36 @@ def _build_staging_table(
         cells are deliberately omitted so the UI locks them.
     """
     # ─── Step 1: identify one primary sample row per unique natural key ───
-    # Primary = _DescriptionInstance == 1 (the "base" sample row; instances
-    # 2/3/4 carry auxiliary descriptions that we'll fold in next to it).
+    # Post-refactor there's exactly one Samples row per IGSN, but we still key
+    # by natural key because the transformer produces one staging dict per
+    # IGSN and batch mode concatenates them (so IGSN order in the Samples list
+    # is stable but not necessarily deduplicated if callers pass the same
+    # IGSN twice — we only take the first occurrence here).
     samples = staging.get("Samples", [])
     seen_nks: list[str] = []
     primary_by_nk: dict[str, Any] = {}
-    instances_by_nk: dict[str, list[dict]] = {}
     for s in samples:
         nk = s.get("SampleIGSN") or s.get("SampleName") or ""
         if not nk:
             continue
-        instances_by_nk.setdefault(nk, []).append(s)
-        if s.get("_DescriptionInstance", 1) == 1 and nk not in primary_by_nk:
+        if nk not in primary_by_nk:
             primary_by_nk[nk] = s
             seen_nks.append(nk)
+
+    # Pre-group the SampleDescription field entries by natural key so each
+    # sample's entries can be looked up in O(1) during row assembly. Entries
+    # are sorted by (Group, Order) so the rendered cells read left-to-right
+    # in sd1 -> sd4 order, matching the final concatenated DB string order.
+    sd_fields_by_nk: dict[str, list[dict]] = {}
+    for entry in staging.get("_SampleDescriptionFields", []):
+        nk = entry.get("_SampleNaturalKey")
+        if nk is None:
+            continue
+        sd_fields_by_nk.setdefault(nk, []).append(entry)
+    for nk in sd_fields_by_nk:
+        sd_fields_by_nk[nk].sort(
+            key=lambda e: (e.get("Group", 0), e.get("Order", 0))
+        )
 
     # ─── Step 2: GPS lookup keyed by _gps_key for per-sample attachment ───
     gps_by_key: dict[str, Any] = {
@@ -349,25 +401,60 @@ def _build_staging_table(
         row: dict[str, str] = {}
         sources: dict = {}
 
-        # Primary sample row (SampleName, SampleIGSN, SampleDescription, HeightDepth, etc.)
+        # Primary sample row (SampleName, SampleIGSN, HeightDepth, etc.)
+        # Note: primary_by_nk[nk]["SampleDescription"] is always None in the
+        # refactored world (the importer synthesizes the TEXT column from the
+        # field list at write time), so _collect_fields_into_row naturally
+        # skips it. We create the "SampleDescription (SD)" group-header cell
+        # explicitly below instead.
         _collect_fields_into_row(row, primary_by_nk[nk], sources)
 
-        # Additional description instances (2, 3, 4) — the transformer emits
-        # these as separate Sample rows that share the same IGSN but with
-        # _DescriptionInstance = 2/3/4. We fold them in under a suffixed key
-        # so all descriptions for one sample live in one preview row.
-        # Note: the synthetic column label ("SampleDescription [N]") maps back
-        # to the instance row's REAL field ("SampleDescription") — that's what
-        # gets recorded in `sources` so edits write back correctly.
-        for inst in instances_by_nk.get(nk, []):
-            inst_num = inst.get("_DescriptionInstance")
-            if inst_num in (None, 1):
-                continue
-            desc = inst.get("SampleDescription")
-            if desc:
-                label = f"SampleDescription [{inst_num}]"
-                row[label] = _truncate(str(desc))
-                sources[label] = (inst, "SampleDescription")
+        # SampleDescription field cells — one cell per filled SESAR description
+        # field, each independently editable. Replaces the old approach where
+        # sd1-sd4 were concatenated blobs stuffed into up to 4 table cells.
+        #
+        # The "SampleDescription (SD)" header column displays the SESAR
+        # sample_type value (group 1, order 0) so the user sees at a glance
+        # which sample type family this description block belongs to. If
+        # there's no sample_type, the header is left blank (dash-filled by
+        # the table rendering code like any other missing cell).
+        #
+        # Every "SD: <label>" cell is registered in `sources` with a direct
+        # reference to the staging entry's dict so the UI can mutate just
+        # that one entry's "Value" when the user edits a cell — the importer
+        # will then re-synthesize the final TEXT column from the same list.
+        sd_entries = sd_fields_by_nk.get(nk, [])
+        for entry in sd_entries:
+            label = entry.get("Label") or ""
+            value = entry.get("Value")
+            if value is None or value == "":
+                continue  # drop-if-blank, matches transformer/importer behavior
+            col_label = f"SD: {label}"
+            row[col_label] = _truncate(str(value))
+            # `entry` is a live reference into staging["_SampleDescriptionFields"],
+            # so edits flow straight back. Field to mutate is "Value".
+            sources[col_label] = (entry, "Value")
+
+        # The group-header cell "SampleDescription (SD)" — sourced from the
+        # SESAR sample_type entry (group 1, order 0) if present. We keep its
+        # source pointer to the same staging entry so editing the header
+        # value is equivalent to editing the SESAR sample_type line of the
+        # final concatenated description (avoids having two places where the
+        # user could accidentally change the same underlying field).
+        header_entry = next(
+            (e for e in sd_entries if e.get("Label") == "SESAR sample_type"),
+            None
+        )
+        if header_entry is not None:
+            header_val = header_entry.get("Value")
+            if header_val:
+                row["SampleDescription (SD)"] = _truncate(str(header_val))
+                sources["SampleDescription (SD)"] = (header_entry, "Value")
+                # Remove the duplicate "SD: SESAR sample_type" cell that the
+                # loop above would have produced — we've promoted that value
+                # to the group header, so showing it twice would just confuse.
+                sources.pop("SD: SESAR sample_type", None)
+                row.pop("SD: SESAR sample_type", None)
 
         # GPS (single row per sample, looked up by _SampleGPSKey)
         gps_key = primary_by_nk[nk].get("_SampleGPSKey")
@@ -767,13 +854,14 @@ class PreviewWindow(QDialog):
         static_root_Layout_Preview.setSpacing(10)
 
         # ── Header label ─────────────────────────────────────────────────
-        # Count unique IGSNs (instance-1 rows only, to avoid duplicates
-        # from description instances 2/3/4).
+        # Count unique IGSNs across the Samples rows. Post-refactor there's
+        # one Samples row per IGSN (the old _DescriptionInstance=1 filter is
+        # no longer needed), but we still deduplicate via a set in case a
+        # caller accidentally passes the same IGSN twice in batch mode.
         samples_list = staging.get("Samples") or [{}]
         unique_igsns = {
             s.get("SampleIGSN") or s.get("SampleName")
             for s in samples_list
-            if s.get("_DescriptionInstance", 1) == 1
         }
         sample_count = len(unique_igsns)
 
@@ -793,6 +881,17 @@ class PreviewWindow(QDialog):
         static_header_Label_SampleInfo = QLabel(header_text)
         static_header_Label_SampleInfo.setStyleSheet("font-size: 12px; padding: 2px 0;")
         static_header_Label_SampleInfo.setWordWrap(True)
+        # Vertical size policy: Maximum means the label will NEVER take more
+        # vertical space than its sizeHint requires. Without this, QLabel's
+        # default (Preferred, Preferred) combined with setWordWrap(True) lets
+        # the label claim leftover vertical space in the parent QVBoxLayout,
+        # producing the big empty gap that used to sit above/below this line.
+        # Horizontal stays Preferred so the label still word-wraps if the
+        # multi-IGSN header text ("5 samples queued for import | 10.58052/A,
+        # 10.58052/B, ...") runs past the window width.
+        static_header_Label_SampleInfo.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum
+        )
         static_root_Layout_Preview.addWidget(static_header_Label_SampleInfo)
 
         # static_divider_Frame_Separator
@@ -853,15 +952,31 @@ class PreviewWindow(QDialog):
             QTableWidget.SelectionBehavior.SelectColumns
         )
         self.static_raw_TableWidget_RawData.setAlternatingRowColors(True)
-        self.static_raw_TableWidget_RawData.setWordWrap(True)
+        # Word wrap OFF to guarantee single-line row height, matching the
+        # right-panel staging table. Long JSON-flattened values (e.g. nested
+        # classification trees serialized to a single string) get elided
+        # with "..." instead of wrapping — same treatment as the staging
+        # panel. Keeping both panels consistent is the whole point of this
+        # setup; see the matching setWordWrap(False) block on the right.
+        self.static_raw_TableWidget_RawData.setWordWrap(False)
+        self.static_raw_TableWidget_RawData.setTextElideMode(
+            Qt.TextElideMode.ElideRight
+        )
 
         for row_idx, row_dict in enumerate(row_dicts):
             for col_idx, col_name in enumerate(col_order):
                 cell = row_dict.get(col_name, "-")
                 item = QTableWidgetItem(cell)
+                # VCenter (not AlignTop) — matches the staging panel's cell
+                # alignment so the two tables render identically row-for-row.
                 item.setTextAlignment(
-                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
+                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
                 )
+                # Tooltip reveals the full cell value on hover — Qt only
+                # surfaces it when the text is actually elided on screen,
+                # so short values cost nothing.
+                if cell != "-":
+                    item.setToolTip(cell)
                 self.static_raw_TableWidget_RawData.setItem(
                     row_idx, col_idx, item
                 )
@@ -923,17 +1038,37 @@ class PreviewWindow(QDialog):
             QTableWidget.SelectionBehavior.SelectItems
         )
         self.static_preview_TableWidget_StagingData.setAlternatingRowColors(True)
-        self.static_preview_TableWidget_StagingData.setWordWrap(True)
+        # Word wrap is OFF on purpose — see below. With wrap off, long cell
+        # values get visually clipped with "..." (via ElideRight) instead of
+        # forcing the row to grow taller to fit wrapped lines. This is what
+        # keeps row heights uniform and matches the left (Raw SESAR) panel
+        # row-for-row: both tables use single-line rows at the default font
+        # height so the visual alignment between panels stays consistent
+        # regardless of how many samples are loaded.
+        self.static_preview_TableWidget_StagingData.setWordWrap(False)
+        # ElideRight: when a cell's text is too long for the column width,
+        # show the start of the text followed by "..." instead of abruptly
+        # cutting it off. Applies to every cell uniformly.
+        self.static_preview_TableWidget_StagingData.setTextElideMode(
+            Qt.TextElideMode.ElideRight
+        )
 
         # Columns likely to contain long free-form text. They're fixed-width
         # so word wrap kicks in rather than these columns expanding to fit
         # the longest paragraph. Any column name from this set gets capped;
         # other columns stay ResizeToContents.
+        #
+        # For SampleDescription: since each SESAR description field now has
+        # its own cell, most SD cells are short (like a date or address)
+        # and don't need special handling. Only the SD fields that tend to
+        # hold paragraph-length free-form text are listed here.
         _LONG_TEXT_COLUMNS = {
-            "SampleDescription",
-            "SampleDescription [2]",
-            "SampleDescription [3]",
-            "SampleDescription [4]",
+            "SampleDescription (SD)",
+            "SD: Description",
+            "SD: Comment",
+            "SD: Classification comment",
+            "SD: Purpose",
+            "SD: Other names",
             "RegionDescription",
             "RockTypeDescription",
             "SamplingMethodDescription",
@@ -965,10 +1100,20 @@ class PreviewWindow(QDialog):
                 cell = row_dict.get(col_name, "-")
                 item = QTableWidgetItem(cell)
                 item.setTextAlignment(
-                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
+                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
                 )
                 # Stash the original for later edit-detection.
                 item.setData(Qt.ItemDataRole.UserRole, cell)
+
+                # Tooltip carries the full cell value so users can hover to
+                # read content that's elided with "..." in the narrow column.
+                # Skip the tooltip for the "-" placeholder (nothing to reveal)
+                # and for cells whose display text already fits comfortably —
+                # we set it unconditionally anyway because Qt only shows the
+                # tooltip when the cell is actually truncated on screen, so
+                # there's no UX cost for short-value cells.
+                if cell != "-":
+                    item.setToolTip(cell)
 
                 is_reverse_mappable = (row_idx, col_idx) in staging_cell_map
                 is_locked_col = _is_column_locked(col_name)
@@ -1011,7 +1156,15 @@ class PreviewWindow(QDialog):
 
         # Give both panes equal initial width
         static_splitter_Splitter_Tables.setSizes([700, 700])
-        static_root_Layout_Preview.addWidget(static_splitter_Splitter_Tables)
+        # Stretch factor 1: the splitter (and therefore the two tables) claims
+        # all leftover vertical space in the root QVBoxLayout. Without this,
+        # QVBoxLayout distributes leftover space proportionally among all its
+        # children — which meant the header label above could expand and
+        # create a big empty gap between itself and the divider/tables. The
+        # divider, header label, and action-button row keep the default
+        # stretch of 0 so they stay at their sizeHint; the splitter eats
+        # everything else.
+        static_root_Layout_Preview.addWidget(static_splitter_Splitter_Tables, 1)
 
         # static_btnRow_Layout_Actions
         static_btnRow_Layout_Actions = QHBoxLayout()

@@ -53,74 +53,126 @@ def append_kv(lines: List[str], label: str, value: Any) -> None:
 
 
 # -------------------------
-# SampleDescription builders - 4 separate instances per diagram
+# SampleDescription field list
 #
-# Instance 1: SampleDescription (the base SESAR description field itself)
-#   + Other names, Comment, Classification Comment, Purpose
-#   + Size / Size unit (only if NOT a core sample)
+# Previously this module emitted 4 concatenated "instance" strings (sd1-sd4)
+# which got packed onto 4 separate Samples rows sharing one IGSN. That was
+# awkward in the preview UI — the whole blob landed in a single cell, so
+# editing one line (e.g. just "Purpose") meant the user had to text-edit
+# inside a multi-line cell. Now we emit ONE entry per filled SESAR field,
+# each with its own editable cell in the preview. The importer joins them
+# back into a single TEXT column at write time (the final DB string looks
+# identical to what sd1+sd2+sd3+sd4 produced before — same labels, same
+# grouping order, separated by blank lines between groups).
 #
-# Instance 2: Original Registrant Name (new instance)
-#   + Current Registrant Name
-#
-# Instance 3: Collector/Chief Scientist (new instance)
-#   + Collector/Chief Scientist Address
-#   + Collection date, Collection time
-#   + Collection date (end), Collection time (end)
-#   + Collection date precision
-#
-# Instance 4: Current archive (new instance)
-#   + Current archive contact
-#   + Original archive contact
-#   + Original archive
-#   + IsArchived
+# Group order (preserved from the original sd1 -> sd4 grouping so the final
+# concatenated DB string reads the same as before):
+#   Group 1 (base):        sample_type, description, other_names, comment,
+#                          classification_comment, purpose,
+#                          size, size_unit  (only if NOT a core sample)
+#   Group 2 (registrants): original_registrant_name, current_registrant_name
+#   Group 3 (collection):  collector, collector_chief_scientist_address,
+#                          collection_start_date, collection_time,
+#                          collection_end_date, collection_time_end,
+#                          collection_date_precision
+#   Group 4 (archive):     current_archive, current_archive_contact,
+#                          original_archive_contact, original_archive,
+#                          is_archived
 # -------------------------
 
-def build_sample_description_1(s: Dict[str, Any], is_core: bool) -> Optional[str]:
-    """Instance 1: base description + metadata fields."""
-    lines: List[str] = []
-    append_kv(lines, "SESAR sample_type", s.get("sample_type"))
-    append_kv(lines, "Description", s.get("description"))
-    append_kv(lines, "Other names", s.get("other_names") or s.get("sample_other_names"))
-    append_kv(lines, "Comment", s.get("comment"))
-    append_kv(lines, "Classification comment", s.get("classification_comment"))
-    append_kv(lines, "Purpose", s.get("purpose"))
-    # Size/Size unit only here if NOT a core (cores go to Columns)
-    if not is_core:
-        append_kv(lines, "Size", s.get("size"))
-        append_kv(lines, "Size unit", s.get("size_unit"))
-    return "\n".join(lines).strip() or None
+# Field definitions in sd1 -> sd4 order. Each tuple is:
+#   (source_key_in_sesar_dict, display_label, group_num)
+# group_num matches the old "instance" number so the importer can insert a
+# blank line between groups when rebuilding the concatenated TEXT column.
+#
+# Size/size_unit are special-cased at runtime: they only appear if the sample
+# is NOT a core (core samples put Size in the Columns table instead, per the
+# original diagram). See build_sample_description_fields below.
+_SD_FIELD_DEFS: List[Tuple[str, str, int]] = [
+    # Group 1 - base description
+    ("sample_type",                          "SESAR sample_type",         1),
+    ("description",                          "Description",               1),
+    # Note: the original sd1 builder fell back to "sample_other_names" if
+    # "other_names" was empty. We preserve that fallback below with a small
+    # synthesized entry rather than listing both keys here.
+    ("other_names",                          "Other names",               1),
+    ("comment",                              "Comment",                   1),
+    ("classification_comment",               "Classification comment",    1),
+    ("purpose",                              "Purpose",                   1),
+    ("size",                                 "Size",                      1),  # skipped if is_core
+    ("size_unit",                            "Size unit",                 1),  # skipped if is_core
+    # Group 2 - registrants
+    ("original_registrant_name",             "Original registrant name",  2),
+    ("current_registrant_name",              "Current registrant name",   2),
+    # Group 3 - collection event
+    ("collector",                            "Collector/Chief Scientist", 3),
+    ("collector_chief_scientist_address",    "Collector address",         3),
+    ("collection_start_date",                "Collection date",           3),
+    ("collection_time",                      "Collection time",           3),
+    ("collection_end_date",                  "Collection date (end)",     3),
+    ("collection_time_end",                  "Collection time (end)",     3),
+    ("collection_date_precision",            "Collection date precision", 3),
+    # Group 4 - archive
+    ("current_archive",                      "Current archive",           4),
+    ("current_archive_contact",              "Current archive contact",   4),
+    ("original_archive_contact",             "Original archive contact",  4),
+    ("original_archive",                     "Original archive",          4),
+    ("is_archived",                          "Is archived",               4),
+]
+
+# Core-only fields to skip — Size/size_unit go to the Columns table for cores
+# per the original diagram, so they're excluded from the description list when
+# is_core is True.
+_SD_FIELDS_SKIPPED_WHEN_CORE: set = {"size", "size_unit"}
 
 
-def build_sample_description_2(s: Dict[str, Any]) -> Optional[str]:
-    """Instance 2: registrant names."""
-    lines: List[str] = []
-    append_kv(lines, "Original registrant name", s.get("original_registrant_name"))
-    append_kv(lines, "Current registrant name", s.get("current_registrant_name"))
-    return "\n".join(lines).strip() or None
+def build_sample_description_fields(
+    s: Dict[str, Any],
+    is_core: bool,
+    sample_nk: str,
+) -> List[Dict[str, Any]]:
+    """
+    Build a list of SampleDescription field entries for one sample.
 
+    Each returned entry is a dict:
+        {
+            "_SampleNaturalKey": nk,      # links to the Samples row via IGSN/name
+            "Label":  "Purpose",          # human-readable label (no "SD:" prefix)
+            "Value":  "Age dating",       # the raw SESAR value as a string
+            "Group":  1,                  # 1-4, matches old sd1-sd4 grouping
+            "Order":  5,                  # stable ordering index across groups
+        }
 
-def build_sample_description_3(s: Dict[str, Any]) -> Optional[str]:
-    """Instance 3: collector and collection event info."""
-    lines: List[str] = []
-    append_kv(lines, "Collector/Chief Scientist", s.get("collector"))
-    append_kv(lines, "Collector address", s.get("collector_chief_scientist_address"))
-    append_kv(lines, "Collection date", s.get("collection_start_date"))
-    append_kv(lines, "Collection time", s.get("collection_time"))
-    append_kv(lines, "Collection date (end)", s.get("collection_end_date"))
-    append_kv(lines, "Collection time (end)", s.get("collection_time_end"))
-    append_kv(lines, "Collection date precision", s.get("collection_date_precision"))
-    return "\n".join(lines).strip() or None
+    Only fields with non-empty SESAR values are included — if the user blanks
+    out a cell in the preview, the importer will skip it too (that's how
+    "clear to drop" works end-to-end).
 
+    The special "other_names" fallback preserved from the old sd1 builder:
+      if `other_names` is empty, fall back to `sample_other_names`.
+    """
+    entries: List[Dict[str, Any]] = []
+    for order_idx, (source_key, label, group) in enumerate(_SD_FIELD_DEFS):
+        # Skip Size/size_unit on core samples - they go to the Columns table.
+        if is_core and source_key in _SD_FIELDS_SKIPPED_WHEN_CORE:
+            continue
 
-def build_sample_description_4(s: Dict[str, Any]) -> Optional[str]:
-    """Instance 4: archive info."""
-    lines: List[str] = []
-    append_kv(lines, "Current archive", s.get("current_archive"))
-    append_kv(lines, "Current archive contact", s.get("current_archive_contact"))
-    append_kv(lines, "Original archive contact", s.get("original_archive_contact"))
-    append_kv(lines, "Original archive", s.get("original_archive"))
-    append_kv(lines, "Is archived", s.get("is_archived"))
-    return "\n".join(lines).strip() or None
+        # Resolve the value, with the one historical fallback for other_names.
+        if source_key == "other_names":
+            value = s.get("other_names") or s.get("sample_other_names")
+        else:
+            value = s.get(source_key)
+
+        if not is_filled(value):
+            continue
+
+        entries.append({
+            "_SampleNaturalKey": sample_nk,
+            "Label":             label,
+            "Value":             str(value),
+            "Group":             group,
+            "Order":             order_idx,
+        })
+    return entries
 
 
 # -------------------------
@@ -317,13 +369,18 @@ def transform_sesar_to_geocork_staging_format(data: Dict[str, Any]) -> Dict[str,
     depth_max = safe_float(s.get("depth_max"))
     depth_unit_abbrev = s.get("depth_scale")
 
-    # Build the 4 SampleDescription instance strings up front
-    sd1 = build_sample_description_1(s, is_core)
-    sd2 = build_sample_description_2(s)
-    sd3 = build_sample_description_3(s)
-    sd4 = build_sample_description_4(s)
+    # Build the list of SampleDescription field entries. Each entry is one
+    # editable cell in the preview; the importer joins them back into a single
+    # SampleDescription TEXT column at write time. Replaces the old sd1-sd4
+    # blob approach — see the field-list builder above for details.
+    sd_field_entries = build_sample_description_fields(s, is_core, sample_nk)
 
-    # Base sample row - SampleDescription instance 1 (the primary record)
+    # Single Samples row per IGSN (was previously up to 4 with _DescriptionInstance).
+    # SampleDescription on the row itself is None here — the importer synthesizes
+    # the final TEXT string from _SampleDescriptionFields right before INSERT,
+    # so the "source of truth" for description content is the field list alone.
+    # That avoids ever having the row's SampleDescription and the field list
+    # get out of sync (e.g. if a user edited a cell).
     base_sample: Dict[str, Any] = {
         "SampleID": None,
         "SampleName": s.get("name"),
@@ -334,67 +391,12 @@ def transform_sesar_to_geocork_staging_format(data: Dict[str, Any]) -> Dict[str,
         "HeightDepthError": depth_max,  # Depth in Core (max) per diagram
         "HeightDepthUnitID": None,      # resolved later using _HeightDepthUnitAbbrev
         "DefaultSampleAgeID": None,     # resolved later from SampleAges
-        "SampleDescription": sd1,
+        "SampleDescription": None,      # synthesized at import time from sd_field_entries
         "_SampleGPSKey": gps_key,
         "_HeightDepthUnitAbbrev": depth_unit_abbrev,
-        "_DescriptionInstance": 1,
     }
 
     samples_rows: List[Dict[str, Any]] = [base_sample]
-
-    # Instance 2: registrant names - new SampleDescription row linked to same sample
-    if sd2 is not None:
-        samples_rows.append({
-            "SampleID": None,
-            "SampleName": s.get("name"),
-            "SampleIGSN": s.get("igsn"),
-            "SampleGPSLocationID": None,
-            "SampleColumnID": None,
-            "HeightDepth": None,
-            "HeightDepthError": None,
-            "HeightDepthUnitID": None,
-            "DefaultSampleAgeID": None,
-            "SampleDescription": sd2,
-            "_SampleGPSKey": gps_key,
-            "_HeightDepthUnitAbbrev": None,
-            "_DescriptionInstance": 2,
-        })
-
-    # Instance 3: collector + collection event info
-    if sd3 is not None:
-        samples_rows.append({
-            "SampleID": None,
-            "SampleName": s.get("name"),
-            "SampleIGSN": s.get("igsn"),
-            "SampleGPSLocationID": None,
-            "SampleColumnID": None,
-            "HeightDepth": None,
-            "HeightDepthError": None,
-            "HeightDepthUnitID": None,
-            "DefaultSampleAgeID": None,
-            "SampleDescription": sd3,
-            "_SampleGPSKey": gps_key,
-            "_HeightDepthUnitAbbrev": None,
-            "_DescriptionInstance": 3,
-        })
-
-    # Instance 4: archive info
-    if sd4 is not None:
-        samples_rows.append({
-            "SampleID": None,
-            "SampleName": s.get("name"),
-            "SampleIGSN": s.get("igsn"),
-            "SampleGPSLocationID": None,
-            "SampleColumnID": None,
-            "HeightDepth": None,
-            "HeightDepthError": None,
-            "HeightDepthUnitID": None,
-            "DefaultSampleAgeID": None,
-            "SampleDescription": sd4,
-            "_SampleGPSKey": gps_key,
-            "_HeightDepthUnitAbbrev": None,
-            "_DescriptionInstance": 4,
-        })
 
     # =========================================================
     # Aliquots
@@ -803,6 +805,12 @@ def transform_sesar_to_geocork_staging_format(data: Dict[str, Any]) -> Dict[str,
         "Samples": samples_rows,
         "Aliquots": aliquots_rows,
 
+        # New in the one-field-per-cell refactor: one entry per editable
+        # SampleDescription cell in the preview. Replaces the old 4-instance
+        # Samples-row approach. The importer joins these back into a single
+        # SampleDescription TEXT column at write time.
+        "_SampleDescriptionFields": sd_field_entries,
+
         "Regions": regions_rows,
         "Samples_Regions": samples_regions_rows,
 
@@ -894,6 +902,11 @@ def transform_multiple_sesar_samples(raw_data_list):
         "GPSLocations":                [],
         "Samples":                     [],
         "Aliquots":                    [],
+        # Must be present here too — without this key in `combined`, the
+        # inner loop's `for key in combined` pass silently drops the field
+        # entries from every IGSN in a batch, and the importer would produce
+        # samples with empty SampleDescription columns.
+        "_SampleDescriptionFields":    [],
         "Regions":                     [],
         "Samples_Regions":             [],
         "SamplingMethods":             [],

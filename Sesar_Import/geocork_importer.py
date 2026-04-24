@@ -263,71 +263,106 @@ def import_staging_inplace(staging: dict, db_path: str) -> None:
 
         # ---------------------------------------------------------------
         # 3. Samples
+        #
+        # One Samples row per IGSN. SampleDescription is synthesized here
+        # from the _SampleDescriptionFields staging list rather than being
+        # read directly off the row — this way the preview window's
+        # per-cell edits (which mutate individual field entries) are the
+        # single source of truth for description content.
         # ---------------------------------------------------------------
         sample_nk_to_id: Dict[str, int] = {}
 
-        # Sort so that within each natural key (IGSN / sample name) instance 1
-        # always comes before instances 2/3/4.  The primary sort key is the
-        # natural key itself so that all rows for one sample are processed
-        # together before moving to the next — this is important in batch mode
-        # where the merged staging list interleaves rows from multiple samples.
-        sample_rows = sorted(
-            staging.get("Samples", []),
-            key=lambda r: (
-                r.get("SampleIGSN") or r.get("SampleName") or "",
-                r.get("_DescriptionInstance", 1),
+        # Pre-group the per-field description entries by natural key so we
+        # can assemble each sample's SampleDescription in one lookup rather
+        # than filtering the full list for every sample. In batch mode this
+        # list can get long (N samples × up to 22 fields each).
+        sd_fields_by_nk: Dict[str, List[Dict[str, Any]]] = {}
+        for entry in staging.get("_SampleDescriptionFields", []):
+            nk = entry.get("_SampleNaturalKey")
+            if nk is None:
+                continue
+            sd_fields_by_nk.setdefault(nk, []).append(entry)
+
+        def _synthesize_sample_description(nk: str) -> Optional[str]:
+            """
+            Rebuild the concatenated SampleDescription TEXT for one sample.
+
+            Matches the format produced by the old sd1+sd2+sd3+sd4 code:
+              - Each field becomes one line formatted "Label: Value"
+              - Fields are ordered by (Group, Order) so sd1 comes before sd2
+                before sd3 before sd4, and within each group the order is
+                the same as the field-definition list in the transformer.
+              - A blank line separates consecutive groups (reproduces the
+                "\\n\\n" that the old instance-2/3/4 UPDATE branch appended).
+              - Empty/blank Value entries are dropped (implements the Q5
+                "clear to drop" behavior from the UI).
+              - Returns None if no field has a non-empty value, so the row
+                stores SQL NULL rather than an empty string.
+            """
+            entries = sd_fields_by_nk.get(nk, [])
+            # Sort by (group, order) so output is deterministic regardless of
+            # how the transformer or preview happened to order the list.
+            entries = sorted(
+                entries,
+                key=lambda e: (e.get("Group", 0), e.get("Order", 0))
             )
-        )
+            lines: List[str] = []
+            prev_group: Optional[int] = None
+            for e in entries:
+                val = e.get("Value")
+                if not is_filled(val):
+                    continue
+                label = e.get("Label") or ""
+                group = e.get("Group")
+                # Blank line between groups so sd1/sd2/sd3/sd4 are visually
+                # separated in the DB string, same as the old output.
+                if prev_group is not None and group != prev_group:
+                    lines.append("")
+                lines.append(f"{label}: {val}")
+                prev_group = group
+            if not lines:
+                return None
+            return "\n".join(lines)
 
-        for s in sample_rows:
-            instance = s.get("_DescriptionInstance", 1)
-            nk       = s.get("SampleIGSN") or s.get("SampleName")
-            desc     = s.get("SampleDescription")
+        for s in staging.get("Samples", []):
+            nk = s.get("SampleIGSN") or s.get("SampleName")
 
-            if instance == 1 or nk not in sample_nk_to_id:
-                gps_id  = gps_key_to_id.get(s.get("_SampleGPSKey"))
-                col_id  = column_name_to_id.get(s.get("_ColumnName"))
-                unit_id = _q_resolve_unit_id(
-                    s.get("_HeightDepthUnitAbbrev"),
-                    "DistanceUnits", "DistanceUnitAbbreviation", "DistanceUnitID")
-                q = QSqlQuery()
-                q.prepare("""
-                    INSERT INTO Samples
-                        (SampleName, SampleIGSN, SampleGPSLocationID, SampleColumnID,
-                         HeightDepth, HeightDepthError, HeightDepthUnitID, SampleDescription)
-                    VALUES (?,?,?,?,?,?,?,?)
-                """)
-                for v in (s.get("SampleName"), s.get("SampleIGSN"),
-                          gps_id, col_id,
-                          s.get("HeightDepth"), s.get("HeightDepthError"),
-                          unit_id, desc):
-                    q.addBindValue(v)
-                if not q.exec():
-                    raise RuntimeError(f"Sample insert failed: {q.lastError().text()}")
-                sample_id = q.lastInsertId()
-                sample_nk_to_id[nk] = sample_id
-                log.info(f"  [Sample] id={sample_id}  name={s.get('SampleName')!r}")
+            # Guard against a repeat natural key (shouldn't happen in the
+            # new one-row-per-IGSN world, but cheap insurance against any
+            # future regression in the transformer).
+            if nk in sample_nk_to_id:
+                log.warning(
+                    f"  [Sample] duplicate natural key {nk!r} — skipping "
+                    f"(already inserted as SampleID={sample_nk_to_id[nk]})")
+                continue
 
-            else:
-                # Append subsequent description instances
-                sample_id = sample_nk_to_id[nk]
-                if is_filled(desc):
-                    q = QSqlQuery()
-                    q.prepare("""
-                        UPDATE Samples
-                        SET SampleDescription = CASE
-                            WHEN SampleDescription IS NULL OR SampleDescription = ''
-                            THEN ?
-                            ELSE SampleDescription || char(10) || char(10) || ?
-                        END
-                        WHERE SampleID = ?
-                    """)
-                    q.addBindValue(desc)
-                    q.addBindValue(desc)
-                    q.addBindValue(sample_id)
-                    if not q.exec():
-                        raise RuntimeError(
-                            f"Sample description append failed: {q.lastError().text()}")
+            gps_id  = gps_key_to_id.get(s.get("_SampleGPSKey"))
+            col_id  = column_name_to_id.get(s.get("_ColumnName"))
+            unit_id = _q_resolve_unit_id(
+                s.get("_HeightDepthUnitAbbrev"),
+                "DistanceUnits", "DistanceUnitAbbreviation", "DistanceUnitID")
+            # Synthesize the final description TEXT from the field list. The
+            # SampleDescription value on the Samples row itself is ignored
+            # here on purpose — the field list is authoritative.
+            desc = _synthesize_sample_description(nk)
+
+            q = QSqlQuery()
+            q.prepare("""
+                INSERT INTO Samples
+                    (SampleName, SampleIGSN, SampleGPSLocationID, SampleColumnID,
+                     HeightDepth, HeightDepthError, HeightDepthUnitID, SampleDescription)
+                VALUES (?,?,?,?,?,?,?,?)
+            """)
+            for v in (s.get("SampleName"), s.get("SampleIGSN"),
+                      gps_id, col_id,
+                      s.get("HeightDepth"), s.get("HeightDepthError"),
+                      unit_id, desc):
+                q.addBindValue(v)
+            if not q.exec():
+                raise RuntimeError(f"Sample insert failed: {q.lastError().text()}")
+            sample_id = q.lastInsertId()
+            sample_nk_to_id[nk] = sample_id
+            log.info(f"  [Sample] id={sample_id}  name={s.get('SampleName')!r}")
 
         # ---------------------------------------------------------------
         # 3b. Stub Aliquot -> Spot -> UPbAnalysis chain
