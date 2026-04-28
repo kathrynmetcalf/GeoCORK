@@ -4,6 +4,7 @@ import time
 import typing
 from collections import namedtuple
 from datetime import datetime, timezone
+from difflib import SequenceMatcher
 from multiprocessing.process import parent_process
 
 import pandas as pd
@@ -1200,17 +1201,17 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
         # If all compared parts are equal, return the shorter one
         return len(left_parts) < len(right_parts)
 
-    # def lessThan(self, left, right):
-    #     left_data = self.determine_numeric(left.data(QtC.Qt.ItemDataRole.DisplayRole))
-    #     right_data = self.determine_numeric(right.data(QtC.Qt.ItemDataRole.DisplayRole))
-    #     if isinstance(left_data, str) and isinstance(right_data, str):
-    #         left_parts = self.separate_parts(left_data)
-    #         right_parts = self.separate_parts(right_data)
-    #         return self.compare_parts(left_parts, right_parts)
-    #     elif isinstance(left_data, (int, float)) and isinstance(right_data, (int, float)):
-    #         return left_data < right_data
-    #     else:
-    #         return super().lessThan(left, right)
+    def lessThan(self, left, right):
+        left_data = self.determine_numeric(left.data(QtC.Qt.ItemDataRole.DisplayRole))
+        right_data = self.determine_numeric(right.data(QtC.Qt.ItemDataRole.DisplayRole))
+        if isinstance(left_data, str) and isinstance(right_data, str):
+            left_parts = self.separate_parts(left_data)
+            right_parts = self.separate_parts(right_data)
+            return self.compare_parts(left_parts, right_parts)
+        elif isinstance(left_data, (int, float)) and isinstance(right_data, (int, float)):
+            return left_data < right_data
+        else:
+            return super().lessThan(left, right)
 
 class SampleAgeProxyModel(QtC.QSortFilterProxyModel):
     """
@@ -1508,8 +1509,7 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
     def setData(self, index: QtC.QModelIndex, value, role: QtC.Qt.ItemDataRole = ...) -> bool:
         if not index.isValid():
             return super().setData(index, value, role)
-        col = get_name_column(get_view_from_table(self.tableName()))
-        if index.column() == col and role == QtC.Qt.ItemDataRole.CheckStateRole:
+        if role == QtC.Qt.ItemDataRole.CheckStateRole:
             item_id = self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
             if not item_id:
                 logger_setup.get_logger().debug(f'No ID found for row {index.row()} in {self.tableName()}')
@@ -2593,6 +2593,76 @@ def return_number(value: str | float | int):
         logger_setup.get_logger().info(f"Invalid value type: {type(value)}. Expected str, float, or int.")
         return value
 
+def merge_intervals(intervals):
+    intervals = sorted(intervals)
+    merged = []
+    for a, b in intervals:
+        if not merged or a > merged[-1][1]:
+            merged.append([a, b])
+        else:
+            merged[-1][1] = max(merged[-1][1], b)
+    return [(a, b) for a, b in merged]
+
+def intersect_intervals(a, b):
+    output = []
+    i = j = 0
+    while i < len(a) and j < len(b):
+        a0, a1 = a[i]
+        b0, b1 = b[j]
+        lo, hi = max(a0, b0), min(a1, b1)
+        if hi > lo:
+            output.append((lo, hi))
+        if a1 < b1:
+            i += 1
+        else:
+            j += 1
+    return output
+
+def common_strings(strings: list[str] | None) -> str:
+    """
+    Find text common to ALL strings. Replace unique chunks with the placeholder [-]
+    """
+    # Minimum length of common string to match, reduce noise
+    minimum_length = 2
+    placeholder = "[-]"
+    strings = [s for s in strings if s is not None]
+    if not strings:
+        return "-"
+
+    # Begin with the first string and build matches from there
+    base = strings[0]
+    common_regions = [(0, len(base))]
+
+    for s in strings[1:]:
+        sequence_matches = SequenceMatcher(None, base, s)
+        matches = [(m.a, m.a + m.size) for m in sequence_matches.get_matching_blocks() if m.size >= minimum_length]
+        matches = merge_intervals(matches)
+        common_regions = intersect_intervals(common_regions, matches)
+        if not common_regions:
+            break
+
+    # Build string using common regions
+    parts = []
+    last = 0
+    for a, b in common_regions:
+        if a > last:
+            parts.append(placeholder)
+        parts.append(base[a:b])
+        last = b
+    if last < len(base):
+        parts.append(placeholder)
+    elif len(parts) == 1 and parts[0] in strings:
+        # One string is the exact same as the base, so do not include the last character
+        parts[0] = parts[0][0:-1]
+        parts.append(placeholder)
+    output = []
+    for part in parts:
+        if output and output[-1] == placeholder and part == placeholder:
+            # Don't have two placeholders in a row
+            continue
+        output.append(part)
+
+    return "".join(output)
 
 def delete_query(table: str, ids: list):
     moved_ids = []  # Keep track of IDs that were moved during deletion
@@ -2912,6 +2982,7 @@ def delete_question(table, delete_ids):
     show_loading_dialog('Preparing', 'Gathering information...')
     msg_box = QtW.QMessageBox()
     msg_box.setIcon(QtW.QMessageBox.Icon.Question)
+    detail_text = ''
     if table == 'Samples':
         sample_names = [get_name_from_id(table, sample_id) for sample_id in delete_ids]
         if None in sample_names:
@@ -2921,11 +2992,8 @@ def delete_question(table, delete_ids):
         # Samples have a special case where they are related to Aliquots, Spots, and UPbAnalyses
         aliquot_ids, grain_ids, spot_ids, upb_analysis_ids = find_current_sub_items(delete_ids, table)
         msg_text = f'Are you sure you want to delete these {len(delete_ids)} {table}?\n'
-        if len(delete_ids) < 11:
-            msg_text += f'\nSamples: {", ".join(sample_names)}\n'
-        else:
-            msg_text += f'\nSamples: {", ".join(sample_names[:10])}...\n'
         msg_text += f'\nAssociated with {len(aliquot_ids)} aliquots, {len(grain_ids)} grains, {len(spot_ids)} spots, and {len(upb_analysis_ids)} U-Pb analyses'
+        detail_text = f'Samples: {"\n".join(sample_names)}\n'
     elif table == 'Aliquots':
         aliquot_names = [get_name_from_id(table, aliquot_id) for aliquot_id in delete_ids]
         # Look for children of Aliquots
@@ -2937,21 +3005,16 @@ def delete_question(table, delete_ids):
         # Aliquots have a special case where they are related to Spots and UPbAnalyses
         grain_ids, spot_ids, upb_analysis_ids = find_current_sub_items(delete_ids, table)
         msg_text = f'Are you sure you want to delete these {len(delete_ids)} {table}?\n'
-        if len(delete_ids) < 11:
-            msg_text += f'\nAliquots: {", ".join(aliquot_names)}\n'
-        else:
-            msg_text += f'\nAliquots: {", ".join(aliquot_names[:10])}...\n'
+        msg_text += f'\nAliquots: {", ".join(aliquot_names)}\n'
         msg_text += f'\nAssociated with {len(child_aliquot_ids)} child aliquots, {len(grain_ids)} grains, {len(spot_ids)} spots, and {len(upb_analysis_ids)} U-Pb analyses'
+        detail_text = f'Aliquots: {"\n".join(aliquot_names)}...\n'
     elif table == 'Spots':
         spot_names = [get_name_from_id(table, spot_id) for spot_id in delete_ids]
         # Spots have a special case where they are related to UPbAnalyses and Grains
         grain_ids, upb_analysis_ids = find_current_sub_items(delete_ids, table)
         msg_text = f'Are you sure you want to delete these {len(delete_ids)} {table}?\n'
-        if len(delete_ids) < 11:
-            msg_text += f'\nSpots: {", ".join(spot_names)}\n'
-        else:
-            msg_text += f'\nSpots: {", ".join(spot_names[:10])}...\n'
         msg_text += f'\nAssociated with {len(grain_ids)} grains and {len(upb_analysis_ids)} U-Pb analyses'
+        detail_text = f'Spots: {"\n".join(spot_names)}\n'
     else:
         if table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees or table == 'Ages':
             # For user viewable trees, we need to check for child IDs
@@ -2962,18 +3025,12 @@ def delete_question(table, delete_ids):
             all_delete_ids = set(delete_ids + child_ids)
             tree_item_names = [f'"{get_name_from_id(table, item_id)}"' for item_id in all_delete_ids]
             msg_text = f'Are you sure you want to delete these {len(all_delete_ids)} {table}?'
-            if len(tree_item_names) < 11:
-                msg_text += f'\n{table}: {", ".join(tree_item_names)}'
-            else:
-                msg_text += f'\n{table}: {", ".join(tree_item_names[:10])}...'
+            detail_text = f'{table}: {"\n".join(tree_item_names)}'
         else:
             item_names = [f'"{get_name_from_id(table, item_id)}"' for item_id in delete_ids]
             all_delete_ids = set(delete_ids)
             msg_text = f'Are you sure you want to delete these {len(delete_ids)} {table}?'
-            if len(item_names) < 11:
-                msg_text += f'\n{table}: {", ".join(item_names)}'
-            else:
-                msg_text += f'\n{table}: {", ".join(item_names[:10])}...'
+            detail_text = f'{table}: {"\n".join(item_names)}'
         associations = find_foreign_associations(table, list(all_delete_ids))
         associated_id_count = sum(len(ids) for ids in associations.values())
         if associated_id_count == 0:
@@ -2989,9 +3046,8 @@ def delete_question(table, delete_ids):
                         continue
                     # append the association text with the number of IDs and the names of the IDs
                     elif len(ids) < 11:
-                        association_text += f'\n{len(ids)} {associated_table} ({", ".join(get_name_from_id(associated_table, id) for id in ids)})'
-                    else:
-                        association_text += f'\n{len(ids)} {associated_table} ({", ".join(get_name_from_id(associated_table, id) for id in ids[:10])}...)'
+                        association_text += f'\n{len(ids)} {associated_table}'
+                        detail_text = f'{associated_table}: {"\n".join(get_name_from_id(associated_table, id) for id in ids)}'
             else:
                 association_text = f'\nAssociated with '
                 for associated_table, ids in associations.items():
@@ -2999,6 +3055,8 @@ def delete_question(table, delete_ids):
                     association_text += f'{len(ids)} {associated_table}, '
         msg_text += association_text
     msg_box.setText(msg_text)
+    if detail_text != '':
+        msg_box.setDetailedText(detail_text)
     msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
     msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
     close_loading_dialog('Preparing', 'Gathering information...')
@@ -3685,7 +3743,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             record = self.source_model.record(row)
             item_id = record.value(0)  # Assuming the first column is the ID
             parent_id = record.value(1)  # Assuming the second column is the Parent ID
-            if not parent_id:
+            if not parent_id or parent_id == 'NULL':
                 parent_id = None
 
             self.item_data[item_id] = record
@@ -5178,6 +5236,8 @@ class TreeSortFilterProxyModel(ReadableProxyModel):
             tree_model, source_indexes = find_tree_model(self, [index])
             if tree_model and source_indexes:
                 return tree_model.data(source_indexes[0], role)
+            else:
+                return super().data(index, role)
         else:
             # For other roles, use the default implementation
             return super().data(index, role)
@@ -5464,6 +5524,53 @@ def find_tree_model(model, indexes: list[QtC.QModelIndex] | None):
             except AttributeError:
                 return None, None
 
+
+def map_from_tree_model(input_model, tree_indexes: list[QtC.QModelIndex]):
+    model_chain = []
+    model = input_model
+    while not isinstance(model, TreeModel):
+        model_chain.insert(0, model)
+        model = model.sourceModel() if hasattr(model, 'sourceModel') else getattr(model, 'source_model', None)
+
+    model_indexes = tree_indexes
+    for model in model_chain:
+        parent_indexes = [model.mapFromSource(model_index) for model_index in model_indexes]
+        model_indexes = parent_indexes
+    return model_indexes
+
+
+    # tree_model = find_tree_model(model, [])[0]
+    #
+    # def map_from_tree(parent_model, model_indexes):
+    #     try:
+    #         source_model = parent_model.sourceModel()
+    #         if source_model == tree_model:
+    #             source_indexes = model_indexes
+    #             return source_model, source_indexes
+    #         else:
+    #             source_model, source_indexes = map_from_tree(source_model, model_indexes)
+    #             parent_indexes = [parent_model.mapFromSource(source_index) for source_index in source_indexes]
+    #             return parent_model, parent_indexes
+    #     except AttributeError:
+    #         try:
+    #             source_model = parent_model.source_model
+    #             if source_model == tree_model:
+    #                 source_indexes = model_indexes
+    #                 return source_model, source_indexes
+    #             else:
+    #                 source_model, source_indexes = map_from_tree(source_model, model_indexes)
+    #                 parent_indexes = [parent_model.mapFromSource(source_index) for source_index in source_indexes]
+    #                 return parent_model, parent_indexes
+    #         except AttributeError:
+    #             return None, None
+    #
+    # parent_model, parent_indexes = map_from_tree(model, tree_indexes)
+    # if parent_model == model:
+    #     return parent_indexes
+    # else:
+    #     logger_setup.get_logger().critical(f'Error mapping indexes')
+    #     logger_setup.get_logger().debug(f'Did not return proper parent model and indexes')
+    #     return None
 
 # ---------------------------
 #    Widget Classes
@@ -6153,12 +6260,13 @@ class CheckableComboBox(QtW.QComboBox):
         :return:
         """
         current_line_edit_text = self.lineEdit().text()
-        if isinstance(self.model(), CheckableSqlTableModel | CheckableSqlQueryModel | CheckableSQLiteTableModel | SampleAgeTableModel):
-            if self.model().partially_checked_ids:
+        source_model = self.source_model()
+        if isinstance(source_model, CheckableSqlTableModel | CheckableSqlQueryModel | CheckableSQLiteTableModel | SampleAgeTableModel):
+            if source_model.partially_checked_ids:
                 # At least one item is partially checked, so the line edit should be a dash
                 self.lineEdit().setText('-')
-            elif self.model().checked_ids:
-                new_text = self.model().selected_items_string()
+            elif source_model.checked_ids:
+                new_text = source_model.selected_items_string()
                 if new_text and new_text != current_line_edit_text:
                         self.lineEdit().setText(new_text)
             else:
@@ -6168,10 +6276,10 @@ class CheckableComboBox(QtW.QComboBox):
         else:
             # Step through the model and get the checked items, then set the line edit text to the names of the checked items
             checked_names = []
-            for row in range(self.model().rowCount()):
-                index = self.model().index(row, 0)
-                if self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
-                    checked_name = self.model().data(index, QtC.Qt.ItemDataRole.DisplayRole)
+            for row in range(source_model.rowCount()):
+                index = source_model.index(row, 0)
+                if source_model.data(index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
+                    checked_name = source_model.data(index, QtC.Qt.ItemDataRole.DisplayRole)
                     if checked_name is not None and checked_name not in checked_names:
                         checked_names.append(checked_name)
             if checked_names:
@@ -6210,7 +6318,7 @@ class CheckableComboBox(QtW.QComboBox):
         if not self.typing:
             super().setCurrentIndex(index)
 
-    def model(self):
+    def source_model(self):
         """
         Get the model of the combo box. If a proxy model is set, it returns the source model of the proxy model.
         :return: checkable model
@@ -6254,6 +6362,7 @@ class CheckableComboBox(QtW.QComboBox):
         if self.name_col:
             self.proxy_model.setFilterKeyColumn(self.name_col)
             show_column(self, self.name_col)
+        self.view().setModel(self.proxy_model)
         self.view().setMinimumWidth(self.view().sizeHint().width())
         logger_setup.get_logger().debug(f'Set model for {self.table} combo box in {time.time() - start_set_model_time:.2f} seconds')
 
@@ -6379,11 +6488,9 @@ class CheckableComboBox(QtW.QComboBox):
         of each item to Unchecked. It also clears the text in the line edit to indicate that no items are selected.
         :return:
         """
-        if not self.model():
+        if not self.source_model():
             return
-        if isinstance(self.model(), QSortFilterProxyModel):
-            source_model = self.model().sourceModel()
-        else:            source_model = self.model()
+        source_model = self.source_model()
         if not isinstance(source_model, CheckableSqlTableModel | CheckableSqlQueryModel | CheckableSQLiteTableModel):
             return
         source_model.clear_checks()
@@ -6396,9 +6503,9 @@ class CheckableComboBox(QtW.QComboBox):
         the check state of each item to Checked. It also updates the line edit text to show the names of all checked items.
         :return:
         """
-        if not self.model() or not isinstance(self.model(), CheckableSqlTableModel | CheckableSqlQueryModel | CheckableSQLiteTableModel):
+        if not self.source_model() or not isinstance(self.source_model(), CheckableSqlTableModel | CheckableSqlQueryModel | CheckableSQLiteTableModel):
             return
-        self.model().check_all()
+        self.source_model().check_all()
 
     def showPopup(self):
         """
@@ -6468,40 +6575,42 @@ class CheckableComboBox(QtW.QComboBox):
             if self.proxy_model:
                 proxy_index = self.view().currentIndex()
                 source_index = self.proxy_model.mapToSource(proxy_index)
+                source_model = self.proxy_model.sourceModel()
             else:
                 source_index = self.view().currentIndex()
+                source_model = self.model()
             if event.type() == QtC.QEvent.Type.MouseButtonPress and event.button() == QtC.Qt.MouseButton.LeftButton:
                 if self.single_click:
                     # Was the only selected item unchecked? If so, set the current index to -1 before clearing all checks
-                    if isinstance(self.model(), CheckableTreeModel):
-                        clicked_id = self.model().index(source_index.row(), 1, source_index.parent()).data(
+                    if isinstance(source_model, CheckableTreeModel):
+                        clicked_id = source_model.index(source_index.row(), 1, source_index.parent()).data(
                             QtC.Qt.ItemDataRole.DisplayRole)
                     else:
-                        clicked_id = self.model().index(source_index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
-                    if clicked_id in self.model().checked_ids:
+                        clicked_id = source_model.index(source_index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
+                    if clicked_id in source_model.checked_ids:
                         if self.not_null:
-                            logger_setup.get_logger().error(f'{self.model().headerData(self.name_col, 
+                            logger_setup.get_logger().error(f'{source_model.headerData(self.name_col, 
                                Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)} cannot be blank')
                             return True
-                        self.model().clear_checks()
+                        source_model.clear_checks()
                         self.stop_typing()
                         self.set_line_edit_text('')
                         self.view().setCurrentIndex(QtC.QModelIndex())
                         self.hidePopup()
                         return True
-                    self.model().update_model_checks({clicked_id}, set())
+                    source_model.update_model_checks({clicked_id}, set())
                     self.stop_typing()
                     self.set_line_edit_text(source_index.data(QtC.Qt.ItemDataRole.DisplayRole))
                     self.hidePopup()
                     return True
                 else:
                     # Get model index from view index
-                    index = self.model().index(source_index.row(), self.name_col)
-                    if self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
-                        self.model().setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
-                    elif (self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole) in
+                    index = source_model.index(source_index.row(), self.name_col)
+                    if source_model.data(index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
+                        source_model.setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
+                    elif (source_model.data(index, QtC.Qt.ItemDataRole.CheckStateRole) in
                           (QtC.Qt.CheckState.Unchecked, QtC.Qt.CheckState.PartiallyChecked)):
-                        self.model().setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
+                        source_model.setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
                     self.stop_typing()
                     self.update_line_edit()
                     self.showPopup()
@@ -6615,32 +6724,38 @@ class CheckableTableView(QtW.QTableView):
         :return:
         """
         if self.model():
-            if model_index.isValid() and QtC.Qt.ItemFlag.ItemIsUserCheckable in self.model().flags(model_index):
-                item_id = self.model().index(model_index.row(), 1).data(QtC.Qt.ItemDataRole.DisplayRole)
+            if isinstance(self.model(), QSortFilterProxyModel):
+                source_model = self.model().sourceModel()
+                source_index = self.model().mapToSource(model_index)
+            else:
+                source_model = self.model()
+                source_index = model_index
+            if source_index.isValid() and QtC.Qt.ItemFlag.ItemIsUserCheckable in source_model.flags(source_index):
+                item_id = source_model.index(source_index.row(), 1).data(QtC.Qt.ItemDataRole.DisplayRole)
                 if not item_id:
                     return
-                if self.model().single_click:
-                    if item_id in self.model().checked_ids:
-                        if self.model().not_null and len(self.model().checked_ids) == 1:
-                            logger_setup.get_logger().error(f'{self.model().headerData(get_name_column(self.model().tableName()),
+                if source_model.single_click:
+                    if item_id in source_model.checked_ids:
+                        if source_model.not_null and len(source_model.checked_ids) == 1:
+                            logger_setup.get_logger().error(f'{source_model.headerData(get_name_column(source_model.tableName()),
                                                                                        Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)} cannot be blank')
                             return
-                        self.model().checked_ids = set()
-                    elif item_id in self.model().partially_checked_ids:
-                        self.model().partially_checked_ids = set()
-                        self.model().checked_ids = {item_id}
+                        source_model.checked_ids = set()
+                    elif item_id in source_model.partially_checked_ids:
+                        source_model.partially_checked_ids = set()
+                        source_model.checked_ids = {item_id}
                     else:
-                        self.model().checked_ids = {item_id}
-                        self.model().partially_checked_ids = set()
+                        source_model.checked_ids = {item_id}
+                        source_model.partially_checked_ids = set()
                 else:
-                    if item_id in self.model().checked_ids:
-                        self.model().checked_ids.remove(item_id)
-                    elif item_id in self.model().partially_checked_ids:
-                        self.model().partially_checked_ids.remove(item_id)
-                        self.model().checked_ids.add(item_id)
+                    if item_id in source_model.checked_ids:
+                        source_model.checked_ids.remove(item_id)
+                    elif item_id in source_model.partially_checked_ids:
+                        source_model.partially_checked_ids.remove(item_id)
+                        source_model.checked_ids.add(item_id)
                     else:
-                        self.model().checked_ids.add(item_id)
-                self.model().dataChanged.emit(model_index, model_index, [QtC.Qt.ItemDataRole.CheckStateRole])
+                        source_model.checked_ids.add(item_id)
+                source_model.dataChanged.emit(source_index, source_index, [QtC.Qt.ItemDataRole.CheckStateRole])
 
 class TrackExpandedTreeView(QtW.QTreeView):
     """
@@ -6688,8 +6803,10 @@ class TrackExpandedTreeView(QtW.QTreeView):
         tree_model = find_tree_model(self.model(), [])[0]
         if item_id not in tree_model.id_to_item:
             return QtC.QModelIndex()
+        tree_index = tree_model.get_index_from_item(tree_model.id_to_item[item_id])
+        indexes = map_from_tree_model(self.model(), [tree_index])
         try:
-            index = self.model().mapFromSource(tree_model.get_index_from_item(tree_model.id_to_item[item_id]))
+            index = indexes[0]
             if index == None or not index.isValid():
                 return QtC.QModelIndex()
             return index
@@ -7436,10 +7553,6 @@ class CheckableTreeCombobox(TreeCombobox):
                         self.showPopup()
                     return True
                 else:
-                    if not isinstance(self.model(), TreeModel):
-                        tree_model, indexes = find_tree_model(self.model(), None)
-                    else:
-                        tree_model = self.model()
                     self.stop_typing()
                     if self.treeView.isExpanded(index):
                         self.treeView.collapse(index)
@@ -7793,8 +7906,8 @@ def show_column(comboBox: QtW.QComboBox, column: str | int):
                         pass
             if isinstance(comboBox.view().model(), TreeSortFilterProxyModel):
                 comboBox.view().model().update_visible_columns()
-        if isinstance(model, QtC.QSortFilterProxyModel) and not tree_model:
-            model.sort(column, QtC.Qt.SortOrder.AscendingOrder)
+        if isinstance(comboBox.view().model(), QtC.QSortFilterProxyModel) and not tree_model:
+            comboBox.view().model().sort(column_int, QtC.Qt.SortOrder.AscendingOrder)
         close_loading_dialog('Loading', f'Loading {count} items...')
 
 def add_tree_popup(tree_view: QtW.QTreeView, action: QtG.QAction | None = None):
@@ -8088,70 +8201,91 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
             model = SQLiteTableModel()
             model.setQuery(f'SELECT * FROM {table}')
     show_loading_dialog('Loading', f'Populating {model.rowCount()} {table}')
-    if table in SQLUtils.user_viewable_trees or table == 'Ages':
-        # if settings.value('lazy_loading_enabled') == 'true' and isinstance(comboBox, CheckableTreeCombobox) and table != 'Ages':
-        #     tree_model = LazyCheckableTreeModel()
-        if isinstance(comboBox, CheckableTreeCombobox):
-            tree_model = CheckableTreeModel()
-        else:
-            tree_model = TreeModel()
-        tree_model.setSourceModel(model)
-        comboBox.setModel(tree_model)
-        show_column(comboBox, tree_model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
-    else:
-        checkable_model = None
-        if isinstance(comboBox, CheckableComboBox) and not query and not view_query:
-            if live:
-                # If the combo box is a CheckableComboBox and the table is not a view, use CheckableSqlTableModel
-                checkable_model = CheckableSqlTableModel()
-                set_table(checkable_model, table)
+    if isinstance(comboBox, CheckableComboBox | CheckableTreeCombobox):
+        if table in SQLUtils.user_viewable_trees or table == 'Ages':
+            # if settings.value('lazy_loading_enabled') == 'true' and isinstance(comboBox, CheckableTreeCombobox) and table != 'Ages':
+            #     tree_model = LazyCheckableTreeModel()
+            if isinstance(comboBox, CheckableTreeCombobox):
+                tree_model = CheckableTreeModel()
             else:
+                tree_model = TreeModel()
+            tree_model.setSourceModel(model)
+            tree_proxy_model = TreeSortFilterProxyModel()
+            tree_proxy_model.setSourceModel(tree_model)
+            comboBox.setModel(tree_proxy_model)
+        else:
+            checkable_model = None
+            proxy_model = ReadableProxyModel()
+            if isinstance(comboBox, CheckableComboBox) and not query and not view_query:
+                if live:
+                    # If the combo box is a CheckableComboBox and the table is not a view, use CheckableSqlTableModel
+                    checkable_model = CheckableSqlTableModel()
+                    set_table(checkable_model, table)
+                else:
+                    checkable_model = CheckableSQLiteTableModel()
+                    checkable_model.setQuery(f'SELECT * FROM {table}')
+                if not isinstance(checkable_model, LazyCheckableSqlTableModel):
+                    while checkable_model.canFetchMore():
+                        checkable_model.fetchMore()
+                proxy_model.setSourceModel(checkable_model)
+                comboBox.setModel(proxy_model)
+            elif isinstance(comboBox, CheckableComboBox) and view_query:
                 checkable_model = CheckableSQLiteTableModel()
-                checkable_model.setQuery(f'SELECT * FROM {table}')
-            if not isinstance(checkable_model, LazyCheckableSqlTableModel):
+                checkable_model.setQuery(query, view_query)
+                if not isinstance(checkable_model, LazyCheckableSqlQueryModel):
+                    while checkable_model.canFetchMore():
+                        checkable_model.fetchMore(QtC.QModelIndex())
+                checkable_model.set_table(table)
+                proxy_model.setSourceModel(checkable_model)
+                comboBox.setModel(proxy_model)
+            elif isinstance(comboBox, CheckableComboBox) and query:
+                if live:
+                    checkable_model = CheckableSqlQueryModel()
+                else:
+                    checkable_model = CheckableSQLiteTableModel()
+                checkable_model.setQuery(query)
                 while checkable_model.canFetchMore():
                     checkable_model.fetchMore()
-            comboBox.setModel(checkable_model)
-        elif isinstance(comboBox, CheckableComboBox) and view_query:
-            checkable_model = CheckableSQLiteTableModel()
-            checkable_model.setQuery(query, view_query)
-            if not isinstance(checkable_model, LazyCheckableSqlQueryModel):
-                while checkable_model.canFetchMore():
-                    checkable_model.fetchMore(QtC.QModelIndex())
-            checkable_model.set_table(table)
-            comboBox.setModel(checkable_model)
-        elif isinstance(comboBox, CheckableComboBox) and query:
-            if live:
-                checkable_model = CheckableSqlQueryModel()
+                checkable_model.set_table(table)
+                proxy_model.setSourceModel(checkable_model)
+                comboBox.setModel(proxy_model)
             else:
-                checkable_model = CheckableSQLiteTableModel()
-            checkable_model.setQuery(query)
-            while checkable_model.canFetchMore():
-                checkable_model.fetchMore()
-            checkable_model.set_table(table)
-            comboBox.setModel(checkable_model)
+                try:
+                    proxy_model.setSourceModel(checkable_model)
+                    comboBox.setModel(proxy_model)
+                except Exception as e:
+                    logger_setup.get_logger().critical(f'Error setting model for combo box {comboBox.objectName()}')
+                    logger_setup.get_logger().debug(f'Error: {e}')
+                    return
+            if checkable_model and not checkable_model.tableName():
+                if table:
+                    set_table(checkable_model, table)
+                elif model.tableName():
+                    set_table(checkable_model, model.tableName())
+    else:
+        if isinstance(comboBox, TreeCombobox):
+            tree_model = TreeModel()
+            tree_model.setSourceModel(model)
+            proxy_model = TreeSortFilterProxyModel()
+            proxy_model.setSourceModel(tree_model)
+        elif isinstance(model, QSortFilterProxyModel):
+            proxy_model = model
         else:
-            try:
-                comboBox.setModel(model)
-            except Exception as e:
-                logger_setup.get_logger().error(f'Error setting model for combo box {comboBox.objectName()}')
-                logger_setup.get_logger().debug(f'Error: {e}')
-                return
-        if checkable_model and not checkable_model.tableName():
-            if table:
-                set_table(checkable_model, table)
-            elif model.tableName():
-                set_table(checkable_model, model.tableName())
-        if column:
-            show_column(comboBox, column)
+            proxy_model = ReadableProxyModel()
+            proxy_model.setSourceModel(model)
+        comboBox.setModel(proxy_model)
+    if column:
+        show_column(comboBox, column)
+    else:
+        if isinstance(model, SampleAgeProxyModel):
+            name_col = get_headers('SampleAges')[get_name_column('SampleAges')]
+        elif isinstance(comboBox, TreeCombobox):
+            name_col = 0
         else:
-            if isinstance(model, SampleAgeProxyModel):
-                name_col = get_headers('SampleAges')[get_name_column('SampleAges')]
-            else:
-                name_table = get_view_from_table(model.tableName())
-                name_col = get_headers(name_table)[get_name_column(name_table)]
-            if name_col:
-                show_column(comboBox, name_col)
+            name_table = get_view_from_table(model.tableName())
+            name_col = get_name_column(name_table)
+        if name_col is not None:
+            show_column(comboBox, name_col)
     close_loading_dialog('Loading', f'Populating {model.rowCount()} {table}')
     logger_setup.get_logger().debug(f'Populated combo box {comboBox.objectName()} in {time.time() - start_populate_combo_time} seconds')
 
@@ -8621,7 +8755,10 @@ def update_other_table_with_checks(table: str, checked_ids: list, partially_chec
         if current_id != '':
             if int(current_id) not in current_ids:
                 current_ids.append(int(current_id))
-    if current_ids == checked_ids or checked_ids == set():
+        else:
+            if None not in current_ids:
+                current_ids.append(None)
+    if current_ids == checked_ids or checked_ids == [] and current_ids == [None]:
         logger_setup.get_logger().info(f'Checks are up to date')
         return 'No'
     create_savepoint('update_other_table')

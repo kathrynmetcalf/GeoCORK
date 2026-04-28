@@ -206,13 +206,13 @@ class ExportWidget(QWidget):
         self.filtered_upb_ids = set()
 
         # Get the current selected samples, filters, and grouped filters
-        self.checked_sample_list = self.samplesincluded_comboBox.model().return_checked_ids()[0]
+        self.checked_sample_list = self.samplesincluded_comboBox.source_model().return_checked_ids()[0]
         self.checked_sample_ids_str = f"({', '.join(map(str, self.checked_sample_list))})"
 
-        self.checked_filter_list = self.filterselection_comboBox.model().return_checked_ids()[0]
+        self.checked_filter_list = self.filterselection_comboBox.source_model().return_checked_ids()[0]
         self.checked_filter_ids_str = f"({', '.join(map(str, self.checked_filter_list))})"
 
-        self.checked_grouped_filter_list = self.groupedfilter_comboBox.model().return_checked_ids()[0]
+        self.checked_grouped_filter_list = self.groupedfilter_comboBox.source_model().return_checked_ids()[0]
 
         # Get the current TableView
         tableView: QTableView = self.worksheet_tabs_dict[current_worksheet_name]['tableView']
@@ -698,12 +698,12 @@ class ExportWidget(QWidget):
         if len(self.active_filter_sample_ids) > 0 and self.active_filter_sample_checkBox.isChecked():
             # if there are active filter sample ids, and the checkbox is checked, add them to the checked sample list
             self.checked_sample_list.extend(self.active_filter_sample_ids)
-            self.samplesincluded_comboBox.model().update_model_checks(set(self.checked_sample_list), set())
+            self.samplesincluded_comboBox.source_model().update_model_checks(set(self.checked_sample_list), set())
         elif not self.active_filter_sample_checkBox.isChecked():
             # if the checkbox is not checked, remove the active filter sample from the checked sample list
             checked_sample_list = [sample_id for sample_id in self.checked_sample_list if sample_id not in self.active_filter_sample_ids]
             self.checked_sample_list = checked_sample_list
-            self.samplesincluded_comboBox.model().update_model_checks(set(self.checked_sample_list), set())
+            self.samplesincluded_comboBox.source_model().update_model_checks(set(self.checked_sample_list), set())
 
     def export_format(self):
         """
@@ -1592,9 +1592,9 @@ class ExportWidget(QWidget):
         self.showEvent(None)
 
         # Recheck items
-        self.samplesincluded_comboBox.model().update_model_checks(set(self.checked_sample_list), set())
-        self.filterselection_comboBox.model().update_model_checks(set(self.checked_filter_list), set())
-        self.groupedfilter_comboBox.model().update_model_checks(set(self.checked_grouped_filter_list), set())
+        self.samplesincluded_comboBox.source_model().update_model_checks(set(self.checked_sample_list), set())
+        self.filterselection_comboBox.source_model().update_model_checks(set(self.checked_filter_list), set())
+        self.groupedfilter_comboBox.source_model().update_model_checks(set(self.checked_grouped_filter_list), set())
 
         self.load_checkbox_states()
         self.update_table_view()
@@ -1615,7 +1615,7 @@ class ExportWidget(QWidget):
             view_query = ViewQuery('Samples', True, **{'show_columns': settings.value('sample_edit_columns')[0:4]})
             populate_combo_box(self.samplesincluded_comboBox, **{'table': 'Samples', 'live': False,
                                                                  'query': view_query.table_query, 'view_query': view_query})
-            self.samplesincluded_comboBox.model().update_model_checks(set(self.checked_sample_list), set())
+            self.samplesincluded_comboBox.source_model().update_model_checks(set(self.checked_sample_list), set())
             close_loading_dialog('Loading', f'Loading {self.sample_count} Samples...')
 
         filter_count = get_total_records('FilterGroups')
@@ -1624,10 +1624,10 @@ class ExportWidget(QWidget):
         show_loading_dialog('Loading', f'Loading {filter_count} Filter Groups...')
         self.filterselection_comboBox.enable_context_menu(show_context_menu=True, only_select_deselect=True)
         populate_combo_box(self.filterselection_comboBox, **{'table': 'FilterGroups', 'live': False})
-        self.filterselection_comboBox.model().update_model_checks(set(self.checked_filter_list), set())
+        self.filterselection_comboBox.source_model().update_model_checks(set(self.checked_filter_list), set())
         self.groupedfilter_comboBox.enable_context_menu(show_context_menu=True, only_select_deselect=True)
         populate_combo_box(self.groupedfilter_comboBox, **{'table': 'FilterGroups', 'live': False})
-        self.groupedfilter_comboBox.model().update_model_checks(set(self.checked_grouped_filter_list), set())
+        self.groupedfilter_comboBox.source_model().update_model_checks(set(self.checked_grouped_filter_list), set())
         close_loading_dialog('Loading', f'Loading {filter_count} Filter Groups...')
 
         if self.exportformat_comboBox.currentText() != 'Custom' or len(self.worksheet_tabs_dict.keys()) == 0:

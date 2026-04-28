@@ -13,7 +13,7 @@ import logger_setup
 import Functions.SQLUtils as SQLUtils
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
-from Functions.Widget_classes import get_headers, show_loading_dialog, close_loading_dialog
+from Functions.Widget_classes import get_headers, show_loading_dialog, close_loading_dialog, populate_combo_box
 from ui.SelectColumns import SelectColumns
 
 settings_list = [
@@ -513,7 +513,8 @@ class SettingsDialog(QtW.QDialog):
         else:
             self.view_rounded_checkBox.setChecked(False)
             self.decimals_comboBox.setEnabled(False)
-        self.set_combobox(self.gps_format_comboBox, self.gps_format_model)
+        populate_combo_box(self.gps_format_comboBox, **{'table': 'GPSFormats', 'column': 2})
+        # self.set_combobox(self.gps_format_comboBox, self.gps_format_model)
         self.gps_format_comboBox.setCurrentText(settings.value('gps_format_abbreviation'))
         self.set_combobox(self.elev_unit_comboBox, self.elevation_unit_model)
         self.elev_unit_comboBox.setCurrentText(settings.value('elevation_unit_abbreviation'))

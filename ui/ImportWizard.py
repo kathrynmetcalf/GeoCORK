@@ -5103,7 +5103,7 @@ class ImportWizardDialog(QWidget):
                     name = item_name
                 else:
                     name = None
-                # Search for existing item in database
+                # Search for existing item id in current table
                 if get_headers(db_table)[0] in item_data[table][name_header][item_name]:
                     # The ID column is mapped, so use this ID
                     item_id = item_data[table][name_header][item_name][get_headers(db_table)[0]]

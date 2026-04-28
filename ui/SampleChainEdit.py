@@ -109,7 +109,7 @@ class SampleChainEdit(QtW.QDialog):
             else:
                 self.sample_current_label.setText(f'Current sample: {current_sample_name}')
             # Just check the first one regardless of how many there are, since the sample level is required and they should all be the same
-            self.sample_comboBox.model().update_model_checks({self.current_sample_id}, {})
+            self.sample_comboBox.source_model().update_model_checks({self.current_sample_id}, {})
         else:
             self.sample_comboBox.clear_all_checks()
         self.new_sample_id = None
@@ -155,7 +155,7 @@ class SampleChainEdit(QtW.QDialog):
                     current_grain_name = get_name_from_id('Grains', self.current_grain_id)
                     if len(self.current_parents['Grains']) > 1:
                         current_grain_name = 'Multiple'
-                    self.grain_comboBox.model().update_model_checks({self.current_grain_id}, {})
+                    self.grain_comboBox.source_model().update_model_checks({self.current_grain_id}, {})
                 else:
                     current_grain_name = 'None'
                     self.grain_comboBox.clear_all_checks()
@@ -180,7 +180,7 @@ class SampleChainEdit(QtW.QDialog):
                     self.spot_current_label.setText(f'Current spot: Multiple')
                 else:
                     self.spot_current_label.setText(f'Current spot: {current_spot_name}')
-                self.spot_comboBox.model().update_model_checks({self.current_spot_id}, {})
+                self.spot_comboBox.source_model().update_model_checks({self.current_spot_id}, {})
             else:
                 self.spot_comboBox.setCurrentText('')
             self.new_spot_id = self.current_spot_id
@@ -193,14 +193,14 @@ class SampleChainEdit(QtW.QDialog):
         if self.aliquot_mode_comboBox.currentText() != 'Existing':
             return
         show_loading_dialog('Loading', 'Updating aliquots...')
-        if self.sample_comboBox.model().checked_ids:
-            new_sample_id = list(self.sample_comboBox.model().checked_ids)[0]
+        if self.sample_comboBox.source_model().checked_ids:
+            new_sample_id = list(self.sample_comboBox.source_model().checked_ids)[0]
         else:
             new_sample_id = None
         if not new_sample_id and self.sample_comboBox.model().rowCount()>0:
             # Check the first one
-            new_sample_id = self.sample_comboBox.model().index(0, 1).data(QtC.Qt.ItemDataRole.DisplayRole)
-            self.sample_comboBox.model().update_model_checks({new_sample_id}, {})
+            new_sample_id = self.sample_comboBox.source_model().index(0, 1).data(QtC.Qt.ItemDataRole.DisplayRole)
+            self.sample_comboBox.source_model().update_model_checks({new_sample_id}, {})
         elif not new_sample_id and (self.sample_mode_comboBox.currentText() == 'New' or self.sample_comboBox.model().rowCount()==0):
             self.aliquot_comboBox.clear()
             close_loading_dialog('Loading', 'Updating aliquots...')
@@ -240,8 +240,8 @@ class SampleChainEdit(QtW.QDialog):
         if self.spot_mode_comboBox.currentText() != 'Existing':
             return
         show_loading_dialog('Loading', 'Updating spots...')
-        if self.grain_comboBox.model().checked_ids:
-            new_grain_id = list(self.grain_comboBox.model().checked_ids)[0]
+        if self.grain_comboBox.source_model().checked_ids:
+            new_grain_id = list(self.grain_comboBox.source_model().checked_ids)[0]
         else:
             new_grain_id = None
         if not new_grain_id:
@@ -605,19 +605,19 @@ class SampleChainEdit(QtW.QDialog):
         return True
 
     def check_updated(self):
-        self.new_sample_id = list(self.sample_comboBox.model().checked_ids)[0]
+        self.new_sample_id = list(self.sample_comboBox.source_model().checked_ids)[0]
         if self.aliquot_comboBox.model().rowCount(QtC.QModelIndex())>0:
             aliquot_tree_model = find_tree_model(self.aliquot_comboBox.model(), None)[0]
             if aliquot_tree_model.checked_ids:
                 self.new_aliquot_id = list(aliquot_tree_model.checked_ids)[0]
             else:
                 self.new_aliquot_id = None
-        if self.grain_comboBox.model().rowCount()>0 and self.grain_comboBox.model().checked_ids:
-            self.new_grain_id = list(self.grain_comboBox.model().checked_ids)[0]
+        if self.grain_comboBox.model().rowCount()>0 and self.grain_comboBox.source_model().checked_ids:
+            self.new_grain_id = list(self.grain_comboBox.source_model().checked_ids)[0]
         else:
             self.new_grain_id = None
-        if self.spot_comboBox.model().rowCount()>0 and self.spot_comboBox.model().checked_ids:
-            self.new_spot_id = list(self.spot_comboBox.model().checked_ids)[0]
+        if self.spot_comboBox.model().rowCount()>0 and self.spot_comboBox.source_model().checked_ids:
+            self.new_spot_id = list(self.spot_comboBox.source_model().checked_ids)[0]
         else:
             self.new_spot_id = None
         if (self.new_sample_id == self.current_sample_id and self.new_aliquot_id == self.current_aliquot_id

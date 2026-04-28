@@ -85,13 +85,13 @@ class GPSFields(QtW.QWidget):
         populate_combo_box(self.gps_format_comboBox, **{'table': 'GPSFormats', 'column': 'GPSFormatAbbreviation'})
         self.gps_format_comboBox.setCurrentText(gps_format_abbreviation)
         populate_combo_box(self.lat_comboBox, **{'table': 'DirectionUnits', 'column': 'DirectionUnitAbbreviation'})
-        self.lat_direction_model = self.lat_comboBox.model()
+        self.lat_direction_model = self.lat_comboBox.source_model()
         self.lat_direction_model.setFilter('DirectionUnitAbbreviation = "N" OR DirectionUnitAbbreviation = "S"')
         populate_combo_box(self.lon_comboBox, **{'table': 'DirectionUnits', 'column': 'DirectionUnitAbbreviation'})
-        self.lon_direction_model = self.lon_comboBox.model()
+        self.lon_direction_model = self.lon_comboBox.source_model()
         self.lon_direction_model.setFilter('DirectionUnitAbbreviation = "E" OR DirectionUnitAbbreviation = "W"')
         populate_combo_box(self.elevation_unit_comboBox, **{'table': 'DistanceUnits', 'column': 'DistanceUnitAbbreviation'})
-        self.elevation_unit_model = self.elevation_unit_comboBox.model()
+        self.elevation_unit_model = self.elevation_unit_comboBox.source_model()
         end_populate_dropdowns_time = time.time()
         logger_setup.get_logger().info(f"Populated GPS dropdowns in {end_populate_dropdowns_time - start_populate_dropdowns_time} seconds")
 
@@ -603,7 +603,8 @@ class GPSFields(QtW.QWidget):
         update_columns = []
         update_values = []
         for column, value in zip(gps_columns, gps_values):
-            if value != '-':
+            initial_index = gps_columns.index(column)
+            if value != '-' and value != self.initial_values[initial_index]:
                 update_columns.append(column)
                 update_values.append(value)
         self.item_model.setQuery(
@@ -643,11 +644,11 @@ class GPSFields(QtW.QWidget):
                 logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
                 logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
                 rollback_savepoint('before_update')
-                return
+                return False
             if not query.next():
                 logger_setup.get_logger().critical(f"GPS location {gps_id} not found")
                 logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-                return
+                return False
             existing_values = [query.value(i) for i in range(query.record().count())]
             for row in range(len(gps_columns)):
                 if gps_columns[row] in unaffected_columns:
@@ -656,7 +657,8 @@ class GPSFields(QtW.QWidget):
                         existing_value = 'NULL'
                     gps_values[row] = existing_value
             if not self.update_single_gps(gps_columns, gps_values, item_ids):
-                return
+                return False
+        return True
 
     def update_single_gps(self, gps_columns, gps_values, item_ids: list):
         """
@@ -670,6 +672,9 @@ class GPSFields(QtW.QWidget):
         format_index = gps_columns.index('GPSFormatID')
         gps_format_id = gps_values[format_index]
         delete_gps = True
+        qgps_columns = ', '.join(gps_columns)
+        qgps_values = ', '.join(str(v) for v in gps_values)
+
         for value in gps_values[0:13]:
             if value != 'NULL':
                 delete_gps = False
@@ -693,8 +698,6 @@ class GPSFields(QtW.QWidget):
                 id_value = self.item_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
                 if id_value and isinstance(id_value, int) and id_value not in gps_ids:
                     gps_ids.append(self.item_model.index(row, 0).data())
-            qgps_columns = ', '.join(gps_columns)
-            qgps_values = ', '.join(str(v) for v in gps_values)
             if len(gps_ids) > 0:
                 if delete_gps:
                     return self.delete_gps(gps_ids, item_ids)

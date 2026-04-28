@@ -613,7 +613,7 @@ class DataViewerWidget(QWidget):
                 logger_setup.get_logger().debug(f'Error: {source_model.last_error}')
                 logger_setup.get_logger().debug(f'SQL command: {sql_query}')
                 return
-            source_model.set_table = self.data_filtered_table
+            source_model.set_table(self.data_filtered_table)
             self.total_records_2 = source_model.rowCount()
 
             self.data_filtered_table_model = TreeModel(source_model, self)
