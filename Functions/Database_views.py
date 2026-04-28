@@ -1035,8 +1035,7 @@ WITH RECURSIVE ''')
                     FROM {lsa_from_table}
                     {lsa_joins}
                     {hierarchy_where_join}
-                    {hierarchy_where} 
-                    {group_lsa}
+                    {hierarchy_where}
                     {hierarchy_order_by} {hierarchy_limit}
                 )
                 ''')
@@ -1048,7 +1047,6 @@ WITH RECURSIVE ''')
                         FROM {lspuag_from_table}
                         {lspuag_joins}
                         {self.join_type if self.table in ['Samples', 'Aliquots'] else 'INNER'} JOIN LimitedSamplesAliquots lsa ON Spots.AliquotID = lsa.AliquotID
-                       {group_lspuag}
                     )
                     ''')
         elif where_table == 'Aliquots':
@@ -1341,7 +1339,18 @@ WITH RECURSIVE ''')
         for column in all_view_columns:
             if (any(leader in column for leader in SQLUtils.limited_column_leaders['LimitedSamplesAliquots'])
                     and "Accepted/Total" not in column):
-                self.lsa_columns.append(column) if column not in self.lsa_columns else None
+                if 'REPLACE(GROUP_CONCAT(DISTINCT' in column:
+                    column = column.split('DISTINCT ')[1].replace('), ",", "; ")', '')
+                    if ' AS ' in column and 'ID' in column:
+                        column = f"{column.split(' AS ')[0]} AS {column.split(' AS ')[0].split('.')[1]}"
+                elif 'COUNT(DISTINCT' in column:
+                    column = column.split('COUNT(DISTINCT ')[1].replace(')', '')
+                    if ' AS ' in column and 'ID' in column:
+                        column = f"{column.split(' AS ')[0]} AS {column.split(' AS ')[0].split('.')[1]}"
+                self.lsa_columns.append(column) if (column not in self.lsa_columns and
+                                                    not any(column.split(' AS ')[0] == lsa_column.split(' AS ')[0]
+                                                            for lsa_column in self.lsa_columns)) \
+                    else None
             elif (any(leader in column for leader in SQLUtils.limited_column_leaders['LimitedSpotsUPbAnalysesGrains'])
                   and "Accepted/Total" not in column):
                 if self.table == 'Grains' and 'CONCAT' in column:
@@ -1354,7 +1363,18 @@ WITH RECURSIVE ''')
                                 self.lspuag_columns.append(ungrouped_column)
                             break
                 else:
-                    self.lspuag_columns.append(column) if column not in self.lspuag_columns else None
+                    if 'REPLACE(GROUP_CONCAT(DISTINCT' in column:
+                        column = column.split('DISTINCT ')[1].replace('), ",", "; ")', '')
+                        if ' AS ' in column and 'ID' in column:
+                            column = f"{column.split(' AS ')[0]} AS {column.split(' AS ')[0].split('.')[1]}"
+                    elif 'COUNT(DISTINCT' in column:
+                        column = column.split('COUNT(DISTINCT ')[1].replace(')', '')
+                        if ' AS ' in column and 'ID' in column:
+                            column = f"{column.split(' AS ')[0]} AS {column.split(' AS ')[0].split('.')[1]}"
+                    self.lspuag_columns.append(column) if (column not in self.lspuag_columns and
+                                                           not any(column.split(' AS ')[0] == lspuag_column.split(' AS ')
+                                                                   for lspuag_column in self.lspuag_columns)) \
+                        else None
         for column in self.show_columns:
             for view_column in all_view_columns:
                 if column in view_column:
@@ -1372,12 +1392,19 @@ WITH RECURSIVE ''')
                                 as_name = column.split(' AS ')[1] if ' AS ' in column else ''
                                 column = f'{column.split(' AS ')[0].replace(column_name, as_name)} AS {as_name}'
                         else:
-                            # Replace the longer column selection with the name after ' AS '
-                            if ' AS ' in column and (
-                                    any(pattern in column for pattern in [f' {key}.', f'({key}.']) or column.startswith(
-                                    key)):
-                                column = f'{value}.{column.split(" AS ")[1]}'
-                                self.query_columns[col] = column
+                            if any(pattern in column for pattern in [f' {key}.', f'({key}.']) or column.startswith(key):
+                                if ' AS ' in column:
+                                    if column in self.lsa_columns or column in self.lspuag_columns:
+                                        # Replace the longer column selection with the name after ' AS '
+                                        column = f'{value}.{column.split(" AS ")[1]}'
+                                        self.query_columns[col] = column
+                                    elif 'ID' not in column:
+                                        as_name = column.split(' AS ')[1]
+                                        column_name = column.split('.')[1].split(' AS ')[0]
+                                        if ')' in column_name:
+                                            column_name = column_name.split(')')[0]
+                                        if column_name != as_name:
+                                            column = f"{column.split(column_name)[0]}{as_name}{f'{column_name}'.join(column.split(column_name)[1:])}"
                     column = column.replace(f' {key}.', f' {value}.')
                     column = column.replace(f'({key}.', f'({value}.')
                     if column.startswith(f'{key}.'):

@@ -28,7 +28,7 @@ qsample_age_unit = 'SampleAgeUnits.AgeUnitAbbreviation AS SampleAgeUnitAbbreviat
 qsample_age_error_format = 'DirectAgeErrorFormats.ErrorFormatAbbreviation AS DirectAgeErrorFormatAbbreviation'
 qsample_age_constraints = 'REPLACE(GROUP_CONCAT(DISTINCT SampleAgeConstraints.AgeConstraintName), ",", "; ") AS SampleAgeConstraintName'
 qsample_age_interpretations = 'REPLACE(GROUP_CONCAT(DISTINCT SampleAgeInterpretations.AgeInterpretationName), ",", "; ") AS SampleAgeInterpretationName'
-qsample_age_references = 'GROUP_CONCAT(DISTINCT SampleAgeReferences.ReferenceDisplay) AS SampleAgeReferenceDisplay'
+qsample_age_references = 'REPLACE(GROUP_CONCAT(DISTINCT SampleAgeReferences.ReferenceDisplay), ",", "; ") AS SampleAgeReferenceDisplay'
 qsample_description = 'Samples.SampleDescription AS SampleDescription'
 qage_signatures = 'REPLACE(GROUP_CONCAT(DISTINCT AgeSignatures.AgeSignatureName), ",", "; ") AS SampleAgeSignatureName'
 qregions = 'REPLACE(GROUP_CONCAT(DISTINCT Regions.RegionName), ",", "; ") AS RegionName'
@@ -69,7 +69,7 @@ qaliquot_contexts = 'REPLACE(GROUP_CONCAT(DISTINCT AliquotContexts.AliquotContex
 qaliquot_spots = 'REPLACE(GROUP_CONCAT(DISTINCT Spots.SpotName), ",", "; ") AS SpotName'
 qaliquot_spot_contexts = 'REPLACE(GROUP_CONCAT(DISTINCT SpotContexts.SpotContexts.SpotContextName), ",", "; ") AS SpotContextName'
 qaliquot_spot_compositions = 'REPLACE(GROUP_CONCAT(DISTINCT SpotCompositions.SpotCompositionName), ",", "; ") AS SpotCompositionName'
-qaliquot_references = 'GROUP_CONCAT(DISTINCT ReferenceDisplay) AS UPb Reference'
+qaliquot_references = 'REPLACE(GROUP_CONCAT(DISTINCT ReferenceDisplay), ",", "; ") AS UPbReference'
 qaliquot_upb_methods = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAnalysisMethods.UPbAnalysisMethodName), ",", "; ") AS UPbAnalysisMethodName'
 qaliquot_labs = 'REPLACE(GROUP_CONCAT(DISTINCT LabFacilties.LabFacilityName), ",", "; ") AS LabFacilityName'
 qaliquot_description = 'Aliquots.AliquotDescription AS AliquotDescription'
@@ -149,7 +149,7 @@ DistinctUPbAnalyses AS
     GROUP BY lspuag.SpotID
 )
 '''
-qupb_references = 'GROUP_CONCAT(DISTINCT UPbReferences.ReferenceDisplay) AS UPbReference'
+qupb_references = 'REPLACE(GROUP_CONCAT(DISTINCT UPbReferences.ReferenceDisplay), ",", "; ") AS UPbReference'
 qupb_reference = 'UPbReferences.ReferenceDisplay AS UPbReference'
 qupb_lab_facilities = 'REPLACE(GROUP_CONCAT(DISTINCT LabFacilities.LabFacilityName), ",", "; ") AS LabFacilityName'
 qupb_lab_facility = 'LabFacilities.LabFacilityName AS LabFacilityName'
