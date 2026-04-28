@@ -1212,10 +1212,7 @@ class RuleWidget(QWidget):
                 self.attribute_combo.currentText() == 'SampleAgeYoungest'
         )
 
-        name_header = get_headers(self.table_combo.currentText())[name_column]
-
-        if ((self.attribute_combo.currentText() == name_header and
-             self.value_input.placeholderText() == "e.g. abc123") or is_sampleages_age):
+        if self.value_input.placeholderText() == "e.g. abc123" or is_sampleages_age:
 
             value_completer = QtWidgets.QCompleter()
             query = QSqlQuery()
@@ -1707,7 +1704,7 @@ class QueryBuilder(QWidget):
         if len(set(filtered_ids)) > 1000:
             if not self.view_many_results(len(set(filtered_ids))):
                 return
-        show_loading_dialog('Loading', f'Loading {len(set(filtered_ids))} UPb Analyses...')
+        show_loading_dialog('Loading', f'Loading {len(set(filtered_ids))} UPbAnalyses...')
         dataviewer = DataViewerWidget(self, set(filtered_ids), 'UPbAnalyses')
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         loop = QEventLoop()

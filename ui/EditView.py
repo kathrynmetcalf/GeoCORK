@@ -21,7 +21,7 @@ from Functions.Widget_classes import (
     get_id_from_name, add_tree_popup, save_expanded_state, get_readable_header,
     get_name_from_id, find_tree_model, get_view_from_table, TreeSortFilterProxyModel, populate_tree_model_checks,
     columns_as_list, show_loading_dialog, close_loading_dialog, CheckableTreeView,
-    CheckableSQLiteTableModel, get_edit_view_from_table
+    CheckableSQLiteTableModel, get_edit_view_from_table, common_strings
 )
 from Functions import SQLUtils
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint, SavepointManager
@@ -66,6 +66,11 @@ class SetSelectedValues(QtW.QDialog):
         button_layout.addWidget(self.cancel_button)
         button_layout.addWidget(self.commit_button)
         self.main_layout = QtW.QVBoxLayout()
+        if isinstance(self.widget, QtW.QLineEdit) and '[-]' in self.widget.text():
+            self.label_text = f'\nText must be unique.\n\n[-] represents unique parts of existing text and should not be edited.\n'
+            self.unique_label = QtW.QLabel(self.label_text)
+            self.unique_label.setAlignment(QtC.Qt.AlignmentFlag.AlignCenter)
+            self.main_layout.addWidget(self.unique_label)
         self.main_layout.addWidget(self.widget)
         self.main_layout.addLayout(button_layout)
         self.setLayout(self.main_layout)
@@ -256,6 +261,7 @@ class EditView(QtW.QDialog):
         self.dropdown_table = None
         self.lineEdit = None
         self.edit_index = QtC.QModelIndex()
+        self.common_edit_string = None
         self.view = None
         self.view_index = QtC.QModelIndex()
         self.view_model = None
@@ -446,10 +452,14 @@ class EditView(QtW.QDialog):
         """
         Slot to move to the next page for the displayed table
         """
+        if not self.data_submit():
+            # There was an error submitting the changes
+            logger_setup.get_logger().critical(f'Error saving changes to {self.table}')
+            return
         if self.updated:
             if not self.reset_model_question():
                 return
-        if (self.current_page + 1) * self.rows_per_page < self.total_pages:
+        if (self.current_page + 1) < self.total_pages:
             self.current_page += 1
             self.limit = f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'
             self.create_model()
@@ -611,11 +621,23 @@ class EditView(QtW.QDialog):
         elif action == set_selected_action:
             self.determine_widget(indexes[0])
             if self.lineEdit is not None:
+                if len(selected_rows) > 1 and indexes[0].column() == self.name_column:
+                    # Name column must be unique, but can edit common strings for all
+                    view_model = self.edit_tableView.model()
+                    current_values = [view_model.index(row, self.name_column).data(QtC.Qt.ItemDataRole.DisplayRole) for row in selected_rows]
+                    common_edit_string = common_strings(current_values)
+                    if common_edit_string != '-':
+                        self.common_edit_string = common_edit_string
+                        self.lineEdit.setText(self.common_edit_string)
+                else:
+                    self.common_edit_string = None
                 dlg = SetSelectedValues(self, self.lineEdit)
                 if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
+                    self.updated = True
                     self.lineEdit = dlg.widget
                     show_loading_dialog('Loading', f'Loading...')
                     self.save_lineedit_data()
+                    self.data_submit()
                     self.display_table()
                     close_loading_dialog('Loading', f'Loading...')
                 else:
@@ -623,6 +645,7 @@ class EditView(QtW.QDialog):
             elif self.combo is not None:
                 dlg = SetSelectedValues(self, self.combo)
                 if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
+                    self.updated = True
                     self.combo = dlg.widget
                     show_loading_dialog('Loading', f'Loading...')
                     self.save_dropdown_data()
@@ -887,7 +910,6 @@ class EditView(QtW.QDialog):
     def update_model_data(self, show_columns: list, item_ids: list) -> bool:
         """
         Updates the model data for the GPS, Age, or Column dialog after editing.
-        :param header: The header of the column being updated
         :param show_columns: Related columns to show in the model
         :param item_ids: List of item IDs to update
         :return: True if the model was updated successfully, False otherwise
@@ -898,27 +920,34 @@ class EditView(QtW.QDialog):
             fields = 'sample age data'
         elif show_columns == self.column_headers:
             fields = 'sample age data'
+        else:
+            return True
         show_loading_dialog('Loading', f'Updating {fields}...')
         model_indexes = [self.proxy_model.mapToSource(proxy_index) for proxy_index in self.edit_tableView.selectedIndexes()]
         model_rows = {model_index.row() for model_index in model_indexes}
         query = QtS.QSqlQuery()
-        query_args = {'show_columns': show_columns, 'where': f' WHERE {self.table_headers[0]} = {item_ids[0]}'}
-        view_query = ViewQuery(self.table, True, **query_args)
-        table_query = view_query.table_query
-        if not query.exec(table_query):
-            logger_setup.get_logger().critical(f'Error updating {fields}')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {table_query}')
-            close_loading_dialog('Loading', f'Updating {fields}...')
-            return False
-        if query.next():
-            for header in show_columns:
-                col = self.show_cols.index(header)
-                for row in model_rows:
+        for row in model_rows:
+            update_item_id = self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
+            if update_item_id not in item_ids:
+                logger_setup.get_logger().critical(f'Error updating view')
+                logger_setup.get_logger().debug(f'Selected row {row} item id {update_item_id} not in list of updated item ids {item_ids}')
+            query_args = {'show_columns': show_columns, 'where': f' WHERE {self.table_headers[0]} = {update_item_id}'}
+            view_query = ViewQuery(self.table, True, **query_args)
+            table_query = view_query.table_query
+            if not query.exec(table_query):
+                logger_setup.get_logger().critical(f'Error updating {fields}')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {table_query}')
+                close_loading_dialog('Loading', f'Updating {fields}...')
+                return False
+            if query.next():
+                for header in show_columns:
+                    col = self.show_cols.index(header)
                     model_index = self.model.index(row, col)
-                    self.model.setData(model_index, query.value(header), QtC.Qt.ItemDataRole.EditRole)
-                    logger_setup.get_logger().info(
-                        f'New {header} value: {model_index.data(QtC.Qt.ItemDataRole.DisplayRole)}')
+                    if self.model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole) != query.value(header):
+                        self.model.setData(model_index, query.value(header), QtC.Qt.ItemDataRole.EditRole)
+                        logger_setup.get_logger().info(
+                            f'New {header} value: {model_index.data(QtC.Qt.ItemDataRole.DisplayRole)}')
                     # Changes were already written to the database
                     if model_index in self.model.edited_indexes:
                         self.model.edited_indexes.remove(model_index)
@@ -1053,25 +1082,51 @@ class EditView(QtW.QDialog):
         logger_setup.get_logger().info('Saving data from line edit')
         if self.lineEdit is not None:
             edit_value = self.lineEdit.text()
+            if self.common_edit_string:
+                common_parts = self.common_edit_string.split('[-]')
+                edit_parts = edit_value.split('[-]')
             if not self.edit_index.isValid():
                 model_indexes = []
                 for index in self.edit_tableView.selectedIndexes():
                     model_indexes.append(self.proxy_model.mapToSource(index))
             else:
                 model_indexes = [self.proxy_model.mapToSource(self.edit_index)]
+            logger_setup.get_logger().info(f'Saving edits for {len(model_indexes)} items')
+            self.model.blockSignals(True)
+            # Find upper left and lower right of model_indexes
+            min_col = None
+            max_col = None
+            min_row = None
+            max_row = None
             for model_index in model_indexes:
+                if not min_col or model_index.column() < min_col:
+                    min_col = model_index.column()
+                if not max_col or model_index.column() > max_col:
+                    max_col = model_index.column()
+                if not min_row or model_index.row() < min_row:
+                    min_row = model_index.row()
+                if not max_row or model_index.row() > max_row:
+                    max_row = model_index.row()
                 header = self.model.headerData(model_index.column(), QtC.Qt.Orientation.Horizontal,
                                                QtC.Qt.ItemDataRole.DisplayRole)
                 if self.table in SQLUtils.not_null and header in SQLUtils.not_null[self.table] and not edit_value:
                     logger_setup.get_logger().error(f'{get_readable_header(header)} cannot be empty')
                     return
-                if self.model.setData(model_index, edit_value, QtC.Qt.ItemDataRole.EditRole):
+                if self.common_edit_string:
+                    edit_data = self.model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole)
+                    for part_index in range(len(common_parts)):
+                        edit_data = edit_data.replace(common_parts[part_index], edit_parts[part_index])
+                else:
+                    edit_data = edit_value
+                if self.model.setData(model_index, edit_data, QtC.Qt.ItemDataRole.EditRole):
                     if self.edit_tableView.currentIndex() == self.edit_index:
                         self.tabbed_from_editor = False
                 else:
                     logger_setup.get_logger().critical(f'Failed to set data in the table')
                     self.destroy_lineedit()
                     return
+            self.model.blockSignals(True)
+            self.model.dataChanged.emit(self.model.index(min_row, min_col), self.model.index(max_row, max_col))
             logger_setup.get_logger().info('Data saved from line edit')
             self.destroy_lineedit()
             return
@@ -1086,6 +1141,7 @@ class EditView(QtW.QDialog):
         self.edit_tableView.setIndexWidget(self.edit_index, None)
         self.lineEdit = None
         self.edit_index = QtC.QModelIndex()
+        self.common_edit_string = None
         self.edit_tableView.setFocus()
 
     def create_dropdown(self):
@@ -1381,9 +1437,22 @@ class EditView(QtW.QDialog):
                         updated = True
                         release_savepoint('before_edit_id')
             if isinstance(combo_model, CheckableSqlTableModel | CheckableSqlQueryModel | CheckableTreeModel):
-                new_text = combo_model.selected_items_string()
-                for model_index in model_indexes:
-                    self.model.setData(model_index, new_text, QtC.Qt.ItemDataRole.EditRole)
+                if not combo_model.partially_checked_ids:
+                    new_text = combo_model.selected_items_string()
+                    for model_index in model_indexes:
+                        self.model.setData(model_index, new_text, QtC.Qt.ItemDataRole.EditRole)
+                else:
+                    combo_table = combo_model.tableName()
+                    checked_names = [get_name_from_id(combo_table, checked_id) for checked_id in list(combo_model.checked_ids)]
+                    for model_index in model_indexes:
+                        current_text = self.model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole)
+                        current_names = current_text.split('; ')
+                        new_text = current_text
+                        for checked_name in checked_names:
+                            if checked_name not in current_names:
+                                new_text += f'; {checked_name}'
+                        if current_text != new_text:
+                            self.model.setData(model_index, new_text, QtC.Qt.ItemDataRole.EditRole)
             else:
                 for model_index in model_indexes:
                     if not self.model.setData(model_index, combo.currentText(), QtC.Qt.ItemDataRole.EditRole):
@@ -2019,18 +2088,18 @@ class EditView(QtW.QDialog):
 
     def data_submit(self):
         logger_setup.get_logger().info('Submitting changes')
-        row = self.model.edited_indexes[0].row()
-        row_id = self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
         row_id_header = self.table_headers[0]
-        update_cols = {}
-        update_col_values = {}
-        where_col_ids = {}
-        for key in SQLUtils.one_editable:
-            update_cols[key] = []
-            update_col_values[key] = []
-            where_col_ids[key] = []
         query = QtS.QSqlQuery()
         for model_index in self.model.edited_indexes:
+            row = model_index.row()
+            row_id = self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
+            update_cols = {}
+            update_col_values = {}
+            where_col_ids = {}
+            for key in SQLUtils.one_editable:
+                update_cols[key] = []
+                update_col_values[key] = []
+                where_col_ids[key] = []
             header = self.model.headerData(model_index.column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
             header_found = False
             if header in self.gps_headers and not header_found:
@@ -2166,26 +2235,58 @@ class EditView(QtW.QDialog):
                     if header not in update_cols[table]:
                         update_cols[table].append(header)
                         update_col_values[table].append(text)
-        for table in update_cols:
-            if update_col_values[table]:
-                table_headers = get_headers(table)
-                if table == self.table:
-                    item_id = self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
-                else:
-                    id_col = get_headers(table)[0]
-                    item_id = self.retrieve_id(table, id_col)
-                sql_values = ", ".join(f':{str(s)}' for s in update_cols[table])
-                sql_cols = ', '.join(update_cols[table])
-                query.prepare(f'UPDATE "{table}" SET ({sql_cols}) = ({sql_values}) WHERE {table_headers[0]} = {item_id}')
-                for i, value in enumerate(update_col_values[table]):
-                    query.bindValue(f':{sql_cols.split(", ")[i]}', value)
-                if not query.exec():
-                    logger_setup.get_logger().critical(f'Failed to update {table}')
-                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                    logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
-                    return False
-                logger_setup.get_logger().info(f'Updated {sql_cols} to {', '.join(str(val) for val in update_col_values[table])} in {table} where {table_headers[0]} = {item_id}')
+            for table in update_cols:
+                if update_col_values[table]:
+                    table_headers = get_headers(table)
+                    if table == self.table:
+                        item_ids = [self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)]
+                    else:
+                        id_col_header = get_headers(table)[0]
+                        if id_col_header in self.show_cols:
+                            id_col = self.show_cols.index(id_col_header)
+                            item_ids = [self.model.index(row, id_col).data(QtC.Qt.ItemDataRole.DisplayRole)]
+                        elif table in ['Aliquots', 'Grains', 'Spots', 'UPbAnalyses'] and self.table in ['Samples', 'Aliquots', 'Grains', 'Spots']:
+                            if self.table == 'Samples':
+                                sample_ids = [self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)]
+                                aliquot_ids, grain_ids, spot_ids, upb_analysis_ids = find_current_sub_items(sample_ids, self.table)
+                            elif self.table == 'Aliquots':
+                                aliquot_ids = [self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)]
+                                grain_ids, spot_ids, upb_analysis_ids = find_current_sub_items(aliquot_ids, self.table)
+                            elif self.table == 'Grains':
+                                grain_ids = [self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)]
+                                spot_ids, upb_analysis_ids = find_current_sub_items(grain_ids, self.table)
+                            elif self.table == 'Spots':
+                                spot_ids = [self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)]
+                                grain_ids, upb_analysis_ids = find_current_sub_items(spot_ids, self.table)
+                            if table == 'Aliquots':
+                                item_ids = aliquot_ids
+                            elif table == 'Grains':
+                                item_ids = grain_ids
+                            elif table == 'Spots':
+                                item_ids = spot_ids
+                            elif table == 'UPbAnalyses':
+                                item_ids = upb_analysis_ids
+
+                    sql_values = ", ".join(f':{str(s)}' for s in update_cols[table])
+                    sql_cols = ', '.join(update_cols[table])
+                    if len(item_ids) == 0:
+                        logger_setup.get_logger().critical(f'No items found for table {table}')
+                        return False
+                    elif len(item_ids) == 1:
+                        sql_where = f'IS {item_ids[0]}'
+                    else:
+                        sql_where = f'IN {tuple(item_ids)}'
+                    query.prepare(f'UPDATE "{table}" SET ({sql_cols}) = ({sql_values}) WHERE {table_headers[0]} {sql_where}')
+                    for i, value in enumerate(update_col_values[table]):
+                        query.bindValue(f':{sql_cols.split(", ")[i]}', value)
+                    if not query.exec():
+                        logger_setup.get_logger().critical(f'Failed to update {table}')
+                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                        return False
+                    logger_setup.get_logger().info(f'Updated {sql_cols} to {', '.join(str(val) for val in update_col_values[table])} in {table} where {table_headers[0]} = {item_ids}')
+                    break
         logger_setup.get_logger().info('Changes submitted')
         self.model.edited_indexes = []
         return True

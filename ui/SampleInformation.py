@@ -140,6 +140,7 @@ class SampleInformation(QtW.QDialog):
         self.checked_sample_list = []
         checked_sample_names = []
         self.checked_sample_names = ""
+        self.sample_names_model.select()
         for row in range(self.sample_names_model.rowCount()):
             name_index = self.sample_names_model.index(row, 1, QtC.QModelIndex())
             if self.sample_names_model.data(name_index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
@@ -228,6 +229,7 @@ class SampleInformation(QtW.QDialog):
         # self.sample_name_comboBox.view().customContextMenuRequested.connect(self.show_context_menu)
         self.sample_name_comboBox.edit_triggered.connect(self.edit_popup)
         self.sample_name_comboBox.delete_triggered.connect(self.delete_item)
+        self.sample_name_lineEdit.editingFinished.connect(lambda: self.update_field('SampleName', f'{self.sample_name_lineEdit.text()}'))
         self.sample_igsn_lineEdit.editingFinished.connect(lambda: self.update_field('SampleIGSN', f'{self.sample_igsn_lineEdit.text()}'))
         self.sample_context_comboBox.closing.connect(lambda: self.update_sample_tags(self.sample_context_comboBox))
         self.sample_context_comboBox.add_triggered.connect(self.add_popup)
@@ -390,6 +392,8 @@ class SampleInformation(QtW.QDialog):
                             return
                         update_modified_timestamp('Samples', [sample_id])
                 self.updated = True
+                if field == 'SampleName':
+                    self.update_sample_list()
                 end_update_field_time = time.time()
                 logger_setup.get_logger().info(
                     f"Updated field in {end_update_field_time - start_update_field_time} seconds")
