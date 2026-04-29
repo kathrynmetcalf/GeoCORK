@@ -87,7 +87,10 @@ class SetSelectedValues(QtW.QDialog):
     def add_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
         combo.blockSignals(True)
         logger_setup.get_logger().info(f"Add popup called")
-        model = combo.model()
+        try:
+            model = combo.source_model()
+        except AttributeError:
+            model = combo.model()
         if isinstance(combo.view(), QtW.QTreeView):
             if not isinstance(model, TreeModel):
                 model, indexes = find_tree_model(model, None)
@@ -98,11 +101,11 @@ class SetSelectedValues(QtW.QDialog):
                 logger_setup.get_logger().debug(f"Error: No tree model found")
                 combo.blockSignals(False)
                 return
-        elif isinstance(combo.model(), QSortFilterProxyModel):
-            model = combo.model().sourceModel()
+        elif isinstance(model, QSortFilterProxyModel):
+            model = model.sourceModel()
             table = model.tableName()
         else:
-            table = combo.model().tableName()
+            table = model.tableName()
         dlg = None
         if table in SQLUtils.user_viewable_trees:
             save_expanded_state(table, combo.view())
@@ -1446,8 +1449,8 @@ class EditView(QtW.QDialog):
                     checked_names = [get_name_from_id(combo_table, checked_id) for checked_id in list(combo_model.checked_ids)]
                     for model_index in model_indexes:
                         current_text = self.model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole)
-                        current_names = current_text.split('; ')
-                        new_text = current_text
+                        current_names = current_text.split('; ') if current_text else []
+                        new_text = current_text if current_text else ''
                         for checked_name in checked_names:
                             if checked_name not in current_names:
                                 new_text += f'; {checked_name}'
@@ -2450,7 +2453,7 @@ class EditView(QtW.QDialog):
                 if isinstance(combo, CheckableTreeCombobox):
                     checked_parent_ids = combo.tree_model.return_checked_ids()[0]
                 else:
-                    checked_parent_ids = combo.model().return_checked_ids()[0]
+                    checked_parent_ids = combo.source_model().return_checked_ids()[0]
                 parent_data_id = checked_parent_ids[0] if len(checked_parent_ids) > 0 else None
                 return parent_data_id, parent_table
             else:
@@ -2502,7 +2505,7 @@ class EditView(QtW.QDialog):
             model = model.sourceModel()
             table = model.tableName()
         else:
-            table = combo.model().tableName()
+            table = model.tableName()
         dlg = None
         if table in SQLUtils.user_viewable_trees:
             save_expanded_state(table, combo.view())
@@ -2544,7 +2547,7 @@ class EditView(QtW.QDialog):
             model = model.sourceModel()
             table = model.tableName()
         else:
-            table = combo.model().tableName()
+            table = model.tableName()
         if table in SQLUtils.user_viewable_trees:
             dlg = EditTree(self, table)
         elif table != get_view_from_table(table):

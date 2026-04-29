@@ -175,10 +175,12 @@ class EditUPbTags(QtW.QDialog):
             column = get_name_column(table)
         else:
             model = combo.model()
+            if isinstance(model, QSortFilterProxyModel):
+                model = model.sourceModel()
             table = model.tableName()
             column = get_name_column(table)
         logger_setup.get_logger().info(f"update_subfield_id called with {table}")
-        show_loading_dialog("Updating", f"Updating {field}")
+        show_loading_dialog("Updating", f"Updating {field.split('ID')[0]}...")
         start_update_sub_tags_time = time.time()
         # UPbAnalyses have only one value for each field, so only one value should be checked
         # If there are still partial checks, then nothing should be updated
@@ -192,11 +194,11 @@ class EditUPbTags(QtW.QDialog):
             query_where_string = ""
         if len(self.sample_id_list) == 0 or len(self.upb_analysis_ids) == 0:
             logger_setup.get_logger().info("No analyses selected to update")
-            close_loading_dialog("Updating", f"Updating {field}")
+            close_loading_dialog("Updating", f"Updating {field.split('ID')[0]}...")
             return
         elif len(checked_ids) > 1:
-            logger_setup.get_logger().critical(f"More than one checked value for {field}")
-            close_loading_dialog("Updating", f"Updating {field}")
+            logger_setup.get_logger().critical(f"More than one checked value for {field.split('ID')[0]}")
+            close_loading_dialog("Updating", f"Updating {field.split('ID')[0]}...")
             return
         elif len(checked_ids) == 1:
             # Should only be one checked value
@@ -212,7 +214,7 @@ class EditUPbTags(QtW.QDialog):
                 logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
                 logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
                 rollback_savepoint('before_upb_update')
-                close_loading_dialog("Updating", f"Updating {field}")
+                close_loading_dialog("Updating", f"Updating {field.split('ID')[0]}...")
                 return
             update_modified_timestamp('UPbAnalyses', self.upb_analysis_ids)
             self.updated = True
@@ -234,7 +236,7 @@ class EditUPbTags(QtW.QDialog):
                 logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
                 logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
                 rollback_savepoint('before_upb_update')
-                close_loading_dialog("Updating", f"Updating {field}")
+                close_loading_dialog("Updating", f"Updating {field.split('ID')[0]}...")
                 return
             update_modified_timestamp('UPbAnalyses', self.upb_analysis_ids)
             self.updated = True
@@ -243,11 +245,11 @@ class EditUPbTags(QtW.QDialog):
                 f"Updated {field} to Null for UPbAnalysisID {self.upb_analysis_ids} in {end_update_sub_tags_time - start_update_sub_tags_time} seconds")
             # logger_setup.get_logger().info(f"Updated {field} to Null for {len(self.upb_analysis_ids)} UPb Analyses")
             release_savepoint('before_upb_update')
-        close_loading_dialog("Updating", f"Updating {field}")
+        close_loading_dialog("Updating", f"Updating {field.split('ID')[0]}...")
             
     def update_subfield(self, field: str, text: str):
         logger_setup.get_logger().info(f"Update field called with {field} and {text}")
-        show_loading_dialog("Updating", f"Updating {field}")
+        show_loading_dialog("Updating", f"Updating {field}...")
         start_update_field_time = time.time()
         if text != "-":
             if len(self.upb_analysis_ids) > 0:
@@ -259,7 +261,7 @@ class EditUPbTags(QtW.QDialog):
                         logger_setup.get_logger().critical(f"Failed to select {field} for {len(self.upb_analysis_ids)} UPb Analyses")
                         logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
                         logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-                        close_loading_dialog("Updating", f"Updating {field}")
+                        close_loading_dialog("Updating", f"Updating {field}...")
                         return
                     query.next()
                     if query.value(0) != text:
@@ -271,7 +273,7 @@ class EditUPbTags(QtW.QDialog):
                             logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
                             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
                             rollback_savepoint('before_upb_update')
-                            close_loading_dialog("Updating", f"Updating {field}")
+                            close_loading_dialog("Updating", f"Updating {field}...")
                             return
                         update_modified_timestamp('UPbAnalyses', [upb_analysis_id])
                 self.updated = True
@@ -282,7 +284,7 @@ class EditUPbTags(QtW.QDialog):
                 release_savepoint('before_upb_update')
             else:
                 logger_setup.get_logger().info("No samples selected")
-        close_loading_dialog("Updating", f"Updating {field}")
+        close_loading_dialog("Updating", f"Updating {field}...")
 
     def update_many_id(self, field: str):
         combo = self.sender()
@@ -292,20 +294,22 @@ class EditUPbTags(QtW.QDialog):
             column = get_name_column(table)
         else:
             model = combo.model()
+            if isinstance(model, QSortFilterProxyModel):
+                model = model.sourceModel()
             table = model.tableName()
             column = get_name_column(table)
         logger_setup.get_logger().info(f"update_many_id called with {table}")
-        show_loading_dialog("Updating", f"Updating {field}")
+        show_loading_dialog("Updating", f"Updating {field.split('ID')[0]}...")
         start_update_sub_tags_time = time.time()
         many_table = 'UPbAnalyses_UPbAnalysisContexts'
         update = model.update_many_table(many_table, self.upb_analysis_ids)
         if update == 'False':
-            logger_setup.get_logger().info(f"Failed to update {field} for {len(self.upb_analysis_ids)} UPb Analyses")
-            close_loading_dialog("Updating", f"Updating {field}")
+            logger_setup.get_logger().critical(f"Failed to update {field.split('ID')[0]} for {len(self.upb_analysis_ids)} UPb Analyses")
+            close_loading_dialog("Updating", f"Updating {field.split('ID')[0]}...")
             return
         elif update == 'No':
             logger_setup.get_logger().info("No changes")
-            close_loading_dialog("Updating", f"Updating {field}")
+            close_loading_dialog("Updating", f"Updating {field.split('ID')[0]}...")
             return
         else:
             logger_setup.get_logger().info(f"Updated {field} for {len(self.upb_analysis_ids)} UPb Analyses")
@@ -313,6 +317,7 @@ class EditUPbTags(QtW.QDialog):
             end_update_sub_tags_time = time.time()
             logger_setup.get_logger().info(
                 f"Updated {field} for {len(self.upb_analysis_ids)} UPb Analyses in {end_update_sub_tags_time - start_update_sub_tags_time} seconds")
+        close_loading_dialog("Updating", f"Updating {field.split('ID')[0]}...")
 
     def update_fields(self):
         try:
@@ -326,7 +331,10 @@ class EditUPbTags(QtW.QDialog):
 
     def add_popup(self, action: QtG.QAction | None = None):
         combo = self.sender()
-        model = combo.model()
+        try:
+            model = combo.source_model()
+        except AttributeError:
+            model = combo.model()
         if isinstance(combo.view(), QtW.QTreeView):
             if not isinstance(model, TreeModel):
                 model, indexes = find_tree_model(model, None)
@@ -340,7 +348,7 @@ class EditUPbTags(QtW.QDialog):
             model = model.sourceModel()
             table = model.tableName()
         else:
-            table = combo.model().tableName()
+            table = model.tableName()
         dlg = None
         if table in SQLUtils.user_viewable_trees:
             save_expanded_state(table, combo.view())
@@ -376,7 +384,10 @@ class EditUPbTags(QtW.QDialog):
 
     def edit_popup(self, action: QtG.QAction | None = None):
         combo = self.sender()
-        model = combo.model()
+        try:
+            model = combo.source_model()
+        except AttributeError:
+            model = combo.model()
         if isinstance(combo.view(), QtW.QTreeView):
             if not isinstance(model, TreeModel):
                 model, indexes = find_tree_model(model, None)
@@ -390,7 +401,7 @@ class EditUPbTags(QtW.QDialog):
             model = model.sourceModel()
             table = model.tableName()
         else:
-            table = combo.model().tableName()
+            table = model.tableName()
         if table in SQLUtils.user_viewable_trees:
             dlg = EditTree(self, table)
         elif table != get_view_from_table(table):

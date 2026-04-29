@@ -153,10 +153,10 @@ class ColumnFields(QtW.QWidget):
                     set_comboBox_text(self.column_name_comboBox, "")
                 elif text == "-":
                     partially_checked_ids = set(value for value in values if value != "" )
-                    self.column_name_comboBox.model().update_model_checks(set(), set(partially_checked_ids))
+                    self.column_name_comboBox.source_model().update_model_checks(set(), set(partially_checked_ids))
                 else:
                     column_id = text
-                    self.column_name_comboBox.model().update_model_checks({column_id}, set())
+                    self.column_name_comboBox.source_model().update_model_checks({column_id}, set())
             elif 'HeightDepthError' in header and 'Calculated' not in header:
                 if text is None or text == '':
                     self.height_depth_error_lineEdit.setText("")
@@ -332,7 +332,10 @@ class ColumnFields(QtW.QWidget):
     def add_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
         combo.blockSignals(True)
         logger_setup.get_logger().info(f"Add popup called")
-        model = combo.model()
+        try:
+            model = combo.source_model()
+        except AttributeError:
+            model = combo.model()
         if isinstance(combo.view(), QtW.QTreeView):
             if not isinstance(model, TreeModel):
                 model, indexes = find_tree_model(model, None)
@@ -344,7 +347,7 @@ class ColumnFields(QtW.QWidget):
                 combo.blockSignals(False)
                 return
         else:
-            table = combo.model().tableName()
+            table = model.tableName()
         dlg = None
         if table in SQLUtils.user_viewable_trees:
             save_expanded_state(table, combo.view())
@@ -375,7 +378,10 @@ class ColumnFields(QtW.QWidget):
     def edit_popup(self):
         logger_setup.get_logger().info(f'Edit popup called')
         combo: QtW.QComboBox = self.sender()
-        model = combo.model()
+        try:
+            model = combo.source_model()
+        except AttributeError:
+            model = combo.model()
         if isinstance(combo.view(), QtW.QTreeView):
             if not isinstance(model, TreeModel):
                 model, indexes = find_tree_model(model, None)

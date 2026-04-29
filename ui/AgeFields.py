@@ -206,7 +206,7 @@ class AgeFields(QtW.QWidget):
             sample_age_model_query = f'SELECT * FROM SampleAges WHERE SampleAgeID in {tuple(self.sample_ages)}'
         elif len(self.sample_ages) == 1:
             sample_age_model_query = f'SELECT * FROM SampleAges WHERE SampleAgeID = {self.sample_ages[0]}'
-        populate_combo_box(self.edit_age_comboBox, **{'table': 'SampleAges', 'query': sample_age_model_query})
+        populate_combo_box(self.edit_age_comboBox, **{'table': 'SampleAges', 'query': sample_age_model_query, 'column': 'SampleAgeDisplay'})
         self.enable_groups()
         end_populate_age_dropdown_time = time.time()
         logger_setup.get_logger().info(f"Populated sample age dropdown in {end_populate_age_dropdown_time - start_populate_age_dropdown_time} seconds")
@@ -1013,9 +1013,6 @@ class AgeFields(QtW.QWidget):
 
     def update_age_tags(self, combo: CheckableTreeCombobox | CheckableComboBox):
         logger_setup.get_logger().info(f"update_age_tags called with {combo.objectName()}")
-        if not isinstance(combo, CheckableTreeCombobox) and not isinstance(combo, CheckableComboBox):
-            logger_setup.get_logger().critical(f"Combo box is not CheckableTreeComboBox or CheckableComboBox", self)
-            return False
         if isinstance(combo, CheckableTreeCombobox):
             model, indexes = find_tree_model(combo.model(), None)
             if not model:
@@ -1025,6 +1022,9 @@ class AgeFields(QtW.QWidget):
             model = combo.model()
             if isinstance(model, QSortFilterProxyModel):
                 model = model.sourceModel()
+        else:
+            logger_setup.get_logger().critical(f"Combo box is not CheckableTreeComboBox or CheckableComboBox", self)
+            return False
         table = model.tableName()
         start_update_age_tags = time.time()
         if table == '"References"':
@@ -1057,7 +1057,7 @@ class AgeFields(QtW.QWidget):
                 logger_setup.get_logger().critical(f"Could not find model for combo box {combo.objectName()}", self)
                 return False
         elif isinstance(combo, CheckableComboBox):
-            model = combo.model()
+            model = combo.source_model()
             table = model.tableName()
             id_header = get_headers(table)[0]
         else:
@@ -1283,7 +1283,10 @@ class AgeFields(QtW.QWidget):
             self.populate_fields()
 
     def add_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
-        model = combo.model()
+        try:
+            model = combo.source_model()
+        except AttributeError:
+            model = combo.model()
         if isinstance(combo.view(), QtW.QTreeView):
             if not isinstance(model, TreeModel):
                 model, indexes = find_tree_model(model, None)
@@ -1297,7 +1300,7 @@ class AgeFields(QtW.QWidget):
             model = model.sourceModel()
             table = model.tableName()
         else:
-            table = combo.model().tableName()
+            table = model.tableName()
         if table == 'SampleAges':
             self.add_age()
             return
@@ -1328,7 +1331,10 @@ class AgeFields(QtW.QWidget):
             self.sample_age_id = combo.model().data(combo.model().index(index, 0), QtC.Qt.ItemDataRole.DisplayRole)
             combo.hidePopup()
             return
-        model = combo.model()
+        try:
+            model = combo.source_model()
+        except AttributeError:
+            model = combo.model()
         if isinstance(combo.view(), QtW.QTreeView):
             if not isinstance(model, TreeModel):
                 model, indexes = find_tree_model(model, None)
@@ -1342,7 +1348,7 @@ class AgeFields(QtW.QWidget):
             model = model.sourceModel()
             table = model.tableName()
         else:
-            table = combo.model().tableName()
+            table = model.tableName()
         if table in SQLUtils.user_viewable_trees:
             dlg = EditTree(self, table)
         elif table != get_view_from_table(table):

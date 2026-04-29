@@ -3037,17 +3037,19 @@ def delete_question(table, delete_ids):
             association_text = f'\nAssociated with no other records.'
         else:
             # Find the number of tables with non-empty associations
+            detail_text = ''
             non_empty_tables = [associated_table for associated_table, ids in associations.items() if ids]
             if len(non_empty_tables) < 4:
                 # List the associations with their names for up to three table associations
                 association_text = '\nAssociated with: '
                 for associated_table, ids in associations.items():
                     if len(ids) == 0:
+                        association_text += f'\nNo {associated_table}'
                         continue
                     # append the association text with the number of IDs and the names of the IDs
-                    elif len(ids) < 11:
+                    else:
                         association_text += f'\n{len(ids)} {associated_table}'
-                        detail_text = f'{associated_table}: {"\n".join(get_name_from_id(associated_table, id) for id in ids)}'
+                        detail_text += f'{associated_table}: \n{"\n".join(get_name_from_id(associated_table, id) for id in ids)}\n'
             else:
                 association_text = f'\nAssociated with '
                 for associated_table, ids in associations.items():
@@ -6936,12 +6938,12 @@ class CheckableTreeView(TrackExpandedTreeView):
         if not tree_model:
             logger_setup.get_logger().info(f'No checkable tree model found in {self.objectName()}')
             return
-        if not tree_model.checked_ids or tree_model.partially_checked_ids:
+        if not tree_model.checked_ids and not tree_model.partially_checked_ids:
             return
         tree_checked_indices, tree_partially_checked_indices = tree_model.traverse_checkable_tree(QtC.QModelIndex())
         if isinstance(self.model(), QSortFilterProxyModel):
-            checked_indices = [self.model().mapFromSource(index) for index in tree_checked_indices]
-            partially_checked_indices = [self.model().mapFromSource(index) for index in tree_partially_checked_indices]
+            checked_indices = map_from_tree_model(self.model(), tree_checked_indices)
+            partially_checked_indices = map_from_tree_model(self.model(), tree_partially_checked_indices)
         else:
             checked_indices = tree_checked_indices
             partially_checked_indices = tree_partially_checked_indices
@@ -8306,7 +8308,7 @@ def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel
     :return: True if the model was populated successfully, False otherwise
     """
     start_populate_model_checks_time = time.time()
-    if isinstance(model, QSortFilterProxyModel):
+    while isinstance(model, QSortFilterProxyModel):
         model = model.sourceModel()
     if isinstance(model, TreeModel):
         row_count = model.source_model.rowCount()

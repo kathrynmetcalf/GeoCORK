@@ -78,7 +78,10 @@ class SetSelectedValues(QtW.QDialog):
     def add_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
         combo.blockSignals(True)
         logger_setup.get_logger().info(f"Add popup called")
-        model = combo.model()
+        try:
+            model = combo.source_model()
+        except AttributeError:
+            model = combo.model()
         if isinstance(combo.view(), QtW.QTreeView):
             if not isinstance(model, TreeModel):
                 model, indexes = find_tree_model(model, None)
@@ -89,11 +92,11 @@ class SetSelectedValues(QtW.QDialog):
                 logger_setup.get_logger().debug(f"Error: No tree model found")
                 combo.blockSignals(False)
                 return
-        elif isinstance(combo.model(), QSortFilterProxyModel):
-            model = combo.model().sourceModel()
+        elif isinstance(model, QSortFilterProxyModel):
+            model = model.sourceModel()
             table = model.tableName()
         else:
-            table = combo.model().tableName()
+            table = model.tableName()
         dlg = None
         if table in SQLUtils.user_viewable_trees:
             save_expanded_state(table, combo.view())
@@ -141,7 +144,7 @@ class SetSelectedValues(QtW.QDialog):
             model = model.sourceModel()
             table = model.tableName()
         else:
-            table = combo.model().tableName()
+            table = model.tableName()
         combo.blockSignals(True)
         dlg = None
         if table in SQLUtils.user_viewable_trees:
@@ -172,13 +175,11 @@ class SetSelectedValues(QtW.QDialog):
             id = combo.model().index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
             if id is not None:
                 selected_ids.append(id)
-        model = combo.model()
-        table = None
-        while not table:
-            try:
-                table = model.tableName()
-            except AttributeError:
-                model = model.sourceModel()
+        try:
+            model = combo.source_model()
+        except AttributeError:
+            model = combo.model()
+        table = model.tableName()
         if selected_ids:
             delete_data(table, selected_ids)
         else:
@@ -1382,7 +1383,10 @@ class EditTreeView(QtW.QDialog):
             return sample_ids[0]
 
     def add_tag_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
-        model = combo.model()
+        try:
+            model = combo.source_model()
+        except AttributeError:
+            model = combo.model()
         if isinstance(combo.view(), QtW.QTreeView):
             if not isinstance(model, TreeModel):
                 model, indexes = find_tree_model(model, None)
@@ -1392,11 +1396,8 @@ class EditTreeView(QtW.QDialog):
                 logger_setup.get_logger().critical(f"Error editing table")
                 logger_setup.get_logger().debug(f"Error: No tree model found")
                 return
-        elif isinstance(model, QtC.QSortFilterProxyModel):
-            model = model.sourceModel()
-            table = model.tableName()
         else:
-            table = combo.model().tableName()
+            table = model.tableName()
         logger_setup.get_logger().info(f'Add called for {table}')
         dlg = None
         if table in SQLUtils.user_viewable_trees:
@@ -1419,7 +1420,10 @@ class EditTreeView(QtW.QDialog):
 
     def edit_tag_popup(self):
         combo = self.sender()
-        model = combo.model()
+        try:
+            model = combo.source_model()
+        except AttributeError:
+            model = combo.model()
         if isinstance(model, QtC.QSortFilterProxyModel):
             model = model.sourceModel()
         if isinstance(combo.view(), QtW.QTreeView):
