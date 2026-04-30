@@ -22,11 +22,10 @@ ParentRow rule:
         2. new ParentRow = MAX + 1, or 0 if no siblings exist yet
 """
 
-import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import logger_setup
+from Sesar_Import.sesar_logger import get_sesar_logger
 
 
 def is_filled(x: Any) -> bool:
@@ -58,7 +57,7 @@ def _q_resolve_unit_id(value: Any, unit_table: str,
     q2.exec()
     if q2.next():
         return q2.value(0)
-    logger_setup.get_logger().warning(f"[SESAR import] Unit {value!r} not found in {unit_table}")
+    get_sesar_logger().warning(f"[SESAR import] Unit {value!r} not found in {unit_table}")
     return None
 
 
@@ -189,7 +188,7 @@ def import_staging_inplace(staging: dict, db_path: str) -> None:
     from Functions.Savepoint_manager import (
         create_savepoint, release_savepoint, rollback_savepoint)
 
-    log = logger_setup.get_logger()
+    log = get_sesar_logger()
     log.info(f"[SESAR import] Starting inplace import into {db_path}")
 
     # ------------------------------------------------------------------
@@ -647,90 +646,3 @@ def import_staging_inplace(staging: dict, db_path: str) -> None:
         rollback_savepoint("sesar_import")
         log.error(f"[SESAR import] FAILED — rolled back to savepoint. Error: {exc}")
         raise
-
-
-# ---------------------------------------------------------------------------
-# Verification - compare ParentRow pattern against reference DB
-# ---------------------------------------------------------------------------
-
-def verify_import(db_path: str, igsn: str) -> None:
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    cur = conn.cursor()
-    print(f"\n{'='*60}")
-    print(f"Verification - IGSN: {igsn}")
-    print(f"{'='*60}")
-
-    cur.execute("SELECT * FROM Samples WHERE SampleIGSN = ?", (igsn,))
-    samples = cur.fetchall()
-    if not samples:
-        print("  ✗ Sample NOT found!")
-        return
-
-    for s in samples:
-        print(f"\n  [Sample] id={s['SampleID']}  name={s['SampleName']!r}")
-        print(f"    IGSN: {s['SampleIGSN']}")
-
-        if s["SampleGPSLocationID"]:
-            cur.execute("SELECT GPSLatDeg, GPSLonDeg, GPSElev FROM GPSLocations "
-                        "WHERE GPSLocationID=?", (s["SampleGPSLocationID"],))
-            g = cur.fetchone()
-            if g:
-                print(f"    [GPS] lat={g[0]}  lon={g[1]}  elev={g[2]}")
-
-        cur.execute("""SELECT r.RegionName, r.ParentRegionID, r.RegionParentRow
-                       FROM Samples_Regions sr JOIN Regions r ON sr.RegionID=r.RegionID
-                       WHERE sr.SampleID=?""", (s["SampleID"],))
-        for r in cur.fetchall():
-            print(f"    [Region] {r[0]!r}  parentID={r[1]}  parentRow={r[2]}")
-
-        cur.execute("""SELECT rt.RockTypeName, rt.ParentRockTypeID, rt.RockTypeParentRow
-                       FROM Samples_RockTypes srt JOIN RockTypes rt ON srt.RockTypeID=rt.RockTypeID
-                       WHERE srt.SampleID=?""", (s["SampleID"],))
-        for rt in cur.fetchall():
-            print(f"    [RockType] {rt[0]!r}  parentID={rt[1]}  parentRow={rt[2]}")
-
-        cur.execute("""SELECT sm.SamplingMethodName, sm.SamplingMethodParentRow
-                       FROM Samples_SamplingMethods ssm
-                       JOIN SamplingMethods sm ON ssm.SamplingMethodID=sm.SamplingMethodID
-                       WHERE ssm.SampleID=?""", (s["SampleID"],))
-        for sm in cur.fetchall():
-            print(f"    [SamplingMethod] {sm[0]!r}  parentRow={sm[1]}")
-
-        cur.execute("""SELECT sc.SampleContextName, sc.SampleContextParentRow
-                       FROM Samples_SampleContexts ssc
-                       JOIN SampleContexts sc ON ssc.SampleContextID=sc.SampleContextID
-                       WHERE ssc.SampleID=?""", (s["SampleID"],))
-        for sc in cur.fetchall():
-            print(f"    [SampleContext] {sc[0]!r}  parentRow={sc[1]}")
-
-    print("\n  Tree ParentRow patterns (should be sibling indices 0,1,2...):")
-    for tbl, col in [("Regions","RegionParentRow"), ("RockTypes","RockTypeParentRow"),
-                     ("SamplingMethods","SamplingMethodParentRow"),
-                     ("SampleContexts","SampleContextParentRow")]:
-        cur.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name=?", (tbl,))
-        if not cur.fetchone():
-            continue
-        cur.execute(f"SELECT COUNT(*) FROM {tbl}")
-        n = cur.fetchone()[0]
-        if n:
-            cur.execute(f"SELECT {col} FROM {tbl} ORDER BY {col}")
-            rows = [r[0] for r in cur.fetchall()]
-            print(f"    {tbl}: {rows}")
-
-    conn.close()
-
-
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
-
-STAGING_JSON = Path("geocork_staging_with_bridges.json")  # output from json-staging-transformer.py
-GEOCORK_DB   = Path("geocork_test.db")               # blank GeoCORK database to import into
-
-if __name__ == "__main__":
-    out_db = import_staging(str(STAGING_JSON), str(GEOCORK_DB))
-
-    staging = json.loads(STAGING_JSON.read_text(encoding="utf-8"))
-    igsn = staging["Samples"][0].get("SampleIGSN") or staging["Samples"][0].get("SampleName")
-    verify_import(out_db, igsn)

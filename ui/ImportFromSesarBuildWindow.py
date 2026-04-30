@@ -17,7 +17,6 @@ Naming conventions (UserInterfaceNamingConventions.md):
     Dynamic objects → <type>_<n>_<Description>
 """
 
-import json
 import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -47,8 +46,7 @@ from Sesar_Import.geocork_importer import import_staging_inplace
 # part of the same feature scope. The session is set up by
 # ImportWizard.open_import_sesar before this file's classes are ever
 # constructed, so get_sesar_logger() always returns the active logger.
-import logging
-from Sesar_Import.sesar_logger import get_sesar_logger, SesarTimer, log_sesar_event
+from Sesar_Import.sesar_logger import get_sesar_logger, SesarTimer
 
 # ---------------------------------------------------------------------------
 # PyQt6
@@ -57,7 +55,7 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal, QElapsedTimer, QEventLoop, QTi
 from PyQt6.QtGui import QFont, QColor, QBrush
 from PyQt6.QtWidgets import (
     QApplication, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QFileDialog,
+    QPushButton, QLabel,
     QDialog, QTableWidget, QTableWidgetItem, QHeaderView,
     QMessageBox, QSizePolicy, QFrame, QSplitter, QWidget,
 )
@@ -65,7 +63,7 @@ from PyQt6.QtWidgets import (
 
 
 # ===========================================================================
-# Helpers
+# Module-level helpers and constants
 # ===========================================================================
 
 def _val(x: Any) -> str:
@@ -116,7 +114,7 @@ def _is_column_locked(col_name: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Original preview helpers follow
+# Staging preview rendering constants and helpers
 # ---------------------------------------------------------------------------
 
 # Upper bound on any single cell's rendered text. Long free-form fields like
@@ -298,6 +296,10 @@ def _order_columns(discovered: set[str]) -> list[str]:
     extras = sorted(discovered - set(ordered))
     return ordered + extras
 
+
+# ===========================================================================
+# Staging preview table builder
+# ===========================================================================
 
 def _build_staging_table(
     staging: Dict[str, Any],
@@ -543,36 +545,25 @@ class TransformWorker(QThread):
     """
     Runs the SESAR → staging transform off the main thread.
 
-    Accepts one of three input modes (checked in priority order):
+    Accepts one of two input modes (checked in priority order):
       - raw_data_list (list[dict]): multiple pre-fetched SESAR dicts
             → calls transform_multiple_sesar_samples (batch mode)
       - raw_data (dict): a single pre-fetched SESAR dict (API mode)
             → calls transform_sesar_to_geocork_staging_format
-      - json_path (str): path to a local SESAR JSON file (file-browse mode)
-            → reads the file then calls transform_sesar_to_geocork_staging_format
     """
     finished = pyqtSignal(dict)
     error    = pyqtSignal(str)
 
     def __init__(
         self,
-        json_path:     Optional[str]  = None,
         raw_data:      Optional[dict] = None,
         raw_data_list: Optional[list] = None,
     ):
         super().__init__()
-        self.json_path     = json_path
         self.raw_data      = raw_data
         self.raw_data_list = raw_data_list
 
     def run(self):
-        # [SESAR DEBUG] Time the transform. If this block completes in e.g.
-        # 30ms, the loading dialog never has a chance to paint no matter
-        # what we do about parenting — we'd need a different approach.
-        import time as _dbg_time
-        _dbg_t0 = _dbg_time.perf_counter()
-        print(f"[SESAR DEBUG] TransformWorker.run: started", flush=True)
-
         # Determine mode for log context. Mutually exclusive in practice but
         # we report it explicitly so the log tells the story clearly.
         if self.raw_data_list is not None:
@@ -580,9 +571,6 @@ class TransformWorker(QThread):
             igsn_count = len(self.raw_data_list)
         elif self.raw_data is not None:
             mode = "single"
-            igsn_count = 1
-        elif self.json_path is not None:
-            mode = "file"
             igsn_count = 1
         else:
             mode = "unknown"
@@ -601,21 +589,12 @@ class TransformWorker(QThread):
                     staging = transform_multiple_sesar_samples(self.raw_data_list)
                 elif self.raw_data is not None:
                     staging = transform_sesar_to_geocork_staging_format(self.raw_data)
-                elif self.json_path is not None:
-                    raw = json.loads(Path(self.json_path).read_text(encoding="utf-8"))
-                    staging = transform_sesar_to_geocork_staging_format(raw)
                 else:
                     raise ValueError(
-                        "TransformWorker: none of json_path, raw_data, or "
+                        "TransformWorker: neither raw_data nor "
                         "raw_data_list was provided.")
-            _dbg_elapsed = _dbg_time.perf_counter() - _dbg_t0
-            print(f"[SESAR DEBUG] TransformWorker.run: finished "
-                  f"in {_dbg_elapsed*1000:.1f} ms", flush=True)
             self.finished.emit(staging)
         except Exception as exc:
-            _dbg_elapsed = _dbg_time.perf_counter() - _dbg_t0
-            print(f"[SESAR DEBUG] TransformWorker.run: errored "
-                  f"after {_dbg_elapsed*1000:.1f} ms — {exc}", flush=True)
             self.error.emit(str(exc))
 
 
@@ -672,19 +651,6 @@ class LoadingDialog(QDialog):
                 effective_parent = walker
                 break
             walker = walker.parentWidget()
-
-        # [SESAR DEBUG] Report the parent walk outcome. This tells us whether
-        # the walk found anyone visible, and if so who. Expected in the
-        # batch-import flow: SesarImportWindow (invisible) -> SampleHierarchyWidget
-        # or QSplitter -> ImportFromSesar (visible, should resolve here) ->
-        # ImportWizard.
-        _dbg_given = type(parent).__name__ if parent else None
-        _dbg_given_vis = parent.isVisible() if parent else None
-        _dbg_eff = type(effective_parent).__name__ if effective_parent else None
-        _dbg_eff_vis = effective_parent.isVisible() if effective_parent else None
-        print(f"[SESAR DEBUG] LoadingDialog parent walk: "
-              f"given={_dbg_given}(visible={_dbg_given_vis}) -> "
-              f"effective={_dbg_eff}(visible={_dbg_eff_vis})", flush=True)
 
         super().__init__(effective_parent)
         self.setWindowTitle(title)
@@ -761,15 +727,6 @@ class LoadingDialog(QDialog):
         # the user had a chance to see this" from the actual show moment.
         self._elapsed.start()
 
-        # [SESAR DEBUG] Post-show state. isVisible()=True doesn't guarantee
-        # pixels-on-screen (Qt returns True as soon as show() is queued), but
-        # combined with geometry() + pos() we can tell whether the window was
-        # placed somewhere reasonable. If x/y are (0,0) or negative, the
-        # window manager may have dumped us off-screen.
-        print(f"[SESAR DEBUG] LoadingDialog.show() done: "
-              f"isVisible={self.isVisible()}, "
-              f"geometry={self.geometry().getRect()}, "
-              f"isActiveWindow={self.isActiveWindow()}", flush=True)
         # One processEvents() is usually enough to force a paint, but on
         # some platforms a single call only drains the top event. Two calls
         # is cheap insurance that the dialog actually hits the screen before
@@ -777,9 +734,6 @@ class LoadingDialog(QDialog):
         # thread or a synchronous operation and starve the event loop.
         QApplication.processEvents()
         QApplication.processEvents()
-        print(f"[SESAR DEBUG] LoadingDialog post-processEvents: "
-              f"isVisible={self.isVisible()}, "
-              f"isActiveWindow={self.isActiveWindow()}", flush=True)
 
     def set_message(self, message: str) -> None:
         self.static_message_Label_LoadingMessage.setText(message)
@@ -810,9 +764,6 @@ class LoadingDialog(QDialog):
                 # Spin a scoped event loop that exits after `remaining` ms.
                 # QTimer.singleShot with a target of loop.quit is the idiomatic
                 # way to do "wait N ms while keeping the UI responsive."
-                print(f"[SESAR DEBUG] LoadingDialog.close: holding open "
-                      f"{remaining} ms more (elapsed={elapsed_ms}, "
-                      f"min={self._min_display_ms})", flush=True)
                 loop = QEventLoop()
                 QTimer.singleShot(remaining, loop.quit)
                 loop.exec()
@@ -845,8 +796,7 @@ class PreviewWindow(QDialog):
         self.raw_data      = raw_data
         self.raw_data_list = raw_data_list
         self.setWindowTitle("Preview - SESAR Sample Data")
-        self.setMinimumSize(1100, 520)
-        self.resize(1400, 620)
+        self.setMinimumSize(1100, 200)
 
         # static_root_Layout_Preview
         static_root_Layout_Preview = QVBoxLayout(self)
@@ -1187,6 +1137,50 @@ class PreviewWindow(QDialog):
 
         static_root_Layout_Preview.addLayout(static_btnRow_Layout_Actions)
 
+        # Resize the window to snugly fit the table content once Qt has
+        # finished laying everything out. QTimer.singleShot(0, ...) defers
+        # the call until after the current event-loop iteration — at that
+        # point all widget sizeHints are accurate and the resize lands correctly.
+        QTimer.singleShot(0, self._fit_to_content)
+
+    def _fit_to_content(self) -> None:
+        """
+        Resize the window height to fit the table rows with no leftover
+        whitespace, while respecting a maximum of 85% of the available
+        screen height so large batches never overflow the monitor.
+
+        Width is left at whatever the window currently has (set during
+        construction or adjusted by the user dragging the splitter).
+        """
+        # -- Measure the table content height --
+        # We use the raw table (left pane) row heights as the reference since
+        # both tables always have the same number of rows and resizeRowsToContents
+        # has already been called on both. horizontalHeader().height() gives the
+        # column-label row; summing rowHeight() gives the data rows.
+        tbl = self.static_raw_TableWidget_RawData
+        header_h   = tbl.horizontalHeader().height()
+        rows_h     = sum(tbl.rowHeight(r) for r in range(tbl.rowCount()))
+        table_h    = header_h + rows_h
+
+        # -- Fixed chrome above/below the table --
+        # These constants mirror the actual layout:
+        #   header label  ~24px
+        #   divider frame  ~4px
+        #   pane title labels ~22px each (both panes same height, count once)
+        #   button row    ~38px
+        #   margins + spacing: contentsMargins(16,16,16,12) + spacing(10)*4 rows
+        chrome_h = 24 + 4 + 22 + 38 + (16 + 16 + 12) + (10 * 4)
+
+        ideal_h = table_h + chrome_h
+
+        # -- Cap at 85% of the available screen height --
+        screen   = QApplication.primaryScreen().availableGeometry()
+        max_h    = int(screen.height() * 0.85)
+        final_h  = min(ideal_h, max_h)
+        final_h  = max(final_h, self.minimumHeight())
+
+        self.resize(self.width(), final_h)
+
     def _on_import_clicked(self) -> None:
         self.btn_import_Action.setEnabled(False)
         self.btn_back_Action.setEnabled(False)
@@ -1256,14 +1250,12 @@ class PreviewWindow(QDialog):
 
 class SesarImportWindow(QDialog):
     """
-    Main entry-point window for the SESAR importer.
+    Coordinator for the SESAR import pipeline (API mode only).
 
-    Two launch modes:
-      1. Standalone / file-browse: SesarImportWindow()
-         User browses for a local SESAR JSON file and a GeoCORK .db.
-      2. IGSN API mode: SesarImportWindow(raw_data=<dict>, parent=<widget>)
-         raw_data is a pre-fetched SESAR JSON dict passed in from ImportFromSesar.
-         The JSON file-browse row is hidden; the user only needs to pick a .db.
+    Always launched from ImportFromSesar with raw_data or raw_data_list
+    pre-fetched from the SESAR API. Immediately starts the transform phase
+    on construction — this window is never shown itself; it coordinates
+    the LoadingDialog → PreviewWindow flow.
     """
 
     def __init__(
@@ -1272,30 +1264,20 @@ class SesarImportWindow(QDialog):
         raw_data_list: Optional[list]   = None,
         on_cancelled:  Optional[object] = None,
         parent:        Optional[QWidget] = None,
+        loading_dlg:   Optional["LoadingDialog"] = None,
     ):
         super().__init__(parent)
 
-        # Determine launch mode up-front for both the logger and the debug
-        # print. Keeps them consistent so they can be cross-referenced later.
         if raw_data_list is not None:
             _mode = f"api-batch (count={len(raw_data_list)})"
         elif raw_data is not None:
             _mode = "api-single"
         else:
-            _mode = "file-browse"
+            _mode = "unknown"
         get_sesar_logger().info(
             f"SesarImportWindow coordinator constructed [mode={_mode}]"
         )
 
-        # [SESAR DEBUG] Coordinator constructor reached. In API mode this
-        # widget is intentionally never shown — it just coordinates the
-        # transform + preview.
-        print(f"[SESAR DEBUG] SesarImportWindow.__init__: "
-              f"raw_data={'dict' if raw_data else None}, "
-              f"raw_data_list_len={len(raw_data_list) if raw_data_list else None}, "
-              f"parent={type(parent).__name__ if parent else None}, "
-              f"parent.isVisible()="
-              f"{parent.isVisible() if parent else 'N/A'}", flush=True)
         self.setWindowTitle("SESAR → GeoCORK Importer")
         self.setMinimumWidth(560)
         self.resize(600, 230)
@@ -1305,108 +1287,50 @@ class SesarImportWindow(QDialog):
         self._raw_data_list:    Optional[list]            = raw_data_list
         self._on_cancelled      = on_cancelled
         self._staging:          Optional[dict]            = None
-        self._json_path:        Optional[str]             = None
 
-        if raw_data is not None or raw_data_list is not None:
-            from PyQt6.QtSql import QSqlDatabase
-            self._db_path: Optional[str] = QSqlDatabase.database().databaseName() or None
-        else:
-            self._db_path: Optional[str] = None
+        from PyQt6.QtSql import QSqlDatabase
+        self._db_path: Optional[str] = QSqlDatabase.database().databaseName() or None
+
         self._transform_worker: Optional[TransformWorker] = None
-        self._loading_dlg:      Optional[LoadingDialog]   = None
+        # If the caller already has a visible loading dialog (e.g. the download
+        # progress dialog from ImportFromSesar), reuse it rather than creating
+        # a new one — gives the user a seamless single dialog through the whole
+        # download → transform → preview pipeline.
+        self._loading_dlg:      Optional[LoadingDialog]   = loading_dlg
         self._preview_win:      Optional[PreviewWindow]   = None
 
-        if self._raw_data is not None or self._raw_data_list is not None:
-            self._start_transform()
-        else:
-            self._build_ui()
-
-    # ------------------------------------------------------------------
-    def _build_ui(self) -> None:
-        # static_root_Layout_Main
-        static_root_Layout_Main = QVBoxLayout(self)
-        static_root_Layout_Main.setContentsMargins(20, 20, 20, 16)
-        static_root_Layout_Main.setSpacing(12)
-
-        # static_title_Label_AppTitle
-        static_title_Label_AppTitle = QLabel("SESAR Sample Importer")
-        title_font = QFont()
-        title_font.setBold(True)
-        static_title_Label_AppTitle.setFont(title_font)
-        static_root_Layout_Main.addWidget(static_title_Label_AppTitle)
-
-        # static_subtitle_Label_AppSubtitle
-        if self._raw_data is not None:
-            subtitle_text = "Review the fetched SESAR sample, select a GeoCORK database, then preview before importing."
-        else:
-            subtitle_text = "Select a SESAR JSON file and a GeoCORK database, then preview before importing."
-        static_subtitle_Label_AppSubtitle = QLabel(subtitle_text)
-        static_subtitle_Label_AppSubtitle.setWordWrap(True)
-        static_root_Layout_Main.addWidget(static_subtitle_Label_AppSubtitle)
-
-        # static_btnRow_Layout_LoadAction
-        static_root_Layout_Main.addStretch()
-        static_btnRow_Layout_LoadAction = QHBoxLayout()
-        static_btnRow_Layout_LoadAction.addStretch()
-
-        # btn_loadPreview_Action
-        self.btn_loadPreview_Action = QPushButton("Load Preview")
-        self.btn_loadPreview_Action.setObjectName("btn_loadPreview_Action")
-        self.btn_loadPreview_Action.setFixedWidth(130)
-        self.btn_loadPreview_Action.clicked.connect(self._on_load_preview)
-        # Set initial enabled state: in API mode both data sources are
-        # already resolved so the button can be enabled immediately.
-        self._update_load_btn()
-
-        static_btnRow_Layout_LoadAction.addWidget(self.btn_loadPreview_Action)
-        static_root_Layout_Main.addLayout(static_btnRow_Layout_LoadAction)
-
-    def _update_load_btn(self) -> None:
-        if self._raw_data is not None or self._raw_data_list is not None:
-            self.btn_loadPreview_Action.setEnabled(bool(self._db_path))
-        else:
-            self.btn_loadPreview_Action.setEnabled(
-                bool(self._json_path) and bool(self._db_path)
-            )
+        self._start_transform()
 
     # ------------------------------------------------------------------
     def _start_transform(self) -> None:
         get_sesar_logger().info("Transform phase starting — showing LoadingDialog")
 
-        # [SESAR DEBUG] Transform phase beginning. Next line creates the
-        # LoadingDialog; we print immediately after so we can see whether
-        # the dialog construction itself succeeded or raised.
-        print(f"[SESAR DEBUG] _start_transform: self.isVisible()="
-              f"{self.isVisible()}, about to create LoadingDialog", flush=True)
-        self._loading_dlg = LoadingDialog(
-            "Loading",
-            "Transforming SESAR data…",
-            self,
-            # Transforms can finish in <1ms (measured in the [SESAR DEBUG]
-            # output: "TransformWorker.run: finished in 0.2 ms"). Without a
-            # minimum, the dialog is created and destroyed before Qt ever
+        if self._loading_dlg is not None:
+            # Reuse the already-visible dialog (e.g. the download progress
+            # dialog passed in from ImportFromSesar). Just update its message
+            # so the user sees a seamless transition rather than a flicker.
+            self._loading_dlg.set_message("Transforming SESAR data…")
+        else:
+            # No dialog passed in (single-sample API mode) — create one now.
+            # Transforms can finish in under 1ms. Without a minimum display
+            # duration, the dialog is created and destroyed before Qt ever
             # paints it — hence the "I never see the loading popup" symptom.
-            # 400ms is long enough to read "Transforming SESAR data…" and
-            # register it as a real step, short enough that multi-IGSN
-            # batches that legitimately take 300-500ms don't feel held up.
-            min_display_ms=400,
-        )
-        print(f"[SESAR DEBUG] _start_transform: LoadingDialog constructed, "
-              f"dlg.isVisible()={self._loading_dlg.isVisible()}", flush=True)
+            # 400ms is long enough to register as a real step, short enough
+            # that multi-IGSN batches that legitimately take 300-500ms don't
+            # feel held up.
+            self._loading_dlg = LoadingDialog(
+                "Loading",
+                "Transforming SESAR data…",
+                self,
+                min_display_ms=400,
+            )
         self._transform_worker = TransformWorker(
-            json_path=self._json_path,
             raw_data=self._raw_data,
             raw_data_list=self._raw_data_list,
         )
         self._transform_worker.finished.connect(self._on_transform_done)
         self._transform_worker.error.connect(self._on_transform_error)
         self._transform_worker.start()
-        print(f"[SESAR DEBUG] _start_transform: worker.start() returned, "
-              f"worker.isRunning()={self._transform_worker.isRunning()}", flush=True)
-
-    def _on_load_preview(self) -> None:
-        self.btn_loadPreview_Action.setEnabled(False)
-        self._start_transform()
 
     def _on_transform_done(self, staging: dict) -> None:
         # Summarize the staging dict for the log: "Samples=2, GPSLocations=2,
@@ -1423,11 +1347,6 @@ class SesarImportWindow(QDialog):
             f"Transform succeeded — building preview [staging: {row_summary}]"
         )
 
-        # [SESAR DEBUG] Transform finished signal received. If this line
-        # appears in the console a few ms after the worker finished line,
-        # the transform is blazingly fast and the dialog had no time to show.
-        print(f"[SESAR DEBUG] _on_transform_done: entered, "
-              f"dlg is {'alive' if self._loading_dlg else 'None'}", flush=True)
         self._staging = staging
         if self._loading_dlg:
             self._loading_dlg.set_message("Building preview…")
@@ -1446,9 +1365,6 @@ class SesarImportWindow(QDialog):
         # Wire Back button to on_cancelled so ImportFromSesar re-shows itself.
         if self._on_cancelled is not None:
             self._preview_win.rejected.connect(self._on_cancelled)
-
-        if self._raw_data is None and self._raw_data_list is None:
-            self.btn_loadPreview_Action.setEnabled(True)
 
         # Ordering is important here. We want the user to see a continuous
         # transition: loading dialog visible → preview window appears →
@@ -1478,8 +1394,6 @@ class SesarImportWindow(QDialog):
         if self._loading_dlg:
             self._loading_dlg.close()
             self._loading_dlg = None
-        if self._raw_data is None and self._raw_data_list is None:
-            self.btn_loadPreview_Action.setEnabled(True)
         QMessageBox.critical(
             self, "Transform Error",
             f"Failed to process SESAR JSON:\n\n{msg}"
@@ -1531,12 +1445,8 @@ class SesarImportWindow(QDialog):
             self._preview_win.accept()
             self._preview_win = None
 
-        if self._raw_data is not None or self._raw_data_list is not None:
-            msg = (f"✓ Import successful!\n\n"
-                   f"Sample(s) added to: {Path(out_db).name}")
-        else:
-            msg = (f"✓ Import successful!\n\n"
-                   f"Output database:\n{Path(out_db).name}")
+        msg = (f"✓ Import successful!\n\n"
+               f"Sample(s) added to: {Path(out_db).name}")
         QMessageBox.information(self, "Import Complete", msg)
         self.accept()
 

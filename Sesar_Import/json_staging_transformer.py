@@ -1,4 +1,22 @@
-#still transformer but also updated name
+"""
+json_staging_transformer.py
+----------------------------
+Transforms raw SESAR API response dicts into GeoCORK staging format.
+
+Entry points:
+    transform_sesar_to_geocork_staging_format(data)
+        Transforms a single raw SESAR API dict into a staging dict ready
+        for import_staging_inplace().
+
+    transform_multiple_sesar_samples(raw_data_list)
+        Transforms a list of raw SESAR dicts and merges them into a single
+        combined staging dict (batch mode).
+
+    build_raw_sesar_table(raw_data)
+        Flattens a raw SESAR dict into (field_name, value) pairs for the
+        preview UI's left pane. Display-only — not part of the import path.
+"""
+
 import json
 import sys
 from pathlib import Path
@@ -17,14 +35,10 @@ from Functions.GPS_conversions import convert_utm_to_dd
 import logging
 from Sesar_Import.sesar_logger import get_sesar_logger
 
-# update path for directory
-IN_PATH = Path(r"C:\Users\Kayla Gutierrez\OneDrive - Cal State Fullerton\Documents\CSUF\GeoChronology\Sesar JSON files\sesar_10.58052_URI0000KE.json")
-OUT_PATH = Path(r"C:\Users\Kayla Gutierrez\OneDrive - Cal State Fullerton\Documents\CSUF\GeoChronology\Transformer_Output\geocork_staging_with_bridges.json")
 
-
-# -------------------------
+# ===========================================================================
 # Helpers
-# -------------------------
+# ===========================================================================
 def safe_float(x: Any) -> Optional[float]:
     try:
         if x in ("", None, [], {}):
@@ -52,7 +66,7 @@ def append_kv(lines: List[str], label: str, value: Any) -> None:
         lines.append(f"{label}: {value}")
 
 
-# -------------------------
+# ===========================================================================
 # SampleDescription field list
 #
 # Previously this module emitted 4 concatenated "instance" strings (sd1-sd4)
@@ -78,7 +92,7 @@ def append_kv(lines: List[str], label: str, value: Any) -> None:
 #   Group 4 (archive):     current_archive, current_archive_contact,
 #                          original_archive_contact, original_archive,
 #                          is_archived
-# -------------------------
+# ===========================================================================
 
 # Field definitions in sd1 -> sd4 order. Each tuple is:
 #   (source_key_in_sesar_dict, display_label, group_num)
@@ -175,14 +189,14 @@ def build_sample_description_fields(
     return entries
 
 
-# -------------------------
+# ===========================================================================
 # ReferenceDescription builder
 # Per diagram:
 #   URL (non-DOI) -> prepend to ReferenceDescription
 #   Related URL Type -> filter -> append to ReferenceDescription
 #   Related URL Description -> append to ReferenceDescription
 #   Related URL 1-5, Related URL Type 1-5 -> append to ReferenceDescription
-# -------------------------
+# ===========================================================================
 def build_reference_description(url_entry: Dict[str, Any], is_doi: bool) -> str:
     lines: List[str] = []
     url_val = url_entry.get("url", "")
@@ -206,9 +220,9 @@ def build_reference_description(url_entry: Dict[str, Any], is_doi: bool) -> str:
     return "\n".join(lines).strip()
 
 
-# -------------------------
+# ===========================================================================
 # GPS format resolver
-# -------------------------
+# ===========================================================================
 def determine_gps_format_id(gps_row: Dict[str, Any]) -> Optional[int]:
     """
     1: LatDeg + LonDeg
@@ -238,10 +252,10 @@ def determine_gps_format_id(gps_row: Dict[str, Any]) -> Optional[int]:
     return None
 
 
-# -------------------------
+# ===========================================================================
 # Classification tree flattener
 # Diagram: Classification + Field name -> RockType tree
-# -------------------------
+# ===========================================================================
 def flatten_classification_tree(
     node: Any,
     parent_name: Optional[str] = None,
@@ -261,25 +275,22 @@ def flatten_classification_tree(
     return results
 
 
-# -------------------------
+# ===========================================================================
 # Sampling method hierarchy splitter
 # SESAR uses '>' for parent > child (e.g. "Grab>ROV")
-# -------------------------
+# ===========================================================================
 def split_sampling_method_hierarchy(method_str: str) -> List[str]:
     if not is_filled(method_str):
         return []
     return [part.strip() for part in method_str.split(">") if part.strip()]
 
 
-# =========================================================
-# Main Transformer
-# =========================================================
+# ===========================================================================
+# Main transformer — single sample
+# ===========================================================================
+
 def transform_sesar_to_geocork_staging_format(data: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
     s = data.get("sample", {})
-    # NEW: DEBUG log documenting which IGSN is being transformed. Using the
-    # already-defined `s` rather than re-derive a separate copy. igsn/name
-    # fallback mirrors the sample_nk logic below — worst case we log
-    # "<unknown>" rather than crash.
     get_sesar_logger().log(
         logging.DEBUG,
         f"transform_sesar_to_geocork_staging_format called "
@@ -839,41 +850,9 @@ def transform_sesar_to_geocork_staging_format(data: Dict[str, Any]) -> Dict[str,
     }
 
 
-
-def build_raw_sesar_table(raw_data: dict) -> list[tuple[str, str]]: #for comparison with geocork's auto-converted table
-    """
-    Flatten a raw SESAR API response dict into (field_name, display_value) pairs
-    for display in the preview UI.
-
-    The SESAR API wraps all fields under a 'sample' key (v1) or 'data' key
-    (legacy). Nested values such as classification trees are serialised to a
-    compact JSON string so every entry stays single-line. Null / empty values
-    are represented as an em-dash.
-
-    Returns a list of (field_name, value) tuples in the order SESAR returns them,
-    one tuple per field — intended to be rendered as one data row with field
-    names as column headers.
-    """
-    # Fields excluded from the preview table (display-only — the full raw
-    # dict is still kept in memory and used for the actual import).
-    _DISPLAY_SKIP: set = {"qrcode_img_src", "parents", "siblings", "sesar_code"}
-
-    sample = raw_data.get("sample") or raw_data.get("data") or {}
-    pairs: list[tuple[str, str]] = []
-    for key, val in sample.items():
-        if key in _DISPLAY_SKIP:
-            continue
-        if val is None or val == "" or val == [] or val == {}:
-            display = "—"
-        elif isinstance(val, (dict, list)):
-            display = json.dumps(val, separators=(",", ":"))
-        else:
-            display = str(val)
-        pairs.append((key, display))
-    return pairs
-
-
-
+# ===========================================================================
+# Batch transformer
+# ===========================================================================
 
 def transform_multiple_sesar_samples(raw_data_list):
     """
@@ -931,12 +910,41 @@ def transform_multiple_sesar_samples(raw_data_list):
             combined[key].extend(staging.get(key, []))
     return combined
 
-def main():
-    data = json.loads(IN_PATH.read_text(encoding="utf-8"))
-    out = transform_sesar_to_geocork_staging_format(data)
-    OUT_PATH.write_text(json.dumps(out, indent=2), encoding="utf-8")
-    print(f"Wrote GeoCORK staging JSON to: {OUT_PATH}")
+# ===========================================================================
+# Preview / display helper
+# ===========================================================================
 
+def build_raw_sesar_table(raw_data: dict) -> list[tuple[str, str]]:
+    """
+    Flatten a raw SESAR API response dict into (field_name, display_value) pairs
+    for display in the preview UI's left pane.
 
-if __name__ == "__main__":
-    main()
+    The SESAR API wraps all fields under a 'sample' key (v1) or 'data' key
+    (legacy). Nested values such as classification trees are serialised to a
+    compact JSON string so every entry stays single-line. Null / empty values
+    are represented as an em-dash.
+
+    Returns a list of (field_name, value) tuples in the order SESAR returns them,
+    one tuple per field -- intended to be rendered as one data row with field
+    names as column headers.
+
+    Note: display-only -- the full raw dict is kept in memory for the actual
+    import. This function does not affect the import path.
+    """
+    # Fields excluded from the preview table -- internal SESAR metadata that
+    # adds noise without informing the user's import decision.
+    _DISPLAY_SKIP: set = {"qrcode_img_src", "parents", "siblings", "sesar_code"}
+
+    sample = raw_data.get("sample") or raw_data.get("data") or {}
+    pairs: list[tuple[str, str]] = []
+    for key, val in sample.items():
+        if key in _DISPLAY_SKIP:
+            continue
+        if val is None or val == "" or val == [] or val == {}:
+            display = "\u2014"
+        elif isinstance(val, (dict, list)):
+            display = json.dumps(val, separators=(",", ":"))
+        else:
+            display = str(val)
+        pairs.append((key, display))
+    return pairs

@@ -1,28 +1,31 @@
-# ImportFromSesar.py
-# Entry-point dialog for the IGSN-based import flow. Opened from ImportWizard.
-#
-# User flow:
-#   1. User types an IGSN.
-#   2. User clicks "Explore Hierarchy" (or presses Enter in the IGSN field)
-#      — the dialog expands to reveal the SampleHierarchyWidget below.
-#   3. SampleHierarchyWidget fetches the IGSN and its siblings from the SESAR
-#      API, then lazy-loads children on expand. The user checks the samples
-#      they want to import.
-#   4. "Import Selected into GeoCORK" on SampleHierarchyWidget hands the
-#      checked raw SESAR dicts to SesarImportWindow, which runs the
-#      transform → preview → import pipeline without ever saving to disk.
-#
-# SampleHierarchyWidget features (bulk selection / download):
-#   - Per-item checkboxes; Select All / Clear All buttons
-#   - Selected-count label with color warning thresholds (orange at 10, red at 20)
-#   - Batch import into GeoCORK, or per-item "Download IGSN Data" from the
-#     right-click context menu (saves one JSON file per IGSN)
-#   - Right-click menu also has Check / Uncheck actions
-#
-# Networking:
-#   SampleHierarchyWidget uses synchronous requests.get() internally with an
-#   in-memory cache. Acceptable because the explorer is separate from the
-#   core import pipeline, and most expansions hit the cache.
+"""
+ImportFromSesar.py
+------------------
+Entry-point dialog for the IGSN-based import flow. Opened from ImportWizard.
+
+User flow:
+    1. User types an IGSN.
+    2. User clicks "Explore Hierarchy" (or presses Enter in the IGSN field)
+       — the dialog expands to reveal the SampleHierarchyWidget below.
+    3. SampleHierarchyWidget fetches the IGSN and its siblings from the SESAR
+       API, then lazy-loads children on expand. The user checks the samples
+       they want to import.
+    4. "Import Selected into GeoCORK" on SampleHierarchyWidget hands the
+       checked raw SESAR dicts to SesarImportWindow, which runs the
+       transform → preview → import pipeline without ever saving to disk.
+
+SampleHierarchyWidget features:
+    - Per-item checkboxes; Select All / Clear All buttons
+    - Selected-count label with color warning thresholds (orange at 10, red at 20)
+    - Batch import into GeoCORK, or per-item "Download IGSN Data" from the
+      right-click context menu (saves one JSON file per IGSN)
+    - Right-click menu also has Check / Uncheck actions
+
+Networking:
+    SampleHierarchyWidget uses synchronous requests.get() internally with an
+    in-memory cache. Acceptable because the explorer is separate from the
+    core import pipeline, and most expansions hit the cache.
+"""
 
 import sys
 import json
@@ -33,12 +36,10 @@ from pathlib import Path
 from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSignal
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
-                             QPushButton, QLineEdit, QTextEdit, QMessageBox,
+                             QPushButton, QLineEdit, QMessageBox,
                              QWidget, QSplitter, QTreeWidget, QTreeWidgetItem,
                              QMenu, QApplication)
 from PyQt6.QtGui import QAction
-
-import pandas as pd
 
 # ---------------------------------------------------------------------------
 # Path bootstrap — ensure GeoCORK root is importable.
@@ -48,7 +49,7 @@ _GEOCORK_ROOT = _UI_DIR.parent
 if str(_GEOCORK_ROOT) not in sys.path:
     sys.path.insert(0, str(_GEOCORK_ROOT))
 
-from ui.ImportFromSesarBuildWindow import SesarImportWindow
+from ui.ImportFromSesarBuildWindow import SesarImportWindow, LoadingDialog
 
 # SESAR-specific logger. get_sesar_logger() returns the currently-active
 # session logger (set up by ImportWizard.open_import_sesar); SesarTimer is a
@@ -57,35 +58,19 @@ from Sesar_Import.sesar_logger import get_sesar_logger, SesarTimer, log_sesar_ev
 
 
 # ===========================================================================
-# SampleHierarchyWidget
-# Explores the parent / sibling / child relationships for a given IGSN.
-# Uses its own synchronous requests.get() with an in-memory cache so that
-# repeated expansions don't re-hit the network.
-# ===========================================================================
-
-class CheckableTreeWidgetItem(QTreeWidgetItem):
-    #tree item with checkbox functionality
-    
-    def __init__(self, text):
-        super().__init__()
-        self.setText(0, text)
-        self.setFlags(self.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-        self.setCheckState(0, Qt.CheckState.Unchecked)
-
-
-# ===========================================================================
-# SiblingsFetchWorker
-# Runs a single SESAR API fetch off the main thread so the UI can show a
-# loading popup instead of freezing. Used by ImportFromSesar's Explore
-# Hierarchy flow — i.e. the first (cold-cache) lookup for a given IGSN.
-#
-# Subsequent lazy-expand and per-IGSN save calls inside SampleHierarchyWidget
-# still use the widget's own synchronous _fetch_sample_data() path, because
-# those usually hit the in-memory cache and don't warrant the worker overhead.
+# Background worker
 # ===========================================================================
 
 class SiblingsFetchWorker(QThread):
-    """Background HTTP fetcher for a single IGSN lookup."""
+    """
+    Runs a single SESAR API fetch off the main thread so the UI can show a
+    loading popup instead of freezing. Used by ImportFromSesar's Explore
+    Hierarchy flow — i.e. the first (cold-cache) lookup for a given IGSN.
+
+    Subsequent lazy-expand and per-IGSN save calls inside SampleHierarchyWidget
+    still use the widget's own synchronous _fetch_sample_data() path, because
+    those usually hit the in-memory cache and don't warrant the worker overhead.
+    """
 
     finished = pyqtSignal(dict)
     error    = pyqtSignal(str)
@@ -156,20 +141,21 @@ class SiblingsFetchWorker(QThread):
 
 
 # ===========================================================================
-# SearchingDialog
-# Modal loading popup shown while SiblingsFetchWorker is running.
-#
-# Design choices:
-#   - No Cancel button. The user can dismiss it via the window X or Esc.
-#   - Matches the visual style of GeoCORK's existing LoadingDialog (bold
-#     title label + message label, no progress bar animation).
-#   - Emits a single `cancelled` signal when the user dismisses it, so the
-#     owner can tear down the worker + timer without this class needing
-#     to know about them directly.
+# Loading dialog
 # ===========================================================================
 
 class SearchingDialog(QDialog):
-    """Modal 'Searching…' popup."""
+    """
+    Modal loading popup shown while SiblingsFetchWorker is running.
+
+    Design choices:
+      - No Cancel button. The user can dismiss it via the window X or Esc.
+      - Matches the visual style of GeoCORK's existing LoadingDialog (bold
+        title label + message label, no progress bar animation).
+      - Emits a single `cancelled` signal when the user dismisses it, so the
+        owner can tear down the worker + timer without this class needing
+        to know about them directly.
+    """
 
     cancelled = pyqtSignal()
 
@@ -219,6 +205,23 @@ class SearchingDialog(QDialog):
         self._label.setText(text)
 
 
+# ===========================================================================
+# Hierarchy explorer widget
+# ===========================================================================
+
+class CheckableTreeWidgetItem(QTreeWidgetItem):
+    """
+    QTreeWidgetItem subclass with a checkbox enabled by default.
+    Used by SampleHierarchyWidget to let users select IGSNs for import.
+    """
+
+    def __init__(self, text):
+        super().__init__()
+        self.setText(0, text)
+        self.setFlags(self.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+        self.setCheckState(0, Qt.CheckState.Unchecked)
+
+
 class SampleHierarchyWidget(QWidget):
     """Widget for exploring IGSN parent/sibling/child relationships."""
 
@@ -240,7 +243,6 @@ class SampleHierarchyWidget(QWidget):
         self.current_label = QLabel("No sample selected")
         layout.addWidget(self.current_label)
 
-        #button layout for controls
         button_layout = QHBoxLayout()
 
         # Primary batch action: import all checked IGSNs into GeoCORK.
@@ -250,17 +252,14 @@ class SampleHierarchyWidget(QWidget):
         self.download_selected_button.setEnabled(False)
         button_layout.addWidget(self.download_selected_button)
 
-        #select all button
         self.select_all_button = QPushButton("Select All")
         self.select_all_button.clicked.connect(self._select_all)
         button_layout.addWidget(self.select_all_button)
 
-        #clear all button
         self.clear_all_button = QPushButton("Clear All")
         self.clear_all_button.clicked.connect(self._clear_all)
         button_layout.addWidget(self.clear_all_button)
 
-        #selected count label
         self.selected_count_label = QLabel("Selected: 0")
         button_layout.addWidget(self.selected_count_label)
 
@@ -275,11 +274,6 @@ class SampleHierarchyWidget(QWidget):
         self.tree.itemChanged.connect(self._on_item_checked)
         layout.addWidget(self.tree)
 
-        # Read-only text area for tabular relationship data
-        self.table_text = QTextEdit()
-        self.table_text.setReadOnly(True)
-        layout.addWidget(self.table_text)
-
         self.setLayout(layout)
 
     # ------------------------------------------------------------------
@@ -287,7 +281,7 @@ class SampleHierarchyWidget(QWidget):
     # ------------------------------------------------------------------
     
     def _get_checked_igsns(self):
-        """collect all checked IGSNs from the tree"""
+        """Return a list of all checked IGSN strings from the tree."""
         checked_igsns = []
         
         def collect_checked(parent_item):
@@ -309,22 +303,23 @@ class SampleHierarchyWidget(QWidget):
         return checked_igsns
     
     def _on_item_checked(self, item, column):
-        """enable download button if any items are checked"""
+        """Enable import button and update selected count when items are checked."""
         checked = self._get_checked_igsns()
         count = len(checked)
         self.download_selected_button.setEnabled(count > 0)
         self.selected_count_label.setText(f"Selected: {count}")
-        
-        #warning colors for rate limit awareness
-        if count > 10:
-            self.selected_count_label.setStyleSheet("color: orange")
-        elif count > 20:
+
+        # Color warning thresholds for rate-limit awareness.
+        # Orange at 10+ selected, red at 20+ selected.
+        if count >= 20:
             self.selected_count_label.setStyleSheet("color: red")
+        elif count >= 10:
+            self.selected_count_label.setStyleSheet("color: orange")
         else:
             self.selected_count_label.setStyleSheet("")
     
     def _select_all(self):
-        """check all IGSNs in the tree"""
+        """Check all IGSN items in the tree."""
         def select_all_items(parent_item):
             for i in range(parent_item.childCount()):
                 child = parent_item.child(i)
@@ -341,7 +336,7 @@ class SampleHierarchyWidget(QWidget):
         self.download_selected_button.setEnabled(True)
     
     def _clear_all(self):
-        """uncheck all IGSNs in the tree"""
+        """Uncheck all IGSN items in the tree."""
         def clear_all_items(parent_item):
             for i in range(parent_item.childCount()):
                 child = parent_item.child(i)
@@ -548,25 +543,27 @@ class SampleHierarchyWidget(QWidget):
             )
             return
 
-        # Fetch any IGSNs not already cached. Per-IGSN outcomes are logged
-        # at DEBUG level (one line each) so they don't flood the file for
-        # large batches — the INFO summary at the end of the loop gives the
-        # high-level view. SesarTimer wraps the whole loop so we get a
-        # single "batch pre-fetch took Xms" record.
-        #
-        # Note: we iterate to_import (post duplicate filter), not
-        # checked_igsns. The duplicates were already skipped above.
+        # Show a progress dialog immediately so the user has visual feedback
+        # during the synchronous download loop. LoadingDialog.set_message()
+        # calls processEvents() internally, so the label repaints after each
+        # IGSN without blocking the event loop.
+        download_dlg = LoadingDialog(
+            "Downloading",
+            f"Downloading 1 of {to_import_count} IGSNs…",
+            self,
+        )
+
         raw_data_list = []
         failed = []
         cached_count = 0
         fetched_count = 0
 
         with SesarTimer("Batch pre-fetch for import", igsn_count=to_import_count):
-            for igsn in to_import:
-                # Track cache-hit vs network-fetch by checking the cache
-                # BEFORE calling _fetch_sample_data (which hides the distinction
-                # behind its own logic). This gives us a useful "how many of
-                # these had to hit the network" number for performance debugging.
+            for idx, igsn in enumerate(to_import, start=1):
+                download_dlg.set_message(
+                    f"Downloading {idx} of {to_import_count} IGSNs…\n"
+                    f"Current: {igsn}"
+                )
                 was_cached = igsn in self.sibling_data
                 data = self._fetch_sample_data(igsn)
                 if data:
@@ -597,8 +594,6 @@ class SampleHierarchyWidget(QWidget):
             f"[total={to_import_count}, cached={cached_count}, "
             f"fetched={fetched_count}, failed={len(failed)}]"
         )
-        # If there were failures, log them explicitly by IGSN so the log
-        # doesn't require cross-referencing the DEBUG lines.
         if failed:
             get_sesar_logger().warning(
                 f"Failed IGSNs ({len(failed)}):\n"
@@ -606,6 +601,9 @@ class SampleHierarchyWidget(QWidget):
             )
 
         if failed:
+            # Close the download dialog before showing the warning popup
+            # so the two don't stack on screen.
+            download_dlg.close()
             QMessageBox.warning(
                 self, "Fetch Errors",
                 f"Could not retrieve data for {len(failed)} IGSN(s):\n\n"
@@ -617,6 +615,7 @@ class SampleHierarchyWidget(QWidget):
             get_sesar_logger().error(
                 "Batch import aborted — no IGSN fetches succeeded"
             )
+            download_dlg.close()
             QMessageBox.critical(self, "No Data",
                                  "No data could be fetched for the selected IGSNs.")
             return
@@ -626,20 +625,15 @@ class SampleHierarchyWidget(QWidget):
             f"for transform+preview+import"
         )
 
-        # [SESAR DEBUG] Entry point into the batch-import handoff.
-        # Shows (a) how many samples we have, (b) what parent we're about to
-        # pass to SesarImportWindow, (c) whether that parent is visible.
-        _dbg_parent = self.parent()
-        print(f"[SESAR DEBUG] _import_selected_to_geocork: "
-              f"raw_data_list len={len(raw_data_list)}, "
-              f"parent={type(_dbg_parent).__name__ if _dbg_parent else None}, "
-              f"parent.isVisible()="
-              f"{_dbg_parent.isVisible() if _dbg_parent else 'N/A'}", flush=True)
-
+        # Pass the already-visible download dialog to SesarImportWindow so it
+        # can reuse it for the transform phase — the user sees a single
+        # seamless dialog that transitions from "Downloading…" to
+        # "Transforming SESAR data…" without any gap.
         build_win = SesarImportWindow(
             raw_data_list=raw_data_list,
             parent=self.parent(),
             on_cancelled=self._on_cancelled_callback,
+            loading_dlg=download_dlg,
         )
 
     # ------------------------------------------------------------------
@@ -704,8 +698,7 @@ class SampleHierarchyWidget(QWidget):
         download_action = QAction("Download IGSN Data", self)
         download_action.triggered.connect(lambda: self._save_sample_data(igsn))
         menu.addAction(download_action)
-        
-        #add checkbox toggle options
+
         menu.addSeparator()
         check_action = QAction("Check this item", self)
         check_action.triggered.connect(lambda: item.setCheckState(0, Qt.CheckState.Checked))
@@ -718,84 +711,6 @@ class SampleHierarchyWidget(QWidget):
         menu.exec(self.tree.viewport().mapToGlobal(position))
 
     # ------------------------------------------------------------------
-    # Data-extraction helpers
-    # ------------------------------------------------------------------
-
-    def _get_siblings_table(self, data):
-        """Return a list of {ItemID, ParentID, ParentRow} dicts for siblings."""
-        rows = []
-        try:
-            parent_igsn  = data.get("sample", {}).get("parent_igsn", None)
-            sibling_info = data.get("sample", {}).get("siblings", {})
-            sibling_data = sibling_info.get("samples", {}).get("sample", [])
-
-            # Single sibling comes back as a dict, not a list
-            if not isinstance(sibling_data, list):
-                sibling_data = [sibling_data] if sibling_data else []
-
-            for index, sibling in enumerate(sibling_data):
-                if isinstance(sibling, dict) and "igsn" in sibling:
-                    rows.append({
-                        "ItemID":    sibling["igsn"],
-                        "ParentID":  parent_igsn,
-                        "ParentRow": index,
-                    })
-        except Exception:
-            pass
-        return rows
-
-    def _add_current_sample_to_table(self, rows, current_igsn, parent_igsn):
-        """Prepend the current sample row to the siblings list."""
-        return [{"ItemID": current_igsn, "ParentID": parent_igsn, "ParentRow": None}] + rows
-
-    def _get_children_table(self, data):
-        """Return a list of {ItemID, ParentID, ParentRow} dicts for children."""
-        rows = []
-        try:
-            current_igsn  = data.get("sample", {}).get("igsn")
-            children_info = data.get("sample", {}).get("children", {})
-            children_data = children_info.get("samples", {}).get("sample", [])
-
-            # Single child comes back as a dict, not a list
-            if not isinstance(children_data, list):
-                children_data = [children_data] if children_data else []
-
-            for index, child in enumerate(children_data):
-                if isinstance(child, dict) and "igsn" in child:
-                    rows.append({
-                        "ItemID":    child["igsn"],
-                        "ParentID":  current_igsn,
-                        "ParentRow": index,
-                    })
-        except Exception:
-            pass
-        return rows
-
-    # ------------------------------------------------------------------
-    # Display helpers
-    # ------------------------------------------------------------------
-
-    def _display_table_text(self, rows, title):
-        """Append a formatted relationship table to the text area."""
-        if not rows:
-            self.table_text.append(f"\nNo {title.lower()} found")
-            return
-
-        df   = pd.DataFrame(rows)
-        text = f"\n{'='*60}\n{title}\n{'='*60}\n"
-        text += f"\nTotal rows: {len(df)}\n"
-        text += "\nIdx | ItemID                          | ParentID                      | ParentRow\n"
-        text += "-" * 90 + "\n"
-
-        for idx, row in df.iterrows():
-            item_id    = row["ItemID"]
-            parent_id  = row["ParentID"] if row["ParentID"] else "None"
-            parent_row = row["ParentRow"] if pd.notna(row["ParentRow"]) else "None"
-            text += f"{idx:<3} | {item_id:<30} | {parent_id:<30} | {parent_row}\n"
-
-        self.table_text.append(text)
-
-    # ------------------------------------------------------------------
     # Tree population / lazy loading
     # ------------------------------------------------------------------
 
@@ -805,13 +720,22 @@ class SampleHierarchyWidget(QWidget):
         if not data:
             return
 
-        children = self._get_children_table(data)
+        children_info = data.get("sample", {}).get("children", {})
+        children_data = children_info.get("samples", {}).get("sample", [])
+        if not isinstance(children_data, list):
+            children_data = [children_data] if children_data else []
+
+        children = [
+            {"ItemID": c["igsn"], "ParentID": igsn, "ParentRow": i}
+            for i, c in enumerate(children_data)
+            if isinstance(c, dict) and "igsn" in c
+        ]
+
         parent_item.takeChildren()  # remove the placeholder dummy child
 
         if not children:
             no_child_item = QTreeWidgetItem(parent_item)
             no_child_item.setText(0, "No children found")
-            self.table_text.append(f"\nNo children found for {igsn}")
         else:
             for child in children:
                 child_item = CheckableTreeWidgetItem(child["ItemID"])
@@ -819,7 +743,6 @@ class SampleHierarchyWidget(QWidget):
                 child_item.setData(0, Qt.ItemDataRole.UserRole, child)
                 # Dummy child so the expand arrow is shown; replaced on expansion
                 child_item.addChild(QTreeWidgetItem())
-            self._display_table_text(children, f"CHILDREN OF {igsn}")
 
     def _on_item_expanded(self, item):
         """Load real children when the user expands a tree node for the first time."""
@@ -831,30 +754,34 @@ class SampleHierarchyWidget(QWidget):
     # ------------------------------------------------------------------
 
     def load_siblings(self, igsn):
-        """Populate the tree and text area for *igsn* and its siblings."""
+        """Populate the tree with *igsn* and its siblings."""
         self.current_igsn = igsn
         self.current_label.setText(f"Current Sample: {igsn}")
-        self.table_text.clear()
         self.tree.clear()
         self.selected_count_label.setText("Selected: 0")
         self.download_selected_button.setEnabled(False)
 
         data = self._fetch_sample_data(igsn)
         if not data:
-            self.table_text.append("Failed to fetch data")
             return
 
-        parent_igsn          = data.get("sample", {}).get("parent_igsn", None)
-        siblings             = self._get_siblings_table(data)
-        siblings_with_current = self._add_current_sample_to_table(siblings, igsn, parent_igsn)
+        parent_igsn  = data.get("sample", {}).get("parent_igsn", None)
+        sibling_info = data.get("sample", {}).get("siblings", {})
+        sibling_data = sibling_info.get("samples", {}).get("sample", [])
+        if not isinstance(sibling_data, list):
+            sibling_data = [sibling_data] if sibling_data else []
 
-        if not siblings_with_current:
-            self.table_text.append("No siblings found")
-            return
+        # Build the full row list: current sample first, then its siblings
+        rows = [{"ItemID": igsn, "ParentID": parent_igsn, "ParentRow": None}]
+        for index, sibling in enumerate(sibling_data):
+            if isinstance(sibling, dict) and "igsn" in sibling:
+                rows.append({
+                    "ItemID":    sibling["igsn"],
+                    "ParentID":  parent_igsn,
+                    "ParentRow": index,
+                })
 
-        self._display_table_text(siblings_with_current, f"SIBLINGS TABLE (Current: {igsn})")
-
-        for row in siblings_with_current:
+        for row in rows:
             item = CheckableTreeWidgetItem(row["ItemID"])
             self.tree.addTopLevelItem(item)
             item.setData(0, Qt.ItemDataRole.UserRole, row)
