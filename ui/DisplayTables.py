@@ -438,6 +438,7 @@ class DisplayTables(QtW.QWidget):
             view_grain_action = view_data_menu.addAction('View Grains')
             view_spot_action = view_data_menu.addAction('View Spots')
             view_upb_analyses_action = view_data_menu.addAction('View U-Pb Analyses')
+            view_geochem_analyses_action = view_data_menu.addAction('View GeoChemical Analyses')
             action = table_menu.exec(self.dbTable_tableView.viewport().mapToGlobal(pos))
             if action:
                 # get the row that was right-clicked
@@ -463,6 +464,8 @@ class DisplayTables(QtW.QWidget):
                     self.main_window.open_tab(parent_ids, 'Samples', 'Spots')
                 elif action == view_upb_analyses_action:
                     self.main_window.open_tab(parent_ids, 'Samples', 'UPbAnalyses')
+                elif action == view_geochem_analyses_action:
+                    self.main_window.open_tab(parent_ids, 'Samples', 'GeoChemicalAnalyses')
                 else:
                     self.table_context_menu(action)
         else:

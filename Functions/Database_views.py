@@ -14,7 +14,8 @@ class ViewQuery:
     def __init__(self, table: str, edit_view: bool = False, **kwargs):
         """
         Class to generate SQL queries for different database views based on the selected table, columns, and filters.
-        :param table: Name of the table/view to query (e.g. "Samples", "Aliquots", "Grains", "Spots", "UPbAnalyses")
+        :param table: Name of the table/view to query (e.g. "Samples", "Aliquots", "Grains", "Spots", "UPbAnalyses",
+                      "GeoChemicalAnalyses")
         :param edit_view: Boolean indicating whether the query is for an edit view (True) or a standard view (False)
         Key word arguments can include any of the following to modify the query:
         - show_columns: list of columns to include in the SELECT statement
@@ -23,6 +24,10 @@ class ViewQuery:
         - where_ids: list of IDs to filter results (e.g. [1, 2, 3])
         - group_col: column name to group results by (e.g. "SampleID")
         - order_col: column name to order results by (e.g. "SampleName")
+        - leaf: which lower-tier hierarchy to build, 'UPbAnalyses' (default) or 'GeoChemicalAnalyses'.
+                When table is itself 'UPbAnalyses' or 'GeoChemicalAnalyses' the leaf is forced to match.
+                For upper-tier views (Samples/Aliquots/Spots/Grains) the leaf controls which analysis
+                table's roll-up columns are exposed; only one leaf hierarchy is built per query.
         The query can be accessed via the `table_query` attribute after initialization.
         The query can be modified by calling `update_query` with new parameters.
         """
@@ -46,19 +51,31 @@ class ViewQuery:
         self.query_columns = []
         self.lsa_columns = []
         self.lspuag_columns = []
+        # Resolve which leaf hierarchy applies. If the view's table is itself one of the
+        # leaves, force the leaf to match -- a UPb view cannot pull GeoChem rows and vice
+        # versa. Otherwise honor the kwarg (default 'UPbAnalyses' for back-compat).
+        if table == 'UPbAnalyses':
+            self.leaf = 'UPbAnalyses'
+        elif table == 'GeoChemicalAnalyses':
+            self.leaf = 'GeoChemicalAnalyses'
+        else:
+            self.leaf = kwargs.get('leaf', 'UPbAnalyses')
+        self._init_leaf_attributes()
         self.limited_tags = {
             'Samples': SQLUtils.limited_sample_tags,
             'Aliquots': SQLUtils.limited_aliquot_tags,
             'Grains': SQLUtils.limited_grain_tags,
             'Spots': SQLUtils.limited_spot_tags,
-            'UPbAnalyses': SQLUtils.limited_upb_tags
+            'UPbAnalyses': SQLUtils.limited_upb_tags,
+            'GeoChemicalAnalyses': SQLUtils.limited_geochem_tags,
         }
         self.limited_tag_joins = {
             'Samples': SQLUtils.limited_sample_tags_join,
             'Aliquots': SQLUtils.limited_aliquot_tags_join,
             'Grains': SQLUtils.limited_grain_tags_join,
             'Spots': SQLUtils.limited_spot_tags_join,
-            'UPbAnalyses': SQLUtils.limited_upb_tags_join
+            'UPbAnalyses': SQLUtils.limited_upb_tags_join,
+            'GeoChemicalAnalyses': SQLUtils.limited_geochem_tags_join,
         }
         self.show_items_missing_data = settings.value('show_items_missing_data') == 'true'
         if self.show_items_missing_data:
@@ -73,10 +90,41 @@ class ViewQuery:
         self.query_tags_joins = {}
         self.update_query(table, edit_view, **kwargs)
 
+    def _init_leaf_attributes(self):
+        """
+        Resolve all leaf-dependent names and joins for the active self.leaf. Called from
+        __init__ and update_query so that switching leaf via update_query() takes effect.
+        """
+        if self.leaf == 'GeoChemicalAnalyses':
+            self.lower_cte_name = 'LimitedSpotsGeoChemicalAnalysesGrains'
+            self.lower_cte_alias = 'lspgcg'
+            self.leaf_id_col = 'GeoChemAnalysisID'
+            self.leaf_q_id = SQLUtils.qgeochem_id
+            self.spot_leaf_join = SQLUtils.spot_geochem_analysis_join
+            self.leaf_spot_join = SQLUtils.geochem_spot_join
+            self.leaf_hierarchy_join = SQLUtils.limited_spot_geochem_grain_hierarchy_join
+        else:
+            self.leaf = 'UPbAnalyses'
+            self.lower_cte_name = 'LimitedSpotsUPbAnalysesGrains'
+            self.lower_cte_alias = 'lspuag'
+            self.leaf_id_col = 'UPbAnalysisID'
+            self.leaf_q_id = SQLUtils.qupb_id
+            self.spot_leaf_join = SQLUtils.spot_upb_analysis_join
+            self.leaf_spot_join = SQLUtils.upb_spot_join
+            self.leaf_hierarchy_join = SQLUtils.limited_spot_upb_grain_hierarchy_join
+
     def update_query(self, table: str, edit_view: bool = False, **kwargs):
         self.table = table
         self.edit_view = edit_view
         self.kwargs = kwargs
+        # Re-resolve leaf in case the caller switched tables or passed a new leaf kwarg.
+        if table == 'UPbAnalyses':
+            self.leaf = 'UPbAnalyses'
+        elif table == 'GeoChemicalAnalyses':
+            self.leaf = 'GeoChemicalAnalyses'
+        else:
+            self.leaf = kwargs.get('leaf', 'UPbAnalyses')
+        self._init_leaf_attributes()
         if self.table == 'Samples':
             self.create_sample_view_query()
         elif self.table == 'Aliquots':
@@ -91,6 +139,32 @@ class ViewQuery:
             self.create_column_view_query()
         elif self.table == 'References' or self.table == '"References"':
             self.create_reference_view_query()
+        elif self.table == 'GeoChemicalAnalyses':
+            self.create_geochem_view_query()
+
+    def get_leaf_table_abbreviations(self):
+        """
+        Return a copy of SQLUtils.limited_table_abbreviations with shared-table aliases
+        rewritten to the active leaf's CTE alias. The static dict defaults shared tables
+        (Spots, Grains, LabFacilities, Instruments, SpotCompositions, GrainCompositions)
+        to 'lspuag'; when the GeoChem leaf is active, those need to point at 'lspgcg'.
+        """
+        d = SQLUtils.limited_table_abbreviations.copy()
+        if self.leaf == 'GeoChemicalAnalyses':
+            for shared in SQLUtils.shared_leaf_tables:
+                if shared in d:
+                    d[shared] = 'lspgcg'
+        return d
+
+    def get_leaf_column_leaders(self):
+        """
+        Return the active leaf's column-leaders list from SQLUtils.limited_column_leaders.
+        Upper-tier views always use 'LimitedSamplesAliquots'; the lower-tier list switches
+        based on leaf.
+        """
+        if self.leaf == 'GeoChemicalAnalyses':
+            return SQLUtils.limited_column_leaders['LimitedSpotsGeoChemicalAnalysesGrains']
+        return SQLUtils.limited_column_leaders['LimitedSpotsUPbAnalysesGrains']
 
     def create_sample_view_query(self):
         self.show_columns: list = settings.value('sample_view_columns')
@@ -110,13 +184,22 @@ class ViewQuery:
         query_columns = ',\n'.join(self.query_columns)
 
         lsa_hierarchy_join = SQLUtils.limited_sample_aliquot_hierarchy_join
+        # The static hierarchy-join string uses 'lspuag' as the alias regardless of leaf;
+        # rewrite to 'lspgcg' when GeoChem is the active leaf.
+        if self.leaf == 'GeoChemicalAnalyses':
+            lsa_hierarchy_join = lsa_hierarchy_join.replace(
+                'LimitedSpotsUPbAnalysesGrains lspuag',
+                f'{self.lower_cte_name} {self.lower_cte_alias}'
+            )
         if self.join_type != 'INNER':
             lsa_hierarchy_join = lsa_hierarchy_join.replace('INNER JOIN', f'{self.join_type} JOIN')
 
-        if (not 'lspuag' in query_columns and
-                not any('lspuag' in string for string in [self.query_where, self.group_by, self.order_by])):
-            # Don't bother joining Spots, Grains, and UPbAnalyses if not needed for the selected columns
-            if '"Accepted/TotalUPbAnalyses"' in query_columns:
+        leaf_alias = self.lower_cte_alias
+        spot_leaf_tag = self.leaf
+        if (not leaf_alias in query_columns and
+                not any(leaf_alias in string for string in [self.query_where, self.group_by, self.order_by])):
+            # Don't bother joining Spots/Grains/leaf-analyses if not needed for the selected columns
+            if self.leaf == 'UPbAnalyses' and '"Accepted/TotalUPbAnalyses"' in query_columns:
                 subquery = SQLUtils.qupb_count_sample_subquery
                 if self.join_type != 'INNER':
                     subquery = subquery.replace('INNER JOIN UPbAnalyses ON', f'{self.join_type} JOIN UPbAnalyses ON')
@@ -128,13 +211,13 @@ class ViewQuery:
         else:
             limited_lspuag = f'''
                             {f"{',\n' + ',\n'.join(self.query_tags['Spots']) if 'Spots' in self.query_tags else ''}"}
-                            {f"{',\n' + ',\n'.join(self.query_tags['UPbAnalyses']) if 'UPbAnalyses' in self.query_tags else ''}"}
+                            {f"{',\n' + ',\n'.join(self.query_tags[spot_leaf_tag]) if spot_leaf_tag in self.query_tags else ''}"}
                             '''
             lspuag_joins = f'''
                             {f"{'\n'.join(self.query_tags_joins['Spots']) if 'Spots' in self.query_tags_joins else ''}"}
-                            {f"{'\n'.join(self.query_tags_joins['UPbAnalyses']) if 'UPbAnalyses' in self.query_tags_joins else ''}"}
+                            {f"{'\n'.join(self.query_tags_joins[spot_leaf_tag]) if spot_leaf_tag in self.query_tags_joins else ''}"}
                             '''
-            if '"Accepted/TotalUPbAnalyses"' in query_columns:
+            if self.leaf == 'UPbAnalyses' and '"Accepted/TotalUPbAnalyses"' in query_columns:
                 subquery = SQLUtils.qupb_count_sample_subquery
                 if self.join_type != 'INNER':
                     subquery = subquery.replace('INNER JOIN UPbAnalyses ON', f'{self.join_type} JOIN UPbAnalyses ON')
@@ -149,7 +232,7 @@ class ViewQuery:
                         SELECT
                                 {query_columns}
                                FROM LimitedSamplesAliquots lsa
-                               {lsa_hierarchy_join if 'LimitedSpotsUPbAnalysesGrains' in self.limited_hierarchy else ''}
+                               {lsa_hierarchy_join if self.lower_cte_name in self.limited_hierarchy else ''}
                                {f"{'\n'.join(self.query_tags_joins['Samples']) if 'Samples' in self.query_tags_joins else ''}"}
                                {f"{'\n'.join(self.query_tags_joins['Aliquots']) if 'Aliquots' in self.query_tags_joins else ''}"}
                                {lspuag_joins}
@@ -177,13 +260,20 @@ class ViewQuery:
         query_columns = ',\n'.join(self.query_columns)
 
         lsa_hierarchy_join = SQLUtils.limited_sample_aliquot_hierarchy_join
+        if self.leaf == 'GeoChemicalAnalyses':
+            lsa_hierarchy_join = lsa_hierarchy_join.replace(
+                'LimitedSpotsUPbAnalysesGrains lspuag',
+                f'{self.lower_cte_name} {self.lower_cte_alias}'
+            )
         if self.join_type != 'INNER':
             lsa_hierarchy_join = lsa_hierarchy_join.replace('INNER JOIN', f'{self.join_type} JOIN')
 
-        if (not 'lspuag' in query_columns and
-                not any('lspuag' in string for string in [self.query_where, self.group_by, self.order_by])):
-            # Don't bother joining Spots, Grains, and UPbAnalyses if not needed for the selected columns
-            if '"Accepted/TotalUPbAnalyses"' in query_columns:
+        leaf_alias = self.lower_cte_alias
+        spot_leaf_tag = self.leaf
+        if (not leaf_alias in query_columns and
+                not any(leaf_alias in string for string in [self.query_where, self.group_by, self.order_by])):
+            # Don't bother joining Spots/Grains/leaf-analyses if not needed for the selected columns
+            if self.leaf == 'UPbAnalyses' and '"Accepted/TotalUPbAnalyses"' in query_columns:
                 subquery = SQLUtils.qupb_count_aliquot_subquery
                 if self.join_type != 'INNER':
                     subquery = subquery.replace('INNER JOIN UPbAnalyses ON', f'{self.join_type} JOIN UPbAnalyses ON')
@@ -195,13 +285,13 @@ class ViewQuery:
         else:
             limited_lspuag = f'''
                             {f"{',\n' + ',\n'.join(self.query_tags['Spots']) if 'Spots' in self.query_tags else ''}"}
-                            {f"{',\n' + ',\n'.join(self.query_tags['UPbAnalyses']) if 'UPbAnalyses' in self.query_tags else ''}"}
+                            {f"{',\n' + ',\n'.join(self.query_tags[spot_leaf_tag]) if spot_leaf_tag in self.query_tags else ''}"}
                             '''
             lspuag_joins = f'''
                             {f"{'\n'.join(self.query_tags_joins['Spots']) if 'Spots' in self.query_tags_joins else ''}"}
-                            {f"{'\n'.join(self.query_tags_joins['UPbAnalyses']) if 'UPbAnalyses' in self.query_tags_joins else ''}"}
+                            {f"{'\n'.join(self.query_tags_joins[spot_leaf_tag]) if spot_leaf_tag in self.query_tags_joins else ''}"}
                             '''
-            if '"Accepted/TotalUPbAnalyses"' in query_columns:
+            if self.leaf == 'UPbAnalyses' and '"Accepted/TotalUPbAnalyses"' in query_columns:
                 subquery = SQLUtils.qupb_count_aliquot_subquery
                 if self.join_type != 'INNER':
                     subquery = subquery.replace('INNER JOIN UPbAnalyses ON', f'{self.join_type} JOIN UPbAnalyses ON')
@@ -216,7 +306,7 @@ class ViewQuery:
                         SELECT
                                 {query_columns}
                                FROM LimitedSamplesAliquots lsa
-                               {lsa_hierarchy_join if 'LimitedSpotsUPbAnalysesGrains' in self.limited_hierarchy else ''}
+                               {lsa_hierarchy_join if self.lower_cte_name in self.limited_hierarchy else ''}
                                {f"{'\n'.join(self.query_tags_joins['Aliquots']) if 'Aliquots' in self.query_tags_joins else ''}"}
                                {f"{'\n'.join(self.query_tags_joins['Samples']) if 'Samples' in self.query_tags_joins else ''}"}
                                {lspuag_joins}
@@ -243,10 +333,11 @@ class ViewQuery:
         self.limited_hierarchy_query()
         query_columns = ',\n'.join(self.query_columns)
 
-        lspuag_hierarchy_join = SQLUtils.limited_spot_upb_grain_hierarchy_join
+        lspuag_hierarchy_join = self.leaf_hierarchy_join
         if self.join_type != 'INNER':
             lspuag_hierarchy_join = lspuag_hierarchy_join.replace('INNER JOIN', f'{self.join_type} JOIN')
 
+        spot_leaf_tag = self.leaf
         if (not 'lsa' in query_columns and
                 not any('lsa' in string for string in [self.query_where, self.group_by, self.order_by])):
             # Don't bother joining Samples and Aliquots if not needed for the selected columns
@@ -263,8 +354,8 @@ class ViewQuery:
                                     '''
 
         limited_lspuag = f'''{f"{',\n' + ',\n'.join(self.query_tags['Spots']) if 'Spots' in self.query_tags else ''}"}
-                                {f"{',\n' + ',\n'.join(self.query_tags['UPbAnalyses']) if 'UPbAnalyses' in self.query_tags else ''}"}'''
-        if '"Accepted/TotalUPbAnalyses"' in query_columns:
+                                {f"{',\n' + ',\n'.join(self.query_tags[spot_leaf_tag]) if spot_leaf_tag in self.query_tags else ''}"}'''
+        if self.leaf == 'UPbAnalyses' and '"Accepted/TotalUPbAnalyses"' in query_columns:
             subquery = SQLUtils.qupb_count_grain_subquery
             if self.join_type != 'INNER':
                 subquery = subquery.replace('INNER JOIN UPbAnalyses ON', f'{self.join_type} JOIN UPbAnalyses ON')
@@ -276,11 +367,11 @@ class ViewQuery:
                                 {limited_lsa}
                                 SELECT
                                         {query_columns}
-                                       FROM LimitedSpotsUPbAnalysesGrains lspuag
+                                       FROM {self.lower_cte_name} {self.lower_cte_alias}
                                        {lspuag_hierarchy_join if 'LimitedSamplesAliquots' in self.limited_hierarchy else ''}
                                        {f"{'\n'.join(self.query_tags_joins['Spots']) if 'Spots' in self.query_tags_joins else ''}"}
-                                       {f"{'\n'.join(self.query_tags_joins['UPbAnalyses']) if 'UPbAnalyses' in self.query_tags_joins else ''}"}
-                                       {f'\n{SQLUtils.upb_distinct_join_limited_grain}' if '"Accepted/TotalUPbAnalyses"' in query_columns else ''}
+                                       {f"{'\n'.join(self.query_tags_joins[spot_leaf_tag]) if spot_leaf_tag in self.query_tags_joins else ''}"}
+                                       {f'\n{SQLUtils.upb_distinct_join_limited_grain}' if (self.leaf == 'UPbAnalyses' and '"Accepted/TotalUPbAnalyses"' in query_columns) else ''}
                                        {lsa_joins}
                                         {self.query_where}
                                         {self.group_by}
@@ -290,7 +381,6 @@ class ViewQuery:
 
         grain_query = grain_query.strip()
         self.table_query = grain_query
-
 
     def create_spot_view_query(self):
 
@@ -307,10 +397,11 @@ class ViewQuery:
         self.limited_hierarchy_query()
         query_columns = ',\n'.join(self.query_columns)
 
-        lspuag_hierarchy_join = SQLUtils.limited_spot_upb_grain_hierarchy_join
+        lspuag_hierarchy_join = self.leaf_hierarchy_join
         if self.join_type != 'INNER':
             lspuag_hierarchy_join = lspuag_hierarchy_join.replace('INNER JOIN', f'{self.join_type} JOIN')
 
+        spot_leaf_tag = self.leaf
         if (not 'lsa' in query_columns and
                 not any('lsa' in string for string in [self.query_where, self.group_by, self.order_by])):
             # Don't bother joining Samples and Aliquots if not needed for the selected columns
@@ -326,8 +417,8 @@ class ViewQuery:
                             {f"{'\n'.join(self.query_tags_joins['Samples']) if 'Samples' in self.query_tags_joins else ''}"}
                             '''
         limited_lspuag = f'''{f"{',\n' + ',\n'.join(self.query_tags['Spots']) if 'Spots' in self.query_tags else ''}"}
-                        {f"{',\n' + ',\n'.join(self.query_tags['UPbAnalyses']) if 'UPbAnalyses' in self.query_tags else ''}"}'''
-        if '"Accepted/TotalUPbAnalyses"' in query_columns:
+                        {f"{',\n' + ',\n'.join(self.query_tags[spot_leaf_tag]) if spot_leaf_tag in self.query_tags else ''}"}'''
+        if self.leaf == 'UPbAnalyses' and '"Accepted/TotalUPbAnalyses"' in query_columns:
             subquery = SQLUtils.qupb_count_spot_subquery
             if self.join_type != 'INNER':
                 subquery = subquery.replace('INNER JOIN UPbAnalyses ON', f'{self.join_type} JOIN UPbAnalyses ON')
@@ -339,11 +430,11 @@ class ViewQuery:
                         {limited_lsa}
                         SELECT
                                 {query_columns}
-                               FROM LimitedSpotsUPbAnalysesGrains lspuag
+                               FROM {self.lower_cte_name} {self.lower_cte_alias}
                                {lspuag_hierarchy_join if 'LimitedSamplesAliquots' in self.limited_hierarchy else ''}
                                {f"{'\n'.join(self.query_tags_joins['Spots']) if 'Spots' in self.query_tags_joins else ''}"}
-                               {f"{'\n'.join(self.query_tags_joins['UPbAnalyses']) if 'UPbAnalyses' in self.query_tags_joins else ''}"}
-                               {f'\n{SQLUtils.upb_distinct_join_limited_spot}' if '"Accepted/TotalUPbAnalyses"' in query_columns else ''}
+                               {f"{'\n'.join(self.query_tags_joins[spot_leaf_tag]) if spot_leaf_tag in self.query_tags_joins else ''}"}
+                               {f'\n{SQLUtils.upb_distinct_join_limited_spot}' if (self.leaf == 'UPbAnalyses' and '"Accepted/TotalUPbAnalyses"' in query_columns) else ''}
                                {lsa_joins}
                                 {self.query_where}
                                 {self.group_by}
@@ -465,6 +556,69 @@ class ViewQuery:
         reference_query = reference_query.strip()
         self.table_query = reference_query
 
+    def create_geochem_view_query(self):
+        """
+        Build the SQL for the GeoChemicalAnalyses view. Mirrors create_upb_view_query but
+        keys off the GeoChem-leaf attributes resolved in _init_leaf_attributes:
+        self.lower_cte_name == 'LimitedSpotsGeoChemicalAnalysesGrains',
+        self.lower_cte_alias == 'lspgcg', and self.leaf_hierarchy_join uses
+        SQLUtils.limited_spot_geochem_grain_hierarchy_join. The leaf is forced to
+        'GeoChemicalAnalyses' in __init__/update_query when table == 'GeoChemicalAnalyses'.
+        """
+        self.show_columns: list = settings.value('geochem_analysis_view_columns')
+        self.limit: str = ''
+        self.where: str = ''
+        self.group_col: str = 'GeoChemAnalysisID'
+        self.order_col: str = 'GeoChemAnalysisName'
+        for key, value in self.kwargs.items():
+            setattr(self, key, value)
+
+        self.get_query_columns()
+        self.get_group_order_clauses()
+        self.limited_hierarchy_query()
+        query_columns = ',\n'.join(self.query_columns)
+
+        lspuag_hierarchy_join = self.leaf_hierarchy_join
+        if self.join_type != 'INNER':
+            lspuag_hierarchy_join = lspuag_hierarchy_join.replace('INNER JOIN', f'{self.join_type} JOIN')
+
+        spot_leaf_tag = self.leaf  # 'GeoChemicalAnalyses'
+        if (not 'lsa' in query_columns and
+                not any('lsa' in string for string in [self.query_where, self.group_by, self.order_by])):
+            # Don't bother joining Samples and Aliquots if not needed for the selected columns
+            limited_lsa = ''
+            lsa_joins = ''
+        else:
+            limited_lsa = f'''
+                            {f"{',\n' + ',\n'.join(self.query_tags['Aliquots']) if 'Aliquots' in self.query_tags else ''}"}
+                            {f"{',\n' + ',\n'.join(self.query_tags['Samples']) if 'Samples' in self.query_tags else ''}"}
+                            '''
+            lsa_joins = f'''
+                            {f"{'\n'.join(self.query_tags_joins['Aliquots']) if 'Aliquots' in self.query_tags_joins else ''}"}
+                            {f"{'\n'.join(self.query_tags_joins['Samples']) if 'Samples' in self.query_tags_joins else ''}"}
+                            '''
+
+        geochem_query = f'''
+                        {self.limited_hierarchy}
+                        {f"{',\n' + ',\n'.join(self.query_tags['Spots']) if 'Spots' in self.query_tags else ''}"}
+                        {f"{',\n' + ',\n'.join(self.query_tags[spot_leaf_tag]) if spot_leaf_tag in self.query_tags else ''}"}
+                        {limited_lsa}
+                        SELECT
+                                {query_columns}
+                               FROM {self.lower_cte_name} {self.lower_cte_alias}
+                               {lspuag_hierarchy_join if 'LimitedSamplesAliquots' in self.limited_hierarchy else ''}
+                               {f"{'\n'.join(self.query_tags_joins['Spots']) if 'Spots' in self.query_tags_joins else ''}"}
+                               {f"{'\n'.join(self.query_tags_joins[spot_leaf_tag]) if spot_leaf_tag in self.query_tags_joins else ''}"}
+                               {lsa_joins}
+                                {self.query_where}
+                                {self.group_by}
+                                {self.order_by}
+                                {self.query_limit}
+                               '''
+
+        geochem_query = geochem_query.strip()
+        self.table_query = geochem_query
+
     def limited_hierarchy_query(self):
         """
         Construct the query to limit the Samples, Aliquots, Grains, Spots, and UPbAnalyses joined in the main query. Begin with
@@ -476,7 +630,7 @@ class ViewQuery:
         from Functions.Widget_classes import get_headers
 
         headers = get_headers(self.table)
-        table_abbreviation_dict = SQLUtils.limited_table_abbreviations.copy()
+        table_abbreviation_dict = self.get_leaf_table_abbreviations()
 
         where_table = self.table
         where_header = ''
@@ -487,7 +641,7 @@ class ViewQuery:
         self.query_where = self.where
         self.query_limit = self.limit
 
-        if self.table not in ('Samples', 'Aliquots', 'Grains', 'Spots', 'UPbAnalyses'):
+        if self.table not in ('Samples', 'Aliquots', 'Grains', 'Spots', 'UPbAnalyses', 'GeoChemicalAnalyses'):
             return
         table_abbreviation_dict.pop(self.table)
 
@@ -628,31 +782,41 @@ class ViewQuery:
             lsa_select_cols.remove(id_col) if id_col in lsa_select_cols else None
         lsa_table_joins = SQLUtils.limited_lsa_lspuag_joins['LimitedSamplesAliquots'].copy()
         lspuag_select_cols = self.lspuag_columns
-        for id_col in [SQLUtils.qspot_id, SQLUtils.qgrain_id, SQLUtils.qupb_id]:
+        for id_col in [SQLUtils.qspot_id, SQLUtils.qgrain_id, self.leaf_q_id]:
             lspuag_select_cols.remove(id_col) if id_col in lspuag_select_cols else None
-        lspuag_table_joins = SQLUtils.limited_lsa_lspuag_joins['LimitedSpotsUPbAnalysesGrains'].copy()
+        lspuag_table_joins = SQLUtils.limited_lsa_lspuag_joins[self.lower_cte_name].copy()
         lsa_selects = []
         lsa_joins = []
         lspuag_selects = []
         lspuag_joins = []
-        if where_table in ['Samples', 'Aliquots', 'Spots', 'UPbAnalyses', 'Grains']:
+        # Leaf-aware shortcuts used in the per-table branches below. With leaf='UPbAnalyses'
+        # (default), spot_leaf_join_str expands to 'INNER JOIN UPbAnalyses ON Spots.SpotID =
+        # UPbAnalyses.SpotID' and matches the original hardcoded strings exactly. When
+        # leaf='GeoChemicalAnalyses' the same template targets GeoChemicalAnalyses instead,
+        # so the same branch logic builds either hierarchy.
+        leaf_table = self.leaf
+        leaf_id_col = self.leaf_id_col
+        spot_leaf_join_str = f'{self.join_type} JOIN {leaf_table} ON Spots.SpotID = {leaf_table}.SpotID'
+        # leaf_spot_join_str = f'{self.join_type} JOIN Spots ON {leaf_table}.SpotID = Spots.SpotID'
+        # leaf_id_select_str = f'{leaf_table}.SpotID AS SpotID'
+        if where_table in ['Samples', 'Aliquots', 'Spots', 'UPbAnalyses', 'GeoChemicalAnalyses', 'Grains']:
             if where_table in ['Samples', 'Aliquots']:
                 if headers[0] in ['SampleID', 'AliquotID']:
                     group_lsa = f'GROUP BY {self.table}.{headers[0]}'
                     group_lspuag = f'GROUP BY lsa.{headers[0]}'
-                elif headers[0] in ['SpotID', 'UPbAnalysisID']:
+                elif headers[0] in ['SpotID', 'UPbAnalysisID', 'GeoChemAnalysisID']:
                     group_lsa = ''
                     group_lspuag = f'GROUP BY {self.table}.{headers[0]}'
                 elif headers[0] == 'GrainID':
                     group_lsa = ''
                     group_lspuag = f'GROUP BY Spots.SpotID'
             else:
-                if headers[0] in ['SpotID', 'UPbAnalysisID']:
+                if headers[0] in ['SpotID', 'UPbAnalysisID', 'GeoChemAnalysisID']:
                     group_lspuag = f'GROUP BY {self.table}.{headers[0]}'
-                    group_lsa = f'GROUP BY lspuag.{headers[0]}'
+                    group_lsa = f'GROUP BY {self.lower_cte_alias}.{headers[0]}'
                 elif headers[0] == 'GrainID':
                     group_lspuag = f'GROUP BY Spots.SpotID'
-                    group_lsa = f'GROUP BY lspuag.SpotID'
+                    group_lsa = f'GROUP BY {self.lower_cte_alias}.SpotID'
                 elif headers[0] in ['SampleID', 'AliquotID']:
                     group_lspuag = ''
                     group_lsa = f'GROUP BY {self.table}.{headers[0]}'
@@ -661,9 +825,9 @@ class ViewQuery:
                 lsa_select_cols.append('Samples.DefaultSampleAgeID') if any('SampleAge' in col for col in self.show_columns) else lsa_selects
                 lspuag_from_table = 'Spots'
                 lsa_table_joins.append(f'{self.join_type} JOIN Aliquots ON Samples.SampleID = Aliquots.SampleID')
-                lspuag_table_joins.append(f'{self.join_type} JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID')
+                lspuag_table_joins.append(spot_leaf_join_str)
                 lspuag_table_joins.append('LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID')
-                for join in [f'{self.join_type} JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID', SQLUtils.spot_grain_join]:
+                for join in [spot_leaf_join_str, SQLUtils.spot_grain_join]:
                     if join not in lspuag_table_joins:
                         lspuag_table_joins.append(join)
                 lsa_selects = [SQLUtils.qsample_id]
@@ -695,12 +859,15 @@ class ViewQuery:
                 for col in lspuag_select_cols:
                     as_name = col.split(' AS ')[1] if ' AS ' in col else ''
                     if ((as_name and as_name in self.show_columns) or
-                            (col in [SQLUtils.qspot_id, SQLUtils.qupb_id, SQLUtils.qgrain_id]) or
+                            (col in [SQLUtils.qspot_id, self.leaf_q_id, SQLUtils.qgrain_id]) or
                             (as_name in self.order_col or as_name in self.group_col or as_name in self.where) or
                             ('ID' in col and not as_name)):
                         if col not in lspuag_selects:
                             lspuag_selects.append(col)
-                            if any('Rejected' in show_col for show_col in self.show_columns) and SQLUtils.qupb_rejected not in lspuag_selects:
+                            # Rejected only exists in UPbAnalyses; skip for GeoChem leaf
+                            if (self.leaf == 'UPbAnalyses'
+                                    and any('Rejected' in show_col for show_col in self.show_columns)
+                                    and SQLUtils.qupb_rejected not in lspuag_selects):
                                 lspuag_selects.append(SQLUtils.qupb_rejected)
                             if 'Spots.SpotID AS SpotID' not in lspuag_selects:
                                 lspuag_selects.insert(0, 'Spots.SpotID AS SpotID')
@@ -716,10 +883,10 @@ class ViewQuery:
                             for join in lspuag_table_joins:
                                 if f'JOIN {col.split(".")[0].split(" ")[-1]}' in join or f' AS {col.split(".")[0].split(" ")[-1]}' in join:
                                     if join not in lspuag_joins:
-                                        if (join == f'{self.join_type} JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID' and
-                                                SQLUtils.qupb_id not in lspuag_selects):
+                                        if (join == spot_leaf_join_str and
+                                                self.leaf_q_id not in lspuag_selects):
                                             # Add to the beginning of the list
-                                            lspuag_selects.append(SQLUtils.qupb_id)
+                                            lspuag_selects.append(self.leaf_q_id)
                                             lspuag_joins.insert(0, join)
                                         elif (join == 'LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID' and
                                               'Spots.GrainID AS GrainID' not in lspuag_selects):
@@ -728,24 +895,24 @@ class ViewQuery:
                                             lspuag_joins.insert(0, join)
                                         else:
                                             lspuag_joins.append(join)
-                                            if 'ON UPbAnalyses.' in join and f'{self.join_type} JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID' not in lspuag_joins:
-                                                lspuag_joins.insert(0, f'{self.join_type} JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID')
-                                                if SQLUtils.qupb_id not in lspuag_selects:
-                                                    lspuag_selects.append(SQLUtils.qupb_id)
+                                            if f'ON {leaf_table}.' in join and spot_leaf_join_str not in lspuag_joins:
+                                                lspuag_joins.insert(0, spot_leaf_join_str)
+                                                if self.leaf_q_id not in lspuag_selects:
+                                                    lspuag_selects.append(self.leaf_q_id)
                                             if 'ON Grains.' in join and 'LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID' not in lspuag_joins:
                                                 lspuag_joins.insert(0, 'LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID')
                                                 if 'Spots.GrainID AS GrainID' not in lspuag_selects:
                                                     lspuag_selects.append('Spots.GrainID AS GrainID')
-                if where_header == 'UPbAnalysisID' and SQLUtils.qupb_id not in lspuag_selects:
-                    lspuag_selects.append(SQLUtils.qupb_id)
-                    if f'{self.join_type} JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID' not in lspuag_joins:
-                        lspuag_joins.insert(0, f'{self.join_type} JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID')
+                if where_header == leaf_id_col and self.leaf_q_id not in lspuag_selects:
+                    lspuag_selects.append(self.leaf_q_id)
+                    if spot_leaf_join_str not in lspuag_joins:
+                        lspuag_joins.insert(0, spot_leaf_join_str)
             elif self.table == 'Aliquots':
                 lsa_from_table = 'Aliquots'
                 lspuag_from_table = 'Spots'
                 lsa_selects = [SQLUtils.qaliquot_id]
                 lsa_table_joins.append(f'{self.join_type} JOIN Samples ON Aliquots.SampleID = Samples.SampleID')
-                lspuag_table_joins.append(f'{self.join_type} JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID')
+                lspuag_table_joins.append(spot_leaf_join_str)
                 lspuag_table_joins.append('LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID')
                 lsa_selects, lsa_joins = self.get_lsa_from_aliquots(lsa_select_cols, lsa_table_joins, lsa_selects)
                 if where_header == 'SampleID' and 'Aliquots.SampleID AS SampleID' not in lsa_selects:
@@ -755,13 +922,14 @@ class ViewQuery:
                 for col in lspuag_select_cols:
                     as_name = col.split(' AS ')[1] if ' AS ' in col else ''
                     if ((as_name and as_name in self.show_columns) or
-                            (col in [SQLUtils.qspot_id, SQLUtils.qupb_id, SQLUtils.qgrain_id]) or
+                            (col in [SQLUtils.qspot_id, self.leaf_q_id, SQLUtils.qgrain_id]) or
                             (as_name in self.order_col or as_name in self.group_col or as_name in self.where) or
                             ('ID' in col and not as_name)):
                         if col not in lspuag_selects:
                             lspuag_selects.append(col)
-                            if any('Rejected' in show_col for show_col in
-                                   self.show_columns) and SQLUtils.qupb_rejected not in lspuag_selects:
+                            if (self.leaf == 'UPbAnalyses'
+                                    and any('Rejected' in show_col for show_col in self.show_columns)
+                                    and SQLUtils.qupb_rejected not in lspuag_selects):
                                 lspuag_selects.append(SQLUtils.qupb_rejected)
                             if 'Spots.SpotID AS SpotID' not in lspuag_selects:
                                 lspuag_selects.insert(0, 'Spots.SpotID AS SpotID')
@@ -771,9 +939,9 @@ class ViewQuery:
                             for join in lspuag_table_joins:
                                 if f'JOIN {col.split(".")[0].split(" ")[-1]}' in join or f' AS {col.split(".")[0].split(" ")[-1]}' in join:
                                     if join not in lspuag_joins:
-                                        if join == SQLUtils.spot_upb_analysis_join and SQLUtils.qupb_id not in lspuag_selects:
+                                        if join == self.spot_leaf_join and self.leaf_q_id not in lspuag_selects:
                                             # Add to the beginning of the list
-                                            lspuag_selects.append(SQLUtils.qupb_id)
+                                            lspuag_selects.append(self.leaf_q_id)
                                             lspuag_joins.insert(0, join)
                                         elif join == SQLUtils.spot_grain_join and SQLUtils.qgrain_id not in lspuag_selects:
                                             # Add to the beginning of the list
@@ -781,38 +949,37 @@ class ViewQuery:
                                             lspuag_joins.insert(0, join)
                                         else:
                                             lspuag_joins.append(join)
-                                            if 'ON UPbAnalyses.' in join and f'{self.join_type} JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID' not in lspuag_joins:
-                                                lspuag_joins.insert(0,
-                                                                    f'{self.join_type} JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID')
-                                                if SQLUtils.qupb_id not in lspuag_selects:
-                                                    lspuag_selects.append(SQLUtils.qupb_id)
+                                            if f'ON {leaf_table}.' in join and spot_leaf_join_str not in lspuag_joins:
+                                                lspuag_joins.insert(0, spot_leaf_join_str)
+                                                if self.leaf_q_id not in lspuag_selects:
+                                                    lspuag_selects.append(self.leaf_q_id)
                                             if 'ON Grains.' in join and 'LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID' not in lspuag_joins:
                                                 lspuag_joins.insert(0, 'LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID')
                                                 if SQLUtils.qgrain_id not in lspuag_selects:
                                                     lspuag_selects.append(SQLUtils.qgrain_id)
-                if where_header == 'UPbAnalysisID' and SQLUtils.qupb_id not in lspuag_selects:
-                    lspuag_selects.append(SQLUtils.qupb_id)
-                    if f'{self.join_type} JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID' not in lspuag_joins:
-                        lspuag_joins.insert(0, f'{self.join_type} JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID')
+                if where_header == leaf_id_col and self.leaf_q_id not in lspuag_selects:
+                    lspuag_selects.append(self.leaf_q_id)
+                    if spot_leaf_join_str not in lspuag_joins:
+                        lspuag_joins.insert(0, spot_leaf_join_str)
 
             elif self.table == 'Spots':
                 lspuag_from_table = 'Spots'
                 lsa_from_table = 'Aliquots'
-                lsa_from_table = 'Aliquots'
                 lspuag_selects = [SQLUtils.qspot_id]
                 lsa_table_joins.append(f'{self.join_type} JOIN Samples ON Aliquots.SampleID = Samples.SampleID')
-                lspuag_table_joins.append(f'{self.join_type} JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID')
+                lspuag_table_joins.append(spot_leaf_join_str)
                 lspuag_table_joins.append('LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID')
                 for col in lspuag_select_cols:
                     as_name = col.split(' AS ')[1] if ' AS ' in col else ''
                     if ((as_name and as_name in self.show_columns) or
-                            (col in [SQLUtils.qspot_id, SQLUtils.qupb_id, SQLUtils.qgrain_id]) or
+                            (col in [SQLUtils.qspot_id, self.leaf_q_id, SQLUtils.qgrain_id]) or
                             (as_name in self.order_col or as_name in self.group_col or as_name in self.where) or
                             ('ID' in col and not as_name)):
                         if col not in lspuag_selects:
                             lspuag_selects.append(col)
-                            if any('Rejected' in show_col for show_col in
-                                   self.show_columns) and SQLUtils.qupb_rejected not in lspuag_selects:
+                            if (self.leaf == 'UPbAnalyses'
+                                    and any('Rejected' in show_col for show_col in self.show_columns)
+                                    and SQLUtils.qupb_rejected not in lspuag_selects):
                                 lspuag_selects.append(SQLUtils.qupb_rejected)
                             if 'Spots.GrainID AS GrainID' not in lspuag_selects:
                                 lspuag_selects.insert(1, 'Spots.GrainID AS GrainID')
@@ -822,9 +989,9 @@ class ViewQuery:
                             for join in lspuag_table_joins:
                                 if f'JOIN {col.split(".")[0].split(" ")[-1]}' in join or f' AS {col.split(".")[0].split(" ")[-1]}' in join:
                                     if join not in lspuag_joins:
-                                        if join == f'{self.join_type} JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID' and SQLUtils.qupb_id not in lspuag_selects:
+                                        if join == spot_leaf_join_str and self.leaf_q_id not in lspuag_selects:
                                             # Add to the beginning of the list
-                                            lspuag_selects.append(SQLUtils.qupb_id)
+                                            lspuag_selects.append(self.leaf_q_id)
                                             lspuag_joins.insert(0, join)
                                         elif join == 'LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID' and SQLUtils.qgrain_id not in lspuag_selects:
                                             # Add to the beginning of the list
@@ -832,19 +999,18 @@ class ViewQuery:
                                             lspuag_joins.insert(0, join)
                                         else:
                                             lspuag_joins.append(join)
-                                            if 'ON UPbAnalyses.' in join and f'{self.join_type} JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID' not in lspuag_joins:
-                                                lspuag_joins.insert(0,
-                                                                    f'{self.join_type} JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID')
-                                                if SQLUtils.qupb_id not in lspuag_selects:
-                                                    lspuag_selects.append(SQLUtils.qupb_id)
+                                            if f'ON {leaf_table}.' in join and spot_leaf_join_str not in lspuag_joins:
+                                                lspuag_joins.insert(0, spot_leaf_join_str)
+                                                if self.leaf_q_id not in lspuag_selects:
+                                                    lspuag_selects.append(self.leaf_q_id)
                                             if 'ON Grains.' in join and 'LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID' not in lspuag_joins:
                                                 lspuag_joins.insert(0, 'LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID')
                                                 if SQLUtils.qgrain_id not in lspuag_selects:
                                                     lspuag_selects.append(SQLUtils.qgrain_id)
-                if where_header == 'UPbAnalysisID' and SQLUtils.qupb_id not in lspuag_selects:
-                    lspuag_selects.append(SQLUtils.qupb_id)
-                    if f'{self.join_type} JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID' not in lspuag_joins:
-                        lspuag_joins.insert(0, f'{self.join_type} JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID')
+                if where_header == leaf_id_col and self.leaf_q_id not in lspuag_selects:
+                    lspuag_selects.append(self.leaf_q_id)
+                    if spot_leaf_join_str not in lspuag_joins:
+                        lspuag_joins.insert(0, spot_leaf_join_str)
                 lsa_selects, lsa_joins = self.get_lsa_from_aliquots(lsa_select_cols, lsa_table_joins, lsa_selects)
                 if where_header == 'SampleID' and 'Aliquots.SampleID AS SampleID' not in lsa_selects:
                     lsa_selects.append('Aliquots.SampleID AS SampleID')
@@ -923,6 +1089,74 @@ class ViewQuery:
                     if 'Spots.AliquotID AS AliquotID' not in lspuag_selects:
                         lspuag_selects.append('Spots.AliquotID AS AliquotID')
 
+            elif self.table == 'GeoChemicalAnalyses':
+                lspuag_from_table = 'GeoChemicalAnalyses'
+                lsa_from_table = 'Aliquots'
+                lspuag_selects = [SQLUtils.qgeochem_id]
+                lsa_table_joins.append(f'{self.join_type} JOIN Samples ON Aliquots.SampleID = Samples.SampleID')
+                lspuag_table_joins.append(f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID')
+                lspuag_table_joins.append('LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID')
+                for col in lspuag_select_cols:
+                    as_name = col.split(' AS ')[1] if ' AS ' in col else ''
+                    quoted_show_columns = [f'"{c}"' for c in self.show_columns]
+                    if ((as_name and as_name in self.show_columns) or ('"' in as_name and as_name in quoted_show_columns) or
+                            (col in [SQLUtils.qspot_id, SQLUtils.qgeochem_id, SQLUtils.qgrain_id]) or
+                            (as_name in self.order_col or as_name in self.group_col or as_name in self.where) or
+                            ('ID' in col and not as_name)):
+                        if col not in lspuag_selects:
+                            lspuag_selects.append(col)
+                            if 'GeoChemicalAnalyses.SpotID AS SpotID' not in lspuag_selects:
+                                lspuag_selects.insert(1, 'GeoChemicalAnalyses.SpotID AS SpotID')
+                            if 'Spots.GrainID AS GrainID' not in lspuag_selects:
+                                lspuag_selects.insert(1, 'Spots.GrainID AS GrainID')
+                                if f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID' not in lspuag_joins:
+                                    lspuag_joins.insert(0, f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID')
+                            if 'Spots.AliquotID AS AliquotID' not in lspuag_selects:
+                                lspuag_selects.append('Spots.AliquotID AS AliquotID')
+                                if f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID' not in lspuag_joins:
+                                    lspuag_joins.insert(0, f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID')
+                        if col.split(".")[0].split(" ")[-1] != 'GeoChemicalAnalyses':
+                            for join in lspuag_table_joins:
+                                if f'JOIN {col.split(".")[0].split(" ")[-1]}' in join or f' AS {col.split(".")[0].split(" ")[-1]}' in join:
+                                    if join not in lspuag_joins:
+                                        if (join == f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID' and
+                                                col.split(".")[0].split(" ")[-1] == 'Spots'):
+                                            lspuag_joins.insert(0, join)
+                                        elif join == SQLUtils.spot_grain_join and col.split(".")[0].split(" ")[-1] == 'Grains':
+                                            if 'Spots.GrainID AS GrainID' not in lspuag_selects:
+                                                lspuag_selects.insert(1, 'Spots.GrainID AS GrainID')
+                                            if f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID' not in lspuag_joins:
+                                                lspuag_joins.insert(0, f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID')
+                                            lspuag_joins.insert(1, join)
+                                        else:
+                                            lspuag_joins.append(join)
+                                            if 'ON Spots.' in join and f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID' not in lspuag_joins:
+                                                lspuag_joins.insert(0,
+                                                                    f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID')
+                                                if SQLUtils.qspot_id not in lspuag_selects:
+                                                    lspuag_selects.append(SQLUtils.qgeochem_id)
+                                            if 'ON Grains.' in join and SQLUtils.spot_grain_join not in lspuag_joins:
+                                                if f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID' not in lspuag_joins:
+                                                    lspuag_joins.insert(0, f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID')
+                                                lspuag_joins.insert(1, SQLUtils.spot_grain_join)
+                if where_header == 'GrainID' and SQLUtils.qgrain_id not in lspuag_selects:
+                    lspuag_selects.append(SQLUtils.qgrain_id)
+                    if 'LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID' not in lspuag_joins:
+                        lspuag_joins.insert(0, 'LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID')
+                        if f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID' not in lspuag_joins:
+                            lspuag_joins.insert(0, f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID')
+                lsa_selects, lsa_joins = self.get_lsa_from_aliquots(lsa_select_cols, lsa_table_joins, lsa_selects)
+                if where_header == 'SampleID' and 'Aliquots.SampleID AS SampleID' not in lsa_selects:
+                    lsa_selects.append('Aliquots.SampleID AS SampleID')
+                    if SQLUtils.qaliquot_id not in lsa_selects:
+                        lsa_selects.append(SQLUtils.qaliquot_id)
+                    if 'Spots.AliquotID AS AliquotID' not in lspuag_selects:
+                        lspuag_selects.append('Spots.AliquotID AS AliquotID')
+                elif where_header == 'AliquotID' and SQLUtils.qaliquot_id not in lsa_selects:
+                    lsa_selects.append(SQLUtils.qaliquot_id)
+                    if 'Spots.AliquotID AS AliquotID' not in lspuag_selects:
+                        lspuag_selects.append('Spots.AliquotID AS AliquotID')
+
             elif self.table == 'Grains':
                 group_lspuag = ''
                 lspuag_from_table = 'Grains'
@@ -930,17 +1164,18 @@ class ViewQuery:
                 lspuag_selects = [SQLUtils.qgrain_id]
                 lsa_table_joins.append(f'{self.join_type} JOIN Samples ON Aliquots.SampleID = Samples.SampleID')
                 lspuag_table_joins.append(f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID')
-                lspuag_table_joins.append(f'{self.join_type} JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID')
+                lspuag_table_joins.append(spot_leaf_join_str)
                 for col in lspuag_select_cols:
                     as_name = col.split(' AS ')[1] if ' AS ' in col else ''
                     if ((as_name and as_name in self.show_columns) or
-                            (col in [SQLUtils.qspot_id, SQLUtils.qupb_id, SQLUtils.qgrain_id]) or
+                            (col in [SQLUtils.qspot_id, self.leaf_q_id, SQLUtils.qgrain_id]) or
                             (as_name in self.order_col or as_name in self.group_col or as_name in self.where) or
                             ('ID' in col and not as_name)):
                         if col not in lspuag_selects:
                             lspuag_selects.append(col)
-                            if any('Rejected' in show_col for show_col in
-                                   self.show_columns) and SQLUtils.qupb_rejected not in lspuag_selects:
+                            if (self.leaf == 'UPbAnalyses'
+                                    and any('Rejected' in show_col for show_col in self.show_columns)
+                                    and SQLUtils.qupb_rejected not in lspuag_selects):
                                 lspuag_selects.append(SQLUtils.qupb_rejected)
                             if 'Spots.AliquotID AS AliquotID' not in lspuag_selects:
                                 lspuag_selects.append('Spots.AliquotID AS AliquotID')
@@ -952,39 +1187,39 @@ class ViewQuery:
                                             # Add to the beginning of the list
                                             lspuag_selects.append(SQLUtils.qgrain_id)
                                             lspuag_joins.insert(0, join)
-                                        elif join == f'{self.join_type} JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID' and SQLUtils.qupb_id not in lspuag_selects:
+                                        elif join == spot_leaf_join_str and self.leaf_q_id not in lspuag_selects:
                                             # Add to the beginning of the list
                                             if f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID' not in lspuag_joins:
                                                 lspuag_joins.insert(0, f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID')
-                                            lspuag_selects.append(SQLUtils.qupb_id)
+                                            lspuag_selects.append(self.leaf_q_id)
                                             lspuag_joins.insert(1, join)
                                         else:
                                             lspuag_joins.append(join)
-                                            if 'ON UPbAnalyses.' in join and f'{self.join_type} JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID' not in lspuag_joins:
+                                            if f'ON {leaf_table}.' in join and spot_leaf_join_str not in lspuag_joins:
                                                 if f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID' not in lspuag_joins:
                                                     lspuag_joins.insert(0,
                                                                         f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID')
-                                                lspuag_joins.insert(1,
-                                                                    f'{self.join_type} JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID')
-                                                if SQLUtils.qupb_id not in lspuag_selects:
-                                                    lspuag_selects.append(SQLUtils.qupb_id)
+                                                lspuag_joins.insert(1, spot_leaf_join_str)
+                                                if self.leaf_q_id not in lspuag_selects:
+                                                    lspuag_selects.append(self.leaf_q_id)
                                             if 'ON Spots.' in join and f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID' not in lspuag_joins:
                                                 lspuag_joins.insert(0, f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID')
                                                 if 'Spots.AliquotID AS AliquotID' not in lspuag_selects:
                                                     lspuag_selects.append('Spots.AliquotID AS AliquotID')
                 if 'Spots.AliquotID AS AliquotID' in lspuag_selects and f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID' not in lspuag_joins:
                     lspuag_joins.insert(0, f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID')
-                if where_header == 'UPbAnalysisID' and SQLUtils.qupb_id not in lspuag_selects:
-                    lspuag_selects.append(SQLUtils.qupb_id)
-                    if f'{self.join_type} JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID' not in lspuag_joins:
+                if where_header == leaf_id_col and self.leaf_q_id not in lspuag_selects:
+                    lspuag_selects.append(self.leaf_q_id)
+                    if spot_leaf_join_str not in lspuag_joins:
                         if f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID' not in lspuag_joins:
                             lspuag_joins.insert(0, f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID')
-                        lspuag_joins.insert(1, f'{self.join_type} JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID')
+                        lspuag_joins.insert(1, spot_leaf_join_str)
                 elif where_header == 'SpotID' and SQLUtils.qspot_id not in lspuag_selects:
                     lspuag_selects.append(SQLUtils.qspot_id)
                     if f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID' not in lspuag_joins:
                         lspuag_joins.insert(0, f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID')
-                if SQLUtils.qupb_count.split('AS ')[1].split('"')[1] in self.show_columns:
+                # Roll-up count column only exists for UPb leaf
+                if self.leaf == 'UPbAnalyses' and SQLUtils.qupb_count.split('AS ')[1].split('"')[1] in self.show_columns:
                     if SQLUtils.qspot_id not in lspuag_selects:
                         lspuag_selects.append(SQLUtils.qspot_id)
                 lsa_selects, lsa_joins = self.get_lsa_from_aliquots(lsa_select_cols, lsa_table_joins, lsa_selects)
@@ -1039,9 +1274,9 @@ WITH RECURSIVE ''')
                     {hierarchy_order_by} {hierarchy_limit}
                 )
                 ''')
-            if lspuag_joins or self.table in ['Spots', 'UPbAnalyses', 'Grains']:
+            if lspuag_joins or self.table in ['Spots', 'UPbAnalyses', 'Grains', 'GeoChemicalAnalyses']:
                 self.limited_hierarchy += (f''',
-                    LimitedSpotsUPbAnalysesGrains AS (
+                    {self.lower_cte_name} AS (
                         SELECT 
                             {lspuag_select}
                         FROM {lspuag_from_table}
@@ -1082,9 +1317,9 @@ WITH RECURSIVE ''')
                         {hierarchy_order_by} {hierarchy_limit}
                     )
                     ''')
-                if lspuag_joins or self.table in ['Spots', 'UPbAnalyses', 'Grains']:
+                if lspuag_joins or self.table in ['Spots', 'UPbAnalyses', 'Grains', 'GeoChemicalAnalyses']:
                     self.limited_hierarchy += (f''',
-                        LimitedSpotsUPbAnalysesGrains AS (
+                        {self.lower_cte_name} AS (
                             SELECT 
                                 {lspuag_select}
                             FROM {lspuag_from_table}
@@ -1095,7 +1330,7 @@ WITH RECURSIVE ''')
                         ''')
             else:
                 self.limited_hierarchy += (f'''
-                                LimitedSpotsUPbAnalysesGrains AS (
+                                {self.lower_cte_name} AS (
                                     SELECT 
                                         {lspuag_select}
                                     FROM {lspuag_from_table}
@@ -1135,7 +1370,7 @@ WITH RECURSIVE ''')
                     elif where_header == 'UPbAnalysisID':
                         hierarchy_where_join += f" UPbAnalyses.UPbAnalysisID = tp.UPbAnalysisID"
             self.limited_hierarchy += (f'''
-                LimitedSpotsUPbAnalysesGrains AS (
+                {self.lower_cte_name} AS (
                     SELECT 
                         {lspuag_select}
                     FROM {lspuag_from_table}
@@ -1153,11 +1388,10 @@ WITH RECURSIVE ''')
                             {lsa_select}
                         FROM {lsa_from_table}
                         {lsa_joins}
-                        {self.join_type if self.table in ['Spots', 'Grains', 'UPbAnalyses'] else 'INNER'} JOIN LimitedSpotsUPbAnalysesGrains lspuag ON Aliquots.AliquotID = lspuag.AliquotID
+                        {self.join_type if self.table in ['Spots', 'Grains', 'UPbAnalyses'] else 'INNER'} JOIN {self.lower_cte_name} {self.lower_cte_alias} ON Aliquots.AliquotID = lspuag.AliquotID
                        {group_lsa}
                     )
                     ''')
-
         elif where_table == 'UPbAnalyses':
             if hierarchy_where_join != '':
                 if 'TempIDs' in hierarchy_where_join:
@@ -1187,7 +1421,7 @@ WITH RECURSIVE ''')
                     elif where_header == 'UPbAnalysisID':
                         hierarchy_where_join += f" UPbAnalyses.UPbAnalysisID = tp.UPbAnalysisID"
             self.limited_hierarchy += (f'''
-                LimitedSpotsUPbAnalysesGrains AS (
+                {self.lower_cte_name} AS (
                     SELECT 
                         {lspuag_select}
                     FROM {lspuag_from_table}
@@ -1205,7 +1439,7 @@ WITH RECURSIVE ''')
                             {lsa_select}
                         FROM {lsa_from_table}
                         {lsa_joins}
-                        {self.join_type if self.table in ['Spots', 'Grains', 'UPbAnalyses'] else 'INNER'} JOIN LimitedSpotsUPbAnalysesGrains lspuag ON Aliquots.AliquotID = lspuag.AliquotID
+                        {self.join_type if self.table in ['Spots', 'Grains', 'UPbAnalyses'] else 'INNER'} JOIN {self.lower_cte_name} {self.lower_cte_alias} ON Aliquots.AliquotID = lspuag.AliquotID
                        {group_lsa}
                     )
                     ''')
@@ -1238,7 +1472,7 @@ WITH RECURSIVE ''')
                     elif where_header == 'UPbAnalysisID':
                         hierarchy_where_join += f" UPbAnalyses.UPbAnalysisID = tp.UPbAnalysisID"
             self.limited_hierarchy += (f'''
-                LimitedSpotsUPbAnalysesGrains AS (
+                {self.lower_cte_name} AS (
                     SELECT 
                         {lspuag_select}
                     FROM {lspuag_from_table}
@@ -1256,13 +1490,14 @@ WITH RECURSIVE ''')
                             {lsa_select}
                         FROM {lsa_from_table}
                         {lsa_joins}
-                        {self.join_type if self.table in ['Spots', 'Grains', 'UPbAnalyses'] else 'INNER'} JOIN LimitedSpotsUPbAnalysesGrains lspuag ON Aliquots.AliquotID = lspuag.AliquotID
+                        {self.join_type if self.table in ['Spots', 'Grains', 'UPbAnalyses'] else 'INNER'} JOIN {self.lower_cte_name} {self.lower_cte_alias} ON Aliquots.AliquotID = lspuag.AliquotID
                        {group_lsa}
                     )
                     ''')
         else:
             # No direct limits on the main hierarchy tables
             self.limited_hierarchy = ''
+        print()
 
     def get_lsa_from_aliquots(self, lsa_select_cols, lsa_table_joins, lsa_selects):
         lsa_joins = []
@@ -1351,11 +1586,11 @@ WITH RECURSIVE ''')
                                                     not any(column.split(' AS ')[0] == lsa_column.split(' AS ')[0]
                                                             for lsa_column in self.lsa_columns)) \
                     else None
-            elif (any(leader in column for leader in SQLUtils.limited_column_leaders['LimitedSpotsUPbAnalysesGrains'])
+            elif (any(leader in column for leader in self.get_leaf_column_leaders())
                   and "Accepted/Total" not in column):
                 if self.table == 'Grains' and 'CONCAT' in column:
                     as_name = column.split(' AS ')[1] if ' AS ' in column else ''
-                    for leader in SQLUtils.limited_column_leaders['LimitedSpotsUPbAnalysesGrains']:
+                    for leader in self.get_leaf_column_leaders():
                         if leader in column:
                             column_name = column.split(f'{leader}')[1].split(')')[0]
                             ungrouped_column = f'{leader}{column_name} AS {as_name}'
@@ -1385,7 +1620,10 @@ WITH RECURSIVE ''')
             for col in range(len(self.query_columns)):
                 column = self.query_columns[col]
                 for key, value in SQLUtils.limited_table_abbreviations.items():
-                    if value == 'lsa' or value == 'lspuag':
+                    if key in ['Spots', 'UPbAnalyses', 'Grains', 'GeoChemicalAnalyses'] and self.leaf == "GeoChemicalAnalyses":
+                        value = 'lspgcg'
+
+                    if value in ('lsa', 'lspuag', 'lspgcg'):
                         if self.table == 'Grains' and 'CONCAT' in column:
                             if key in column:
                                 column_name = column.split(f'{key}.')[1].split(')')[0]
@@ -1398,6 +1636,17 @@ WITH RECURSIVE ''')
                                         # Replace the longer column selection with the name after ' AS '
                                         column = f'{value}.{column.split(" AS ")[1]}'
                                         self.query_columns[col] = column
+                                    # elif 'ID' in column and ' AS ' in column:
+                                    #     # For ID columns with aliases like "GeoChemicalAnalyses.SpotID AS SpotID"
+                                    #     # Strip the alias part since it's redundant
+                                    #     as_name = column.split(' AS ')[1]
+                                    #     base_col = column.split(' AS ')[0]
+                                    #     # Only keep the alias if it's different from the column name
+                                    #     if base_col.split('.')[-1] != as_name:
+                                    #         column = f"{column.split(column_name)[0]}{as_name}{f'{column_name}'.join(column.split(column_name)[1:])}"
+                                    #     else:
+                                    #         # The alias is the same as the column name, just use the base
+                                    #         column = f'{value}.{base_col.split(".")[-1]}'
                                     elif 'ID' not in column:
                                         as_name = column.split(' AS ')[1]
                                         column_name = column.split('.')[1].split(' AS ')[0]
@@ -1419,6 +1668,9 @@ WITH RECURSIVE ''')
                     tag_table = join.split(' ')[2]
                     abbreviation = join.split(' ')[3]
                     for key, value in SQLUtils.limited_table_abbreviations.items():
+                        if key in ['Spots', 'UPbAnalyses', 'Grains',
+                                   'GeoChemicalAnalyses'] and self.leaf == "GeoChemicalAnalyses":
+                            value = 'lspgcg'
                         if abbreviation == value and any(f'{value}.' in col for col in self.query_columns):
                             # Include the limited table and join if any columns from that table are included in the query
                             if table not in self.query_tags_joins:

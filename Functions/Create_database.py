@@ -157,6 +157,32 @@ CREATE_ALIQUOTS_ALIQUOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Aliquots_Al
                         ON DELETE CASCADE
                     )'''
 
+CREATE_ANALYTICAL_UNITS = '''CREATE TABLE IF NOT EXISTS AnalyticalUnits(
+                    AnalyticalUnitID INTEGER PRIMARY KEY,
+                    AnalyticalUnitName TEXT NOT NULL CHECK(AnalyticalUnitName <> ''),
+                    AnalyticalUnitAbbreviation TEXT NOT NULL CHECK(AnalyticalUnitAbbreviation <> ''),
+                    AnalyticalUnitDescription TEXT,
+                    AnalyticalUnitCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    AnalyticalUnitModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(AnalyticalUnitName COLLATE NOCASE),
+                    UNIQUE(AnalyticalUnitAbbreviation COLLATE NOCASE)
+)'''
+
+CREATE_ANALYTICAL_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS AnalyticalUnitConversions(
+                    FromAnalyticalUnitID INTEGER NOT NULL CHECK(FromAnalyticalUnitID <> ''),
+                    ToAnalyticalUnitID INTEGER NOT NULL CHECK(ToAnalyticalUnitID <> ''),
+                    AnalyticalUnitConversionCalculation TEXT NOT NULL CHECK(AnalyticalUnitConversionCalculation <> ''), 
+                    AnalyticalUnitConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    AnalyticalUnitConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
+                    UNIQUE (FromAnalyticalUnitID, ToAnalyticalUnitID),
+                    FOREIGN KEY(FromAnalyticalUnitID) REFERENCES AnalyticalUnits(AnalyticalUnitID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(ToAnalyticalUnitID) REFERENCES AnalyticalUnits(AnalyticalUnitID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
 CREATE_COLUMNS_TABLE = '''CREATE TABLE IF NOT EXISTS Columns(
                     ColumnID INTEGER PRIMARY KEY,
                     ColumnName TEXT NOT NULL CHECK (ColumnName <> ''), 
@@ -262,6 +288,118 @@ CREATE_ERROR_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS ErrorFormatConver
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
                     )'''
+
+CREATE_GEOCHEMICAL_ANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS GeoChemicalAnalyses(
+                    GeoChemAnalysisID INTEGER PRIMARY KEY,
+                    GeoChemAnalysisName TEXT NOT NULL CHECK (GeoChemAnalysisName <> ''),
+                    SpotID INTEGER NOT NULL,
+                    ReferenceID INTEGER,
+                    LabFacilityID INTEGER,
+                    InstrumentID INTEGER,
+                    GeoChemicalMethodID INTEGER,
+                    GeoChemAnalyteID REAL, 
+                    GeoChemAnalyteValue REAL,
+                    GeoChemAnalyteUnitID INTEGER,
+                    GeoChemAnalyteError REAL, 
+                    GeoChemAnalyteErrorFormatID INTEGER,
+                    GeoChemAnalysesCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GeoChemAnalysesModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (GeoChemAnalysisName COLLATE NOCASE),
+                    FOREIGN KEY(SpotID) REFERENCES Spots(SpotID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(ReferenceID) REFERENCES "References"(ReferenceID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(LabFacilityID) REFERENCES LabFacilities(LabFacilityID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(GeoChemicalMethodID) REFERENCES GeoChemicalMethods(GeoChemicalMethodID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(InstrumentID) REFERENCES Instruments(InstrumentID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL, 
+                    FOREIGN KEY(GeoChemAnalyteID) REFERENCES GeoChemicalAnalytes(GeoChemAnalyteID)
+                        ON UPDATE CASCADE 
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(GeoChemAnalyteUnitID) REFERENCES AnalyticalUnits(AnalyticalUnitID)
+                        ON UPDATE CASCADE 
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(GeoChemAnalyteErrorFormatID) REFERENCES ErrorFormats(ErrorFormatID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL
+)'''
+
+CREATE_GEOCHEMCIAL_ANALYTES_TABLE = '''CREATE TABLE IF NOT EXISTS GeoChemicalAnalytes(
+                    GeoChemAnalyteID INTEGER PRIMARY KEY,
+                    GeoChemAnalyteName TEXT NOT NULL CHECK(GeoChemAnalyteName <> ''),
+                    GeoChemAnalyteAbbreviation TEXT NOT NULL CHECK(GeoChemAnalyteAbbreviation <> ''),
+                    GeoChemAnalyteDescription TEXT,
+                    GeoChemAnalyteCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GeoChemAnalyteModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(GeoChemAnalyteName COLLATE NOCASE),
+                    UNIQUE(GeoChemAnalyteAbbreviation COLLATE NOCASE))
+'''
+
+CREATE_GEOCHEMICAL_METHODS_TABLE = '''CREATE TABLE IF NOT EXISTS GeoChemicalMethods(
+                    GeoChemicalMethodID INTEGER PRIMARY KEY,
+                    ParentGeoChemicalMethodID INTEGER,
+                    GeoChemicalMethodParentRow INTEGER NOT NULL,
+                    GeoChemicalMethodName TEXT NOT NULL CHECK (GeoChemicalMethodName <> ''),
+                    GeoChemicalMethodDescription TEXT, 
+                    GeoChemicalMethodCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GeoChemicalMethodModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (GeoChemicalMethodName COLLATE NOCASE))
+'''
+
+CREATE_GRAINS_TABLE = '''CREATE TABLE IF NOT EXISTS Grains(
+                    GrainID INTEGER PRIMARY KEY,
+                    GrainName TEXT NOT NULL CHECK (GrainName <> ''),
+                    GrainCompositionID INTEGER,
+                    GrainDescription TEXT,
+                    GrainCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GrainModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (GrainName COLLATE NOCASE),
+                    FOREIGN KEY(GrainCompositionID) REFERENCES GrainCompositions(GrainCompositionID)
+                        ON UPDATE CASCADE 
+                        ON DELETE SET NULL
+)'''
+
+CREATE_GRAIN_CONTEXTS_TABLE = '''CREATE TABLE IF NOT EXISTS GrainContexts(
+                    GrainContextID INTEGER PRIMARY KEY,
+                    ParentGrainContextID INTEGER,
+                    GrainContextParentRow INTEGER NOT NULL,
+                    GrainContextName TEXT NOT NULL CHECK (GrainContextName <> ''),
+                    GrainContextDescription TEXT,
+                    GrainContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GrainContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (GrainContextName COLLATE NOCASE),
+                    UNIQUE (ParentGrainContextID, GrainContextParentRow)
+)'''
+
+CREATE_GRAINS_GRAINCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Grains_GrainContexts(
+                    GrainID INTEGER NOT NULL,
+                    GrainContextID INTEGER NOT NULL,
+                    Grains_GrainContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    Grains_GrainContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (GrainID, GrainContextID),
+                    FOREIGN KEY(GrainID) REFERENCES Grains(GrainID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(GrainContextID) REFERENCES GrainContexts(GrainContextID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
+CREATE_GRAIN_COMPOSITION_TABLE = '''CREATE TABLE IF NOT EXISTS GrainCompositions(
+                    GrainCompositionID INTEGER PRIMARY KEY,
+                    GrainCompositionName TEXT NOT NULL CHECK (GrainCompositionName <> ''),
+                    GrainCompositionDescription TEXT,
+                    GrainCompositionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GrainCompositionModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (GrainCompositionName COLLATE NOCASE)
+)'''
 
 CREATE_GPS_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS GPSFormatConversions(
                     FromGPSFormatID INTEGER NOT NULL CHECK(FromGPSFormatID <> ''),
@@ -1585,6 +1723,11 @@ def create_tables(database=None) -> bool:
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
+    if not query.exec(CREATE_ANALYTICAL_UNITS):
+        logger_setup.get_logger().critical(f'Error creating AnalyticalUnits table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
     if not query.exec(CREATE_CONCORDANCE_FORMATS_TABLE):
         logger_setup.get_logger().critical(f'Error creating ConcordanceFormats table')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
@@ -1609,6 +1752,11 @@ def create_tables(database=None) -> bool:
     # Create conversion tables
     if not query.exec(CREATE_AGE_CONVERSIONS_TABLE):
         logger_setup.get_logger().critical(f'Error creating AgeConversions table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
+    if not query.exec(CREATE_ANALYTICAL_CONVERSIONS_TABLE):
+        logger_setup.get_logger().critical(f'Error creating AnalyticalUnitConversions table')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
@@ -1806,6 +1954,24 @@ def create_tables(database=None) -> bool:
         return False
     if not query.exec(CREATE_UPBANALYSES_TABLE):
         logger_setup.get_logger().critical(f'Error creating UPbAnalyses table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
+
+    if not query.exec(CREATE_GEOCHEMCIAL_ANALYTES_TABLE):
+        logger_setup.get_logger().critical(f'Error creating GeoChemicalAnalytes table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
+
+    if not query.exec(CREATE_GEOCHEMICAL_METHODS_TABLE):
+        logger_setup.get_logger().critical(f'Error creating GeoChemicalMethods table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
+
+    if not query.exec(CREATE_GEOCHEMICAL_ANALYSES_TABLE):
+        logger_setup.get_logger().critical(f'Error creating GeoChemicalAnalyses table')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
@@ -2899,6 +3065,36 @@ def populate_tables(database=None) -> bool:
     if not populate_age_conversions(database):
         return False
 
+    # Populate the analytical units table during initiation
+    sql = '''SELECT * \
+             FROM AnalyticalUnits'''
+    if not query.exec(sql):
+        logger_setup.get_logger().critical(f'Error getting AnalyticalUnits')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
+    out = []
+    while query.next(): out.append(query.value(1))
+    if not out or len(out) != len(SQLUtils.analytical_units):  # if there is no output, the table is empty
+        if not populate_analytical_units(database):  # populate it
+            return False
+    if not populate_analytical_conversions(database):
+        return False
+
+    # Populate the geochemical analytes table during initiation
+    sql = '''SELECT * \
+             FROM GeoChemicalAnalytes'''
+    if not query.exec(sql):
+        logger_setup.get_logger().critical(f'Error getting GeoChemicalAnalytes')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
+    out = []
+    while query.next(): out.append(query.value(1))
+    if not out or len(out) != len(SQLUtils.geochemical_analytes):  # if there is no output, the table is empty
+        if not populate_geochemical_analytes(database):  # populate it
+            return False
+
     # Populate the concordance format table during initiation
     sql = '''SELECT * FROM ConcordanceFormats'''
     if not query.exec(sql):
@@ -3089,6 +3285,154 @@ def populate_age_conversions(database=None) -> bool:
                             return False
     return True
 
+def populate_analytical_units(database=None) -> bool:
+    """
+    Connect to the database and add the default analytical units. Uses the default database connection if no database
+    is provided.
+    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :return: True for success, False for failure
+    """
+
+    if database is None:
+        query = QtS.QSqlQuery()
+    else:
+        query = QtS.QSqlQuery(database)
+    analytical_units = SQLUtils.analytical_units
+    for analytical_unit in analytical_units:
+        sql = f'''INSERT INTO AnalyticalUnits(AnalyticalUnitName, AnalyticalUnitAbbreviation, AnalyticalUnitDescription)
+                                VALUES("{analytical_unit[0]}","{analytical_unit[1]}","{analytical_unit[2]}")'''
+        if not query.exec(sql):
+            if 'UNIQUE constraint failed' not in query.lastError().text():
+                logger_setup.get_logger().critical('Error populating AnalyticalUnits')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                return False
+    return True
+
+
+def populate_analytical_conversions(database=None) -> bool:
+    """
+    Connect to the database and add the default analytical format conversions. Uses the default database connection if no
+    database is provided.
+    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :return: True for success, False for failure
+    """
+    if database is None:
+        query = QtS.QSqlQuery()
+        analytical_unit_conversion_model = QtS.QSqlTableModel()
+    else:
+        query = QtS.QSqlQuery(database)
+        analytical_unit_conversion_model = QtS.QSqlTableModel(db=database)
+    analytical_units = SQLUtils.analytical_units
+    analytical_unit_conversion_model.setTable('AnalyticalUnitConversions')
+    analytical_unit_conversion_model.select()
+    while analytical_unit_conversion_model.canFetchMore():
+        analytical_unit_conversion_model.fetchMore()
+    for unit1 in range(len(analytical_units)):
+        for unit2 in range(len(analytical_units)):
+            if unit2 > unit1:
+                abbr1 = analytical_units[unit1][1]
+                abbr2 = analytical_units[unit2][1]
+                # Define mass-fraction equivalence groups (all interconvertible by simple scaling)
+                # ppm = mg/kg = μg/g (1e-6)
+                # ppb = μg/kg = ng/g (1e-9)
+                # ppt = ng/kg = pg/g (1e-12)
+                # wt% (1e-2)
+                ppm_group = ('ppm', 'mg/kg', 'μg/g')
+                ppb_group = ('ppb', 'ng/g')
+                ppt_group = ('ppt',)
+                wtpct_group = ('wt%',)
+                # Mapping from format abbreviation to its mass fraction (dimensionless)
+                mass_fraction_factors = {}
+                for fmt in ppm_group:
+                    mass_fraction_factors[fmt] = 1e-6
+                for fmt in ppb_group:
+                    mass_fraction_factors[fmt] = 1e-9
+                for fmt in ppt_group:
+                    mass_fraction_factors[fmt] = 1e-12
+                for fmt in wtpct_group:
+                    mass_fraction_factors[fmt] = 1e-2
+                # Isotope abundance equivalence group (at% and fraction interconvertible)
+                atom_fraction_factors = {'at%': 1e-2, 'fraction': 1.0}
+                conversion1to2 = '-'
+                conversion2to1 = '-'
+                if abbr1 in mass_fraction_factors and abbr2 in mass_fraction_factors:
+                    # Both formats are mass-based concentrations - simple scaling
+                    factor = mass_fraction_factors[abbr1] / mass_fraction_factors[abbr2]
+                    inverse_factor = mass_fraction_factors[abbr2] / mass_fraction_factors[abbr1]
+                    if factor == 1.0:
+                        # Equivalent units (e.g., ppm and mg/kg)
+                        conversion1to2 = 'x'
+                        conversion2to1 = 'x'
+                    else:
+                        conversion1to2 = f'x*{factor:g}'
+                        conversion2to1 = f'x*{inverse_factor:g}'
+                elif abbr1 in atom_fraction_factors and abbr2 in atom_fraction_factors:
+                    # Both formats are atomic abundance - simple scaling
+                    factor = atom_fraction_factors[abbr1] / atom_fraction_factors[abbr2]
+                    inverse_factor = atom_fraction_factors[abbr2] / atom_fraction_factors[abbr1]
+                    if factor == 1.0:
+                        conversion1to2 = 'x'
+                        conversion2to1 = 'x'
+                    else:
+                        conversion1to2 = f'x*{factor:g}'
+                        conversion2to1 = f'x*{inverse_factor:g}'
+                elif (abbr1, abbr2) == ('mol/g', 'atoms/g') or (abbr1, abbr2) == ('atoms/g', 'mol/g'):
+                    # Avogadro's number scaling between mol/g and atoms/g
+                    if abbr1 == 'mol/g':
+                        conversion1to2 = 'x*6.02214076e23'
+                        conversion2to1 = 'x/6.02214076e23'
+                    else:
+                        conversion1to2 = 'x/6.02214076e23'
+                        conversion2to1 = 'x*6.02214076e23'
+                # All other format pairs (e.g., concentration <-> isotope ratio, cps <-> concentration,
+                # delta <-> epsilon, initial <-> measured ratio) require additional context such as
+                # element identity, atomic mass, reference standard, decay constant, or instrument
+                # calibration. These cannot be expressed as a simple algebraic conversion and are
+                # left as the placeholder '-'.
+                analytical_unit_conversion_model.setFilter(
+                    f'FromAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr1}") AND ToAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr2}")')
+                if analytical_unit_conversion_model.rowCount() == 0:
+                    sql = f'''INSERT INTO AnalyticalUnitConversions(FromAnalyticalUnitID, ToAnalyticalUnitID, AnalyticalUnitConversionCalculation)
+                                                            VALUES((SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr1}"),(SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr2}"),"{conversion1to2}")'''
+                    if not query.exec(sql):
+                        logger_setup.get_logger().critical('Error populating AnalyticalUnitConversions')
+                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        return False
+                else:
+                    current_conversion = analytical_unit_conversion_model.record(0).value(
+                        'AnalyticalUnitConversionCalculation')
+                    if current_conversion != conversion1to2:
+                        sql = f'''UPDATE AnalyticalUnitConversions SET AnalyticalUnitConversionCalculation = "{conversion1to2}"
+                                                            WHERE FromAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr1}") AND ToAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr2}")'''
+                        if not query.exec(sql):
+                            logger_setup.get_logger().critical('Error populating AnalyticalUnitConversions')
+                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            return False
+                analytical_unit_conversion_model.setFilter(
+                    f'FromAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr2}") AND ToAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr1}")')
+                if analytical_unit_conversion_model.rowCount() == 0:
+                    sql = f'''INSERT INTO AnalyticalUnitConversions(FromAnalyticalUnitID, ToAnalyticalUnitID, AnalyticalUnitConversionCalculation)
+                                                            VALUES((SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr2}"),(SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr1}"),"{conversion2to1}")'''
+                    if not query.exec(sql):
+                        logger_setup.get_logger().critical('Error populating AnalyticalUnitConversions')
+                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        return False
+                else:
+                    current_conversion = analytical_unit_conversion_model.record(0).value(
+                        'AnalyticalUnitConversionCalculation')
+                    if current_conversion != conversion2to1:
+                        sql = f'''UPDATE AnalyticalUnitConversions SET AnalyticalUnitConversionCalculation = "{conversion2to1}"
+                                                            WHERE FromAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr2}") AND ToAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr1}")'''
+                        if not query.exec(sql):
+                            logger_setup.get_logger().critical('Error populating AnalyticalUnitConversions')
+                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            return False
+    return True
 
 def populate_concordance_formats(database=None) -> bool:
     """
@@ -3448,6 +3792,31 @@ def populate_error_conversions(database=None) -> bool:
                             logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                             return False
     return True
+
+def populate_geochemical_analytes(database=None) -> bool:
+    """
+    Connect to the database and add the default geochemical analytes. Uses the default database connection if no database
+    is provided.
+    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :return: True for success, False for failure
+    """
+
+    if database is None:
+        query = QtS.QSqlQuery()
+    else:
+        query = QtS.QSqlQuery(database)
+    geochemical_analytes = SQLUtils.geochemical_analytes
+    for geochemical_analyte in geochemical_analytes:
+        sql = f'''INSERT INTO GeoChemicalAnalytes(GeoChemAnalyteName, GeoChemAnalyteAbbreviation, GeoChemAnalyteDescription)
+                                VALUES("{geochemical_analyte[0]}","{geochemical_analyte[1]}","{geochemical_analyte[2]}")'''
+        if not query.exec(sql):
+            if 'UNIQUE constraint failed' not in query.lastError().text():
+                logger_setup.get_logger().critical('Error populating GeoChemicalAnalytes')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                return False
+    return True
+
 
 
 def populate_gps_formats(database=None) -> bool:

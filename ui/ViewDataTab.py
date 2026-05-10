@@ -41,7 +41,7 @@ class ViewDataTab(QtW.QWidget):
         self.limit = None
         self.where = f' WHERE {get_headers(parent_type)[0]} = {self.parent_id}'
         self.table_item_ids = []
-        if self.child_type not in ['Aliquots', 'Grains', 'Spots', 'UPbAnalyses']:
+        if self.child_type not in ['Aliquots', 'Grains', 'Spots', 'UPbAnalyses', 'GeoChemicalAnalyses']:
             logger_setup.get_logger().critical(f'Error: Invalid child type {self.child_type}')
             self.close()
         self.table = self.child_type
@@ -179,16 +179,16 @@ class ViewDataTab(QtW.QWidget):
         all_names = set()
         while query.next():
             all_names.add(query.value(0))
-        list_model = QtC.QStringListModel(sorted(all_names, key=str.casefold))
-        list_proxy_model = ReadableProxyModel()
-        list_proxy_model.setSourceModel(list_model)
-        self.name_completer.setModel(list_proxy_model)
-        self.name_completer.setFilterMode(QtC.Qt.MatchFlag.MatchContains)
-        self.name_completer.setCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
-        self.name_completer.setModelSorting(QtW.QCompleter.ModelSorting.CaseInsensitivelySortedModel)
-        self.name_completer.setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
-
-        self.goto_line_edit.setCompleter(self.name_completer)
+        # list_model = QtC.QStringListModel(sorted(all_names, key=str.casefold))
+        # list_proxy_model = ReadableProxyModel()
+        # list_proxy_model.setSourceModel(list_model)
+        # self.name_completer.setModel(list_proxy_model)
+        # self.name_completer.setFilterMode(QtC.Qt.MatchFlag.MatchContains)
+        # self.name_completer.setCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        # self.name_completer.setModelSorting(QtW.QCompleter.ModelSorting.CaseInsensitivelySortedModel)
+        # self.name_completer.setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
+        #
+        # self.goto_line_edit.setCompleter(self.name_completer)
 
     def go_to_record(self):
         """
@@ -261,6 +261,8 @@ class ViewDataTab(QtW.QWidget):
             self.show_cols = settings.value('spot_view_columns')
         elif self.child_type == 'UPbAnalyses':
             self.show_cols = settings.value('upb_analysis_view_columns')
+        elif self.child_type == 'GeoChemicalAnalyses':
+            self.show_cols = settings.value('geochem_analysis_view_columns')
         if self.child_type != 'Aliquots':
             limit = f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'
             query_args = {'show_columns': self.show_cols, 'limit': limit, 'where': self.where}

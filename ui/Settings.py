@@ -27,6 +27,7 @@ settings_list = [
     'grain_view_columns', 'grain_view_freeze', 'grain_edit_columns', 'grain_edit_freeze',
     'spot_view_columns', 'spot_view_freeze', 'spot_edit_columns', 'spot_edit_freeze',
     'upb_analysis_view_columns', 'upb_analysis_view_freeze', 'upb_analysis_edit_columns', 'upb_analysis_edit_freeze',
+    'geochem_analysis_view_columns', 'geochem_analysis_view_freeze', 'geochem_analysis_edit_columns', 'geochem_analysis_edit_freeze',
     'column_view_columns', 'column_view_freeze', 'column_edit_columns', 'column_edit_freeze', 'reference_view_columns',
     'reference_view_freeze', 'checkable_combobox_height_scalar',
     'checkable_combobox_width_scalar', 'font_family', 'font_size', 'table_font_size', 'debug_level', 'show_per_page',
@@ -250,6 +251,34 @@ def default_settings():
         settings.setValue('default_upb_analysis_edit_columns', default_upb_analysis_edit_columns)
         settings.setValue('upb_analysis_edit_columns', default_upb_analysis_edit_columns)
 
+    default_geochem_analysis_view_columns = []
+    upb_analysis_view_columns = SQLUtils.view_attributes_dict['GeoChemView']
+    for column in upb_analysis_view_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_geochem_analysis_view_columns.append(column_name)
+    if (not settings.contains('default_geochem_analysis_view_columns') or
+            (settings.contains('default_geochem_analysis_view_columns') and
+             set(settings.value('default_geochem_analysis_view_columns')) != set(default_geochem_analysis_view_columns))):
+        settings.setValue('default_geochem_analysis_view_columns', default_geochem_analysis_view_columns)
+        settings.setValue('geochem_analysis_view_columns', default_geochem_analysis_view_columns)
+
+    default_geochem_analysis_edit_columns = []
+    geochem_analysis_edit_columns = SQLUtils.view_attributes_dict['GeoChemEditView']
+    for column in geochem_analysis_edit_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_geochem_analysis_edit_columns.append(column_name)
+    if (not settings.contains('default_geochem_analysis_edit_columns') or
+            (settings.contains('default_geochem_analysis_edit_columns') and
+             set('default_geochem_analysis_edit_columns') == set(default_geochem_analysis_edit_columns))):
+        settings.setValue('default_geochem_analysis_edit_columns', default_geochem_analysis_edit_columns)
+        settings.setValue('geochem_analysis_edit_columns', default_geochem_analysis_edit_columns)
+
     default_column_view_columns = []
     column_view_columns = SQLUtils.view_attributes_dict['ColumnView']
     for column in column_view_columns:
@@ -368,6 +397,8 @@ def update_abbreviation(id_key: str) -> bool:
     model = QSqlQueryModel()
     if id_key == 'age_unit_id':
         model.setQuery(f"SELECT AgeUnitAbbreviation FROM AgeUnits WHERE AgeUnitID = {settings.value(id_key)}")
+    # if id_key == 'analytical_unit_id':
+    #     model.setQuery(f"SELECT AgeUnitAbbreviation FROM AgeUnits WHERE AgeUnitID = {settings.value(id_key)}")
     elif id_key == 'elevation_unit_id':
         model.setQuery(
             f"SELECT DistanceUnitAbbreviation FROM DistanceUnits WHERE DistanceUnitID = {settings.value(id_key)}")

@@ -320,7 +320,7 @@ class GeoCORK(QtW.QMainWindow):
                 logger_setup.get_logger().critical(f'Parent type {parent_type} not recognized')
                 return
             parent_name = get_name_from_id(parent_type, p_id)
-            if child_type not in ['Aliquots', 'Grains', 'Spots', 'UPbAnalyses']:
+            if child_type not in ['Aliquots', 'Grains', 'Spots', 'UPbAnalyses', 'GeoChemicalAnalyses']:
                 logger_setup.get_logger().critical(f'Child type {child_type} not recognized')
                 return
             label = f'{parent_type} {parent_name}: {child_type}'

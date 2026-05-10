@@ -1996,11 +1996,11 @@ def get_name_column(table: str) -> int | None:
         return 9
     elif (table in SQLUtils.user_viewable_tables or
           table in ['SampleView', 'SampleEditView', 'Spots', 'GPSLocations', 'FilterGroups', 'ReferenceView',
-                    'ReferenceEditView', 'ColumnView', 'ColumnEditView', 'Grains', 'UPbAnalyses']):
+                    'ReferenceEditView', 'ColumnView', 'ColumnEditView', 'Grains', 'UPbAnalyses', 'GeoChemicalAnalyses']):
         return 1
     elif table in ['SpotView', 'SpotEditView']:
         return 4
-    elif table in ['UPbView', 'UPbEditView']:
+    elif table in ['UPbView', 'UPbEditView', 'GeoChemView', 'GeoChemEditView']:
         return 5
     elif table == 'SampleAges':
         return 16
@@ -2061,6 +2061,8 @@ def get_view_from_table(table: str):
         return 'SpotView'
     elif table == 'UPbAnalyses':
         return 'UPbView'
+    elif table == 'GeoChemicalAnalyses':
+        return 'GeoChemView'
     elif table == 'Columns':
         return 'ColumnView'
     elif table == 'References' or table == '"References"':
@@ -2084,6 +2086,8 @@ def get_edit_view_from_table(table: str):
         return 'SpotEditView'
     elif table == 'UPbAnalyses':
         return 'UPbEditView'
+    elif table == 'GeoChemicalAnalyses':
+        return 'GeoChemEditView'
     elif table == 'Columns':
         return 'ColumnEditView'
     elif table == 'References' or table == '"References"':
