@@ -511,6 +511,10 @@ limited_sample_aliquot_hierarchy_join = f'''
 limited_spot_analysis_grain_hierarchy_join = f'''
                         INNER JOIN LimitedSamplesAliquots lsa ON lspag.AliquotID = lsa.AliquotID
                         '''
+# GeoChem-specific limited hierarchy: ties LimitedSpotsGeoChemAnalyses back to the LimitedSamplesAliquots tier
+limited_spot_geochem_grain_hierarchy_join = f'''
+                        INNER JOIN LimitedSamplesAliquots lsa ON lspgcg.AliquotID = lsa.AliquotID
+                        '''
 limited_sample_hierarchy_joins = [column_join, column_unit_join]
 # Limited tags
 # Limit the many-to-many relationships
@@ -838,6 +842,9 @@ limited_table_abbreviations = {
     'GeoChemicalAnalysisContexts': 'lgcac',
     'GeoChemRejectionReasons': 'lgcrr'
 }
+
+shared_leaf_tables = {'Spots', 'Grains', 'LabFacilities', 'Instruments',
+                      'SpotCompositions', 'GrainCompositions'}
 
 
 # Dictionary of column leaders that could be included in select statements for LimitedSamplesAliquots and LimitedSpotsAnalysesGrains
