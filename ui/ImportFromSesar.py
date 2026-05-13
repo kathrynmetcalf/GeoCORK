@@ -75,7 +75,7 @@ class SiblingsFetchWorker(QThread):
     finished = pyqtSignal(dict)
     error    = pyqtSignal(str)
 
-    _URL = "https://app.geosamples.org/webservices/display.php"
+    _URL = "https://app.geosamples.org/sample/igsn"
 
     # Hard backstop on the underlying requests.get() call. Much longer than
     # any reasonable nag-prompt interval, so that if the user keeps clicking
@@ -103,10 +103,13 @@ class SiblingsFetchWorker(QThread):
     def run(self):
         try:
             response = requests.get(
-                self._URL,
-                params={"igsn": self._igsn},
-                headers={"Accept": "application/json"},
+                # self._URL,
+                # params={"igsn": self._igsn},
+                f"{self._URL}/{self._igsn}",
+                headers={"Accept": "application/json", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
+                
                 timeout=self._HARD_TIMEOUT_SECONDS,
+                allow_redirects=True,
             )
             response.raise_for_status()
             data = response.json()
@@ -225,7 +228,7 @@ class CheckableTreeWidgetItem(QTreeWidgetItem):
 class SampleHierarchyWidget(QWidget):
     """Widget for exploring IGSN parent/sibling/child relationships."""
 
-    _URL = "https://app.geosamples.org/webservices/display.php"
+    _URL = "https://app.geosamples.org/sample/igsn"
 
     def __init__(self, parent=None, on_cancelled_callback=None):
         super().__init__(parent)
@@ -647,10 +650,13 @@ class SampleHierarchyWidget(QWidget):
 
         try:
             response = requests.get(
-                self._URL,
-                params={"igsn": igsn},
-                headers={"Accept": "application/json"},
-                timeout=30,
+                # self._URL,
+                # params={"igsn": igsn},
+                f"{self._URL}/{igsn}",
+                headers={"Accept": "application/json", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
+                
+                timeout=60,
+                allow_redirects=True,
             )
             response.raise_for_status()
             data = response.json()
