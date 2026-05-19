@@ -3,11 +3,10 @@ import sys
 import time
 
 from PyQt6 import QtCore as QtC
-from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtSql import QSqlDatabase, QSqlQuery
-from PyQt6.QtWidgets import QPushButton, QTreeView
+from PyQt6.QtCore import QTimer
+from PyQt6.QtSql import QSqlDatabase
+from PyQt6.QtWidgets import QTreeView
 from PyQt6.uic import loadUi
 
 import Functions.Text_manipulations as TxM
@@ -16,9 +15,8 @@ from Functions import SQLUtils
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.Widget_classes import (
-    TreeSortFilterProxyModel, DisplayRoundedModel, DisplayRoundedQueryModel, SQLiteTableModel, WordWrapDelegate,
-    save_expanded_state, restore_expanded_state, TreeModel,
-    ReadableProxyModel, get_view_from_table, show_loading_dialog, close_loading_dialog
+    TreeSortFilterProxyModel, DisplayRoundedModel, DisplayRoundedQueryModel, SQLiteTableModel, save_expanded_state,
+    TreeModel, ReadableProxyModel, get_view_from_table, show_loading_dialog, close_loading_dialog, FrozenTableView
 )
 from Functions.Database_views import ViewQuery
 
@@ -109,7 +107,7 @@ class DisplayTablesSimplified(QtW.QWidget):
         :return:
         """
 
-        self.dbTable_tableView: QtW.QTableView
+        self.dbTable_tableView: FrozenTableView
         self.dbTable_treeView: QtW.QTreeView
         self.dbTable_comboBox: QtW.QComboBox
         table = self.dbTable_comboBox.currentText()
@@ -202,17 +200,18 @@ class DisplayTablesSimplified(QtW.QWidget):
                 return
             self.table_proxy_model.setSourceModel(self.model)
 
-            self.dbTable_tableView.setWordWrap(True)
-            self.dbTable_tableView.setTextElideMode(Qt.TextElideMode.ElideNone)  # Prevent text truncation
-            self.dbTable_tableView.setItemDelegate(WordWrapDelegate(self.dbTable_tableView))
-
             self.table_proxy_model.setFilterKeyColumn(-1)  # search all columns
+            self.dbTable_tableView.setSelectionBehavior(QtW.QAbstractItemView.SelectionBehavior.SelectRows)
             self.dbTable_tableView.setModel(self.table_proxy_model)
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
             self.dbTable_tableView.resizeColumnsToContents()
             self.dbTable_tableView.setSortingEnabled(True)
             self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
             self.dbTable_tableView.verticalHeader().hide()
+
+            for column in range(self.table_proxy_model.columnCount()):
+                if self.dbTable_tableView.columnWidth(column) > 400:
+                    self.dbTable_tableView.setColumnWidth(column, 400)
 
             # Optimize window resizing
             self.resize_timer = QTimer()
@@ -237,11 +236,12 @@ class DisplayTablesSimplified(QtW.QWidget):
 
     def optimizeVerticalResize(self, logical_index, old_size, new_size):
         """Trigger a delayed row height update when the user resizes the window vertically."""
-        self.resize_timer.start(250)  # Add a slight delay to avoid excessive updates
+        self.resize_timer.start(100)  # Add a slight delay to avoid excessive updates
 
     def resizeRowsOptimized(self):
         """Resize rows only when resizing stops."""
         self.dbTable_tableView.resizeRowsToContents()
+        self.dbTable_tableView.sync_row_heights()
 
     def search(self):
         """

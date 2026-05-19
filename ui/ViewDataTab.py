@@ -4,8 +4,7 @@ import qtawesome
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtSql as QtS
-from PyQt6 import QtGui as QtG
-from PyQt6.QtCore import Qt, QTimer, QRegularExpression
+from PyQt6.QtCore import QTimer, QRegularExpression
 from PyQt6.QtWidgets import QHeaderView, QLabel, QPushButton
 
 import logger_setup
@@ -13,15 +12,14 @@ from Functions.Database_manager import update_database
 from Functions.Database_views import ViewQuery
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
-from Functions.Widget_classes import (SQLiteTableModel, WordWrapDelegate, ReadableProxyModel, TreeModel,
+from Functions.Widget_classes import (SQLiteTableModel, ReadableProxyModel, TreeModel,
                                       TreeContextMenu, expand_collapse, get_name_column, get_headers,
                                       get_view_from_table, TreeSortFilterProxyModel, get_readable_header,
-                                      show_loading_dialog, close_loading_dialog, get_record_index, get_total_records,
-                                      get_id_from_name, columns_as_list, save_expanded_state, restore_expanded_state,
-                                      TrackExpandedTreeView)
+                                      show_loading_dialog, close_loading_dialog, get_record_row,
+                                      get_id_from_name, columns_as_list, save_expanded_state,
+                                      TrackExpandedTreeView, FrozenTableView, scroll_to_record)
 from ui.EditTreeView import EditTreeView
 from ui.EditView import EditView
-
 
 class ViewDataTab(QtW.QWidget):
     def __init__(self, parent_id: int, parent_type: str, child_type: str, label: str):
@@ -132,7 +130,7 @@ class ViewDataTab(QtW.QWidget):
 
     def optimizeVerticalResize(self, logical_index, old_size, new_size):
         """Trigger a delayed row height update when the user resizes the window vertically."""
-        self.resize_timer.start(250)  # Add a slight delay to avoid excessive updates
+        self.resize_timer.start(100)  # Add a slight delay to avoid excessive updates
 
     def resizeRowsOptimized(self):
         """Resize rows only when resizing stops."""
@@ -205,16 +203,15 @@ class ViewDataTab(QtW.QWidget):
             if not record_id:
                 logger_setup.get_logger().error(f'Could not find record ID for record name: {record_name}')
                 return
-            index = get_record_index(self.table, record_id, self.table_item_ids)
+            row = get_record_row(self.table, record_id, self.table_item_ids)
 
-            if index != -1:
-                new_page = index // self.rows_per_page
-                if self.current_page == new_page:
-                    QtW.QMessageBox.information(self, 'Record Found', 'Record already displayed')
-                else:
+            if row != -1:
+                new_page = row // self.rows_per_page
+                if self.current_page != new_page:
                     self.current_page = new_page
                     self.limit = f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'
                     self.display_table()
+                scroll_to_record(record_id, self.view)
             else:
                 logger_setup.get_logger().critical(f"Record {self.name_header} not found: {self.goto_line_edit.text()}")
         except Exception as e:
@@ -238,13 +235,9 @@ class ViewDataTab(QtW.QWidget):
                 self.view.setUniformRowHeights(True)
                 self.view.setSortingEnabled(False)
             else:
-                self.view = QtW.QTableView()
-                self.view.setWordWrap(True)
-                self.view.setTextElideMode(Qt.TextElideMode.ElideNone)  # Prevent text truncation
-                self.view.setItemDelegate(WordWrapDelegate(self.view))
-
-                self.view.resizeRowsToContents()
-                self.view.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+                self.view = FrozenTableView()
+                self.view.setSelectionBehavior(QtW.QAbstractItemView.SelectionBehavior.SelectRows)
+                self.view.frozen_table_view.setSelectionBehavior(QtW.QAbstractItemView.SelectionBehavior.SelectRows)
 
                 # Optimize window resizing
                 self.resize_timer.setSingleShot(True)
@@ -255,7 +248,9 @@ class ViewDataTab(QtW.QWidget):
                 self.view.verticalHeader().sectionResized.connect(self.optimizeVerticalResize)
 
             self.view.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
+            self.view.frozen_table_view.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
             self.view.customContextMenuRequested.connect(self.show_context_menu)
+            self.view.frozen_table_view.customContextMenuRequested.connect(self.show_context_menu)
             self.v_layout.addWidget(self.view)
         self.view.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
         if self.child_type == 'Aliquots' and self.parent_type == 'Samples':
@@ -324,17 +319,22 @@ class ViewDataTab(QtW.QWidget):
                     self.view.setColumnWidth(column, 400)
 
         hidden_columns = []
+        frozen_column = None
         match self.table:
             case 'Samples':
                 hidden_columns = [0]  # don't show SampleID column
+                frozen_column = 1
             case 'Aliquots':
                 hidden_columns = [1, 2, 3, 4]  # don't show AliquotID, ParentAliquotID, AliquotParentRow, SampleID
             case 'Grains':
                 hidden_columns = [0, 1, 2]  # don't show GrainID, AliquotID, SampleID
+                frozen_column = 3
             case 'Spots':
                 hidden_columns = [0, 1, 2, 3]  # don't show SpotID, GrainID, AliquotID, SampleID
+                frozen_column = 4
             case 'UPbAnalyses':
                 hidden_columns = [0, 1, 2, 3, 4]  # don't show UPbAnalysisID, SpotID, GrainID, AliquotID, SampleID
+                frozen_column = 5
         for column in range(self.view.model().columnCount()):
             if column in hidden_columns:
                 self.view.hideColumn(column)
@@ -342,6 +342,8 @@ class ViewDataTab(QtW.QWidget):
                 self.view.showColumn(column)
         if isinstance(self.view.model(), TreeSortFilterProxyModel):
             self.view.model().update_visible_columns()
+        elif frozen_column is not None:
+            self.view.set_frozen_column(frozen_column)
 
         query_args = {'show_columns': [self.show_cols[0]], 'where': self.where}
         view_query = ViewQuery(self.table, True, **query_args)

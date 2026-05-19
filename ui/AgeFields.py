@@ -1,7 +1,6 @@
 import os
 import sys
 
-import PyQt6
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
@@ -9,21 +8,18 @@ from PyQt6 import QtGui as QtG
 from PyQt6.QtCore import Qt, QSortFilterProxyModel
 from PyQt6.uic import loadUi
 from Functions.Widget_classes import (
-    TreeModel, CheckableTreeCombobox, CheckableTreeModel, set_table, CheckableSqlTableModel, delete_data,
-    get_name_column, TrackExpandedTreeView,
-    get_view_from_table, CheckableComboBox, CheckableSqlQueryModel, find_tree_model, get_headers, add_tree_popup,
-    populate_combo_box, save_expanded_state, restore_expanded_state, SQLiteTableModel, populate_tree_model_checks,
-    FocusGroupBox, DisplayRoundedQueryModel, SampleAgeProxyModel, show_loading_dialog, close_loading_dialog,
-    populate_many_combo_checks, get_id_from_name, get_name_from_id
+    TreeModel, CheckableTreeCombobox, CheckableTreeModel, set_table, delete_data, get_name_column, get_view_from_table,
+    CheckableComboBox, find_tree_model, get_headers, add_tree_popup, populate_combo_box, save_expanded_state,
+    populate_tree_model_checks, FocusGroupBox, show_loading_dialog, close_loading_dialog, populate_many_combo_checks,
+    get_id_from_name, get_name_from_id
 )
 from Functions import SQLUtils
 from Functions.Settings_manager import SettingsManager
 from ui.New_reference import NewReference
 
 settings = SettingsManager().settings
-from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
-from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
-# from Functions.Alter_database import convert_sample_age, update_generated_columns
+from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from Functions.Check_triggers import validate_update, update_modified_timestamp
 from Functions.Database_views import ViewQuery
 from ui.EditTree import EditTree
 from ui.EditTable import EditTable

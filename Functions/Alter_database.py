@@ -12,7 +12,7 @@ from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.LoadingDialog_manager import LoadingDialogManager
 loading_manager = LoadingDialogManager.get_instance()
-from Functions.Widget_classes import set_table, get_columns, get_headers, show_loading_dialog, close_loading_dialog
+from Functions.Widget_classes import set_table, get_columns, get_headers
 # the below imports are required for GPS conversions, pycharm detects no usage do not remove
 # below comments are for pycharm to ignore issues
 # noinspection PyUnresolvedReferences
@@ -34,6 +34,10 @@ def settings_reset(database: QtS.QSqlDatabase = None) -> bool:
                        ['Columns', Create_db.CREATE_COLUMNS_TABLE],
                        ['References', Create_db.CREATE_REFERENCES_TABLE]]
     if drop_virtual_columns(tables_affected, database=database):
+        # import Functions.SQLUtils as SQLUtils
+        # for tree_table in SQLUtils.user_viewable_trees:
+        #     if not check_tree_structure(tree_table, database=database):
+        #         return False
         if populate_generated_columns(database):
             return True
         else:
@@ -1304,7 +1308,7 @@ def convert_sample_age(sample_age_id: int, database: QtS.QSqlDatabase = None) ->
 def check_tree_structure(table: str, database: QtS.QSqlDatabase = None) -> bool:
     """
     Check the structure of the tree and update if necessary.
-    Look for missing parent row values
+    Look for gaps in parent row values
     :param table: The name of the table to check the structure of.
     :param database: QSqlDatabase instance to use, if None the default database is used.
     :return: True for success, False for failure
@@ -1333,49 +1337,60 @@ def check_tree_structure(table: str, database: QtS.QSqlDatabase = None) -> bool:
         else:
             parent = query.value(parent_id_header)
         problem_parents.add(parent)
-    if len(list(problem_parents)) == 0:
-        logger_setup.get_logger().info(f'No missing parent row values found in {table}')
-        return True
-    if 'NULL' in problem_parents and len(problem_parents) == 1:
-        problem_parent_text = 'IS NULL'
-    elif 'NULL' in problem_parents:
-        problem_parent_text = f'IS NULL OR "{parent_id_header}" IN ({", ".join(str(parent) for parent in problem_parents if parent != "NULL")})'
-    else:
-        problem_parent_text = f'IN ({", ".join(str(parent) for parent in problem_parents)})'
-    if not query.exec(f'SELECT "{id_header}", "{parent_id_header}", "{parent_row_header}" FROM "{table}" WHERE "{parent_id_header}" {problem_parent_text}'):
-        logger_setup.get_logger().critical(f'Error selecting from {table}')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-        return False
-    while query.next():
-        item_id = query.record().value(id_header)
-        parent_id = query.record().value(parent_id_header)
-        parent_row = query.record().value(parent_row_header)
-        if not parent_row:
-            parent_row = None
-        if parent_id not in problem_parent_row_dict:
-            problem_parent_row_dict[parent_id] = []
-        children = problem_parent_row_dict[parent_id]
-        children.append((item_id, parent_row))
-        problem_parent_row_dict[parent_id] = children
-    create_savepoint('before_update_tree_rows')
-    for parent_id, children in problem_parent_row_dict.items():
-        # sort children by the parent row value, with nulls last
-        children.sort(key=lambda x: (not x[1], x[1]))
-        for i, child in enumerate(children):
-            item_id = child[0]
-            parent_row = child[1]
-            if parent_row != i:
-                query.prepare(f'UPDATE "{table}" SET "{parent_row_header}"=? WHERE "{id_header}"=?')
-                query.bindValue(0, i)
-                query.bindValue(1, item_id)
-                if not query.exec():
-                    logger_setup.get_logger().critical(f'Error updating {table} structure')
-                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                    logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
-                    rollback_savepoint('before_update_tree_rows')
-                    return False
+    if len(list(problem_parents)) > 0:
+        if 'NULL' in problem_parents and len(problem_parents) == 1:
+            problem_parent_text = 'IS NULL'
+        elif 'NULL' in problem_parents:
+            problem_parent_text = f'IS NULL OR "{parent_id_header}" IN ({", ".join(str(parent) for parent in problem_parents if parent != "NULL")})'
+        else:
+            problem_parent_text = f'IN ({", ".join(str(parent) for parent in problem_parents)})'
+        if not query.exec(f'SELECT "{id_header}", "{parent_id_header}", "{parent_row_header}" FROM "{table}" WHERE "{parent_id_header}" {problem_parent_text}'):
+            logger_setup.get_logger().critical(f'Error selecting from {table}')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            return False
+        while query.next():
+            item_id = query.record().value(id_header)
+            parent_id = query.record().value(parent_id_header)
+            parent_row = query.record().value(parent_row_header)
+            if not parent_row:
+                parent_row = None
+            if parent_id not in problem_parent_row_dict:
+                problem_parent_row_dict[parent_id] = []
+            children = problem_parent_row_dict[parent_id]
+            children.append((item_id, parent_row))
+            problem_parent_row_dict[parent_id] = children
+        create_savepoint('before_update_tree_rows')
+        for parent_id, children in problem_parent_row_dict.items():
+            # sort children by the parent row value, with nulls last
+            children.sort(key=lambda x: (not x[1], x[1]))
+            for i, child in enumerate(children):
+                item_id = child[0]
+                parent_row = child[1]
+                if parent_row != i:
+                    query.prepare(f'UPDATE "{table}" SET "{parent_row_header}"=? WHERE "{id_header}"=?')
+                    query.bindValue(0, i)
+                    query.bindValue(1, item_id)
+                    if not query.exec():
+                        logger_setup.get_logger().critical(f'Error updating {table} structure')
+                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                        rollback_savepoint('before_update_tree_rows')
+                        return False
+    # parent_child_dict = {}
+    # child_parent_row_dict = {}
+    # if not query.exec(f'SELECT "{parent_id_header}", "{id_header}", "{parent_row_header}" FROM "{table}"'):
+    #     logger_setup.get_logger().critical(f'Error selecting from {table}')
+    #     logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+    #     logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+    #     return False
+    # while query.next():
+    #     if not query.value(parent_id_header):
+    #         parent = 'NULL'
+    #     else:
+    #         parent = query.value(parent_id_header)
+    #     problem_parents.add(parent)
     logger_setup.get_logger().info(f'Successfully checked {table} structure')
     release_savepoint('before_update_tree_rows')
     return True

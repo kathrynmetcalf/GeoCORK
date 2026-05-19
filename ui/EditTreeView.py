@@ -1,6 +1,5 @@
 import os
 import sys
-import time
 
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
@@ -16,10 +15,10 @@ from Functions.Widget_classes import (
     populate_model_checks, get_columns, get_readable_header, find_current_sub_items, get_id_from_name,
     add_tree_popup, save_expanded_state, restore_expanded_state, get_selected_tree_ids, TreeContextMenu,
     expand_collapse, get_name_from_id, get_view_from_table, columns_as_list_current, TreeSortFilterProxyModel,
-    delete_data, delete_query, show_loading_dialog, close_loading_dialog, get_total_records, update_modified_timestamp
+    delete_data, delete_query, show_loading_dialog, close_loading_dialog, update_modified_timestamp
 )
 from Functions import SQLUtils
-from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint, SavepointManager
+from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 from ui.AddDataItem import AddDataItem
 from ui.EditView import EditView
@@ -338,7 +337,7 @@ class EditTreeView(QtW.QDialog):
 
     def optimizeVerticalResize(self, logical_index, old_size, new_size):
         """Trigger a delayed row height update when the user resizes the window vertically."""
-        self.resize_timer.start(250)  # Add a slight delay to avoid excessive updates
+        self.resize_timer.start(100)  # Add a slight delay to avoid excessive updates
 
     def resizeRowsOptimized(self):
         """Resize rows only when resizing stops."""

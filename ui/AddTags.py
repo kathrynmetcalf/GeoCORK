@@ -6,19 +6,16 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
-from PyQt6.QtWidgets import QLabel
 from PyQt6.uic import loadUi
 
 import Functions.Text_manipulations as TxM
 import logger_setup
 from Functions.Database_manager import update_database
-from Functions.Database_views import ViewQuery
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
-import Functions.SQLUtils as SQLUtils
 from Functions.Widget_classes import set_table, get_headers, get_name_column, description_column, ReadableProxyModel, \
-    get_edit_view_from_table, SQLiteTableModel, close_loading_dialog, show_loading_dialog
+    close_loading_dialog
 
 
 class AddTags(QtW.QDialog):
@@ -75,11 +72,14 @@ class AddTags(QtW.QDialog):
             self.model.fetchMore()
         self.filter_proxy_model.setSourceModel(self.model)
         self.filter_proxy_model.setFilterKeyColumn(1)
-        self.tags_tableView.setModel(self.filter_proxy_model)
         self.tags_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.tags_tableView.horizontalHeader().setDefaultAlignment(QtC.Qt.AlignmentFlag.AlignLeft)
+        self.tags_tableView.setModel(self.filter_proxy_model)
         self.tags_tableView.hideColumn(0)  # Hide the ID column
         self.tags_tableView.resizeColumnsToContents()
-        self.tags_tableView.horizontalHeader().setDefaultAlignment(QtC.Qt.AlignmentFlag.AlignLeft)
+        for column in range(self.filter_proxy_model.columnCount()):
+            if self.tags_tableView.columnWidth(column) > 400:
+                self.tags_tableView.setColumnWidth(column, 400)
         query = QtS.QSqlQuery()
 
         # Get a list of the existing tag names

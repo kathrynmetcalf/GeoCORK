@@ -6,7 +6,6 @@ from PyQt6 import QtGui as QtG
 from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import QRegularExpression
 from PyQt6.QtSql import QSqlQuery
-from PyQt6.QtWidgets import QMessageBox
 from PyQt6.uic import loadUi
 
 import Functions.Text_manipulations as TxM
@@ -17,8 +16,8 @@ from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.Widget_classes import (get_headers,
                                       ReadableProxyModel, get_name_column, get_total_records, EditableSqlQueryModel,
-                                      get_id_from_name, get_record_index, delete_data, show_loading_dialog,
-                                      close_loading_dialog)
+                                      get_id_from_name, get_record_row, delete_data, show_loading_dialog,
+                                      close_loading_dialog, scroll_to_record)
 from ui.AddTags import AddTags
 from ui.Merge import MergeDialog
 
@@ -74,7 +73,9 @@ class EditTable(QtW.QDialog):
         self.show_per_page_comboBox.currentIndexChanged.connect(self.change_rows_per_page)
 
         self.edit_tableView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
+        self.edit_tableView.frozen_table_view.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.edit_tableView.customContextMenuRequested.connect(self.show_context_menu)
+        self.edit_tableView.frozen_table_view.customContextMenuRequested.connect(self.show_context_menu)
 
         close_loading_dialog('Loading', f'Opening edit window for {table_name}...')
 
@@ -197,15 +198,19 @@ class EditTable(QtW.QDialog):
         show_loading_dialog('Loading', f'Displaying {self.model.rowCount()} {self.table}...')
         # Reset column sorting indicator
         self.edit_tableView.horizontalHeader().setSortIndicator(-1, QtC.Qt.SortOrder.AscendingOrder)
+        self.edit_tableView.setSortingEnabled(True)
+        # Sort the table by the name column
+        self.table_proxy_model.sort(self.name_column, QtC.Qt.SortOrder.AscendingOrder)
         self.edit_tableView.setModel(self.table_proxy_model)
         for column in range(self.table_proxy_model.columnCount()):
             header = self.model.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
             if 'ID' in header:
                 self.edit_tableView.hideColumn(column)
         self.edit_tableView.resizeColumnsToContents()
-        self.edit_tableView.setSortingEnabled(True)
-        # Sort the table by the name column
-        self.table_proxy_model.sort(self.name_column, QtC.Qt.SortOrder.AscendingOrder)
+        for column in range(self.table_proxy_model.columnCount()):
+            if self.edit_tableView.columnWidth(column) > 400:
+                self.edit_tableView.setColumnWidth(column, 400)
+        self.edit_tableView.sync_row_heights()
         self.total_records = get_total_records(self.table)
         self.set_go_to_completer()
         if (self.current_page + 1) * self.rows_per_page > self.total_records:
@@ -249,16 +254,14 @@ class EditTable(QtW.QDialog):
             if not record_id:
                 logger_setup.get_logger().error(f'Could not find record ID for record name: {record_name}')
                 return
-            index = get_record_index(self.table, record_id)
+            row = get_record_row(self.table, record_id)
 
-            if index != -1:
-                new_page = index // self.rows_per_page
-                if self.current_page == new_page:
-                    QMessageBox.information(self, 'Record Found', 'Record already displayed')
-                else:
+            if row != -1:
+                new_page = row // self.rows_per_page
+                if self.current_page != new_page:
                     self.current_page = new_page
                     self.create_model()
-
+                scroll_to_record(record_id, self.edit_tableView)
             else:
                 logger_setup.get_logger().critical(f"Record {self.name_header} not found: {self.goto_line_edit.text()}")
         except Exception as e:

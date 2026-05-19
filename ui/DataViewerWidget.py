@@ -20,8 +20,9 @@ from Functions import SQLUtils
 from Functions.Database_views import ViewQuery
 from Functions.Widget_classes import (
     SQLiteTableModel, TreeSortFilterProxyModel, TreeModel, WordWrapDelegate, get_name_column,
-    ReadableProxyModel, get_id_from_name, get_record_index, columns_as_list, get_view_from_table, find_current_sub_items,
-    show_loading_dialog, close_loading_dialog, TrackExpandedTreeView, TreeContextMenu, expand_collapse)
+    ReadableProxyModel, get_id_from_name, get_record_row, columns_as_list, get_view_from_table, find_current_sub_items,
+    show_loading_dialog, close_loading_dialog, TrackExpandedTreeView, TreeContextMenu, expand_collapse,
+    scroll_to_record)
 from Functions.Widget_classes import get_headers
 from ui.SampleInformation import SampleInformation
 from Functions.Settings_manager import SettingsManager
@@ -337,9 +338,12 @@ class DataViewerWidget(QWidget):
             self.dbTable_tableView.setSortingEnabled(True)
             self.dbTable_tableView.setWordWrap(True)
             self.dbTable_tableView.setTextElideMode(Qt.TextElideMode.ElideNone)  # Prevent text truncation
-            self.dbTable_tableView.setItemDelegate(WordWrapDelegate(self.dbTable_tableView))
             self.dbTable_tableView.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
             self.dbTable_tableView.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+            if hasattr(self.dbTable_tableView, 'frozen_table_view'):
+                self.dbTable_tableView.frozen_table_view.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+            else:
+                self.dbTable_tableView.setItemDelegate(WordWrapDelegate(self.dbTable_tableView))
             self.dbTable_tableView.verticalHeader().hide()
 
             self.hide_columns(self.dbTable_tableView, table)
@@ -448,17 +452,19 @@ class DataViewerWidget(QWidget):
         """
         show_loading_dialog('Loading', f'Displaying filtered {self.dbTable_comboBox_2.currentText()}...')
         if self.data_table == 'Aliquots':
-            data_filter = self.dbTable_treeView
+            data_filter_view = self.dbTable_treeView
         else:
-            data_filter = self.dbTable_tableView
+            data_filter_view = self.dbTable_tableView
 
-        if ((self.current_selection == data_filter.selectionModel().selectedIndexes()) and
-            (not data_filter.selectionModel().hasSelection())):
+        if ((self.current_selection == data_filter_view.selectionModel().selectedIndexes()) and
+            (not data_filter_view.selectionModel().hasSelection())):
+            close_loading_dialog('Loading', f'Displaying filtered {self.dbTable_comboBox_2.currentText()}...')
             return
-        elif not data_filter.selectionModel().hasSelection():
+        elif not data_filter_view.selectionModel().hasSelection():
+            close_loading_dialog('Loading', f'Displaying filtered {self.dbTable_comboBox_2.currentText()}...')
             return
         else:
-            self.current_selection = data_filter.selectionModel().selectedIndexes()
+            self.current_selection = data_filter_view.selectionModel().selectedIndexes()
         self.data_filtered_table_model = None
         self.data_filtered_table_proxy_model = None
 
@@ -476,7 +482,7 @@ class DataViewerWidget(QWidget):
 
         selected_data_filter_ids = set()
 
-        self.current_selection = data_filter.selectionModel().selectedIndexes()
+        self.current_selection = data_filter_view.selectionModel().selectedIndexes()
         if self.data_table == 'Aliquots':
             id_column = 1
         else:
@@ -485,7 +491,7 @@ class DataViewerWidget(QWidget):
         proxy = self.data_table_proxy_model  # proxy on the view
         source = self.data_table_model  # underlying model
 
-        sel_model = data_filter.selectionModel()
+        sel_model = data_filter_view.selectionModel()
 
         # We already know the column the IDs live in → ask the selection model for
         # exactly those indexes. Works for both QTableView and QTreeView.
@@ -826,7 +832,7 @@ class DataViewerWidget(QWidget):
                     return
                 dlg = EditTreeView(self, table, **dlg_args)
             else:
-                dlg_args = {'set_table_item_ids': ids}
+                dlg_args = {'table_item_ids': ids}
                 dlg = EditView(self, table, **dlg_args)
         elif table in SQLUtils.user_viewable_trees:
             # save_expanded_state(table_name, dbTable_treeView)
@@ -1005,15 +1011,15 @@ class DataViewerWidget(QWidget):
             if not record_id:
                 logger_setup.get_logger().error(f'Could not find record name: {record_name}')
                 return
-            index = get_record_index(self.dbTable_comboBox.currentText(), record_id, self.data_ids_to_show)
+            row = get_record_row(self.dbTable_comboBox.currentText(), record_id, self.data_ids_to_show)
 
-            if index != -1:
-                new_page = index // self.rows_per_page_1
-                if self.current_page_1 == new_page:
-                    QMessageBox.information(self, 'Record Found', 'Record already displayed')
-                else:
+            if row != -1:
+                new_page = row // self.rows_per_page_1
+                if self.current_page_1 != new_page:
                     self.current_page_1 = new_page
                     self.display_data_table()
+                if self.data_table not in SQLUtils.conditionally_editable_trees and self.data_table not in SQLUtils.user_viewable_trees:
+                    scroll_to_record(record_id, self.dbTable_tableView)
                 self.goto_line_edit.setText('')
 
             else:
@@ -1042,15 +1048,15 @@ class DataViewerWidget(QWidget):
             table = TxM.remove_spaces(self.dbTable_comboBox_2.currentText())
             if table in SQLUtils.as_table_dict:
                 table = SQLUtils.as_table_dict[table]
-            index = get_record_index(table, record_id, self.data_filtered_ids_to_show)
+            row = get_record_row(table, record_id, self.data_filtered_ids_to_show)
 
-            if index != -1:
-                new_page = index // self.rows_per_page_2
-                if self.current_page_2 == new_page:
-                    QMessageBox.information(self, 'Record Found', 'Record already displayed')
-                else:
+            if row != -1:
+                new_page = row // self.rows_per_page_2
+                if self.current_page_2 != new_page:
                     self.current_page_2 = new_page
                     self.display_table_with_data_filter()
+                if table not in SQLUtils.user_viewable_trees and table not in SQLUtils.conditionally_editable_trees:
+                    scroll_to_record(record_id, self.dbTable_tableView_2)
                 self.goto_line_edit_2.setText('')
 
             else:

@@ -1,10 +1,8 @@
 import os
 import sys
 import xml.etree.ElementTree as ET  # xml reader
-import sqlite3
 
 from PyQt6 import QtSql as QtS
-from PyQt6 import QtWidgets as QtW
 from PyQt6.QtWidgets import QMessageBox
 
 import Functions.Database_manager as Database_manager
@@ -12,7 +10,6 @@ import Functions.SQLUtils as SQLUtils
 import logger_setup
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
-from collections import Counter
 
 from Functions.Widget_classes import show_loading_dialog, close_loading_dialog
 
@@ -1943,10 +1940,10 @@ def update_schema(version: str, database: QtS.QSqlDatabase = None) -> str:
                                                   QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                                   defaultButton=QMessageBox.StandardButton.No)
 
-    if continue_messagebox == QMessageBox.StandardButton.No:
+    if continue_messagebox != QMessageBox.StandardButton.Yes:
         logger_setup.get_logger().info(
             f'User rejected updating schema from {version} to {settings.value('default_geocork_version')}')
-        return 'False'
+        return 'Cancel'
 
     logger_setup.get_logger().info(
         f'Updating database schema from version {version} to {settings.value('default_geocork_version')}')

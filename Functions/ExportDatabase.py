@@ -1,4 +1,3 @@
-import sqlite3
 from typing import List, Dict, Any, Set, Optional, Tuple
 
 import PyQt6.QtWidgets as QtW

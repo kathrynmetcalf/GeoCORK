@@ -4,12 +4,10 @@ from datetime import datetime
 
 from tzlocal import get_localzone
 
-from PyQt6.QtSql import QSqlDatabase, QSqlTableModel, QSqlQuery
-from PyQt6.QtWidgets import QMessageBox, QFileDialog, QProgressDialog, QApplication
+from PyQt6.QtSql import QSqlDatabase, QSqlQuery
+from PyQt6.QtWidgets import QMessageBox, QProgressDialog, QApplication
 from PyQt6.QtCore import QStandardPaths, QEventLoop
-from PyQt6.QtCore import QThread
 
-import Functions.Database_views as DB_views
 from Functions.BackupDatabase import BackupThread
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Savepoint_manager import SavepointManager
@@ -160,6 +158,9 @@ def update_database(database=None) -> bool:
             loading_manager.close_loading_dialog('Loading', 'Updating database... \n(GeoCORK may be slower for large databases)')
             return False
         logger_setup.get_logger().info('Trying to open the database anyway')
+    elif schema_success == 'Cancel':
+        loading_manager.close_loading_dialog('Loading', 'Updating database... \n(GeoCORK may be slower for large databases)')
+        return False
     elif schema_success != 'True':
         # A backup file was returned to restore
         backup_file = schema_success

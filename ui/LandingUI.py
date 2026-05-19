@@ -5,26 +5,23 @@ import webbrowser
 from pathlib import Path
 
 import qtawesome
-from PyQt6 import QtCore, QtWidgets, QtSql
+from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtCore import QEventLoop, Qt, QPoint, QSize, QTimer, QUrl
 from PyQt6.QtGui import QPixmap, QAction, QDesktopServices
 from PyQt6.QtSql import QSqlDatabase
-# from PyQt6.QtSql import QSqlDatabase
 from PyQt6.QtWidgets import QFileDialog, QPushButton, QMessageBox, QWidget, \
-    QListWidget, QListWidgetItem, QMainWindow, QApplication, QHBoxLayout, QLabel
+    QListWidget, QListWidgetItem, QApplication, QLabel
 from PyQt6.uic import loadUi
 
 import logger_setup
 from Functions import Savepoint_manager
 from Functions.BackupDatabase import RestoreThread
-from Functions.Create_database import create_tables
 from Functions.Database_manager import update_database, turn_on_foreign_keys
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.Text_manipulations import shrink_home, expand_home
 from Functions.Widget_classes import show_loading_dialog, close_loading_dialog
 from ui.MergeDatabaseUI import MergeDatabaseDialog
-# from Functions.Create_database import create_tables
 from ui.Settings import update_stylesheet
 
 
