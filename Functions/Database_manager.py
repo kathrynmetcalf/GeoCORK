@@ -203,12 +203,6 @@ def update_database(database=None) -> bool:
         logger_setup.get_logger().critical(f"Error resetting settings")
         loading_manager.close_loading_dialog('Loading', 'Updating database... \n(GeoCORK may be slower for large databases)')
         return False
-    # Make sure all tree items have a parent row
-    for tree in SQLUtils.user_viewable_trees:
-        if not Alter_db.check_tree_structure(tree):
-            logger_setup.get_logger().critical(f"Error checking tree structure for {tree}")
-            loading_manager.close_loading_dialog('Loading', 'Updating database... \n(GeoCORK may be slower for large databases)')
-            return False
     end_time = time.time()
     loading_manager.close_loading_dialog('Loading', 'Updating database... \n(GeoCORK may be slower for large databases)')
     logger_setup.get_logger().info(f"Database updated in {end_time - start_time} seconds")

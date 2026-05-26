@@ -2545,6 +2545,7 @@ class EditView(QtW.QDialog):
         else:
             table = model.tableName()
         dlg = None
+        show_loading_dialog('Loading', f'Opening add window for {table}...')
         if table in SQLUtils.user_viewable_trees:
             save_expanded_state(table, combo.view())
             dlg_args = add_tree_popup(combo.view(), action)
@@ -2557,7 +2558,6 @@ class EditView(QtW.QDialog):
         if not dlg:
             return
         logger_setup.get_logger().info(f"Showing {table} add dialog")
-        show_loading_dialog('Loading', f'Opening add window for {self.table}...')
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
             # Clear and recreate this combo box
@@ -2567,7 +2567,7 @@ class EditView(QtW.QDialog):
             self.combo.showPopup()
             close_loading_dialog('Loading', f'Loading...')
         else:
-            close_loading_dialog('Loading', f'Opening add window for {self.table}...')
+            close_loading_dialog('Loading', f'Opening add window for {table}...')
 
     def edit_tag_popup(self):
         combo = self.sender()
@@ -2595,7 +2595,7 @@ class EditView(QtW.QDialog):
         if dlg is None:
             return
         logger_setup.get_logger().info(f"Showing {table} edit dialog")
-        show_loading_dialog('Loading', f'Opening edit window for {self.table}...')
+        show_loading_dialog('Loading', f'Opening edit window for {table}...')
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
             # Clear and recreate this combo box

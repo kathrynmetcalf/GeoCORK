@@ -56,6 +56,7 @@ class AddTreeTags(QtW.QDialog):
         self.ok_pushButton.setAutoDefault(True)
 
         self.msg = QtW.QMessageBox(self)
+        # key word arguments
         self.add_item: str = 'child'
         self.parent_id: int | None = None
         self.parent_row: int | None = None
@@ -197,6 +198,10 @@ class AddTreeTags(QtW.QDialog):
         save_expanded_state(self.table, self.tags_treeView)
         name = self.newName_lineEdit.text()
         description = self.newDescription_lineEdit.text()
+        if not name:
+            logger_setup.get_logger().error(f'Name is required for {self.table}')
+            close_loading_dialog('Adding item', f'Adding {self.newName_lineEdit.text()} to {self.table}...')
+            return False
         if self.add_item == 'child':
             if not self.parent_id or self.parent_id == 'Null':
                 if not self.tree_model.insertItem(name, description, None, self.parent_row):
