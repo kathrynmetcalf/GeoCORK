@@ -169,14 +169,11 @@ class EditTree(QtW.QDialog):
             self.updated = True
 
     def update_proxy(self):
-        # if self.tree_proxy_model.sourceModel() == self.tree_model:
-        #     self.tree_model.deleteLater()
+        logger_setup.get_logger().info(f'Displaying {self.model.rowCount()} {self.table_name}...')
+        show_loading_dialog('Loading', f'Displaying {self.model.rowCount()} {self.table_name}...')
         self.total_records = self.model.rowCount()
         self.edit_treeView.expand_from_ids()
-        # self.tree_model = TreeModel(self.model)
-        # self.tree_model.dataEdited.connect(self.update_proxy)
-        # self.tree_proxy_model.setSourceModel(self.tree_model)
-        # self.display_tree()
+        close_loading_dialog('Loading', f'Displaying {self.model.rowCount()} {self.table_name}...')
 
     def add_popup(self, action: QtG.QAction | None = None):
         save_expanded_state(self.table, self.edit_treeView)

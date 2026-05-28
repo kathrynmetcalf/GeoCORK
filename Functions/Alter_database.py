@@ -1412,6 +1412,6 @@ def check_tree_structure(table: str, database: QtS.QSqlDatabase = None) -> bool:
                     logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
                     rollback_savepoint('before_update_tree_rows')
                     return False
+        release_savepoint('before_update_tree_rows')
     logger_setup.get_logger().info(f'Successfully checked {table} structure')
-    release_savepoint('before_update_tree_rows')
     return True

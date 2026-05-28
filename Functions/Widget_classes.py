@@ -3666,6 +3666,9 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.lastError = QtS.QSqlError()
         self.db = db
         self._map_to_source_cache = {}
+        self.reset_timer = QtC.QTimer(self)
+        self.reset_timer.setSingleShot(True)
+        self.reset_timer.timeout.connect(self.reset_source_model)
 
         self.id_header = None
         self.parent_id_header = None
@@ -3777,17 +3780,25 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.column_headers()
         self.header_variables()
         self.setup_model_data()
-        self.dataEdited.connect(self.reset_source_model)
+        self.dataEdited.connect(self.reset_source_model_timer)
+
+    def reset_source_model_timer(self):
+        """
+        Start a timer to allow other events to process before this potentially expensive method is called.
+        """
+        self.reset_timer.start(10)
 
     def reset_source_model(self):
         """
         Call setSourceModel again unless the source model is a SQLiteTableModel
         """
+        show_loading_dialog('Updating', f'Updating {self.table} tree...')
         if not isinstance(self.source_model, SQLiteTableModel):
             self.source_model.setQuery(f'{self.base_query}')
             while self.source_model.canFetchMore():
                 self.source_model.fetchMore()
         self.setup_model_data()
+        close_loading_dialog('Updating', f'Updating {self.table} tree...')
 
     def setup_model_data(self):
         """
@@ -4622,6 +4633,8 @@ class TreeModel(QtC.QAbstractProxyModel):
         stream = QtC.QDataStream(encoded_data, QtC.QIODevice.OpenModeFlag.ReadOnly)
         item_ids = []
         rows = []
+        if drop_row == -1:
+            drop_row = self.getItem(parent).childCount()
         drop_parent_id = self.getItem(parent).data(0)
         if isinstance(drop_parent_id, int):
             p_id = f'= {drop_parent_id}'
@@ -5384,7 +5397,8 @@ def bulk_update_parent_row(table, parent_id, spaces_to_move: int, new_row: int |
         return False, []
     max_child_row = 0
     if move_size_query.next():
-        max_child_row = move_size_query.value(0)
+        if move_size_query.value(0):
+            max_child_row = move_size_query.value(0)
     if new_row is not None and old_row is None:
         logger_setup.get_logger().info(f'Making space to insert new child at {new_row}')
         k = max_child_row - new_row + spaces_to_move
@@ -9030,20 +9044,14 @@ loading_manager = LoadingDialogManager.get_instance()
 
 def show_loading_dialog(title, message):
     """
-    Show a loading dialog while the action is taking place. This method uses a timer to delay the display of the loading
-    dialog to avoid showing it unnecessarily if the action completes quickly. The loading dialog is managed by the
+    Show a loading dialog while the action is taking place. The loading dialog is managed by the
     LoadingDialogManager, which ensures that it is closed properly after the action is completed. The title and message
     of the loading dialog can be customized.
     :param title: Title of the loading dialog
     :param message: Message to display in the loading dialog
     :return:
     """
-    # Wait one second before showing the loading dialog in case it is not needed
-    # timer = QtC.QTimer()
-    # timer.timeout.connect(lambda: loading_manager.show_loading_dialog(title, message))
-    # timer.start(100)
     loading_manager.show_loading_dialog(title, message)
-    QtW.QApplication.processEvents()
 
 def close_loading_dialog(title, message):
     """

@@ -874,7 +874,7 @@ class EditView(QtW.QDialog):
                 show_loading_dialog('Loading', f'Opening column editor...')
                 dlg = ColumnDialog(item_ids, self)
                 dlg.exec()
-                if dlg.updated:
+                if dlg.column_fields.updated:
                     self.updated = True
                     logger_setup.get_logger().info(f'Repopulating {get_readable_header(header)} for {item_ids[0]}')
                     if not self.update_model_data(self.column_headers, item_ids):
@@ -2586,6 +2586,7 @@ class EditView(QtW.QDialog):
             table = model.tableName()
         else:
             table = model.tableName()
+        show_loading_dialog('Loading', f'Opening edit window for {table}...')
         if table in SQLUtils.user_viewable_trees:
             dlg = EditTree(self, table)
         elif table != get_view_from_table(table):
@@ -2595,7 +2596,6 @@ class EditView(QtW.QDialog):
         if dlg is None:
             return
         logger_setup.get_logger().info(f"Showing {table} edit dialog")
-        show_loading_dialog('Loading', f'Opening edit window for {table}...')
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
             # Clear and recreate this combo box
