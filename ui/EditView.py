@@ -730,10 +730,14 @@ class EditView(QtW.QDialog):
         logger_setup.get_logger().info(f'Displaying {self.table} table')
         show_loading_dialog('Loading', f'Displaying {self.table}...')
         self.disconnect_table_signals()
+        sort_section = -1
+        sort_order = QtC.Qt.SortOrder.AscendingOrder
+        if self.edit_tableView.horizontalHeader().isSortIndicatorShown():
+            sort_section = self.edit_tableView.horizontalHeader().sortIndicatorSection()
+            sort_order = self.edit_tableView.horizontalHeader().sortIndicatorOrder()
         # Reset column sorting indicator
         self.proxy_model = ReadableProxyModel(view=True)
         self.proxy_model.setSourceModel(self.model)
-        self.edit_tableView.horizontalHeader().setSortIndicator(-1, QtC.Qt.SortOrder.AscendingOrder)
         self.edit_tableView.setSortingEnabled(True)
         # self.edit_tableView.horizontalHeader().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
         self.name_column = get_name_column(get_view_from_table(self.table))
@@ -745,9 +749,12 @@ class EditView(QtW.QDialog):
                 if header == self.name_header:
                     proxy_name_column = column
                     break
-        if proxy_name_column:
+        if proxy_name_column and not sort_section:
             self.proxy_model.sort(proxy_name_column, QtC.Qt.SortOrder.AscendingOrder)
+        else:
+            self.proxy_model.sort(sort_section, sort_order)
         self.edit_tableView.setModel(self.proxy_model)
+        self.edit_tableView.horizontalHeader().setSortIndicator(sort_section, sort_order)
         self.edit_tableView.set_frozen_column(proxy_name_column)
         for column in range(self.proxy_model.columnCount()):
             header = self.model.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)

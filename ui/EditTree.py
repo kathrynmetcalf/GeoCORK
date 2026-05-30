@@ -215,18 +215,16 @@ class EditTree(QtW.QDialog):
         Delete the selected items from the tree view. If there are any children of the selected items, they will be deleted
         """
         save_expanded_state(self.table, self.edit_treeView)
-        tree_indexes = []
+        item_ids = []
         for view_index in self.edit_treeView.selectedIndexes():
-            tree_index = self.tree_proxy_model.mapToSource(view_index)
-            if tree_index.column() == 0 and tree_index not in tree_indexes:
-                tree_indexes.append(self.tree_proxy_model.mapToSource(view_index))
-        item_ids = list(get_selected_tree_ids(tree_indexes))
-        if not item_ids:
+            id_index = self.tree_proxy_model.index(view_index.row(), 1, view_index.parent())
+            item_id = id_index.data(QtC.Qt.ItemDataRole.DisplayRole)
+            if item_id not in item_ids:
+                item_ids.append(item_id)
+        if len(item_ids) == 0:
             return
-
-        if delete_data(self.table, item_ids):
+        if self.tree_model.removeItems(item_ids):
             self.updated = True
-            self.tree_model.dataEdited.emit()
             self.update_proxy()
 
     def commit_question(self):

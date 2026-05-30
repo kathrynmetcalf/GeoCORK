@@ -8,7 +8,7 @@ import pandas as pd
 import qtawesome
 from PyQt6 import QtCore
 from PyQt6.QtCore import Qt, QPoint, QSize, QStringListModel, QRect, QVariant, QModelIndex, QAbstractTableModel, \
-    QEventLoop, QTimer, QStandardPaths
+    QEventLoop, QTimer, QStandardPaths, QSortFilterProxyModel
 from PyQt6.QtGui import QBrush, QColor, QFont, QAction, QPalette, QIcon
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel
 from PyQt6.QtWidgets import (
@@ -32,8 +32,10 @@ settings = SettingsManager().settings
 from Functions.Widget_classes import (
     CheckableComboBox, CheckableSqlTableModel, SearchableComboBox, set_table, CheckableTreeModel,
     CheckableTreeCombobox, save_expanded_state, get_name_column, add_tree_popup, get_id_from_name, get_name_from_id,
-    get_headers, CheckableSqlQueryModel, SQLiteTableModel, CompleterInputDialog, get_table_from_view, get_view_from_table,
-    search_dictionary, ImportSheetModel, show_loading_dialog, close_loading_dialog, DisableItemModel, delete_data)
+    get_headers, CheckableSqlQueryModel, SQLiteTableModel, CompleterInputDialog, get_table_from_view,
+    get_view_from_table,
+    search_dictionary, ImportSheetModel, show_loading_dialog, close_loading_dialog, DisableItemModel, delete_data,
+    populate_combo_box, CheckableSQLiteTableModel, TreeSortFilterProxyModel, find_tree_model)
 from Functions.Database_views import ViewQuery
 from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags
@@ -409,23 +411,18 @@ class ImportWizardDialog(QWidget):
         # ComboBox for setting Reference
         # does this need to be single click
         self.combo_reference_comboBox = CheckableComboBox()
-        self.combo_reference = CheckableSqlQueryModel()
         self.combo_reference_comboBox.setToolTip('Applies the selected reference to all rows')
 
         # ComboBox for setting Instrument
         self.combo_instrument_comboBox = CheckableComboBox()
-        self.combo_instrument = CheckableSqlTableModel()
         self.combo_instrument_comboBox.setToolTip('Applies the selected instrument to all rows')
 
         # ComboBox for setting LabFacility
         self.combo_lab_facility_comboBox = CheckableComboBox()
-        self.combo_lab_facility = CheckableSqlTableModel()
         self.combo_lab_facility_comboBox.setToolTip('Applies the selected lab facility to all rows')
 
         # ComboBox for setting UPbAnalysisMethod
         self.combo_upb_analysis_method_comboBox = CheckableTreeCombobox()
-        self.upb_analysis_method = QSqlTableModel()
-        self.combo_upb_analysis_method = CheckableTreeModel()
         self.combo_upb_analysis_method_comboBox.setToolTip('Applies the selected U-Pb analysis method to all rows')
 
         self.populate_comboBoxes()
@@ -741,47 +738,37 @@ class ImportWizardDialog(QWidget):
         if combo == self.combo_reference_comboBox or combo is None:
             self.combo_reference_comboBox.setFixedWidth(150)
             self.combo_reference_comboBox.set_single_click(True)
-            ref_show_cols = settings.value('reference_view_columns')
-            query_args = {'show_columns': ref_show_cols,
-                          'group_col': f'{ref_show_cols[0]}', 'order_col': f'{ref_show_cols[get_name_column('ReferenceView')]}'}
-            view_query = ViewQuery('References', False, **query_args)
-            table_query = view_query.table_query
-            self.combo_reference.setQuery(table_query)
-            while self.combo_reference.canFetchMore():
-                self.combo_reference.fetchMore()
-            self.combo_reference_comboBox.setModel(self.combo_reference)
-            self.combo_reference_comboBox.setModelColumn(get_name_column('ReferenceView'))
+            populate_combo_box(self.combo_reference_comboBox, **{'table': '"References"'})
+            self.combo_reference_comboBox.model_modifiable = True
             self.combo_reference_comboBox.closing.connect(
-                lambda: self.set_all_rows("Reference Display", self.combo_reference))
+                lambda: self.set_all_rows("Reference Display", self.combo_reference_comboBox))
             self.combo_reference_comboBox.set_line_edit_text('')
 
         if combo == self.combo_instrument_comboBox or combo is None:
             self.combo_instrument_comboBox.setFixedWidth(150)
             self.combo_instrument_comboBox.set_single_click(True)
-            self.combo_instrument = set_table(self.combo_instrument, "Instruments")
-            self.combo_instrument_comboBox.setModel(self.combo_instrument)
+            populate_combo_box(self.combo_instrument_comboBox, **{'table': 'Instruments'})
+            self.combo_instrument_comboBox.model_modifiable = True
             self.combo_instrument_comboBox.closing.connect(
-                lambda: self.set_all_rows("Instrument Name", self.combo_instrument))
+                lambda: self.set_all_rows("Instrument Name", self.combo_instrument_comboBox))
             self.combo_instrument_comboBox.set_line_edit_text('')
 
         if combo == self.combo_lab_facility_comboBox or combo is None:
             self.combo_lab_facility_comboBox.setFixedWidth(150)
             self.combo_lab_facility_comboBox.set_single_click(True)
-            self.combo_lab_facility = set_table(self.combo_lab_facility, "LabFacilities")
-            self.combo_lab_facility_comboBox.setModel(self.combo_lab_facility)
+            populate_combo_box(self.combo_lab_facility_comboBox, **{'table': 'LabFacilities'})
+            self.combo_lab_facility_comboBox.model_modifiable = True
             self.combo_lab_facility_comboBox.closing.connect(
-                lambda: self.set_all_rows("Lab Facility Name", self.combo_lab_facility))
+                lambda: self.set_all_rows("Lab Facility Name", self.combo_lab_facility_comboBox))
             self.combo_lab_facility_comboBox.set_line_edit_text('')
 
         if combo == self.combo_upb_analysis_method_comboBox or combo is None:
             self.combo_upb_analysis_method_comboBox.setFixedWidth(150)
             self.combo_upb_analysis_method_comboBox.set_single_click(True)
-            self.upb_analysis_method = set_table(self.upb_analysis_method, "UPbAnalysisMethods")
-            self.combo_upb_analysis_method.setSourceModel(self.upb_analysis_method)
-            self.combo_upb_analysis_method_comboBox.setModel(self.combo_upb_analysis_method)
-            self.combo_upb_analysis_method_comboBox.set_single_click(True)
+            populate_combo_box(self.combo_upb_analysis_method_comboBox, **{'table': 'UPbAnalysisMethods'})
+            self.combo_upb_analysis_method_comboBox.model_modifiable = True
             self.combo_upb_analysis_method_comboBox.closing.connect(
-                lambda: self.set_all_rows("UPb Analysis Method Name", self.combo_upb_analysis_method))
+                lambda: self.set_all_rows("UPb Analysis Method Name", self.combo_upb_analysis_method_comboBox))
             self.combo_upb_analysis_method_comboBox.set_line_edit_text('')
 
     def deactivate_widgets(self):
@@ -1024,7 +1011,7 @@ class ImportWizardDialog(QWidget):
             self.btn_import.setDisabled(True)
             return False
 
-        if upb_data:
+        if upb_data and self.upb_sheet_name and self.upb_sheet_name in self.right_tables:
             if not self.validate_ids():
                 self.btn_import.setDisabled(True)
                 return False
@@ -1064,7 +1051,8 @@ class ImportWizardDialog(QWidget):
         Validate UPb Analysis Name, Sample Name, Aliquot Name, (Grain Name) and Spot Name in the left_table against the database.
         Flag rows that have matching entries in the database.
         """
-
+        if not self.upb_sheet_name or not self.upb_sheet_name in self.right_tables:
+            return True
         logger_setup.get_logger().info("Validating IDs in the left table")
 
         # Step 1: Check for empty cells in the left table
@@ -1417,8 +1405,9 @@ class ImportWizardDialog(QWidget):
 
         logger_setup.get_logger().info(f'Adding column {column_index} for field {field}')
 
-        if self.sender() in [self.combo_reference_comboBox, self.combo_instrument_comboBox,
-                             self.combo_lab_facility_comboBox, self.combo_upb_analysis_method_comboBox]:
+        if (self.sender() in [self.combo_reference_comboBox, self.combo_instrument_comboBox,
+                             self.combo_lab_facility_comboBox, self.combo_upb_analysis_method_comboBox]
+                and self.upb_sheet_name and self.upb_sheet_name in self.right_tables):
             # Set the current sheet to the U-Pb data sheet
             self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[self.upb_sheet_name]))
 
@@ -1643,14 +1632,15 @@ class ImportWizardDialog(QWidget):
         Handle cell value changes in the left table.
         """
 
+        if not self.upb_sheet_name or self.upb_sheet_name not in self.right_tables:
+            return
+
         # Get the current value of the cell
         item = self.left_table.item(row, column)
         if item:
             current_value = self.left_table.item(row, column).text().strip()
         else:
             current_value = None
-        # if self.left_table.item(row + 1, column) is None:
-        #     return
 
         header_name = self.left_table.horizontalHeaderItem(column).text().strip()
         # headers for U-Pb data in right table
@@ -1704,7 +1694,7 @@ class ImportWizardDialog(QWidget):
             #     self.flash_fill_downward(target_table, row, column, current_value)
 
     def handle_right_cell_change(self, index):
-        if self.upb_sheet_name and self.sender() == self.right_tables[self.upb_sheet_name].model():
+        if self.upb_sheet_name and self.upb_sheet_name in self.right_tables and self.sender() == self.right_tables[self.upb_sheet_name].model():
             right_table = self.right_tables[self.upb_sheet_name]
             # Get the current value of the cell
             current_value = str(right_table.model().data(index, Qt.ItemDataRole.DisplayRole)).strip()
@@ -2037,24 +2027,32 @@ class ImportWizardDialog(QWidget):
         Make the left table have the same row count as the right table
         and add editable cells for Sample ID, Aliquot ID, Spot ID.
         """
-        self.left_table.blockSignals(True)
-        right_table = self.right_tables[self.upb_sheet_name]
-        row_count = right_table.model().rowCount()
-        self.left_table.setRowCount(row_count)
-        if not self.sheet_mappings[self.upb_sheet_name]:
-            self.left_table.setColumnCount(4)
-            self.left_table.setHorizontalHeaderLabels(["Sample Name", "Aliquot Name", "Spot Name", "UPb Analysis Name"])
-            self.left_table.blockSignals(False)
+        if self.upb_sheet_name in self.right_tables:
+            self.left_table.blockSignals(True)
+            right_table = self.right_tables[self.upb_sheet_name]
+            row_count = right_table.model().rowCount()
+            self.left_table.setRowCount(row_count)
+            if not self.sheet_mappings[self.upb_sheet_name]:
+                self.left_table.setColumnCount(4)
+                self.left_table.setHorizontalHeaderLabels(["Sample Name", "Aliquot Name", "Spot Name", "UPb Analysis Name"])
+                self.left_table.blockSignals(False)
+            self.left_table.resizeColumnsToContents()
 
-        self.left_table.resizeColumnsToContents()
-
-    def set_all_rows(self, field, model):
+    def set_all_rows(self, field, combobox):
         """
         Set all rows in the specified column to the given value.
         Args:
             field (str): The field name (e.g., 'Reference', 'Instrument').
-            model (checkable model): The model to retrieve checks from.
+            combobox (checkable combobox): The combobox to retrieve checks from.
         """
+        model = combobox.model()
+        if isinstance(model, TreeSortFilterProxyModel):
+            model = find_tree_model(model, [])[0]
+        elif isinstance(model, QSortFilterProxyModel):
+            model = model.sourceModel()
+        if not isinstance(model, CheckableSqlTableModel | CheckableSqlQueryModel | CheckableSQLiteTableModel | CheckableTreeModel):
+            logger_setup.get_logger().debug(f"No valid model found for {field}.")
+            return
         if field == "Reference Display":
             id_name = "ReferenceID"
         elif field == "Instrument Name":
@@ -2088,11 +2086,9 @@ class ImportWizardDialog(QWidget):
             logger_setup.get_logger().info(f"Checked item: {checked_item_name}, ID: {checked_item_id}")
         else:
             # Get the checked item from the tree
-            checked_indices, partially_checked_indices = model.traverse_checkable_tree(
-                QtCore.QModelIndex())
             if model.checked_ids:
-                checked_item_name = checked_indices[0].data(QtCore.Qt.ItemDataRole.DisplayRole)
                 checked_item_id = list(model.checked_ids)[0]
+                checked_item_name = get_name_from_id(model.tableName(), checked_item_id)
 
         id_column = self.get_column_index(id_name)  # Column with ID header in the right table
         name_col = self.get_column_index(field)  # Column with name header in the right table
@@ -2103,6 +2099,9 @@ class ImportWizardDialog(QWidget):
             self.remove_selected_columns([id_column, name_col])
             self.hidden_mappings.pop(id_column, None)
             close_loading_dialog('Removing Column', f'Removing column {field}...')
+            return
+        elif (checked_item_id is None or checked_item_name is None) and not (id_column or name_col):
+            # No item selected and no existing column
             return
         elif self.get_column_index(field) is None:
             self.add_column(field=field)
@@ -2341,6 +2340,8 @@ class ImportWizardDialog(QWidget):
             logger_setup.get_logger().info(f'Header updated: {new_field}')
 
     def update_left_table_on_header_change(self, field, logical_index, left_header=None):
+        if not self.upb_sheet_name or self.upb_sheet_name not in self.right_tables:
+            return
         sample_col = None
         aliquot_col = None
         spot_col = None
@@ -3810,7 +3811,7 @@ class ImportWizardDialog(QWidget):
         name_headers = {'Sample Name': 'Samples', 'Aliquot Name': 'Aliquots', 'Spot Name': 'Spots', 'UPb Analysis Name': 'UPbAnalyses', 'Grain Name': 'Grains'}
         count_dict = {'Samples': 0, 'Aliquots': 0, 'Grains': 0, 'Spots': 0, 'UPbAnalyses': 0}
 
-        if self.upb_sheet_name:
+        if self.upb_sheet_name and self.upb_sheet_name in self.right_tables:
             disabled_rows = self.right_tables[self.upb_sheet_name].model().rows_for_status('disabled')
             for column in range(self.left_table.columnCount()):
                 for header in left_cols:
@@ -4186,7 +4187,9 @@ class ImportWizardDialog(QWidget):
         """
 
         from Functions.Alter_database import get_columns
-
+        if not self.upb_sheet_name in self.right_tables:
+            # No U-Pb data sheet
+            return True
         self.sample_ids = []
         sample_col = None
         aliquot_col = None

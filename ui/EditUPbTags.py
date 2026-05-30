@@ -253,7 +253,7 @@ class EditUPbTags(QtW.QDialog):
         start_update_field_time = time.time()
         if text != "-":
             if len(self.upb_analysis_ids) > 0:
-                logger_setup.get_logger().info(f"Updating {field} to {text} for {len(self.selected_sample_list)} samples and {len(self.upb_analysis_ids)} UPb Analyses")
+                logger_setup.get_logger().info(f"Updating {field} to {text} for {len(self.sample_name_list)} samples and {len(self.upb_analysis_ids)} UPb Analyses")
                 query = QtS.QSqlQuery()
                 create_savepoint('before_upb_update')
                 for upb_analysis_id in self.upb_analysis_ids:

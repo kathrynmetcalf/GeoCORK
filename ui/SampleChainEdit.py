@@ -605,18 +605,21 @@ class SampleChainEdit(QtW.QDialog):
         return True
 
     def check_updated(self):
-        self.new_sample_id = list(self.sample_comboBox.source_model().checked_ids)[0]
+        if self.sample_comboBox.source_model().checked_ids and not self.sample_lineEdit:
+            self.new_sample_id = list(self.sample_comboBox.source_model().checked_ids)[0]
+        else:
+            self.new_sample_id = None
         if self.aliquot_comboBox.model().rowCount(QtC.QModelIndex())>0:
             aliquot_tree_model = find_tree_model(self.aliquot_comboBox.model(), None)[0]
-            if aliquot_tree_model.checked_ids:
+            if aliquot_tree_model.checked_ids and not self.aliquot_lineEdit:
                 self.new_aliquot_id = list(aliquot_tree_model.checked_ids)[0]
             else:
                 self.new_aliquot_id = None
-        if self.grain_comboBox.model().rowCount()>0 and self.grain_comboBox.source_model().checked_ids:
+        if self.grain_comboBox.model().rowCount()>0 and self.grain_comboBox.source_model().checked_ids and not self.grain_lineEdit:
             self.new_grain_id = list(self.grain_comboBox.source_model().checked_ids)[0]
         else:
             self.new_grain_id = None
-        if self.spot_comboBox.model().rowCount()>0 and self.spot_comboBox.source_model().checked_ids:
+        if self.spot_comboBox.model().rowCount()>0 and self.spot_comboBox.source_model().checked_ids and not self.spot_lineEdit:
             self.new_spot_id = list(self.spot_comboBox.source_model().checked_ids)[0]
         else:
             self.new_spot_id = None
@@ -626,8 +629,9 @@ class SampleChainEdit(QtW.QDialog):
             self.updated = False
         else:
             self.updated = True
-        if ((self.aliquot_lineEdit and self.aliquot_lineEdit.text()) or
-            (self.grain_lineEdit and self.grain_lineEdit.text()) or
+        if ((self.sample_lineEdit and self.sample_lineEdit.text()) or
+                (self.aliquot_lineEdit and self.aliquot_lineEdit.text()) or
+                (self.grain_lineEdit and self.grain_lineEdit.text()) or
                 (self.spot_lineEdit and self.spot_lineEdit.text())):
             self.updated = True
 

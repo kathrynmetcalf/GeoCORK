@@ -2983,17 +2983,9 @@ def delete_data(table: str, data_ids: list, enable_message=True):
             aliquot_model = QtS.QSqlQueryModel()
             aliquot_model.setQuery(query)
             aliquot_tree = TreeModel(aliquot_model)
-            def delete_aliquot(parent_index: QtC.QModelIndex):
-                for row in range(aliquot_tree.rowCount(parent_index)):
-                    delete_aliquot(aliquot_tree.index(row, 0, parent_index))
-                    child_id = aliquot_tree.index(row, 0, parent_index).data(QtC.Qt.ItemDataRole.DisplayRole)
-                    if child_id in delete_aliquot_ids:
-                        parent_id = aliquot_tree.index(row, 1, parent_index).data(QtC.Qt.ItemDataRole.DisplayRole)
-                        parent_row = aliquot_tree.index(row, 2, parent_index).data(QtC.Qt.ItemDataRole.DisplayRole)
-                        if not aliquot_tree.removeItem(child_id, parent_row, parent_id):
-                            close_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
-                            return False
-            delete_aliquot(QtC.QModelIndex())
+            if not aliquot_tree.removeItems(delete_aliquot_ids)[0]:
+                close_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
+                return False
             logger_setup.get_logger().info(f'Deleted {len(delete_aliquot_ids)} Aliquots')
         if delete_sample_ids:
             if not delete_query('Samples', delete_sample_ids)[0]:
@@ -4345,61 +4337,45 @@ class TreeModel(QtC.QAbstractProxyModel):
         logger_setup.get_logger().info(f'Successfully inserted new item {item_name} in {time.time() - start_time} seconds')
         return True
 
-    def removeItem(self, item_id: int, parent_row: int, parent_id=None):
+    def removeItems(self, del_ids: list[int]) -> bool:
         """
-        Remove an item and all its children from the database and the tree model. The item is first deleted from the
+        Removes each item and all its children from the database and the tree model. The item is first deleted from the
         database, then the tree model is updated to reflect the changes. If the item has children, their parent rows are
         updated to close the gap left by the deleted item.
-        :param item_id: unique ID of the item to remove
-        :param parent_row: row number of the parent item in the parent's list of children
-        :param parent_id: unique ID of the parent item, or None if the item has no parent
+        :param del_ids: list of unique IDs of the items to remove
         :return: True if the item was successfully removed or already removed, False if there was an error deleting the
         item or updating the tree model.
         """
         # Remove an item and all children from the database
-        del_ids = [item_id]
         if len(del_ids) == 0:
-            logger_setup.get_logger().info(f'Item was already deleted')
-            logger_setup.get_logger().debug(f'Item ID: {item_id}')
+            logger_setup.get_logger().info(f'No items to delete')
             return True
         start_time = time.time()
         show_loading_dialog('Removing', f'Removing item from {self.table}')
         logger_setup.get_logger().info(f'Removing item from {self.table}')
         # Check if the ids have already been deleted
         query = QtS.QSqlQuery()
-        if not query.exec(f"SELECT {self.id_header} FROM {self.table} WHERE {self.id_header} IN ({', '.join(map(str, del_ids))})"):
+        if not query.exec(f"SELECT {self.id_header}, {self.parent_id_header}, {self.parent_row_header} FROM {self.table} WHERE {self.id_header} IN ({', '.join(map(str, del_ids))})"):
             logger_setup.get_logger().critical(f'Error checking for existing items in {self.table} before deletion')
             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
             logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
             close_loading_dialog('Removing', f'Removing item from {self.table}')
             return False
-        existing_ids = set()
+        existing_data = {}
         while query.next():
-            existing_ids.add(query.value(0))
-        if existing_ids:
-            if not delete_data(self.table, del_ids):
-                close_loading_dialog('Removing', f'Removing item from {self.table}')
-                return False
-            logger_setup.get_logger().info(f'Successfully deleted items from {self.table}')
-            if isinstance(self.source_model, SQLiteTableModel) and self.view_query:
-                for del_id in del_ids:
-                    del_item = self.find_id_in_tree(del_id)
-                    if del_item:
-                        parent_item = del_item.parent()
-                        if parent_item:
-                            parent_item.removeChild(del_item)
-        if parent_id:
-            p_id = f'= {parent_id}'
-        else:
-            p_id = 'IS NULL'
-            parent_id = 'NULL'
-        filtered_model = QtS.QSqlQueryModel()
-        filtered_model.setQuery(
-            f"SELECT * FROM {self.table} WHERE {self.parent_id_header} {p_id} AND {self.parent_row_header} >= {parent_row} ORDER BY {self.parent_row_header} ASC")
-        while filtered_model.canFetchMore():
-            filtered_model.fetchMore()
-        childCount = filtered_model.rowCount()
-        if childCount > 0:
+            existing_data[query.value(0)] = {'parent_id': query.value(1), 'parent_row': query.value(2)}
+        if not existing_data:
+            logger_setup.get_logger().info(f'No items to delete')
+            return True
+        if not delete_data(self.table, del_ids):
+            close_loading_dialog('Removing', f'Removing item from {self.table}')
+            return False
+        logger_setup.get_logger().info(f'Successfully deleted items from {self.table}')
+        for del_id, parent_data in existing_data.items():
+            parent_id = parent_data['parent_id']
+            parent_row = parent_data['parent_row']
+            if not parent_id:
+                parent_id = 'NULL'
             # If the parent already has children at rows beyond the deleted one, update their parent rows to close the gap
             if not bulk_update_parent_row(self.table, parent_id, 1, None, parent_row)[0]:
                 logger_setup.get_logger().critical(f'Error removing {self.table}')
@@ -4410,7 +4386,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         release_savepoint('before_delete')
         close_loading_dialog('Removing', f'Removing item from {self.table}')
         logger_setup.get_logger().info(
-            f'Successfully deleted item {item_id} and {len(del_ids) - 1} dependents from {self.table} in {time.time() - start_time} seconds...')
+            f'Successfully deleted {len(del_ids)} {self.table} in {time.time() - start_time} seconds...')
         self.dataEdited.emit()
         return True
 
@@ -6392,11 +6368,8 @@ class CheckableComboBox(QtW.QComboBox):
             self.table = None
             self.name_col = None
             return
-        if isinstance(model, CheckableSqlQueryModel):
-            if 'Limited' in model.query_text:
-                self.name_col = get_name_column(get_view_from_table(self.table))
-            else:
-                self.name_col = get_name_column(self.table)
+        if isinstance(model, CheckableSqlQueryModel | CheckableSQLiteTableModel):
+            self.name_col = get_name_column(get_view_from_table(self.table))
         else:
             self.name_col = get_name_column(self.table)
         if self.name_col:
@@ -7233,16 +7206,16 @@ class TreeCombobox(QtW.QComboBox):
                     self.view().expand_all_checked()
             else:
                 restore_expanded_state(tree_model.table, self.treeView)
-        super().showPopup()
         self.treeView.resizeColumnToContents(0)
         # print(self.treeView.sizeHintForColumn(0))
         if self.treeView.width() < self.treeView.sizeHintForColumn(0):
             self.treeView.setFixedWidth(self.treeView.sizeHintForColumn(0))
         if self.treeView.height() < self.treeView.sizeHint().height():
             self.treeView.setFixedHeight(self.treeView.sizeHint().height())
+        close_loading_dialog('Loading', f'Loading {tree_model.sourceModel().rowCount()} items...')
+        super().showPopup()
         # logger_setup.get_logger().debug(f'Popup showed: {self.treeView.isVisible()}')
         self.popup_shown = True
-        close_loading_dialog('Loading', f'Loading {tree_model.sourceModel().rowCount()} items...')
 
     def hidePopup(self):
         """
@@ -7497,6 +7470,7 @@ class CheckableTreeCombobox(TreeCombobox):
         :return:
         """
         show_loading_dialog('Loading', f'Loading {self.tree_model.sourceModel().rowCount()} items...')
+        logger_setup.get_logger().info(f'Showing popup for checkable tree combo box with {self.tree_model.sourceModel().rowCount()} items')
         super().showPopup()
         if not self.clicked:
             # If the user has not clicked on an item yet, expand all checked items. After the first click, the

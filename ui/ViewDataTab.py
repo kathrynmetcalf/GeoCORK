@@ -246,11 +246,11 @@ class ViewDataTab(QtW.QWidget):
                 # Connect resizing events
                 self.view.horizontalHeader().sectionResized.connect(self.optimizeVerticalResize)
                 self.view.verticalHeader().sectionResized.connect(self.optimizeVerticalResize)
+                self.view.frozen_table_view.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
+                self.view.frozen_table_view.customContextMenuRequested.connect(self.show_context_menu)
 
             self.view.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
-            self.view.frozen_table_view.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
             self.view.customContextMenuRequested.connect(self.show_context_menu)
-            self.view.frozen_table_view.customContextMenuRequested.connect(self.show_context_menu)
             self.v_layout.addWidget(self.view)
         self.view.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
         if self.child_type == 'Aliquots' and self.parent_type == 'Samples':

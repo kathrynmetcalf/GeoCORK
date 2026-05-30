@@ -501,11 +501,15 @@ class EditTreeView(QtW.QDialog):
                         item_ids.append(item_id)
                 current_parents = {}
                 current_row = tree_index.row()
-                if 'SampleName' in self.show_cols:
+                if 'SampleID' in self.show_cols and self.table != 'Samples':
+                    sample_id_col = self.show_cols.index('SampleID')
+                    current_sample_id = self.proxy_model.index(current_row, sample_id_col).data(QtC.Qt.ItemDataRole.DisplayRole)
+                    current_sample_name = get_name_from_id('Samples', current_sample_id)
                     sample_name_col = self.show_cols.index('SampleName')
-                    current_sample = self.proxy_model.index(current_row, sample_name_col, tree_index.parent()).data(
-                        QtC.Qt.ItemDataRole.DisplayRole)
-                    current_parents['SampleName'] = current_sample
+                    if 'Samples' not in current_parents:
+                        current_parents['Samples'] = []
+                    if current_sample_id not in current_parents['Samples']:
+                        current_parents['Samples'].append(current_sample_id)
                     save_expanded_state(self.table, self.edit_treeView)
                     dlg = SampleChainEdit(self, self.table, current_parents, item_ids)
                     dlg.exec()
@@ -516,7 +520,7 @@ class EditTreeView(QtW.QDialog):
                         for proxy_index in self.edit_treeView.selectedIndexes():
                             sample_index = proxy_index.sibling(proxy_index.row(), sample_name_col)
                             sample_tree_index = self.proxy_model.mapToSource(sample_index)
-                            if current_sample != sample_name:
+                            if current_sample_name != sample_name:
                                 self.tree_model.setData(sample_tree_index, sample_name, QtC.Qt.ItemDataRole.EditRole)
             return
         header = header.replace(' ', '')

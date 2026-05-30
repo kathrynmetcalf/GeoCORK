@@ -673,6 +673,7 @@ class GPSFields(QtW.QWidget):
         gps_format_id = gps_values[format_index]
         delete_gps = True
         qgps_columns = ', '.join(gps_columns)
+        qgps_placeholders = ', '.join(f':{col}' for col in gps_columns)
         qgps_values = ', '.join(str(v) for v in gps_values)
 
         for value in gps_values[0:13]:
@@ -733,7 +734,18 @@ class GPSFields(QtW.QWidget):
                 self.lost_group_box.setFocus()
                 return False
 
-            if not query.exec(f'''INSERT INTO GPSLocations ({qgps_columns}) VALUES ({qgps_values})'''):
+            if not query.prepare(f'''INSERT INTO GPSLocations ({qgps_columns}) VALUES ({qgps_placeholders})'''):
+                logger_setup.get_logger().critical(f"Error inserting GPS location")
+                logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+                logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                rollback_savepoint('before_update')
+                return False
+            for i in range(len(gps_values)):
+                if gps_values[i] in ('', 'NULL', None):
+                    query.bindValue(f":{gps_columns[i]}", QtC.QVariant())
+                else:
+                    query.bindValue(f":{gps_columns[i]}", gps_values[i])
+            if not query.exec():
                 logger_setup.get_logger().critical(f"Error inserting GPS location")
                 logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
                 logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")

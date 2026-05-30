@@ -263,54 +263,6 @@ CREATE_ERROR_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS ErrorFormatConver
                         ON DELETE CASCADE
                     )'''
 
-CREATE_GRAINS_TABLE = '''CREATE TABLE IF NOT EXISTS Grains(
-                    GrainID INTEGER PRIMARY KEY,
-                    GrainName TEXT NOT NULL CHECK (GrainName <> ''),
-                    GrainCompositionID INTEGER,
-                    GrainDescription TEXT,
-                    GrainCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    GrainModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (GrainName COLLATE NOCASE),
-                    FOREIGN KEY(GrainCompositionID) REFERENCES GrainCompositions(GrainCompositionID)
-                        ON UPDATE CASCADE 
-                        ON DELETE SET NULL
-)'''
-
-CREATE_GRAIN_CONTEXTS_TABLE = '''CREATE TABLE IF NOT EXISTS GrainContexts(
-                    GrainContextID INTEGER PRIMARY KEY,
-                    ParentGrainContextID INTEGER,
-                    GrainContextParentRow INTEGER NOT NULL,
-                    GrainContextName TEXT NOT NULL CHECK (GrainContextName <> ''),
-                    GrainContextDescription TEXT,
-                    GrainContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    GrainContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (GrainContextName COLLATE NOCASE),
-                    UNIQUE (ParentGrainContextID, GrainContextParentRow)
-)'''
-
-CREATE_GRAINS_GRAINCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Grains_GrainContexts(
-                    GrainID INTEGER NOT NULL,
-                    GrainContextID INTEGER NOT NULL,
-                    Grains_GrainContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    Grains_GrainContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (GrainID, GrainContextID),
-                    FOREIGN KEY(GrainID) REFERENCES Grains(GrainID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE,
-                    FOREIGN KEY(GrainContextID) REFERENCES GrainContexts(GrainContextID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE
-                    )'''
-
-CREATE_GRAIN_COMPOSITION_TABLE = '''CREATE TABLE IF NOT EXISTS GrainCompositions(
-                    GrainCompositionID INTEGER PRIMARY KEY,
-                    GrainCompositionName TEXT NOT NULL CHECK (GrainCompositionName <> ''),
-                    GrainCompositionDescription TEXT,
-                    GrainCompositionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    GrainCompositionModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (GrainCompositionName COLLATE NOCASE)
-)'''
-
 CREATE_GPS_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS GPSFormatConversions(
                     FromGPSFormatID INTEGER NOT NULL CHECK(FromGPSFormatID <> ''),
                     ToGPSFormatID INTEGER NOT NULL CHECK(ToGPSFormatID <> ''),
@@ -379,6 +331,54 @@ CREATE_GPS_LOCATIONS_TABLE = '''CREATE TABLE IF NOT EXISTS GPSLocations(
                     FOREIGN KEY(GPSElevUnitID) REFERENCES DistanceUnits(DistanceUnitID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL
+)'''
+
+CREATE_GRAINS_TABLE = '''CREATE TABLE IF NOT EXISTS Grains(
+                    GrainID INTEGER PRIMARY KEY,
+                    GrainName TEXT NOT NULL CHECK (GrainName <> ''),
+                    GrainCompositionID INTEGER,
+                    GrainDescription TEXT,
+                    GrainCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GrainModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (GrainName COLLATE NOCASE),
+                    FOREIGN KEY(GrainCompositionID) REFERENCES GrainCompositions(GrainCompositionID)
+                        ON UPDATE CASCADE 
+                        ON DELETE SET NULL
+)'''
+
+CREATE_GRAIN_CONTEXTS_TABLE = '''CREATE TABLE IF NOT EXISTS GrainContexts(
+                    GrainContextID INTEGER PRIMARY KEY,
+                    ParentGrainContextID INTEGER,
+                    GrainContextParentRow INTEGER NOT NULL,
+                    GrainContextName TEXT NOT NULL CHECK (GrainContextName <> ''),
+                    GrainContextDescription TEXT,
+                    GrainContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GrainContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (GrainContextName COLLATE NOCASE),
+                    UNIQUE (ParentGrainContextID, GrainContextParentRow)
+)'''
+
+CREATE_GRAINS_GRAINCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Grains_GrainContexts(
+                    GrainID INTEGER NOT NULL,
+                    GrainContextID INTEGER NOT NULL,
+                    Grains_GrainContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    Grains_GrainContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (GrainID, GrainContextID),
+                    FOREIGN KEY(GrainID) REFERENCES Grains(GrainID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(GrainContextID) REFERENCES GrainContexts(GrainContextID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
+CREATE_GRAIN_COMPOSITION_TABLE = '''CREATE TABLE IF NOT EXISTS GrainCompositions(
+                    GrainCompositionID INTEGER PRIMARY KEY,
+                    GrainCompositionName TEXT NOT NULL CHECK (GrainCompositionName <> ''),
+                    GrainCompositionDescription TEXT,
+                    GrainCompositionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GrainCompositionModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (GrainCompositionName COLLATE NOCASE)
 )'''
 
 CREATE_FILTER_GROUPS_TABLE = '''CREATE TABLE IF NOT EXISTS FilterGroups(
