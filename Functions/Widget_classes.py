@@ -7742,6 +7742,8 @@ class FrozenTableView(QtW.QTableView):
         self.frozen_table_view.verticalHeader().hide()
         self.frozen_table_view.horizontalHeader().setSectionResizeMode(QtW.QHeaderView.ResizeMode.Fixed)
         self.frozen_column = 1
+        # Guard to prevent handling the same header click twice
+        self._sorting_in_progress = False
 
         self.viewport().stackUnder(self.frozen_table_view)
 
@@ -7806,6 +7808,11 @@ class FrozenTableView(QtW.QTableView):
         except Exception:
             pass
         try:
+            # Ensure we don't connect the same slot multiple times
+            try:
+                self.frozen_table_view.horizontalHeader().sectionClicked.disconnect(self._on_frozen_header_clicked)
+            except Exception:
+                pass
             self.frozen_table_view.horizontalHeader().sectionClicked.connect(self._on_frozen_header_clicked)
         except Exception:
             pass
@@ -7833,6 +7840,8 @@ class FrozenTableView(QtW.QTableView):
     def _on_frozen_header_clicked(self, logicalIndex):
         if not self.isSortingEnabled():
             return
+        if getattr(self, '_sorting_in_progress', False):
+            return
         main_header = self.horizontalHeader()
         frozen_header = self.frozen_table_view.horizontalHeader()
 
@@ -7842,9 +7851,11 @@ class FrozenTableView(QtW.QTableView):
             sort_order = QtC.Qt.SortOrder.DescendingOrder if current_order == QtC.Qt.SortOrder.AscendingOrder else QtC.Qt.SortOrder.AscendingOrder
         else:
             sort_order = QtC.Qt.SortOrder.AscendingOrder
-
-        # Sort the model which is attached to both views
-        self.sortByColumn(logicalIndex, sort_order)
+        self._sorting_in_progress = True
+        try:
+            self.sortByColumn(logicalIndex, sort_order)
+        finally:
+            self._sorting_in_progress = False
 
         try:
             main_header.setSortIndicator(logicalIndex, sort_order)
