@@ -1976,6 +1976,15 @@ def update_schema(version: str, database: QtS.QSqlDatabase = None) -> str:
             return backup_file
         version = 'v1.0.4'
 
+    if version == 'v1.0.4':
+        # No database schema updates
+        if not query.exec(f'UPDATE About SET Version = "v1.0.5" WHERE AboutID = 1'):
+            logger_setup.get_logger().critical(f'Error updating version in About table')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            return backup_file
+        version = 'v1.0.5'
+
     return 'True'
 
 def update_schema_v101(database: QtS.QSqlDatabase = None) -> bool:

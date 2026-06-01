@@ -72,7 +72,7 @@ def default_settings():
     """
     # set the default settings values
     # Unit and Format settings
-    default_dict = {'default_geocork_version': 'v1.0.4',
+    default_dict = {'default_geocork_version': 'v1.0.5',
                     'default_age_unit_id': 2,
                     'default_age_unit_abbreviation': 'Ma',
                     'default_elevation_unit_id': 2,
@@ -110,47 +110,6 @@ def default_settings():
             settings.setValue(custom_key, default_value)
         if not settings.contains(custom_key):
             settings.setValue(custom_key, default_value)
-    # settings.setValue('default_age_unit_id', 2)  # Ma
-    # settings.setValue('default_age_unit_abbreviation', 'Ma')
-    # settings.setValue('default_elevation_unit_id', 2)  # m
-    # settings.setValue('default_elevation_unit_abbreviation', 'm')
-    # settings.setValue('default_gps_format_id', 1)  # DD +/-
-    # settings.setValue('default_gps_format_abbreviation', 'DD +/-')
-    # settings.setValue('default_heightdepth_unit_id', 2)  # m
-    # settings.setValue('default_heightdepth_unit_abbreviation', 'm')
-    # settings.setValue('default_spotsize_unit_id', 5)  # µm
-    # settings.setValue('default_spotsize_unit_abbreviation', 'µm')
-    # settings.setValue('default_age_error_format_id', 1)  # 1 sigma abs
-    # settings.setValue('default_age_error_format_abbreviation', '1σ abs')
-    # settings.setValue('default_ratio_error_format_id', 3)  # 1 sigma %
-    # settings.setValue('default_ratio_error_format_abbreviation', '1σ %')
-    # settings.setValue('default_concordance_format_id', 2)  # Con%
-    # settings.setValue('default_concordance_format_abbreviation', 'Con%')
-    # # Reference format settings, sets to "Authors, Year, Source"
-    # settings.setValue('default_reference_format',
-    #                   '''(ifnull(Authors, "") || ", " || ifnull(Year, "") || ", " || ifnull(Source, ""))''')
-    # settings.setValue('default_round_values', 'false')
-    # settings.setValue('default_decimals_to_show', 4)
-    # settings.setValue('default_geocork_version', 'v1.0.4')
-    # settings.setValue('db_file', '')
-    #
-    # settings.setValue('default_checkable_combobox_height_scalar', 1.0)
-    # settings.setValue('default_checkable_combobox_width_scalar', 1.0)
-    #
-    # settings.setValue('default_debug_level', 'INFO')
-    # settings.setValue('default_show_per_page', 100)
-    #
-    # settings.setValue('default_autofill_best_age', 'true')
-    # settings.setValue('default_young_fill_best_age', '"206Pb/238UAge"')
-    # settings.setValue('default_old_fill_best_age', '"207Pb/206PbAge"')
-    # settings.setValue('default_best_age_cutoff', 1000)
-
-    # settings.setValue('default_lazy_loading_enabled', 'true')
-    # settings.setValue('default_loading_batch_size', 1000)
-
-    # settings.setValue('default_display_tooltips', True)
-    #
-    # settings.setValue('default_show_items_missing_data', 'true')
 
     default_sample_view_columns = []
     sample_view_columns = SQLUtils.view_attributes_dict['SampleView']
