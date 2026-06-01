@@ -69,6 +69,7 @@ class TooltipFilter(QObject):
 
     def eventFilter(self, obj, event):
         # Tooltip triggered by moving/hovering (QHelpEvent)
+        # logger_setup.get_logger().debug(f'object: {obj.objectName()}, {obj}\nevent: {event}')
         if event.type() == QEvent.Type.ToolTip:
             allow = self.settings.value("display_tooltips", True, bool)
             if not allow:
@@ -6480,7 +6481,7 @@ class CheckableComboBox(QtW.QComboBox):
         elif action == clear_all_action:
             self.clear_all_checks()
         elif action == select_all_action:
-            self.select_all()
+            self.check_all()
         elif action == delete_action:
             self.delete_triggered.emit(self)
         event.accept()

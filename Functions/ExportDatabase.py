@@ -168,37 +168,6 @@ def insert_rows(database: QSqlDatabase, table_name: str, rows: list[tuple], inse
                 logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
                 return False
-    # This should now be handled in Alter_database when opening the database
-    # # If a tree, close the gaps in parent rows (e.g. ParentRow = 1,2,5,6 -> update to 1,2,3,4)
-    # if any("ParentRow" in col for col in insert_cols):
-    #     # for each ParentID, update the ParentRow to be the row number of that parent in the new table
-    #     item_id_header = insert_cols[0]
-    #     parent_id_header = insert_cols[1]
-    #     parent_row_header = insert_cols[2]
-    #     select_parent_ids = f"SELECT DISTINCT {parent_id_header} FROM '{table_name}'"
-    #     parent_ids = fetchall(select_parent_ids, database)
-    #     for parent_id_tuple in parent_ids:
-    #         parent_id = parent_id_tuple[0]
-    #         if not parent_id:
-    #             select_rows = f"SELECT {item_id_header}, {parent_row_header} FROM '{table_name}' WHERE {parent_id_header} IS NULL ORDER BY {parent_row_header}"
-    #             params = None
-    #         else:
-    #             select_rows = f"SELECT {item_id_header}, {parent_row_header} FROM '{table_name}' WHERE {parent_id_header} = ? ORDER BY {parent_row_header}"
-    #             params = (parent_id,)
-    #         child_rows = fetchall(select_rows, database, params)
-    #         for new_row, child_row in enumerate(child_rows):
-    #             if new_row == child_row[1]:
-    #                 continue  # No update needed if the new row number is the same as the current row number
-    #             update_row = f"UPDATE '{table_name}' SET {parent_row_header} = ? WHERE {item_id_header} = ?"
-    #             query.prepare(update_row)
-    #             query.bindValue(0, new_row)
-    #             query.bindValue(1, child_row[0])
-    #             if not query.exec():
-    #                 logger_setup.get_logger().critical(f'Error adding {table_name}')
-    #                 logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-    #                 logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-    #                 logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
-    #                 return False
     return True
 
 def copy_schema(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> bool:
@@ -309,21 +278,22 @@ def find_bridge_tables(table: str, database: QSqlDatabase=QSqlDatabase()) -> Lis
         # PRAGMA result shape: (id, seq, table, from_col, to_col, on_update, on_delete, match)
 
         # We want exactly 2 foreign keys, one referencing table
-        if any(fk[2].replace('_old', '') == table.replace('_old', '') for fk in fk_list):
-            ref_data = []
-            for fk in fk_list:
-                ref_data.append({
-                    "parent_table": fk[2].replace('_old', ''),  # the table referenced
-                    "child_col":    fk[3],  # column in this table
-                    "parent_col":   fk[4],  # column in parent_table
-                })
+        # if any(fk[2].replace('_old', '') == table.replace('_old', '') for fk in fk_list):
 
-            # Check if one references table
-            if any(rd["parent_table"] == table for rd in ref_data):
-                bridge_tables_info.append({
-                    "bridge_table": table_name,
-                    "refs": ref_data
-                })
+        ref_data = []
+        for fk in fk_list:
+            ref_data.append({
+                "parent_table": fk[2].replace('_old', ''),  # the table referenced
+                "child_col":    fk[3],  # column in this table
+                "parent_col":   fk[4],  # column in parent_table
+            })
+
+        # Check if one references table
+        if any(rd["parent_table"] == table for rd in ref_data):
+            bridge_tables_info.append({
+                "bridge_table": table_name,
+                "refs": ref_data
+            })
 
     return bridge_tables_info
 
@@ -408,10 +378,10 @@ def subset_many_to_many_bridges(
         other_table_name = other_table_name.replace('_old', '')
 
         other_rows = fetchall(
-            f"""
-            SELECT {','.join([f"[{item}]" for item in insert_cols_other])} FROM {other_table_name}
+            f'''
+            SELECT {','.join([f"[{item}]" for item in insert_cols_other])} FROM "{other_table_name}"
             WHERE {other_pk_col} IN ({placeholder_2})
-            """,
+            ''',
             conn_source,
             tuple(other_ids)
         )
@@ -428,7 +398,7 @@ def subset_many_to_many_bridges(
     return True
 
 ###############################################################################
-# 3. KNOWN ONE-TO-MANY CHAIN: Samples -> Aliquots -> Spots -> UPbAnalyses
+# 3. KNOWN ONE-TO-MANY CHAIN: Samples -> Aliquots -> Spots -> UPbAnalyses, optional Spots -> Grains
 #    AND references in UPbAnalyses to other tables
 ###############################################################################
 
@@ -439,9 +409,8 @@ def subset_one_to_many_chain(
 ) -> bool:
     """
     Hardcoded logic for the known chain:
-      Samples -> Aliquots -> Spots -> UPbAnalyses.
-    Then from each UPbAnalyses row, gather foreign keys to:
-      References, Instruments, LabFacilities, UPbAnalysisMethod.
+      Samples -> Aliquots -> Spots -> UPbAnalyses, optional Spots -> Grains.
+    Then gather foreign keys for each table.
     :param conn_source: Source database.
     :param conn_target: Target database.
     :param sample_ids: Set of SampleIDs to export.
@@ -450,22 +419,35 @@ def subset_one_to_many_chain(
     if not sample_ids:
         return True
 
+    def fetch_and_insert(table_name, pk_col, pk_values):
+        if not pk_values:
+            return
+        cols_info = fetchall(f"PRAGMA table_info('{table_name}')", conn_source)
+        insert_cols_info = [c[1] for c in cols_info]
+
+        ph = ",".join(["?"] * len(pk_values))
+        results = fetchall(
+            f'SELECT {','.join([f"[{item}]" for item in insert_cols_info])} FROM "{table_name}" WHERE {pk_col} IN ({ph})',
+            conn_source,
+            tuple(pk_values)
+        )
+        if results:
+            if not insert_rows(conn_target, table_name, results, insert_cols_info):
+                return False
+
+    placeholder = ",".join(["?"] * len(sample_ids))
+
     # -------------------------------------------------------------------------
     # A) Aliquots referencing Samples
     # -------------------------------------------------------------------------
     col_info_aliq = fetchall("PRAGMA table_info('Aliquots')", conn_source)
     insert_cols_info_aliq = [c[1] for c in col_info_aliq]
 
-    placeholder = ",".join(["?"] * len(sample_ids))
     aliq_rows = fetchall(
         f"SELECT {','.join([f"[{item}]" for item in insert_cols_info_aliq])} FROM Aliquots WHERE SampleID IN ({placeholder})",
         conn_source,
         tuple(sample_ids)
     )
-
-    if aliq_rows:
-        if not insert_rows(conn_target, 'Aliquots', aliq_rows, insert_cols_info_aliq):
-            return False
 
     # Collect AliquotIDs
     aliquot_id_idx = insert_cols_info_aliq.index("AliquotID") if "AliquotID" in insert_cols_info_aliq else None
@@ -473,6 +455,29 @@ def subset_one_to_many_chain(
 
     if aliq_rows and aliquot_id_idx is not None:
         aliquot_ids = {row[aliquot_id_idx] for row in aliq_rows}
+        if not subset_foreign_keys(conn_source, conn_target, 'Aliquots', aliquot_ids):
+            return False
+        if not insert_rows(conn_target, 'Aliquots', aliq_rows, insert_cols_info_aliq):
+            return False
+        show_loading_dialog('Exporting', 'Finding and importing related Aliquot data...')
+        bridges_info = find_bridge_tables(f"Aliquots", conn_source)
+        if bridges_info:
+            orig_bridges_info = bridges_info.copy()
+            for bridge in orig_bridges_info:
+                if bridge['bridge_table'] in ['Spots', 'Grains', 'UPbAnalyses']:
+                    # These tables will be handled below, so remove this bridge from bridges_info
+                    bridges_info.remove(bridge)
+            logger_setup.get_logger().info(f"Many-to-many bridge tables found referencing 'Aliquots'.")
+            if not subset_many_to_many_bridges(
+                    conn_source,
+                    conn_target,
+                    export_ids=aliquot_ids,
+                    bridges_info=bridges_info,
+                    edit_table_name=f"Aliquots"
+            ):
+                close_loading_dialog('Exporting', 'Finding and importing related Aliquot data...')
+                return False
+        close_loading_dialog('Exporting', 'Finding and importing related Aliquot data...')
 
     # -------------------------------------------------------------------------
     # B) Spots referencing Aliquots
@@ -488,107 +493,169 @@ def subset_one_to_many_chain(
             conn_source,
             tuple(aliquot_ids)
         )
-        if spot_rows:
-            if not insert_rows(conn_target, "Spots", spot_rows, insert_cols_info_spots):
-                return False
+
 
         # Collect SpotIDs
         spot_id_idx = insert_cols_info_spots.index("SpotID") if "SpotID" in insert_cols_info_spots else None
-        if spot_id_idx is not None:
+        if spot_rows and spot_id_idx is not None:
             spot_ids = {row[spot_id_idx] for row in spot_rows}
+            if not subset_foreign_keys(conn_source, conn_target, 'Spots', spot_ids):
+                return False
+            if not insert_rows(conn_target, "Spots", spot_rows, insert_cols_info_spots):
+                return False
+            show_loading_dialog('Exporting', 'Finding and importing related Spot data...')
+            bridges_info = find_bridge_tables(f"Spots", conn_source)
+            if bridges_info:
+                orig_bridges_info = bridges_info.copy()
+                for bridge in orig_bridges_info:
+                    if bridge['bridge_table'] in ['Grains', 'UPbAnalyses']:
+                        # These tables will be handled below, so remove this bridge from bridges_info
+                        bridges_info.remove(bridge)
+                logger_setup.get_logger().info(f"Many-to-many bridge tables found referencing 'Spots'.")
+                if not subset_many_to_many_bridges(
+                        conn_source,
+                        conn_target,
+                        export_ids=spot_ids,
+                        bridges_info=bridges_info,
+                        edit_table_name=f"Spots"
+                ):
+                    close_loading_dialog('Exporting', 'Finding and importing related Spot data...')
+                    return False
+            close_loading_dialog('Exporting', 'Finding and importing related Spot data...')
 
     # -------------------------------------------------------------------------
     # C) UPbAnalyses referencing Spots
     # -------------------------------------------------------------------------
     if spot_ids:
         col_info_upb = fetchall("PRAGMA table_info('UPbAnalyses')", conn_source)
+        col_info_grains = fetchall("PRAGMA table_info('Grains')", conn_source)
         insert_cols_info_upb = [c[1] for c in col_info_upb]
+        insert_cols_info_grains = [c[1] for c in col_info_grains]
 
         placeholder = ",".join(["?"] * len(spot_ids))
-        UPbAnalyses_rows = fetchall(
+        upb_analyses_rows = fetchall(
             f"SELECT {','.join([f"[{item}]" for item in insert_cols_info_upb])} FROM UPbAnalyses WHERE SpotID IN ({placeholder})",
             conn_source,
             tuple(spot_ids)
         )
-        if UPbAnalyses_rows:
-            if not insert_rows(conn_target, "UPbAnalyses", UPbAnalyses_rows, insert_cols_info_upb):
-                return False
-
-            # Try to locate these columns
-
-            ref_idx  = insert_cols_info_upb.index("ReferenceID")
-            inst_idx = insert_cols_info_upb.index("InstrumentID")
-            labf_idx = insert_cols_info_upb.index("LabFacilityID")
-            meth_idx = insert_cols_info_upb.index("UPbAnalysisMethodID")
-
-
-            reference_ids = set()
-            instrument_ids = set()
-            labfac_ids = set()
-            method_ids = set()
-
-            for row in UPbAnalyses_rows:
-                if row[ref_idx]  is not None: reference_ids.add(row[ref_idx])
-                if row[inst_idx] is not None: instrument_ids.add(row[inst_idx])
-                if row[labf_idx] is not None: labfac_ids.add(row[labf_idx])
-                if row[meth_idx] is not None: method_ids.add(row[meth_idx])
-
-            def fetch_and_insert(table_name, pk_col, pk_values):
-                if not pk_values:
-                    return
-                cols_info = fetchall(f"PRAGMA table_info('{table_name}')", conn_source)
-                insert_cols_info = [c[1] for c in cols_info]
-
-                ph = ",".join(["?"] * len(pk_values))
-                results = fetchall(
-                    f'SELECT {','.join([f"[{item}]" for item in insert_cols_info])} FROM "{table_name}" WHERE {pk_col} IN ({ph})',
-                    conn_source,
-                    tuple(pk_values)
-                )
-                if results:
-                    if not insert_rows(conn_target, table_name, results, insert_cols_info):
-                        return False
-
-            fetch_and_insert("References", "ReferenceID", reference_ids)
-            fetch_and_insert("Instruments", "InstrumentID", instrument_ids)
-            fetch_and_insert("LabFacilities", "LabFacilityID", labfac_ids)
-            fetch_and_insert("UPbAnalysisMethods", "UPbAnalysisMethodID", method_ids)
-
-        # -------------------------------------------------------------------------
-        # D) GPSLocations referencing Samples
-        #
-        # Many schemas have a column in "Samples" like "GPSLocationID"
-        # that references "GPSLocations(GPSLocationID)".
-        # So we need to copy the matching GPSLocations rows for each Sample.
-        # -------------------------------------------------------------------------
-        # 1) Grab the GPSLocations table structure
-    col_info_gps = fetchall("PRAGMA table_info('GPSLocations')", conn_source)
-    insert_cols_info_gps = [c[1] for c in col_info_gps]
-
-    if sample_ids:  # sample_ids is a set
-        placeholder = ",".join(["?"] * len(sample_ids))
-
-        # 2) For all sample_ids in 'Samples', gather the GPSLocationIDs used
-        gps_rows = fetchall(
-            f"""
-               SELECT {','.join([f"[{col}]" for col in insert_cols_info_gps])}
-               FROM GPSLocations
-               WHERE GPSLocationID IN (
-                   SELECT SampleGPSLocationID FROM Samples
-                   WHERE SampleID IN ({placeholder})
-                   AND SampleGPSLocationID IS NOT NULL
-               )
-               """,
+        grains_rows = fetchall(
+            f"""SELECT {','.join([f"Grains.[{item}]" for item in insert_cols_info_grains])} 
+            FROM Grains 
+            INNER JOIN Spots ON Grains.GrainID = Spots.GrainID
+            WHERE SpotID IN ({placeholder})""",
             conn_source,
-            tuple(sample_ids)
+            tuple(spot_ids)
         )
 
-        if gps_rows:
-            if not insert_rows(conn_target, 'GPSLocations', gps_rows, insert_cols_info_gps):
+        # Collect UPbAnalysisIDs
+        upb_id_idx = insert_cols_info_upb.index("UPbAnalysisID") if "UPbAnalysisID" in insert_cols_info_upb else None
+        if upb_analyses_rows and upb_id_idx is not None:
+            upb_ids = {row[upb_id_idx] for row in upb_analyses_rows}
+            if not subset_foreign_keys(conn_source, conn_target, 'UPbAnalyses', upb_ids):
                 return False
+            if not insert_rows(conn_target, "UPbAnalyses", upb_analyses_rows, insert_cols_info_upb):
+                return False
+            show_loading_dialog('Exporting', 'Finding and importing related UPbAnalyses data...')
+            bridges_info = find_bridge_tables(f"UPbAnalyses", conn_source)
+            if bridges_info:
+                logger_setup.get_logger().info(f"Many-to-many bridge tables found referencing 'UPbAnalyses'.")
+                if not subset_many_to_many_bridges(
+                        conn_source,
+                        conn_target,
+                        export_ids=upb_ids,
+                        bridges_info=bridges_info,
+                        edit_table_name=f"UPbAnalyses"
+                ):
+                    close_loading_dialog('Exporting', 'Finding and importing related UPbAnalyses data...')
+                    return False
+            close_loading_dialog('Exporting', 'Finding and importing related UPbAnalyses data...')
+
+        # Collect GrainIDs
+        grain_id_idx = insert_cols_info_grains.index("GrainID")
+        if grains_rows and grain_id_idx is not None:
+            grain_ids = {row[grain_id_idx] for row in grains_rows}
+            if not subset_foreign_keys(conn_source, conn_target, 'Grains', grain_ids):
+                return False
+            if not insert_rows(conn_target, "Grains", grains_rows, insert_cols_info_grains):
+                return False
+            show_loading_dialog('Exporting', 'Finding and importing related Grain data...')
+            bridges_info = find_bridge_tables(f"Grains", conn_source)
+            if bridges_info:
+                orig_bridges_info = bridges_info.copy()
+                for bridge in orig_bridges_info:
+                    if bridge['bridge_table'] in ['Spots', 'UPbAnalyses']:
+                        # These tables were already handled above, so remove this bridge from bridges_info
+                        bridges_info.remove(bridge)
+                logger_setup.get_logger().info(f"Many-to-many bridge tables found referencing 'Grains'.")
+                if not subset_many_to_many_bridges(
+                    conn_source,
+                    conn_target,
+                    export_ids=grain_ids,
+                    bridges_info=bridges_info,
+                    edit_table_name=f"Grains"
+                ):
+                    close_loading_dialog('Exporting', 'Finding and importing related Grain data...')
+                    return False
+            close_loading_dialog('Exporting', 'Finding and importing related Grain data...')
+
     return True
 
-###############################################################################
+def subset_foreign_keys(
+    conn_source: QSqlDatabase,
+    conn_target: QSqlDatabase,
+    table: str,
+    table_ids: Set[int]
+) -> bool:
+    """
+    Find foreign key references in the given table and import foreign IDs present for the given table IDs
+    """
+    table_col_info = fetchall(f"PRAGMA table_info('{table}')", conn_source)
+    table_id_header = table_col_info[0][1]
+    fk_list = fetchall(f"PRAGMA foreign_key_list('{table}')", conn_source)
+    # PRAGMA result shape: (id, seq, table, from_col, to_col, on_update, on_delete, match)
+
+    # We want exactly 2 foreign keys, one referencing table
+    for fk in fk_list:
+        foreign_table = fk[2]  # the table referenced
+        table_header = fk[3]  # column header in this table
+        foreign_header = fk[4]  # column header in foreign_table
+        if foreign_table in SQLUtils.static_tables:
+            continue
+        elif table == 'Samples' and foreign_table == 'SampleAges':
+            if not subset_sample_ages_m2m(conn_source, conn_target, table_ids):
+                return False
+        elif table in ['Samples', 'Aliquots', 'Grains', 'Spots', 'UPbAnalyses'] and foreign_table in ['Samples', 'Aliquots', 'Grains', 'Spots', 'UPbAnalyses']:
+            # These are handled elsewhere in the code
+            continue
+        else:
+            col_info = fetchall(f"PRAGMA table_info('{foreign_table}')", conn_source)
+            insert_cols_info = [c[1] for c in col_info]
+            placeholder = ",".join(["?"] * len(table_ids))
+
+            # 2) For all table_ids in table, gather the foreign_table IDs used
+            foreign_rows = fetchall(
+                f"""
+                           SELECT {','.join([f"[{col}]" for col in insert_cols_info])}
+                           FROM '{foreign_table}'
+                           WHERE {foreign_header} IN (
+                               SELECT {table_header} FROM {table}
+                               WHERE {table_id_header} IN ({placeholder})
+                               AND {table_header} IS NOT NULL
+                           )
+                           """,
+                conn_source,
+                tuple(table_ids)
+            )
+            if foreign_rows:
+                foreign_id_index = insert_cols_info.index(foreign_header)
+                foreign_ids = {row[foreign_id_index] for row in foreign_rows}
+                if not subset_foreign_keys(conn_source, conn_target, foreign_table, foreign_ids):
+                    return False
+                if not insert_rows(conn_target, foreign_table, foreign_rows, insert_cols_info):
+                    return False
+    return True
+
+        ###############################################################################
 # 4. DETECTING 'TREE' TABLES (HIERARCHIES)
 ###############################################################################
 
@@ -897,7 +964,7 @@ def subset_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase, ids_to
     The new DB includes:
       - The specified SampleID row from 'Samples',
       - Dynamically discovered many-to-many references (bridge tables),
-      - Known one-to-many chain: Samples -> Aliquots -> Spots -> UPbAnalyses,
+      - Known one-to-many chain: Samples -> Aliquots -> Spots -> UPbAnalyses, optional Spots -> Grains
       - The 'parent' references from UPbAnalyses,
       - Any 'tree' tables that have 'Parent...' columns or self-reference,
         traversing them downward (schema-dependent).
@@ -937,6 +1004,10 @@ def subset_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase, ids_to
     if not rows:
         conn_source.close()
         conn_target.close()
+        close_loading_dialog('Exporting', 'Gathering sample data...')
+        return False
+
+    if not subset_foreign_keys(conn_source, conn_target, export_table, export_ids):
         close_loading_dialog('Exporting', 'Gathering sample data...')
         return False
 

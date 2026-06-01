@@ -1363,6 +1363,7 @@ def check_tree_structure(table: str, database: QtS.QSqlDatabase = None) -> bool:
             parent = query.value(parent_id_header)
         problem_parents[parent] = query.value('maxr')
     if problem_parents != {}:
+        logger_setup.get_logger().info(f'Found {len(problem_parents)} tree structure problems in {table}')
         if 'NULL' in problem_parents and len(problem_parents) == 1:
             problem_parent_text = 'IS NULL'
         elif 'NULL' in problem_parents:

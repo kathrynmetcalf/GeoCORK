@@ -25,7 +25,8 @@ from Functions import SQLUtils
 from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
 from Functions.Database_views import ViewQuery
 from Functions.Widget_classes import (ReadableProxyModel, SQLiteTableModel, find_parent_items, show_loading_dialog,
-                                      close_loading_dialog, columns_as_list, get_total_records, populate_combo_box)
+                                      close_loading_dialog, columns_as_list, get_total_records, populate_combo_box,
+                                      find_current_sub_items)
 from Functions.Settings_manager import SettingsManager
 
 settings = SettingsManager().settings
@@ -148,10 +149,12 @@ class ExportWidget(QWidget):
 
         self.editorder_button = QPushButton("Edit Column Order")
         self.editorder_button.setObjectName("editorder_button")
+        self.editorder_button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.editorder_button.setToolTip('Edits the order of selected columns to be viewed in the current worksheet')
 
         self.export_button = QPushButton("Export")
         self.export_button.setObjectName("export_button")
+        self.export_button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.export_button.setToolTip('Exports the current workbook with all options selected')
 
         self.options_layout.addWidget(self.editorder_button)
@@ -215,19 +218,20 @@ class ExportWidget(QWidget):
         self.checked_grouped_filter_list = self.groupedfilter_comboBox.source_model().return_checked_ids()[0]
 
         # Get the current TableView
-        tableView: QTableView = self.worksheet_tabs_dict[current_worksheet_name]['tableView']
-        tableView.setSortingEnabled(False)
+        if self.exportformat_comboBox.currentText() != 'Database':
+            tableView: QTableView = self.worksheet_tabs_dict[current_worksheet_name]['tableView']
+            tableView.setSortingEnabled(False)
 
         # If column order has changed, set selected columns to ordered_columns, select checkboxes based on ordered columns
         # This removes potentially deleted columns from the column dialog
-        if order_changed:
+        if self.exportformat_comboBox.currentText() != 'Database' and order_changed:
             self.worksheet_tabs_dict[current_worksheet_name]['selected_columns'] = \
                 self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns']
             self.load_checkbox_states()
             self.get_selected_values()
             selected_columns = self.worksheet_tabs_dict[current_worksheet_name]['selected_columns']
             ordered_columns = self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns']
-        else:
+        elif self.exportformat_comboBox.currentText() != 'Database':
             # update selected columns
             self.get_selected_values()
             # Get the selected columns for the current workbook
@@ -238,7 +242,7 @@ class ExportWidget(QWidget):
             if selected_columns != ordered_columns:
                 self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns'] = selected_columns
         # prevents unnecessary compute time
-        if not self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns'] and self.exportformat_comboBox.currentText() != 'Database':
+        if self.exportformat_comboBox.currentText() != 'Database' and not self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns']:
             # No columns selected, clear the table view
             tableView.setModel(None)
             close_loading_dialog('Loading', 'Updating table view with new parameters')
@@ -373,7 +377,7 @@ class ExportWidget(QWidget):
         if self.exportformat_comboBox.currentText() == 'Database':
             # If the export format is Database, then we only need the list of analyses that pass the filters
             # The set of analyses that pass the filters is already stored in self.filtered_upb_ids
-            self.export_format()
+            self.update_database_export()
             close_loading_dialog('Loading', 'Updating table view with new parameters')
             return
 
@@ -575,7 +579,7 @@ class ExportWidget(QWidget):
                 # if no columns/values are found then could be an error, check if items are checked, if there are
                 # then something went wrong.
                 if not len(self.checked_sample_list) == 0:
-                    logger_setup.get_logger().critical('No rows returned. Try broadening filters, samples, or additional filters.')
+                    logger_setup.get_logger().error('No rows returned. Try broadening filters, samples, or additional filters.')
                     model = SQLiteTableModel()
                     proxy_model = ReadableProxyModel()
                     proxy_model.setSourceModel(model)
@@ -943,7 +947,6 @@ class ExportWidget(QWidget):
                 }
                 self.add_worksheet_tab('AgeCalcML concordia', False, True, UPb_columns, UPb_columns, True)
             case 'Database':
-                self.clear_worksheet_data()
                 self.fileformat_comboBox.setEnabled(False)
                 if self.findChild(QSqlTableModel, 'database_QSqlTableModel') is not None:
                     self.findChild(QSqlTableModel, 'database_QSqlTableModel').clear()
@@ -963,18 +966,7 @@ class ExportWidget(QWidget):
                 self.groupedfilter_label.hide()
                 # self.filters_label.hide()
 
-                if len(self.filtered_upb_ids) == 0:
-                    sample_ids_to_subset = []
-                else:
-                    if len(self.filtered_upb_ids) == 1:
-                        where = f"= {list(self.filtered_upb_ids)[0]}"
-                    else:
-                        where = f"IN ({', '.join(self.filtered_upb_ids)})"
-                    sample_query = f"""SELECT DISTINCT SampleID FROM UPbAnalyses
-                                        {SQLUtils.upb_spot_join}
-                                        {SQLUtils.spot_aliquot_join}
-                                        WHERE UPbAnalyses.UPbAnalysisID {where}"""
-                    sample_ids_to_subset = columns_as_list(sample_query, [0])[0]
+                self.update_database_export()
 
                 """The following code creates a temporary database file to export the selected data to.
                 It is time consuming for large databases, so use DataViewerWidget instead."""
@@ -1007,12 +999,7 @@ class ExportWidget(QWidget):
                 # tab_layout = QVBoxLayout(self)
                 # new_tab.setLayout(tab_layout)
 
-                from ui.DataViewerWidget import DataViewerWidget
-                new_tab = DataViewerWidget(self, sample_ids_to_subset, 'Samples')
-                tab_layout = QVBoxLayout(self)
-                new_tab.setLayout(tab_layout)
 
-                self.workbooktabs.addTab(new_tab, 'Database')
                 self.worksheet_tabs_dict['Database'] = {
                     'tableView': QTableView(),
                     'model': QSqlQueryModel(),
@@ -1028,6 +1015,28 @@ class ExportWidget(QWidget):
                 self.clear_worksheet_data()
                 self.create_first_worksheet_tab()
         self.update_table_view()
+
+    def update_database_export(self):
+        self.clear_worksheet_data()
+        if len(self.filtered_upb_ids) == 0:
+            sample_ids_to_subset = []
+        else:
+            if len(self.filtered_upb_ids) == 1:
+                where = f"= {list(self.filtered_upb_ids)[0]}"
+            else:
+                where = f"IN ({', '.join(self.filtered_upb_ids)})"
+            sample_query = f"""SELECT DISTINCT SampleID FROM UPbAnalyses
+                                {SQLUtils.upb_spot_join}
+                                {SQLUtils.spot_aliquot_join}
+                                WHERE UPbAnalyses.UPbAnalysisID {where}"""
+            sample_ids_to_subset = columns_as_list(sample_query, [0])[0]
+
+        all_samples = self.checked_sample_list + sample_ids_to_subset
+        from ui.DataViewerWidget import DataViewerWidget
+        new_tab = DataViewerWidget(self, set(all_samples), 'Samples')
+        tab_layout = QVBoxLayout(self)
+        new_tab.setLayout(tab_layout)
+        self.workbooktabs.addTab(new_tab, 'Database')
 
     def clear_worksheet_data(self):
         self.delete_all_worksheet_tabs()
@@ -1707,6 +1716,7 @@ class ExportWidget(QWidget):
         if not fileName:
             return
 
+        logger_setup.get_logger().info(f'Exporting selected samples to database {fileName}')
         if not fileName.lower().endswith(".db"):
             fileName += ".db"
 
@@ -1747,12 +1757,16 @@ class ExportWidget(QWidget):
             if response != QMessageBox.StandardButton.Ok:
                 logger_setup.get_logger().info('User canceled the database export')
                 return
-
+            filtered_sample_ids, filtered_aliquot_ids, filtered_grain_ids, filtered_spot_ids = find_parent_items(
+                list(self.filtered_upb_ids), 'UPbAnalyses')
+        else:
+            filtered_sample_ids = []
+        all_sample_ids = list(set(filtered_sample_ids + self.checked_sample_list))
         show_loading_dialog('Exporting', 'Exporting to database...')
-        filtered_sample_ids, filtered_aliquot_ids, filtered_spot_ids = find_parent_items(list(self.filtered_upb_ids), 'UPbAnalyses')
+
 
         # subsets and copies over samples and related-data from src_db to tgt_db
-        if not ExportDatabase.subset_database(src_db, tgt_db, filtered_sample_ids):
+        if not ExportDatabase.subset_database(src_db, tgt_db, all_sample_ids):
             logger_setup.get_logger().critical('Could not subset database')
             close_loading_dialog('Exporting', 'Exporting to database...')
             return
