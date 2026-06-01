@@ -48,6 +48,9 @@ class SetSelectedValues(QtW.QDialog):
         self.setModal(True)
         self.close_by_dialog = False
         # self.setMinimumSize(600, 200)
+        self.update_timer = QtC.QTimer()
+        self.update_timer.setSingleShot(True)
+        self.update_timer.timeout.connect(self.update_combobox)
 
         self.widget = widget
         # self.widget.setVisible(True)
@@ -73,17 +76,29 @@ class SetSelectedValues(QtW.QDialog):
         self.main_layout.addLayout(button_layout)
         self.setLayout(self.main_layout)
         self.adjustSize()
-        if isinstance(self.widget, CheckableComboBox):
-            self.widget.add_triggered.connect(self.add_popup)
-            self.widget.edit_triggered.connect(self.edit_popup)
-            self.widget.delete_triggered.connect(self.delete_item)
-        elif isinstance(self.widget, CheckableTreeCombobox):
-            self.widget.add_triggered.connect(self.add_popup)
-            self.widget.edit_triggered.connect(self.edit_popup)
+        if isinstance(self.widget, CheckableComboBox | CheckableTreeCombobox):
+            self.connect_checkable_combobox()
         close_loading_dialog('Loading', f'Loading...')
 
+    def connect_checkable_combobox(self):
+        # Enable context menu for checkable comboboxes
+        self.widget.enable_context_menu(True)
+        self.widget.add_triggered.connect(self.add_popup)
+        self.widget.edit_triggered.connect(self.edit_popup)
+        self.widget.delete_triggered.connect(self.delete_item)
+
+    def update_combobox(self):
+        # Update this combo box
+        self.widget.blockSignals(True)
+        self.main_layout.removeWidget(self.widget)
+        self.parent().create_dropdown()
+        self.widget = self.parent().combo
+        self.main_layout.insertWidget(0, self.widget)
+        self.connect_checkable_combobox()
+        self.widget.blockSignals(False)
+
     def add_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
-        combo.blockSignals(True)
+        # combo.blockSignals(True)
         logger_setup.get_logger().info(f"Add popup called")
         try:
             model = combo.source_model()
@@ -126,12 +141,7 @@ class SetSelectedValues(QtW.QDialog):
         logger_setup.get_logger().info(f"Showing {table} add dialog")
         dlg.exec()
         if dlg.updated:
-            # Update this combo box
-            self.main_layout.removeWidget(self.widget)
-            self.parent().create_dropdown()
-            self.widget = self.parent().combo
-            self.main_layout.insertWidget(0, self.widget)
-            combo.blockSignals(False)
+            self.update_timer.start(10)
         else:
             combo.blockSignals(False)
             return
@@ -167,12 +177,7 @@ class SetSelectedValues(QtW.QDialog):
             return
         logger_setup.get_logger().info(f"Showing {table} edit dialog")
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
-            # Update this combo box
-            self.main_layout.removeWidget(self.widget)
-            self.parent().create_dropdown()
-            self.widget = self.parent().combo
-            self.main_layout.insertWidget(0, self.widget)
-            combo.blockSignals(False)
+            self.update_timer.start(10)
         else:
             combo.blockSignals(False)
             return
@@ -184,18 +189,26 @@ class SetSelectedValues(QtW.QDialog):
             id = combo.model().index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
             if id is not None:
                 selected_ids.append(id)
-        model = combo.model()
-        table = None
-        while not table:
-            try:
-                table = model.tableName()
-            except AttributeError:
-                model = model.sourceModel()
-        if selected_ids:
-            if not delete_data(table, selected_ids):
+        if not selected_ids:
+            return
+        combo.blockSignals(True)
+        if isinstance(combo, CheckableTreeCombobox):
+            tree_model = find_tree_model(combo.model(), [])[0]
+            if not tree_model.removeItems(selected_ids):
+                combo.blockSignals(False)
                 return
         else:
-            return
+            model = combo.model()
+            table = None
+            while not table:
+                try:
+                    table = model.tableName()
+                except AttributeError:
+                    model = model.sourceModel()
+            if not delete_data(table, selected_ids):
+                combo.blockSignals(False)
+                return
+        self.update_timer.start(10)
 
     def commit(self):
         self.close_by_dialog = True
@@ -1306,6 +1319,7 @@ class EditView(QtW.QDialog):
             self.combo.enable_context_menu(True)
             self.combo.add_triggered.connect(self.add_tag_popup)
             self.combo.edit_triggered.connect(self.edit_tag_popup)
+            self.combo.delete_triggered.connect(self.delete_tag_popup)
             # Save data and delete combo box when the dropdown view is closed
             self.combo.closing.connect(self.save_dropdown_data)
         close_loading_dialog('Loading', f'Loading...')
@@ -1528,6 +1542,7 @@ class EditView(QtW.QDialog):
         try:
             self.combo.add_triggered.disconnect(self.add_tag_popup)
             self.combo.edit_triggered.disconnect(self.edit_tag_popup)
+            self.combo.delete_triggered.disconnect(self.delete_tag_popup)
             self.combo.closing.disconnect(self.save_dropdown_data)
         except TypeError:
             pass
@@ -2577,7 +2592,7 @@ class EditView(QtW.QDialog):
             close_loading_dialog('Loading', f'Opening add window for {table}...')
 
     def edit_tag_popup(self):
-        combo = self.sender()
+        combo = self.combo
         model = combo.model()
         if isinstance(combo.view(), QtW.QTreeView):
             if not isinstance(model, TreeModel):
@@ -2611,6 +2626,37 @@ class EditView(QtW.QDialog):
             self.display_widget()
             self.combo.showPopup()
             close_loading_dialog('Loading', f'Loading...')
+
+    def delete_tag_popup(self):
+        combo = self.combo
+        combo.blockSignals(True)
+        if isinstance(combo, CheckableTreeCombobox):
+            tree_model = find_tree_model(combo.model(), [])[0]
+            selected_ids = list(tree_model.checked_ids)
+            selected_ids.extend(list(tree_model.partially_checked_ids))
+            if not selected_ids:
+                combo.blockSignals(False)
+                return
+            if not tree_model.removeItems(selected_ids):
+                combo.blockSignals(False)
+                return
+        else:
+            model = combo.model()
+            while isinstance(model, QtC.QSortFilterProxyModel):
+                model = model.sourceModel()
+            table = model.tableName()
+            selected_ids = list(model.checked_ids)
+            selected_ids.extend(list(model.partially_checked_ids))
+            if not delete_data(table, selected_ids):
+                combo.blockSignals(False)
+                return
+        self.updated = True
+        # Clear and recreate this combo box
+        show_loading_dialog('Loading', f'Loading...')
+        self.destroy_dropdown()
+        self.display_widget()
+        self.combo.showPopup()
+        close_loading_dialog('Loading', f'Loading...')
 
     def rollback(self):
         rollback_savepoint('before_edit')

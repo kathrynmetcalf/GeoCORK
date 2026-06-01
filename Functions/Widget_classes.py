@@ -6990,7 +6990,7 @@ class TreeCombobox(QtW.QComboBox):
     closing = QtC.pyqtSignal()
     edit_triggered = QtC.pyqtSignal(QtW.QComboBox)
     add_triggered = QtC.pyqtSignal(QtW.QComboBox, QAction)
-
+    delete_triggered = QtC.pyqtSignal(QtW.QComboBox)
     def __init__(self, parent=None):
         super().__init__(parent)
         self.proxy_model = None
@@ -7145,6 +7145,9 @@ class TreeCombobox(QtW.QComboBox):
                 logger_setup.get_logger().info(f'Add triggered for combo box')
             elif 'Expand' in action.text() or 'Collapse' in action.text():
                 expand_collapse(self.treeView, action)
+            elif 'Delete' in action.text():
+                self.delete_triggered.emit(self, action)
+                logger_setup.get_logger().info(f'Delete triggered for combo box')
             self.showPopup()
 
     def set_line_edit_text(self, text: str):
@@ -9099,14 +9102,23 @@ def update_other_table_with_checks(table: str, checked_ids: list, partially_chec
         logger_setup.get_logger().info(f'Checks are up to date')
         return 'No'
     create_savepoint('update_other_table')
-    if not query.exec(f'UPDATE {update_table} SET {id_header} = {list(checked_ids)[0]} WHERE {other_id_header} {query_where_str}'):
-        logger_setup.get_logger().critical(f'Failed to add item to {update_table}')
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-        rollback_savepoint('update_other_table')
-        return 'False'
+    if len(list(checked_ids)) == 0:
+        if not query.exec(f'UPDATE {update_table} SET {id_header} = NULL WHERE {other_id_header} {query_where_str}'):
+            logger_setup.get_logger().critical(f'Failed to remove item from {update_table}')
+            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+            rollback_savepoint('update_other_table')
+            return 'False'
+        logger_setup.get_logger().info(f'Cleared {id_header} in {update_table}')
+    else:
+        if not query.exec(f'UPDATE {update_table} SET {id_header} = {list(checked_ids)[0]} WHERE {other_id_header} {query_where_str}'):
+            logger_setup.get_logger().critical(f'Failed to add item to {update_table}')
+            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+            rollback_savepoint('update_other_table')
+            return 'False'
+        logger_setup.get_logger().info(f'Added {id_header} {list(checked_ids)[0]} to {update_table}')
     update_modified_timestamp(update_table, update_ids)
-    logger_setup.get_logger().info(f'Added {id_header} {list(checked_ids)[0]} to {update_table}')
     release_savepoint('update_other_table')
     return 'True'
 

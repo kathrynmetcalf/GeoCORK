@@ -117,7 +117,7 @@ class AddTags(QtW.QDialog):
         query.addBindValue(None if description=='' else description)
 
         logger_setup.get_logger().info(f'Inserting {name}, {description} into {self.table}')
-
+        create_savepoint(f'before_add_item')
         if not query.exec():
             error = query.lastError().text()
             header = TxM.add_spaces_camel(self.columns[1])
@@ -137,10 +137,11 @@ class AddTags(QtW.QDialog):
             else:
                 logger_setup.get_logger().critical(f'Error: {error}')
                 logger_setup.get_logger().debug(f'SQL command: {query.lastQuery()}')
-            rollback_savepoint('before_add')
+            rollback_savepoint('before_add_item')
             return False
 
         logger_setup.get_logger().info(f'Successfully inserted {name} into {self.table}')
+        release_savepoint('before_add_item')
         self.updated = True
         self.ids_added.append(query.lastInsertId())
         self.model.select()

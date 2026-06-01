@@ -202,14 +202,17 @@ class AddTreeTags(QtW.QDialog):
             logger_setup.get_logger().error(f'Name is required for {self.table}')
             close_loading_dialog('Adding item', f'Adding {self.newName_lineEdit.text()} to {self.table}...')
             return False
+        create_savepoint('before_add_item')
         if self.add_item == 'child':
             if not self.parent_id or self.parent_id == 'Null':
                 if not self.tree_model.insertItem(name, description, None, self.parent_row):
+                    rollback_savepoint('before_add_item')
                     close_loading_dialog('Adding item', f'Adding {self.newName_lineEdit.text()} to {self.table}...')
                     return False
                 logger_setup.get_logger().info(f'Added {name} to top level of {self.table}')
             else:
                 if not self.tree_model.insertItem(name, description, self.parent_id, self.parent_row):
+                    rollback_savepoint('before_add_item')
                     close_loading_dialog('Adding item', f'Adding {self.newName_lineEdit.text()} to {self.table}...')
                     return False
                 logger_setup.get_logger().info(f'Added {name} to {self.parent_id} in {self.table}')
@@ -222,6 +225,7 @@ class AddTreeTags(QtW.QDialog):
                 # find all old parent IDs that are None or not integers and get the smallest row index
                 parent_row = min((row for row, pid in zip(self.old_parent_rows, self.old_parent_ids) if pid is None or not isinstance(pid, int)), default=None)
             if not self.tree_model.insertItem(name, description, parent_id, parent_row):
+                rollback_savepoint('before_add_item')
                 close_loading_dialog('Adding item', f'Adding {self.newName_lineEdit.text()} to {self.table}...')
                 return False
             logger_setup.get_logger().info(f'Added new parent {name} to {self.table}')
@@ -237,6 +241,7 @@ class AddTreeTags(QtW.QDialog):
                 current_parent_ID = self.old_parent_ids[child] if isinstance(self.old_parent_ids[child], int) else None
                 if current_parent_ID != new_parent_id:
                     if not self.tree_model.moveItem(self.item_ids[child], parent_row, pID):
+                        rollback_savepoint('before_add_item')
                         close_loading_dialog('Adding item', f'Adding {self.newName_lineEdit.text()} to {self.table}...')
                         return False
                     parent_row += 1
@@ -247,6 +252,7 @@ class AddTreeTags(QtW.QDialog):
                 expanded_ids.add(new_parent_id)
                 settings.setValue(f'expanded_ids_{self.table}', expanded_ids)
         self.updated = True
+        release_savepoint('before_add_item')
         if self.parent_id:
             # Add it to the settings list of expanded items
             expanded_ids = settings.value(f'expanded_ids_{self.table}', set())
