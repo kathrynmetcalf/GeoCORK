@@ -1303,10 +1303,11 @@ class EditView(QtW.QDialog):
             selected_text = model_indexes[0].data(QtC.Qt.ItemDataRole.DisplayRole)
         else:
             selected_text = self.combo_index.data(QtC.Qt.ItemDataRole.DisplayRole)
-        self.combo.setCurrentText(selected_text)
-        if self.combo.currentText() == '':
+        if not selected_text:
             # Make sure there is no selected index
             self.combo.setCurrentIndex(-1)
+        else:
+            self.combo.setCurrentText(selected_text)
         # print(f"Selected text: {selected_text}")
 
     def display_dropdown(self):
@@ -2068,8 +2069,9 @@ class EditView(QtW.QDialog):
                 self.lineEdit.setText('')
                 self.save_lineedit_data()
             elif self.combo is not None:
-                # Clear the combo box checks
-                self.combo_model.clear_checks()
+                # Clear the combo box
+                if isinstance(self.combo, CheckableComboBox | CheckableTreeCombobox):
+                    self.combo_model.clear_checks()
                 self.combo.setCurrentIndex(-1)
                 self.save_dropdown_data()
 
