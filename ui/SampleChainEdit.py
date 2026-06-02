@@ -11,7 +11,8 @@ import logger_setup
 
 from Functions.Widget_classes import (
     CheckableTreeCombobox, populate_combo_box, CheckableComboBox, find_current_sub_items, get_name_from_id,
-    find_tree_model, show_loading_dialog, close_loading_dialog, find_child_ids, update_modified_timestamp
+    find_tree_model, show_loading_dialog, close_loading_dialog, find_child_ids, update_modified_timestamp,
+    get_id_from_name
 )
 from Functions import SQLUtils
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint, SavepointManager
@@ -138,8 +139,8 @@ class SampleChainEdit(QtW.QDialog):
             self.grid_layout.addWidget(self.aliquot_current_label, 1, 0)
             self.grid_layout.addWidget(self.aliquot_mode_comboBox, 1, 1)
             self.grid_layout.addWidget(self.aliquot_comboBox, 1, 2)
-            self.sample_comboBox.currentTextChanged.connect(self.update_aliquots)
-            self.aliquot_comboBox.currentTextChanged.connect(self.update_grains_spots)
+            self.sample_comboBox.source_model().checksChanged.connect(self.update_aliquots)
+            self.aliquot_comboBox.tree_model.checksChanged.connect(self.update_grains_spots)
         if self.child_table in ['Spots', 'UPbAnalyses']:
             for i, value in enumerate(self.modes):
                 self.grain_mode_comboBox.addItem(value)
@@ -167,11 +168,8 @@ class SampleChainEdit(QtW.QDialog):
             self.grid_layout.addWidget(self.grain_current_label, 2, 0)
             self.grid_layout.addWidget(self.grain_mode_comboBox, 2, 1)
             self.grid_layout.addWidget(self.grain_comboBox, 2, 2)
-            self.grain_comboBox.currentTextChanged.connect(self.update_spots)
+            self.grain_comboBox.source_model().checksChanged.connect(self.update_spots)
         if self.child_table == 'UPbAnalyses':
-            for i, value in enumerate(self.modes):
-                self.spot_mode_comboBox.addItem(value)
-                self.spot_mode_comboBox.setItemData(i, value, QtC.Qt.ItemDataRole.ToolTipRole)
             self.update_spots()
             if 'Spots' in self.current_parents:
                 self.current_spot_id = self.current_parents["Spots"][0]
@@ -216,7 +214,7 @@ class SampleChainEdit(QtW.QDialog):
         if self.grain_mode_comboBox.currentText() != 'Existing':
             return
         show_loading_dialog('Loading', 'Updating grains...')
-        aliquot_tree_model = find_tree_model(self.aliquot_comboBox.model(), None)[0]
+        aliquot_tree_model = self.aliquot_comboBox.tree_model
         if aliquot_tree_model.checked_ids:
             new_aliquot_id = list(aliquot_tree_model.checked_ids)[0]
         else:

@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import QCompleter
 from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
 import logger_setup
+from Functions.Check_triggers import validate_update
 from Functions.Widget_classes import (
     TreeModel, CheckableTreeCombobox, CheckableTreeModel, ReadableProxyModel, populate_combo_box,
     SQLiteTableModel, CheckableComboBox, CheckableSqlTableModel, CheckableSqlQueryModel, get_headers, get_name_column,
@@ -1454,6 +1455,11 @@ class EditView(QtW.QDialog):
                             header = view_headers[0]
                         if 'Abbreviation' in header:
                             header = header.replace('Abbreviation', 'ID')
+                        if header not in get_headers(edit_table):
+                            for table_header in get_headers(edit_table):
+                                if table_header in header:
+                                    header = table_header
+                                    break
                         query = QtS.QSqlQuery()
                         if len(edit_ids) == 1:
                             sql_where_str = f'= {edit_ids[0]}'
@@ -1467,7 +1473,7 @@ class EditView(QtW.QDialog):
                                 logger_setup.get_logger().info(f'No ID found for {combo.currentText()}')
                                 self.destroy_dropdown()
                                 return
-                        query.prepare(f'SELECT {header} FROM "{edit_table}" WHERE {get_headers(edit_table)[0]} {sql_where_str}')
+                        query.prepare(f'SELECT "{header}" FROM "{edit_table}" WHERE {get_headers(edit_table)[0]} {sql_where_str}')
                         if not query.exec():
                             logger_setup.get_logger().critical(f'Error determining if data changed for {get_readable_header(header)}.\nChanges not saved.')
                             logger_setup.get_logger().debug(f'Query: {query.lastQuery()}')
@@ -2118,6 +2124,9 @@ class EditView(QtW.QDialog):
         if deselected.row() == -1:
             # No previous row was selected, so no changes to save
             return True
+        if not any(index.row() != selected.row() for index in self.edit_view.selectedIndexes()):
+            # All the selected indexes are for the selected row, so not actually changing rows
+            return True
         logger_setup.get_logger().info('Row changed')
         column = None
         def highlight_error():
@@ -2330,8 +2339,8 @@ class EditView(QtW.QDialog):
                             elif table == 'UPbAnalyses':
                                 item_ids = upb_analysis_ids
 
-                    sql_values = ", ".join(f':{str(s)}' for s in update_cols[table])
-                    sql_cols = ', '.join(update_cols[table])
+                    sql_values = ", ".join(f'":{str(s)}"' for s in update_cols[table])
+                    sql_cols = ', '.join(f'"{str(s)}"' for s in update_cols[table])
                     if len(item_ids) == 0:
                         logger_setup.get_logger().critical(f'No items found for table {table}')
                         return False
@@ -2339,9 +2348,16 @@ class EditView(QtW.QDialog):
                         sql_where = f'IS {item_ids[0]}'
                     else:
                         sql_where = f'IN {tuple(item_ids)}'
+                    if table in SQLUtils.trigger_tables:
+                        error, header = validate_update(table, update_cols[table], update_col_values[table], f'{table_headers[0]} {sql_where}')
+                        if error:
+                            logger_setup.get_logger().error(f'Error: {error}')
+                            return False
                     query.prepare(f'UPDATE "{table}" SET ({sql_cols}) = ({sql_values}) WHERE {table_headers[0]} {sql_where}')
                     for i, value in enumerate(update_col_values[table]):
-                        query.bindValue(f':{sql_cols.split(", ")[i]}', value)
+                        if not value:
+                            value = QtC.QVariant()
+                        query.bindValue(sql_values.split(", ")[i], value)
                     if not query.exec():
                         logger_setup.get_logger().critical(f'Failed to update {table}')
                         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')

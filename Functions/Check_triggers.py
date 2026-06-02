@@ -154,13 +154,12 @@ def validate_update(table: str, columns: list, values: list, where: str):
     """
     if len(columns) != len(values):
         return "Number of columns to set does not match number of values given", None
-    query = QtS.QSqlQuery()
-    column_str = ", ".join(columns)
-    value_str = ", ".join([str(value) for value in values])
     pairs = []
     for index in range(len(columns)):
         if isinstance(values[index], QtC.QVariant) and values[index].isNull():
             pairs.append(([columns[index], 'NULL']))
+        elif values[index] in ['', None]:
+            pairs.append(([columns[index], '']))
         else:
             pairs.append([columns[index], values[index]])
     table_model = QtS.QSqlQueryModel()
@@ -179,13 +178,15 @@ def validate_update(table: str, columns: list, values: list, where: str):
         for index in range(len(columns)):
             if columns[index] == column_name:
                 new_value = values[index]
-                if new_value == '' or new_value is None or (isinstance(new_value, QtC.QVariant) and new_value.isNull()):
+                if new_value in ['NULL', 'Null'] or (isinstance(new_value, QtC.QVariant) and new_value.isNull()):
                     new_value = 'NULL'
+                elif new_value in ['', None]:
+                    new_value = ''
                 break
         old_values = []
         for row in range(table_model.rowCount()):
             old_value = table_model.data(table_model.index(row, col, QtC.QModelIndex()))
-            if old_value == '' or old_value is None or (isinstance(old_value, QtC.QVariant) and old_value.isNull()):
+            if old_value in ['', None, 'NULL', 'Null'] or (isinstance(old_value, QtC.QVariant) and old_value.isNull()):
                 old_value = 'NULL'
             old_values.append(old_value)
         all_records.append([column_name, new_value, old_values])
@@ -241,16 +242,16 @@ def validate_update(table: str, columns: list, values: list, where: str):
         age_error_list = []
         for column in all_records:
             if column[0].endswith('AgeError'):
-                age_error_list.append(f'"{column}"')
+                age_error_list.append(column[0])
             elif column[0].endswith('Error'):
-                ratio_error_list.append(f'"{column}"')
+                ratio_error_list.append(column[0])
         ratio_list = [column.replace('Error', '') for column in ratio_error_list]
         age_list = [column.replace('Error', '') for column in age_error_list]
         for index in range(len(ratio_error_list)):
             error, header = check_update_pairs(all_records, ratio_error_list[index], ratio_list[index])
             if error:
-                if error != f'{ratio_list[index]} missing {ratio_error_list[index]}':
-                    return f'{ratio_error_list[index]} missing {ratio_list[index]}', header
+                if error != f'{ratio_list[index].replace(f'"', '')} missing {ratio_error_list[index].replace(f'"', '')}':
+                    return f'{ratio_error_list[index].replace(f'"', '')} missing {ratio_list[index].replace(f'"', '')}', header
             error, header = check_update_pairs(all_records, ratio_error_list[index], 'RatioErrorFormatID')
             if error:
                 if error != 'RatioErrorFormatID missing RatioError':
@@ -258,16 +259,19 @@ def validate_update(table: str, columns: list, values: list, where: str):
         for index in range(len(age_error_list)):
             error, header = check_update_pairs(all_records, age_error_list[index], age_list[index])
             if error:
-                if error != f'{age_list[index]} missing {age_error_list[index]}':
-                    return f'{age_error_list[index]} missing {age_list[index]}', header
+                if error != f'{age_list[index].replace(f'"', '')} missing {age_error_list[index].replace(f'"', '')}':
+                    return f'{age_error_list[index].replace(f'"', '')} missing {age_list[index].replace(f'"', '')}', header
+            error, header = check_update_pairs(all_records, age_list[index], 'AgeUnitID')
+            if error:
+                if error != f'AgeUnitID missing {age_list[index].replace(f'"', '')}':
+                    return f'{age_list[index].replace(f'"', '')} missing units', header
             error, header = check_update_pairs(all_records, age_error_list[index], 'AgeErrorFormatID')
             if error:
                 if error != 'AgeErrorFormatID missing AgeError':
                     return "Age error given without error format", header
-        error, header = check_update_pairs(all_records, 'Concordance', 'ConcordanceFormatID')
+        error, header = check_update_concordance(all_records)
         if error:
-            if error != 'ConcordanceFormatID missing Concordance':
-                return "Concordance/discordance given without format", header
+            return error, header
         error, header = check_update_pairs(all_records, 'SpotSize', 'SpotSizeUnitID')
         if error:
             if error != 'SpotSizeUnitID missing SpotSize':
@@ -330,6 +334,8 @@ def check_insert_pairs(pairs: list, column1: str, column2: str):
     return None, None
 
 def check_update_pairs(all_records: list, column1, column2):
+    column1 = column1.replace(f'"', '')
+    column2 = column2.replace(f'"', '')
     new_column1 = None
     new_column2 = None
     old_column1s = []
@@ -888,11 +894,11 @@ def check_update_concordance(pairs: list):
     concordance_format_model.select()
     while concordance_format_model.canFetchMore():
         concordance_format_model.fetchMore()
-    new_68v76_concordance = 'NULL'
-    new_68v75_concordance = 'NULL'
+    new_68v76_concordance = ''
+    new_68v75_concordance = ''
     old_68v76_concordances = []
     old_68v75_concordances = []
-    new_concordance_format_id = 'NULL'
+    new_concordance_format_id = ''
     old_concordance_format_ids = []
     for pair in pairs:
         if pair[0] == 'Concordance_206Pb/238Uv207Pb/206Pb':
@@ -904,14 +910,11 @@ def check_update_concordance(pairs: list):
         if pair[0] == 'ConcordanceFormatID':
             new_concordance_format_id = pair[1]
             old_concordance_format_ids = pair[2]
-    if ((new_68v76_concordance != 'NULL' or (new_68v76_concordance == '' and 'NULL' not in old_68v76_concordances))
-            or (new_68v75_concordance != 'NULL' or (new_68v75_concordance == '' and 'NULL' not in old_68v75_concordances))
-            and not (new_concordance_format_id or (new_concordance_format_id == '' and 'NULL' not in old_concordance_format_ids))):
-        return 'Concordance format ID missing', 'ConcordanceFormatID'
-    # if 'MinSegDisc' in format_name:
-    #     if ((new_68v76_concordance != 'NULL' or (new_68v76_concordance == '' and 'NULL' not in old_68v76_concordances))
-    #             or (new_68v75_concordance != 'NULL' or (new_68v75_concordance == '' and 'NULL' not in old_68v75_concordances))):
-    #         return '206Pb/238Uv207Pb/206Pb and 207Pb/238Uv207Pb/235U concordance values should be NULL in MinSegDisc format', 'Concordance_206Pb/238Uv207Pb/206Pb'
+    if new_68v76_concordance != '' or new_68v75_concordance != '':
+        if ((new_68v76_concordance != 'NULL' or (new_68v76_concordance == '' and 'NULL' not in old_68v76_concordances))
+                or (new_68v75_concordance != 'NULL' or (new_68v75_concordance == '' and 'NULL' not in old_68v75_concordances))
+                and not (new_concordance_format_id or (new_concordance_format_id == '' and 'NULL' not in old_concordance_format_ids))):
+            return 'Concordance format ID missing', 'ConcordanceFormatID'
     return None, None
 
 def check_dependencies(table: str, record_id_header: str, record_ids: list, record_names: list):

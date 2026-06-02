@@ -5538,6 +5538,7 @@ def find_tree_model(model, indexes: list[QtC.QModelIndex] | None):
                 else:
                     source_indexes = indexes
                 tree_model, tree_indexes = find_tree_model(source_model, source_indexes)
+                return tree_model, tree_indexes
             except AttributeError:
                 return None, None
 
@@ -5555,39 +5556,6 @@ def map_from_tree_model(input_model, tree_indexes: list[QtC.QModelIndex]):
         model_indexes = parent_indexes
     return model_indexes
 
-
-    # tree_model = find_tree_model(model, [])[0]
-    #
-    # def map_from_tree(parent_model, model_indexes):
-    #     try:
-    #         source_model = parent_model.sourceModel()
-    #         if source_model == tree_model:
-    #             source_indexes = model_indexes
-    #             return source_model, source_indexes
-    #         else:
-    #             source_model, source_indexes = map_from_tree(source_model, model_indexes)
-    #             parent_indexes = [parent_model.mapFromSource(source_index) for source_index in source_indexes]
-    #             return parent_model, parent_indexes
-    #     except AttributeError:
-    #         try:
-    #             source_model = parent_model.source_model
-    #             if source_model == tree_model:
-    #                 source_indexes = model_indexes
-    #                 return source_model, source_indexes
-    #             else:
-    #                 source_model, source_indexes = map_from_tree(source_model, model_indexes)
-    #                 parent_indexes = [parent_model.mapFromSource(source_index) for source_index in source_indexes]
-    #                 return parent_model, parent_indexes
-    #         except AttributeError:
-    #             return None, None
-    #
-    # parent_model, parent_indexes = map_from_tree(model, tree_indexes)
-    # if parent_model == model:
-    #     return parent_indexes
-    # else:
-    #     logger_setup.get_logger().critical(f'Error mapping indexes')
-    #     logger_setup.get_logger().debug(f'Did not return proper parent model and indexes')
-    #     return None
 
 # ---------------------------
 #    Widget Classes
@@ -6770,6 +6738,7 @@ class CheckableTableView(QtW.QTableView):
                     else:
                         source_model.checked_ids.add(item_id)
                 source_model.dataChanged.emit(source_index, source_index, [QtC.Qt.ItemDataRole.CheckStateRole])
+                source_model.checksChanged.emit()
 
 class TrackExpandedTreeView(QtW.QTreeView):
     """
@@ -6939,6 +6908,7 @@ class CheckableTreeView(TrackExpandedTreeView):
                 else:
                     tree_model.checked_ids.add(item_id)
                 tree_model.dataChanged.emit(tree_index, tree_index, [QtC.Qt.ItemDataRole.CheckStateRole])
+                tree_model.checksChanged.emit()
 
     def expand_all_checked(self):
         """
@@ -7128,11 +7098,10 @@ class TreeCombobox(QtW.QComboBox):
         :return:
         """
         menu = TreeContextMenu()
-        tree_model, indexes = find_tree_model(self.model(), None)
-        if not tree_model:
+        if not self.tree_model:
             logger_setup.get_logger().info(f'No checkable tree model found in {self.objectName()}')
             return
-        if tree_model.tableName() == 'Aliquots':
+        if self.tree_model.tableName() == 'Aliquots':
             menu.set_view(self.treeView, False, False)
         else:
             menu.set_view(self.treeView, False)
@@ -7198,25 +7167,24 @@ class TreeCombobox(QtW.QComboBox):
         currently shown. If the tree model has no items, it does not show the popup.
         :return:
         """
-        tree_model, indexes = find_tree_model(self.model(), None)
-        if not tree_model:
+        if not self.tree_model:
             return
-        if tree_model.rowCount(QtC.QModelIndex()) == 0:
+        if self.tree_model.rowCount(QtC.QModelIndex()) == 0:
             return
-        show_loading_dialog('Loading', f'Loading {tree_model.sourceModel().rowCount()} items...')
+        show_loading_dialog('Loading', f'Loading {self.tree_model.sourceModel().rowCount()} items...')
         if not self.typing:
-            if isinstance(tree_model, CheckableTreeModel):
+            if isinstance(self.tree_model, CheckableTreeModel):
                 if isinstance(self.view(), CheckableTreeView):
                     self.view().expand_all_checked()
             else:
-                restore_expanded_state(tree_model.table, self.treeView)
+                restore_expanded_state(self.tree_model.table, self.treeView)
         self.treeView.resizeColumnToContents(0)
         # print(self.treeView.sizeHintForColumn(0))
         if self.treeView.width() < self.treeView.sizeHintForColumn(0):
             self.treeView.setFixedWidth(self.treeView.sizeHintForColumn(0))
         if self.treeView.height() < self.treeView.sizeHint().height():
             self.treeView.setFixedHeight(self.treeView.sizeHint().height())
-        close_loading_dialog('Loading', f'Loading {tree_model.sourceModel().rowCount()} items...')
+        close_loading_dialog('Loading', f'Loading {self.tree_model.sourceModel().rowCount()} items...')
         super().showPopup()
         # logger_setup.get_logger().debug(f'Popup showed: {self.treeView.isVisible()}')
         self.popup_shown = True
@@ -7238,9 +7206,8 @@ class TreeCombobox(QtW.QComboBox):
                     # The click was an expand/collapse action and should not close the popup
                     return
             super().hidePopup()
-            model, indexes = find_tree_model(self.model(), None)
-            if model and not self.typing:
-                save_expanded_state(model.table, self.treeView)
+            if self.tree_model and not self.typing:
+                save_expanded_state(self.tree_model.table, self.treeView)
             self.popup_shown = False
             self.stop_typing()
 
@@ -7273,7 +7240,6 @@ class TreeCombobox(QtW.QComboBox):
                 # If the user clicks on the expand/collapse button, do not select the item, only expand/collapse
 
                 index = self.treeView.indexAt(event.pos())
-                model, indexes = find_tree_model(self.model(), None)
                 if not index.isValid():
                     super().eventFilter(obj, event)
                 # Define the rectangle for the item and the expand/collapse button
@@ -7363,10 +7329,8 @@ class CheckableTreeCombobox(TreeCombobox):
         :return:
         """
         super().setModel(model)
-        if self.model():
-            tree_model = find_tree_model(self.model(), None)[0]
-            if isinstance(tree_model, CheckableTreeModel):
-                tree_model.checksChanged.connect(self.update_line_edit)
+        if self.tree_model and isinstance(self.tree_model, CheckableTreeModel):
+            self.tree_model.checksChanged.connect(self.update_line_edit)
 
     def set_single_click(self, single_click):
         """
@@ -7389,15 +7353,14 @@ class CheckableTreeCombobox(TreeCombobox):
         :return:
         """
         current_line_edit_text = self.lineEdit().text()
-        tree_model, indexes = find_tree_model(self.model(), None)
-        if not tree_model:
+        if not self.tree_model:
             logger_setup.get_logger().info(f'No checkable tree model found in {self.objectName()}')
             return
-        if tree_model.partially_checked_ids:
+        if self.tree_model.partially_checked_ids:
             # At least one item is partially checked, so the line edit should be a dash
             self.lineEdit().setText('-')
-        elif tree_model.checked_ids:
-            new_text = tree_model.selected_items_string()
+        elif self.tree_model.checked_ids:
+            new_text = self.tree_model.selected_items_string()
             if new_text and new_text != current_line_edit_text:
                 self.lineEdit().setText(new_text)
         else:
@@ -7411,12 +7374,9 @@ class CheckableTreeCombobox(TreeCombobox):
         in the tree view.
         :return:
         """
-        if not self.model():
+        if not self.tree_model or not isinstance(self.tree_model, CheckableTreeModel):
             return
-        tree_model, indexes = find_tree_model(self.model(), [])
-        if not tree_model or not isinstance(tree_model, CheckableTreeModel):
-            return
-        tree_model.clear_checks()
+        self.tree_model.clear_checks()
 
     def check_all(self):
         """
@@ -7424,12 +7384,9 @@ class CheckableTreeCombobox(TreeCombobox):
         :return:
         """
         # traverse the tree and check all items
-        if not self.model():
+        if not self.tree_model or not isinstance(self.tree_model, CheckableTreeModel):
             return
-        tree_model, indexes = find_tree_model(self.model(), [])
-        if not tree_model or not isinstance(tree_model, CheckableTreeModel):
-            return
-        tree_model.check_all()
+        self.tree_model.check_all()
 
     def show_context_menu(self, pos):
         """
@@ -7443,11 +7400,10 @@ class CheckableTreeCombobox(TreeCombobox):
         :return:
         """
         menu = TreeContextMenu()
-        tree_model, indexes = find_tree_model(self.model(), None)
-        if not tree_model:
+        if not self.tree_model:
             logger_setup.get_logger().info(f'No checkable tree model found in {self.objectName()}')
             return
-        if tree_model.tableName() == 'Aliquots':
+        if self.tree_model.tableName() == 'Aliquots':
             menu.set_view(self.treeView, False, False)
         else:
             menu.set_view(self.treeView, False)
@@ -7502,10 +7458,9 @@ class CheckableTreeCombobox(TreeCombobox):
                     # The click was an expand/collapse action and should not close the popup
                     return
             QtW.QComboBox.hidePopup(self)
-            model, indexes = find_tree_model(self.model(), None)
-            if model and not self.typing and self.clicked:
+            if self.tree_model and not self.typing and self.clicked:
                 # Only save the expanded state if the user clicked on an item, the model is a tree model, and the user is not typing
-                save_expanded_state(model.table, self.treeView)
+                save_expanded_state(self.tree_model.table, self.treeView)
             self.popup_shown = False
             self.clicked = False
             self.stop_typing()
@@ -7546,18 +7501,19 @@ class CheckableTreeCombobox(TreeCombobox):
                     # This returns true when the expand/collapse icon is NOT clicked
                     if self.single_click:
                         # Was the only selected item unchecked? If so, set the current index to the root before clearing all checks
-                        tree_model, indexes = find_tree_model(self.model(), None)
-                        if not tree_model:
+                        if not self.tree_model:
                             logger_setup.get_logger().info(f'No checkable tree model found in {self.objectName()}')
                             return True
-                        checked_indices, partially_checked_indices = tree_model.traverse_checkable_tree(QtC.QModelIndex())
+                        checked_indices, partially_checked_indices = self.tree_model.traverse_checkable_tree(QtC.QModelIndex())
                         for model_index in checked_indices:
                             if model_index == index or (model_index.row() == index.row()
                                 and model_index.column() == index.column()
                                 and model_index.parent() == index.parent()):
                                 self.treeView.setCurrentIndex(QtC.QModelIndex())
                                 break
+                        self.tree_model.blockSignals(True)
                         self.clear_all_checks()
+                        self.tree_model.blockSignals(False)
                         self.treeView.toggle_check_state(index)
                         self.stop_typing()
                         self.set_line_edit_text(index.data(QtC.Qt.ItemDataRole.DisplayRole))
@@ -8462,7 +8418,6 @@ def expand_collapse(tree_view: QtW.QTreeView, action: QtG.QAction):
             collapse_all_children(tree_view, index)
     elif action.text() == 'Collapse all':
         tree_view.collapseAll()
-    model = tree_view.model()
     tree_model = find_tree_model(tree_view.model(), [])[0]
     try:
         table = tree_model.tableName()
@@ -8893,7 +8848,7 @@ def populate_many_combo_checks(many_to_many_table: str, combo: QtW.QComboBox, fi
     logger_setup.get_logger().info(f"Populating combo checks for {many_to_many_table}")
 
     if isinstance(combo, CheckableTreeCombobox):
-        model, indexes = find_tree_model(combo.model(), None)
+        model = combo.tree_model
         if not model:
             logger_setup.get_logger().info(f"Could not find tree model for {combo.objectName()}")
             return
