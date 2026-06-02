@@ -2353,11 +2353,11 @@ class EditView(QtW.QDialog):
                         if error:
                             logger_setup.get_logger().error(f'Error: {error}')
                             return False
-                    query.prepare(f'UPDATE "{table}" SET ({sql_cols}) = ({sql_values}) WHERE {table_headers[0]} {sql_where}')
+                    query.prepare(f'UPDATE "{table}" SET ({sql_cols}) = ({", ".join(['?']*len(update_cols[table]))}) WHERE {table_headers[0]} {sql_where}')
                     for i, value in enumerate(update_col_values[table]):
                         if not value:
                             value = QtC.QVariant()
-                        query.bindValue(sql_values.split(", ")[i], value)
+                        query.bindValue(i, value)
                     if not query.exec():
                         logger_setup.get_logger().critical(f'Failed to update {table}')
                         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
