@@ -254,7 +254,7 @@ def validate_update(table: str, columns: list, values: list, where: str):
                     return f'{ratio_error_list[index].replace(f'"', '')} missing {ratio_list[index].replace(f'"', '')}', header
             error, header = check_update_pairs(all_records, ratio_error_list[index], 'RatioErrorFormatID')
             if error:
-                if error != 'RatioErrorFormatID missing RatioError':
+                if error != f'RatioErrorFormatID missing {ratio_error_list[index].replace(f'"', '')}':
                     return "Ratio error given without error format", header
         for index in range(len(age_error_list)):
             error, header = check_update_pairs(all_records, age_error_list[index], age_list[index])
