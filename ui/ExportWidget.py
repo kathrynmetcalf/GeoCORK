@@ -89,7 +89,7 @@ class ExportWidget(QWidget):
         #   'distinct': False,
         #   'pivot': False,
         #   'selected_columns': {(table, attribute): bool, },
-        #   'ordered_columns': {(table, attribute): bool},
+        #   'ordered_columns': [table.attribute_name]
         #   'label': counter_label,
         #   'headers': True,
         #   'sql': ''
@@ -157,14 +157,17 @@ class ExportWidget(QWidget):
         self.export_button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.export_button.setToolTip('Exports the current workbook with all options selected')
 
+        self.settings_label = QLabel()
+
         self.options_layout.addWidget(self.editorder_button)
         self.options_layout.addWidget(self.export_button)
+        self.options_layout.addWidget(self.settings_label)
 
         # Connect buttons to methods
         self.refresh_button.setIcon(qtawesome.icon('fa6s.rotate-right', color='green', scale_factor=1.2))
         self.refresh_button.clicked.connect(self.refresh_widget)
 
-        self.add_worksheet_button.clicked.connect(lambda: self.add_worksheet_tab(None, False, False, {}, {}, False))
+        self.add_worksheet_button.clicked.connect(lambda: self.add_worksheet_tab(None, False, False, {}, [], False))
         # self.add_worksheet_button.clicked.connect(self.update_table_view)
 
         self.remove_worksheet_button.clicked.connect(self.remove_current_worksheet_tab)
@@ -183,6 +186,51 @@ class ExportWidget(QWidget):
 
         self.populate_stack()
 
+
+    def sync_selected_ordered_columns(self, worksheet_name: str = None):
+        """
+        :param str worksheet_name: worksheet name to view, otherwise the current index will be used
+        """
+        # Get the current workbook
+        logger_setup.get_logger().info('Updating table view with new parameters')
+        show_loading_dialog('Loading', 'Updating table view with new parameters')
+        start_update_table_view_time = time.time()
+        if worksheet_name is None:
+            current_worksheet_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
+            if not current_worksheet_name:
+                self.export_format()
+                current_worksheet_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
+        else:
+            current_worksheet_name = worksheet_name
+        worksheet_dict = self.worksheet_tabs_dict.copy()
+        selected_columns = worksheet_dict[current_worksheet_name]['selected_columns']
+        if selected_columns == {}:
+            self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns'] = []
+            return
+        ordered_columns = []
+        for column_name in self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns']:
+            table = column_name.split('.')[0]
+            field = column_name.split('.')[1]
+            checked = selected_columns.get((table, field), False)
+            if checked and column_name not in ordered_columns:
+                ordered_columns.append(column_name)
+            if checked and field not in self.column_name_mappings:
+                self.column_name_mappings[field] = field
+            if not checked and field in self.column_name_mappings:
+                # remove the key from the column name mappings if the column is no longer selected
+                del self.column_name_mappings[field]
+        for (table, field) in selected_columns.keys():
+            column_name = f'{table}.{field}'
+            checked = selected_columns.get((table, field), False)
+            if not checked and field in self.column_name_mappings:
+                # remove the key from the column name mappings if the column is no longer selected
+                del self.column_name_mappings[field]
+            if checked and column_name not in ordered_columns:
+                ordered_columns.append(column_name)
+            if checked and field not in self.column_name_mappings:
+                self.column_name_mappings[field] = field
+        if self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns'] != ordered_columns:
+            self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns'] = ordered_columns
 
     def update_table_view(self, order_changed: bool = False, worksheet_name: str = None):
         """
@@ -218,35 +266,18 @@ class ExportWidget(QWidget):
         self.checked_grouped_filter_list = self.groupedfilter_comboBox.source_model().return_checked_ids()[0]
 
         # Get the current TableView
-        if self.exportformat_comboBox.currentText() != 'Database':
-            tableView: QTableView = self.worksheet_tabs_dict[current_worksheet_name]['tableView']
-            tableView.setSortingEnabled(False)
+        tableView: QTableView = self.worksheet_tabs_dict[current_worksheet_name]['tableView']
 
-        # If column order has changed, set selected columns to ordered_columns, select checkboxes based on ordered columns
-        # This removes potentially deleted columns from the column dialog
-        if self.exportformat_comboBox.currentText() != 'Database' and order_changed:
-            self.worksheet_tabs_dict[current_worksheet_name]['selected_columns'] = \
-                self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns']
-            self.load_checkbox_states()
-            self.get_selected_values()
-            selected_columns = self.worksheet_tabs_dict[current_worksheet_name]['selected_columns']
-            ordered_columns = self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns']
-        elif self.exportformat_comboBox.currentText() != 'Database':
-            # update selected columns
-            self.get_selected_values()
+        if self.exportformat_comboBox.currentText() != 'Database':
             # Get the selected columns for the current workbook
-            selected_columns = self.worksheet_tabs_dict[current_worksheet_name]['selected_columns']
-            ordered_columns = self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns']
-            # checks to make sure the items in selected_columns and ordered_columns match. If they do not match then
-            # default to selected columns, means new column could be selected, therefore ordered_columns is out of date
-            if selected_columns != ordered_columns:
-                self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns'] = selected_columns
-        # prevents unnecessary compute time
-        if self.exportformat_comboBox.currentText() != 'Database' and not self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns']:
-            # No columns selected, clear the table view
-            tableView.setModel(None)
-            close_loading_dialog('Loading', 'Updating table view with new parameters')
-            return False
+            self.sync_selected_ordered_columns(current_worksheet_name)
+            if not self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns']:
+                # prevents unnecessary compute time
+                # No columns selected, clear the table view
+                tableView.setSortingEnabled(False)
+                tableView.setModel(None)
+                close_loading_dialog('Loading', 'Updating table view with new parameters')
+                return False
 
         tables = set()
         # always ensures UPbAnalyses in the resulting query, prevents edge cases
@@ -260,7 +291,9 @@ class ExportWidget(QWidget):
             # creates column select string in format [SampleID], [CalculatedU/Th] AS 'RenamedColumn', etc...
             concat_col_str = ''
             # creates column select string for concatenated columns, in format REPLACE(GROUP_CONCAT(DISTINCT [field]), ',', '; ') AS 'RenamedColumn'
-            for table, field in self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns']:
+            for column_name in self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns']:
+                table = column_name.split('.')[0]
+                field = column_name.split('.')[1]
                 tables.add(table)
                 # If the export format is detritalPy and the current worksheet is Samples and the field is not Sample ID or name,
                 # we need to group_concat other fields
@@ -538,9 +571,8 @@ class ExportWidget(QWidget):
 
             # defaults to pivot based on the first column in the exporter.
             # tuple is in format (table, attribute)
-            first_tuple = next(iter(ordered_columns))
-            # get the attribute of the first tuple to pivot based on
-            pivot_col = first_tuple[1]
+            ordered_columns = self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns']
+            pivot_col = ordered_columns[0].split('.')[1]
             if 'Name' not in pivot_col:
                 response = QMessageBox.question(self, 'Missing name',
                                                 'Pivot may not work correctly without a name field in the first column.\nDo you want to continue?',
@@ -598,7 +630,8 @@ class ExportWidget(QWidget):
             # end result should be S1_BestAge, S2_BestAge, S3_BestAge
             columns_names = []
             for name in first_column_list:
-                for table, field in ordered_columns:
+                for column_name in ordered_columns:
+                    field = column_name.split('.')[1]
                     field_name = self.column_name_mappings[field]
                     if field_name not in columns_names:
                         columns_names.append(field_name)
@@ -724,33 +757,48 @@ class ExportWidget(QWidget):
                 self.clear_worksheet_data()
                 self.fileformat_comboBox.setEnabled(True)
                 # means error is in % and not sigma as required by detritalPy
+                message_text = ''
                 if settings.value('age_error_format_id', int) not in (1,2):
-                    response = QMessageBox.question(self, 'Update settings',
-                         'detritalPy uses absolute error for ages.\nWould you like to update the settings now?\n1% will be converted to 1sigma and 2% will be converted to 2sigma.',
+                    message_text += 'detritalPy uses absolute error for ages.\nWould you like to update the settings now?\n1% will be converted to 1sigma and 2% will be converted to 2sigma.'
+                if settings.value('gps_format_id', int) == 7:  # UTM format
+                    text = 'detritalPy uses Lat/Lon coordinates.\nWould you like to update the settings to DD +/- now?'
+                    if message_text:
+                        message_text += '\n\n' + text
+                    else:
+                        message_text += text
+                if message_text:
+                    response = QMessageBox.question(self, 'Update settings', message_text,
                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.Yes)
                     if response == QMessageBox.StandardButton.Yes:
-                        if settings.value('age_error_format_id', int) == 3:  # 1 sigma %
-                            settings.setValue('age_error_format_id', 1)
-                            settings.setValue('age_error_format_abbreviation', '1σ abs')
+                        if 'absolute error' in message_text:
+                            if settings.value('age_error_format_id', int) == 3:  # 1 sigma %
+                                settings.setValue('age_error_format_id', 1)
+                                settings.setValue('age_error_format_abbreviation', '1σ abs')
 
-                        elif settings.value('age_error_format_id', int) == 4:  # 2 sigma %
-                            settings.setValue('age_error_format_id', 2)
-                            settings.setValue('age_error_format_abbreviation', '2σ abs')
+                            elif settings.value('age_error_format_id', int) == 4:  # 2 sigma %
+                                settings.setValue('age_error_format_id', 2)
+                                settings.setValue('age_error_format_abbreviation', '2σ abs')
+                        if 'Lat/Lon' in message_text:
+                            if settings.value('gps_format_id', int) == 7:
+                                settings.setValue('gps_format_id', 1)
+                                settings.setValue('gps_format_abbreviation', 'DD +/-')
 
                         if not update_database():
                             logger_setup.get_logger().critical(f'Error updating and displaying database')
                             self.parent().close()
+                            return
+                        self.populate_stack()
 
                 self.fileformat_comboBox.setCurrentText('Excel (.xlsx)')
                 Samples_columns = {
                     ('Samples', 'SampleName'): True,
                     ('Units', 'UnitName'): True,
                     ('Regions', 'RegionName'): True,
-                    ('GPSLocations', 'CalculatedLat'): True,
-                    ('GPSLocations', 'CalculatedLon'): True,
+                    ('GPSLocations', 'CalculatedLatDisplay'): True,
+                    ('GPSLocations', 'CalculatedLonDisplay'): True,
                     ('References', 'ReferenceDisplay'): True
                 }
-                self.add_worksheet_tab('Samples', True, False, Samples_columns, Samples_columns, True)
+                self.add_worksheet_tab('Samples', True, False, Samples_columns, [], True)
                 self.previous_worksheet = 'Samples'
 
                 ZrUPb_columns = {
@@ -793,8 +841,8 @@ class ExportWidget(QWidget):
                     "SampleName": "Sample_ID",
                     "UnitName": "Unit",
                     "RegionName": "Basin",
-                    "CalculatedLat": "Latitude",
-                    "CalculatedLon": "Longitude",
+                    "CalculatedLatDisplay": "Latitude",
+                    "CalculatedLonDisplay": "Longitude",
                     "ReferenceDisplay": "Source",
 
                     "GrainName": "Grain_ID",
@@ -832,7 +880,7 @@ class ExportWidget(QWidget):
                     "ConcordanceFormat"
                     "MinimumSegmentedDiscordance": "Min_Seg_Discordance"
                 }
-                self.add_worksheet_tab('ZrUPb', False, False, ZrUPb_columns, ZrUPb_columns, True)
+                self.add_worksheet_tab('ZrUPb', False, False, ZrUPb_columns, [], True)
             case 'IsoplotR - 07/35, 06/38, 04/38, 07/06, 04/07, 04/06':
                 self.clear_worksheet_data()
                 self.fileformat_comboBox.setEnabled(True)
@@ -858,7 +906,21 @@ class ExportWidget(QWidget):
                     ('UPbAnalyses', 'Calculated204Pb/206Pb'): True,
                     ('UPbAnalyses', 'Calculated204Pb/206PbError'): True,
                 }
-                self.add_worksheet_tab('IsoplotR', False, False, UPb_columns, UPb_columns, True)
+                self.column_name_mappings = {
+                    'Calculated207Pb/235U': 'Calculated207Pb/235U',
+                    'Calculated207Pb/235UError': 'Calculated207Pb/235UError',
+                    'Calculated206Pb/238U': 'Calculated206Pb/238U',
+                    'Calculated206Pb/238UError': 'Calculated206Pb/238UError',
+                    'Calculated204Pb/238U': 'Calculated204Pb/238U',
+                    'Calculated204Pb/238UError': 'Calculated204Pb/238UError',
+                    'Calculated207Pb/206Pb': 'Calculated207Pb/206Pb',
+                    'Calculated207Pb/206PbError': 'Calculated207Pb/206PbError',
+                    'Calculated204Pb/207Pb': 'Calculated204Pb/207Pb',
+                    'Calculated204Pb/207PbError': 'Calculated204Pb/207PbError',
+                    'Calculated204Pb/206Pb': 'Calculated204Pb/206Pb',
+                    'Calculated204Pb/206PbError': 'Calculated204Pb/206PbError'
+                }
+                self.add_worksheet_tab('IsoplotR', False, False, UPb_columns, [], True)
 
             case 'IsoplotR - 38/06, 07/06':
                 self.clear_worksheet_data()
@@ -873,7 +935,13 @@ class ExportWidget(QWidget):
                     ('UPbAnalyses', 'Calculated207Pb/206Pb'): True,
                     ('UPbAnalyses', 'Calculated207Pb/206PbError'): True
                 }
-                self.add_worksheet_tab('IsoplotR', False, False, UPb_columns, UPb_columns, True)
+                self.column_name_mappings = {
+                    'Calculated238U/206Pb': 'Calculated238U/206Pb',
+                    'Calculated238U/206PbError': 'Calculated238U/206PbError',
+                    'Calculated207Pb/206Pb': 'Calculated207Pb/206Pb',
+                    'Calculated207Pb/206PbError': 'Calculated207Pb/206PbError',
+                }
+                self.add_worksheet_tab('IsoplotR', False, False, UPb_columns, [], True)
 
             case 'DZstats':
                 self.clear_worksheet_data()
@@ -896,6 +964,8 @@ class ExportWidget(QWidget):
                         if not update_database():
                             logger_setup.get_logger().critical(f'Error updating and displaying database')
                             self.parent().close()
+                            return
+                        self.populate_stack()
 
                 self.fileformat_comboBox.setCurrentText('Comma-Separated Value (.csv)')
                 UPb_columns = {
@@ -903,7 +973,12 @@ class ExportWidget(QWidget):
                     ('UPbAnalyses', 'CalculatedBestAgeFilled'): True,
                     ('UPbAnalyses', 'CalculatedBestAgeErrorFilled'): True
                 }
-                self.add_worksheet_tab('DZStats', False, True, UPb_columns, UPb_columns, False)
+                self.column_name_mappings = {
+                    'SampleName': 'SampleName',
+                    'CalculatedBestAgeFilled': 'CalculatedBestAgeFilled',
+                    'CalculatedBestAgeErrorFilled': 'CalculatedBestAgeErrorFilled'
+                }
+                self.add_worksheet_tab('DZStats', False, True, UPb_columns, [], False)
             case 'DZmix, DZmds, DZnmf':
                 self.clear_worksheet_data()
                 self.fileformat_comboBox.setEnabled(True)
@@ -925,6 +1000,8 @@ class ExportWidget(QWidget):
                         if not update_database():
                             logger_setup.get_logger().critical(f'Error updating and displaying database')
                             self.parent().close()
+                            return
+                        self.populate_stack()
 
                 self.fileformat_comboBox.setCurrentText('Excel (.xlsx)')
                 UPb_columns = {
@@ -932,7 +1009,12 @@ class ExportWidget(QWidget):
                     ('UPbAnalyses', 'CalculatedBestAgeFilled'): True,
                     ('UPbAnalyses', 'CalculatedBestAgeErrorFilled'): True
                 }
-                self.add_worksheet_tab('DZmix, DZmds, DZnmf', False, True, UPb_columns, UPb_columns, True)
+                self.column_name_mappings = {
+                    'SampleName': 'SampleName',
+                    'CalculatedBestAgeFilled': 'CalculatedBestAgeFilled',
+                    'CalculatedBestAgeErrorFilled': 'CalculatedBestAgeErrorFilled'
+                }
+                self.add_worksheet_tab('DZmix, DZmds, DZnmf', False, True, UPb_columns, [], True)
             case 'AgeCalcML concordia':
                 self.clear_worksheet_data()
                 self.fileformat_comboBox.setEnabled(True)
@@ -945,7 +1027,15 @@ class ExportWidget(QWidget):
                     ('UPbAnalyses', 'Calculated206Pb/238UError'): True,
                     ('UPbAnalyses', 'ErrorCorr/Rho_68v75'): True
                 }
-                self.add_worksheet_tab('AgeCalcML concordia', False, True, UPb_columns, UPb_columns, True)
+                self.column_name_mappings = {
+                    'SampleName': 'SampleName',
+                    'Calculated207Pb/235U': 'Calculated207Pb/235U',
+                    'Calculated207Pb/235UError': 'Calculated207Pb/235UError',
+                    'Calculated206Pb/238U': 'Calculated206Pb/238U',
+                    'Calculated206Pb/238UError': 'Calculated206Pb/238UError',
+                    'ErrorCorr/Rho_68v75': 'ErrorCorr/Rho_68v75'
+                }
+                self.add_worksheet_tab('AgeCalcML concordia', False, True, UPb_columns, [], True)
             case 'Database':
                 self.fileformat_comboBox.setEnabled(False)
                 if self.findChild(QSqlTableModel, 'database_QSqlTableModel') is not None:
@@ -1006,7 +1096,7 @@ class ExportWidget(QWidget):
                     'distinct': None,
                     'pivot': False,
                     'selected_columns': {},
-                    'ordered_columns': {},
+                    'ordered_columns': [],
                     'label': '',
                     'headers': None,
                     'sql': ''
@@ -1095,19 +1185,19 @@ class ExportWidget(QWidget):
         self.update_table_view()
 
     def add_worksheet_tab(self, worksheet_name: str = None, distinct: bool = False, pivot: bool = False,
-                          selected_columns: dict = None, ordered_columns: dict = None, headers: bool = False):
+                          selected_columns: dict = None, ordered_columns: list = None, headers: bool = False):
         """
         Method to add a new worksheet tab to the workbook. This method is called when the user clicks the "Add Worksheet" button.
         :param str worksheet_name: name of the worksheet to be created
         :param bool distinct: utilize distinct rows in the SQL query
         :param bool pivot: pivot the table based on the first column
         :param dict selected_columns: dictionary of all selected columns, table then field name
-        :param dict ordered_columns: dictionary of all ordered columns, table then field name
+        :param dict ordered_columns: list of all ordered columns, table.field name
         :param bool headers: include headers in the output files
         :return:
         """
         if ordered_columns is None:
-            ordered_columns = {}
+            ordered_columns = []
         if selected_columns is None:
             selected_columns = {}
 
@@ -1128,7 +1218,8 @@ class ExportWidget(QWidget):
 
         # Save previous sheet information
         self.previous_worksheet = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
-        self.save_checkbox_states(self.previous_worksheet)
+        if self.previous_worksheet:
+            self.save_checkbox_states(self.previous_worksheet)
 
         # Create a new tableView
         new_tableView = QTableView()
@@ -1255,7 +1346,7 @@ class ExportWidget(QWidget):
             'distinct': False,
             'pivot': False,
             'selected_columns': {},
-            'ordered_columns': {},
+            'ordered_columns': [],
             'label': counter_label,
             'headers': True,
             'sql': ''
@@ -1395,6 +1486,19 @@ class ExportWidget(QWidget):
 
             # Add container widget to the main layout stack
             self.columnattributes_stack.addWidget(container_widget)
+        self.columnselection_comboBox.blockSignals(True)
+        self.columnselection_comboBox.setCurrentIndex(0)
+        self.columnselection_comboBox.blockSignals(False)
+
+        self.settings_label.setText(
+            f"""GPS Format: {self.settings.value('gps_format_abbreviation')}
+Elevation unit: {self.settings.value('elevation_unit_abbreviation')}
+Column height/depth unit: {self.settings.value('heightdepth_unit_abbreviation')}
+Spot size unit: {self.settings.value('spotsize_unit_abbreviation')}
+Age unit: {self.settings.value('age_unit_abbreviation')}
+Age error format: {self.settings.value('age_error_format_abbreviation')}
+U-Pb ratio error format: {self.settings.value('ratio_error_format_abbreviation')}
+U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')}""")
 
     def switch_table_layout(self):
         """Method to switch the stack widget to show the layout corresponding to the selected table"""
@@ -1417,8 +1521,8 @@ class ExportWidget(QWidget):
             self.exportformat_comboBox.currentIndexChanged.disconnect()
             self.exportformat_comboBox.setCurrentText('Custom')
             self.exportformat_comboBox.currentIndexChanged.connect(self.export_format)
-            self.save_checkbox_states()
-            self.load_checkbox_states()
+        self.save_checkbox_states()
+        self.load_checkbox_states()
         self.update_table_view()
 
     def save_checkbox_states(self, previous_worksheet=None):
@@ -1431,23 +1535,10 @@ class ExportWidget(QWidget):
         """
         if self.exportformat_comboBox.currentText() != 'Custom':
             return
+        if self.workbooktabs.currentIndex() == -1:
+            return  # No tabs available, skip saving states
         current_worksheet_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
-        checkbox_states = {}
-
-        # loop over all tables in the columnattributes_stack
-        for index in range(self.columnattributes_stack.count()):
-            # get the table_widget which contains the checkboxes
-            table_widget = self.columnattributes_stack.widget(index)
-
-            # if table_widget exists, loop over all checkboxes in the table_widget
-            if table_widget:
-                for widget in table_widget.findChildren(QCheckBox,
-                                                        options=QtCore.Qt.FindChildOption.FindChildrenRecursively):
-                    if isinstance(widget, QCheckBox):
-                        field_name = widget.property('field_name')
-                        table_name = widget.property('table_name')
-
-                        checkbox_states[(table_name, field_name)] = widget.isChecked()
+        checkbox_states = self.get_selected_values()
 
         # Store checkbox_states in the workbook's data
         if previous_worksheet is None:
@@ -1463,7 +1554,8 @@ class ExportWidget(QWidget):
          tab widget is the new tab. Therefore, no need to save the previous worksheet name.
         :param worksheet_name: The name of the worksheet to load checkbox states from. If None, use the current worksheet.
         """
-
+        if self.workbooktabs.currentIndex() == -1:
+            return  # No tabs available, skip saving states
         current_worksheet_name = worksheet_name if worksheet_name else self.workbooktabs.tabText(
             self.workbooktabs.currentIndex())
 
@@ -1593,11 +1685,22 @@ class ExportWidget(QWidget):
 
     def refresh_widget(self):
         """
-        Method to force a refresh of the dropdowns and table view.
+        Method to force a refresh of the dropdowns, stacked checkboxes, and table view.
         """
         logger_setup.get_logger().info('Refresh Button Clicked')
 
-        self.save_checkbox_states()
+        # Recreate column stacks and reload checkbox states
+        for tab_index in range(self.workbooktabs.count()):
+            sheet_name = self.workbooktabs.tabText(tab_index)
+            self.save_checkbox_states(sheet_name)
+        self.populate_stack()
+        for tab_index in range(self.workbooktabs.count()):
+            sheet_name = self.workbooktabs.tabText(tab_index)
+            self.load_checkbox_states(sheet_name)
+        for tab_index in range(self.workbooktabs.count()):
+            sheet_name = self.workbooktabs.tabText(tab_index)
+            self.save_checkbox_states(sheet_name)
+
         self.showEvent(None)
 
         # Recheck items
@@ -1605,7 +1708,6 @@ class ExportWidget(QWidget):
         self.filterselection_comboBox.source_model().update_model_checks(set(self.checked_filter_list), set())
         self.groupedfilter_comboBox.source_model().update_model_checks(set(self.checked_grouped_filter_list), set())
 
-        self.load_checkbox_states()
         self.update_table_view()
 
     def showEvent(self, a0):
@@ -2054,8 +2156,8 @@ class ColumnOrderDialog(QDialog):
         self.list_widget.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
         self.list_widget.setDragDropMode(QListWidget.DragDropMode.InternalMove)
 
-        for table_name, field_name in self.ordered_columns:
-            self.list_widget.addItem(f"{table_name}.{field_name}")
+        for column_name in self.ordered_columns:
+            self.list_widget.addItem(column_name)
 
         self.delete_button = QPushButton("Delete Selected")
         self.ok_button = QPushButton("OK")
@@ -2087,11 +2189,10 @@ class ColumnOrderDialog(QDialog):
             QMessageBox.warning(self, "No Selection", "Please select an item to delete.")
 
     def get_adjusted_columns(self):
-        adjusted_columns = {}
+        adjusted_columns = []
         for index in range(self.list_widget.count()):
             item_text = self.list_widget.item(index).text()
-            table_name, field_name = item_text.split('.', 1)
-            adjusted_columns[(table_name, field_name)] = True
+            adjusted_columns.append(item_text)
         return adjusted_columns
 
 
@@ -2152,6 +2253,7 @@ class ColumnNamesDialog(QDialog):
             QMessageBox.warning(self, "No Selection", "Please select an item to delete.")
 
     def get_adjusted_columns(self):
+        """Returns values to be set in the column_name_mappings dictionary based on the current list widget items. The keys are the original field names, the values are the new names."""
         adjusted_columns = {}
         for index, (original_name, field_name) in enumerate(self.mapped_columns.items()):
             item_text = self.list_widget.item(index).text()

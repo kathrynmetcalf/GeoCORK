@@ -738,6 +738,7 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
         sql_gps_display_alters = [sql_e_display_alter, sql_n_display_alter]
         sql_gps_all_alters = sql_gps_alters + sql_gps_display_alters
     else:  # lat, lon of some form selected
+        dd_conversions = retrieve_conversions('GPSFormatConversions', 'GPSFormat', 1, database=database)
         sql_lat_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedLat VIRTUAL'
         sql_lon_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedLon VIRTUAL'
         sql_lat_display_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedLatDisplay VIRTUAL'
@@ -783,7 +784,31 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
             update_query = QtS.QSqlQuery()
         else:
             update_query = QtS.QSqlQuery(db=database)
-
+        if selected_id != 7:
+            for dd_conversion in dd_conversions:
+                if dd_conversion[0] == gps_format_id:
+                    gps_code = dd_conversion[1]
+                    if '°' in gps_code:
+                        gps_code = gps_code.replace('°', '')
+                    exec(gps_code, global_vars, local_vars)
+                    gps_display = local_vars.get('converted')
+                    gps_elements = gps_display.split(', ')
+                    if gps_elements[0]:
+                        for sql_gps_alter in sql_gps_alters:
+                            if 'Display' in sql_gps_alter:
+                                continue
+                            gps_column = sql_gps_alter.split('COLUMN ')[1].split(" VIRTUAL")[0]
+                            update_query.prepare(f'UPDATE {table} SET {gps_column}=:value WHERE "GPSLocationID"={gps_id}')
+                            update_query.bindValue(':value', float(gps_elements[sql_gps_alters.index(sql_gps_alter)]))
+                            if not update_query.exec():
+                                logger_setup.get_logger().critical(
+                                    f'Error adding the calculated column {gps_column}')
+                                logger_setup.get_logger().debug(f'Error: {update_query.lastError().text()}')
+                                logger_setup.get_logger().debug(f'SQL query: {update_query.lastQuery()}')
+                                logger_setup.get_logger().debug(f'Bound values: {update_query.boundValues()}')
+                                rollback_savepoint('before_populate')
+                                return False
+                    break
         for conversion in conversions:
             if conversion[0] == gps_format_id:
                 gps_code = conversion[1]
@@ -802,12 +827,38 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
                     rollback_savepoint('before_populate')
                     return False
                 gps_elements = gps_display.split(', ')
+                if selected_id == 7 and len(gps_elements) != len(sql_gps_display_alters):
+                    # Begins with zone which does not have a separate Display column
+                    if gps_elements[0]:
+                        for sql_gps_alter in sql_gps_alters:
+                            if 'Display' in sql_gps_alter:
+                                continue
+                            gps_column = sql_gps_alter.split('COLUMN ')[1].split(" VIRTUAL")[0]
+                            update_query.prepare(f'UPDATE {table} SET {gps_column}=:value WHERE "GPSLocationID"={gps_id}')
+                            calculated_value = gps_elements[sql_gps_alters.index(sql_gps_alter)]
+                            if 'Zone' not in gps_column:
+                                for char in gps_elements[sql_gps_alters.index(sql_gps_alter)]:
+                                    if not char.isdigit() and char != '.':
+                                        calculated_value = calculated_value.replace(char, '')
+                                calculated_value = float(calculated_value)
+                            update_query.bindValue(':value', calculated_value)
+                            if not update_query.exec():
+                                logger_setup.get_logger().critical(
+                                    f'Error adding the calculated column {gps_column}')
+                                logger_setup.get_logger().debug(f'Error: {update_query.lastError().text()}')
+                                logger_setup.get_logger().debug(f'SQL query: {update_query.lastQuery()}')
+                                logger_setup.get_logger().debug(f'Bound values: {update_query.boundValues()}')
+                                rollback_savepoint('before_populate')
+                                return False
+                    gps_display_elements = gps_elements[1:3]
+                else:
+                    gps_display_elements = gps_elements
                 for sql_gps_alter in sql_gps_display_alters:
                     if 'Display' not in sql_gps_alter:
                         pass
                     gps_column = sql_gps_alter.split('COLUMN ')[1].split(" VIRTUAL")[0]
                     update_query.prepare(f'UPDATE {table} SET {gps_column}=:value WHERE "GPSLocationID"={gps_id}')
-                    update_query.bindValue(':value', gps_elements[sql_gps_display_alters.index(sql_gps_alter)])
+                    update_query.bindValue(':value', gps_display_elements[sql_gps_display_alters.index(sql_gps_alter)])
                     if not update_query.exec():
                         logger_setup.get_logger().critical(
                             f'Error adding the calculated column {gps_column}')
