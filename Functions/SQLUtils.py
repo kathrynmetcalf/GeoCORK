@@ -1077,7 +1077,7 @@ gps_formats = [
     ('Degrees minutes seconds positive/negative', 'DMS +/-',
      'Degrees, minutes, and seconds with positive N and E and negative S and W'),
     ('Degrees minutes seconds cardinal', 'DMS NSEW', 'Degrees, minutes, and seconds with cardinal directions'),
-    ('Universal Transverse Mercator', 'UTM', 'Universal Transverse Mercator with zone, northing, and easting')]
+    ('Universal Transverse Mercator (standard)', 'UTM', 'Universal Transverse Mercator (standard) with zone, northing, and easting')]
 """Static list of valid GPS formats. Used to create GPSFormats table."""
 
 export_formats = [

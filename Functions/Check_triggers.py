@@ -549,6 +549,8 @@ def check_gps_format_insert(pairs: list, format_id: int):
                         break
                 if not try_float(zone_int_str) or zone_int_str == '':
                     return 'UTM zone must include a number', 'GPSUTMZone'
+                if not new_utmzone.replace(zone_int_str, '').replace(' ', '') in ['N', 'S']:
+                    return 'GeoCORK accepts standard UTM coordinates. Convert NATO UTM coordinates to standard before inserting', 'GPSUTMZone'
         elif pair[0] == 'GPSUTMN':
             new_utmn = f'{pair[1]}'
             if not try_float(new_utmn) and new_utmn != 'NULL' and new_utmn != '':
@@ -655,6 +657,22 @@ def check_gps_format_insert(pairs: list, format_id: int):
             return 'Missing easting in UTM format', 'GPSUTME'
         if new_utmzone != 'NULL' and (new_utme == 'NULL' or new_utmn == 'NULL'):
             return 'UTM zone given without coordinates in UTM format', 'GPSUTMZone'
+        if new_utmzone != 'NULL' and new_utmn != 'NULL' and new_utme != 'NULL':
+            zone_int_str = ''
+            # Go through each character and add it to the zone_int_str if it is a digit, stop when we reach a non-digit character after we have started adding digits
+            for char in new_utmzone:
+                if char.isdigit():
+                    zone_int_str += char
+                elif len(zone_int_str) > 0:
+                    break
+            zone_letter = new_utmzone.replace(zone_int_str, '').replace(' ', '')
+            if not zone_letter:
+                return 'Missing hemisphere (N or S) after UTM zone.\nGeoCORK accepts standard UTM coordinates.\nConvert NATO UTM coordinates to standard before inserting', 'GPSUTMZone'
+            if not zone_letter in ['N', 'S']:
+                if 0 <= new_utmn <= 100000 and 0 <= new_utme <= 100000:
+                    return 'GeoCORK accepts standard UTM coordinates. Convert NATO UTM coordinates to standard before inserting', 'GPSUTMZone'
+                else:
+                    return 'Standard UTM coordinates given with NATO zone.\nThe standard zone should be the zone number followed by N for northern hemisphere or S for southern hemisphere.', 'GPSUTMZone'
     if new_elev != 'NULL' and new_elev_unit == 'NULL':
         return 'Elevation missing units', 'GPSElevUnitID'
     if new_elev_error != 'NULL' and new_elev == 'NULL':
@@ -856,6 +874,29 @@ def check_gps_format_update(all_records: list, new_format_id: int):
                 (new_utme != 'NULL' and new_utmzone == '' and 'NULL' in old_utmzones) or
                 (new_utme == '' and 'NULL' not in old_utmes and new_utmzone == 'NULL')):
             return 'Missing UTM zone in UTM format', 'GPSUTMZone'
+        if ((new_utmzone != 'NULL' or (new_utmzone == '' and 'NULL' not in old_utmzones)) and
+                (new_utmn != 'NULL' or (new_utmn == '' and 'NULL' not in old_utmns)) and
+                (new_utme != 'NULL' or (new_utme == '' and 'NULL' not in old_utmes))):
+            # UTM zone, northing, and easting will all be set
+            utmzone = new_utmzone if new_utmzone else old_utmzones[0]
+            utmn = new_utmn if new_utmn else old_utmns[0]
+            utme = new_utme if new_utme else old_utmes[0]
+
+            zone_int_str = ''
+            # Go through each character and add it to the zone_int_str if it is a digit, stop when we reach a non-digit character after we have started adding digits
+            for char in utmzone:
+                if char.isdigit():
+                    zone_int_str += char
+                elif len(zone_int_str) > 0:
+                    break
+            zone_letter = utmzone.replace(zone_int_str, '').replace(' ', '')
+            if not zone_letter:
+                return 'Missing hemisphere (N or S) after UTM zone.\nGeoCORK accepts standard UTM coordinates.\nConvert NATO UTM coordinates to standard before updating', 'GPSUTMZone'
+            if not zone_letter in ['N', 'S']:
+                if 0 <= int(utmn) <= 100000 or 0 <= int(utme) <= 100000:
+                    return 'GeoCORK accepts standard UTM coordinates.\nConvert NATO UTM coordinates to standard before updating', 'GPSUTMZone'
+                else:
+                    return 'Standard UTM coordinates given with NATO zone.\nThe standard zone should be the zone number followed by N for northern hemisphere or S for southern hemisphere.', 'GPSUTMZone'
         if ((new_utmzone != 'NULL' and new_utme == 'NULL') or
                 (new_utmzone != 'NULL' and new_utme == '' and 'NULL' in old_utmes) or
                 (new_utmzone == '' and 'NULL' not in old_utmzones and new_utme == 'NULL')):

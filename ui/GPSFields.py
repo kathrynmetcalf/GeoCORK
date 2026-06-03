@@ -778,10 +778,22 @@ class GPSFields(QtW.QWidget):
                     self.lost_group_box.setFocus()
                     return False
                 logger_setup.get_logger().info(f"Valid GPS information")
-                if not query.exec(f'''UPDATE GPSLocations SET ({qgps_columns}) = ({qgps_values}) WHERE GPSLocationID = {gps_id}'''):
+                if not query.prepare(f'''UPDATE GPSLocations SET ({qgps_columns}) = ({', '.join(['?']*len(gps_values))}) WHERE GPSLocationID = {gps_id}'''):
                     logger_setup.get_logger().critical(f"Error updating GPS")
                     logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
                     logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                    rollback_savepoint('before_update')
+                    return False
+                for i in range(len(gps_values)):
+                    if gps_values[i] in ('', 'NULL', None):
+                        query.bindValue(i, QtC.QVariant())
+                    else:
+                        query.bindValue(i, gps_values[i])
+                if not query.exec():
+                    logger_setup.get_logger().critical(f"Error updating GPS location")
+                    logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+                    logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                    logger_setup.get_logger().debug(f"Bound values: {query.boundValues()}")
                     rollback_savepoint('before_update')
                     return False
                 update_modified_timestamp('GPSLocations', [gps_id])

@@ -363,9 +363,9 @@ def convert_utm_to_dd(zone_txt: str, UTME: float, UTMN: float):
         zone = int(zone_int_str)
     except ValueError:
         return f"Invalid zone: {zone_txt}"
-    if zone_txt[-1] == 'S':
+    if zone_txt.replace(zone_int_str, '').replace(' ', '') == 'S':
         south = True
-    elif zone_txt[-1] == 'N':
+    elif zone_txt.replace(zone_int_str, '').replace(' ', '') == 'N':
         south = False
     else:
         south = False
