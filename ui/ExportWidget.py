@@ -265,10 +265,10 @@ class ExportWidget(QWidget):
 
         self.checked_grouped_filter_list = self.groupedfilter_comboBox.source_model().return_checked_ids()[0]
 
-        # Get the current TableView
-        tableView: QTableView = self.worksheet_tabs_dict[current_worksheet_name]['tableView']
 
         if self.exportformat_comboBox.currentText() != 'Database':
+            # Get the current TableView
+            tableView: QTableView = self.worksheet_tabs_dict[current_worksheet_name]['tableView']
             # Get the selected columns for the current workbook
             self.sync_selected_ordered_columns(current_worksheet_name)
             if not self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns']:
