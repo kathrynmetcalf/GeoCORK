@@ -38,78 +38,8 @@ Export a portion of your database or filtered data sets for data analysis and sh
 
 ## Data Stored
 Data are stored in a .db file. GeoCORK can import from .xlsx files and export to .csv, .xlsx, or .db.
-### Sample Metadata
-- Unique sample name
-- [IGSN](https://ev.igsn.org/)
-- Description
-- GPS and Elevation
-- Units
-- Rock Types
-- Regions
-- Settings
-- Columns (e.g. stratigraphic columns, cores, etc.)
-- Contexts
-- Sampling Methods
-- Age Signatures 
-- Sample Ages (tags for constraints, interpretations, and references)
 
-### Aliquot Metadata
-- Parent sample
-- Parent aliquot for nested aliquots
-- Contexts
-
-### Spot Metadata
-- Parent aliquot
-- Optional parent grain
-- Composition of analyzed material
-- Contexts
-
-### Grain Metadata
-- Composition of grain
-- Contexts
-
-### U-Pb Data and Metadata
-- Parent spot
-- References
-- Lab Facilities
-- Instruments
-- Analysis Methods
-- Spot size
-- Errors (Ratios and Ages)
-- Units (ages, errors, concordance formats, spot size)
-- Rejected/Accepted
-- Rejection Reasons
-- Contexts
-#### Counts per Second
-- <sup>204</sup>Pb
-- <sup>206</sup>Pb
-- <sup>207</sup>Pb
-- <sup>208</sup>Pb
-- Pb<sup>*</sup>
-- <sup>235</sup>U
-- <sup>238</sup>U
-- <sup>232</sup>Th
-#### Concentrations
-- U
-- Th
-- U/Th or Th/U
-#### Ratios with errors
-- <sup>206</sup>Pb/<sup>207</sup>Pb or <sup>207</sup>Pb/<sup>206</sup>Pb
-- <sup>207</sup>Pb/<sup>235</sup>U or <sup>235</sup>U/<sup>207</sup>Pb
-- <sup>206</sup>Pb/<sup>238</sup>U or <sup>238</sup>U/<sup>206</sup>Pb
-- <sup>208</sup>Pb/<sup>232</sup>Th or <sup>232</sup>U/<sup>208</sup>Pb
-- <sup>238</sup>U/<sup>232</sup>Th or <sup>232</sup>Th/<sup>238</sup>U
-- <sup>204</sup>Pb/<sup>238</sup>U or <sup>238</sup>U/<sup>204</sup>Pb
-- <sup>206</sup>Pb/<sup>204</sup>Pb or <sup>204</sup>Pb/<sup>206</sup>Pb
-- <sup>207</sup>Pb/<sup>204</sup>Pb or <sup>204</sup>Pb/<sup>207</sup>Pb
-- <sup>208</sup>Pb/<sup>204</sup>Pb or <sup>204</sup>Pb/<sup>208</sup>Pb
-- Error Correlation / Rho
-#### Ages with errors
-- <sup>207</sup>Pb/<sup>206</sup>Pb
-- <sup>207</sup>Pb/<sup>235</sup>U
-- <sup>206</sup>Pb/<sup>238</sup>U
-- Best Age
-- Concordance
+See the [database schema chart](https://github.com/kathrynmetcalf/GeoCORK/blob/master/GeoCORKFullSchema.pdf) for all fields and connections in GeoCORK.
 
 ## BibTeX Citation
 ```
