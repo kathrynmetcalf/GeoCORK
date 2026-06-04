@@ -1404,10 +1404,22 @@ class EditView(QtW.QDialog):
                 self.destroy_dropdown()
                 return
             create_savepoint('before_edit_rejected')
-            if not query.exec(
-                    f'UPDATE {self.table} SET Rejected = {value} WHERE {self.table_headers[0]} {sql_where_str}'):
+            if not query.prepare(
+                    f'UPDATE {self.table} SET Rejected = :rejected WHERE {self.table_headers[0]} {sql_where_str}'):
                 logger_setup.get_logger().critical(
-                    f'Failed to update Rejected for {selected_ids}: {query.lastError().text()}')
+                    f'Failed to update Rejected for {self.table}: {[get_name_from_id(self.table, selected_id) for selected_id in selected_ids]}')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                rollback_savepoint('before_edit_rejected')
+                self.destroy_dropdown()
+                return
+            query.bindValue(':rejected', value)
+            if not query.exec():
+                logger_setup.get_logger().critical(
+                    f'Failed to update Rejected for {self.table}: {[get_name_from_id(self.table, selected_id) for selected_id in selected_ids]}')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
                 rollback_savepoint('before_edit_rejected')
                 self.destroy_dropdown()
                 return
