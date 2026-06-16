@@ -21,7 +21,7 @@ preferred-citation:
   title: "GeoCORK: An improved workflow for U-Pb geochronology data management"
   type: article
   year: 2026
-  doi: 10.5281/zenodo.15833658
+  doi: 10.1016/j.acags.2026.100364
 type: software
 version: 1.0.5
 identifiers: 
@@ -52,34 +52,7 @@ identifiers:
       repository.
 repository-code: 'https://github.com/kathrynmetcalf/GeoCORK'
 abstract: >-
-  'Geochronological data are used across many different
-  fields of geology. As analyses become cheaper and easier
-  and online databases grow, researchers have access to an
-  abundance of data for large-scale studies. However,
-  datasets reported from different labs, researchers, and
-  institutions all have their own formatting, and community
-  reporting standards continue to evolve. Existing databases
-  and compilations are incomplete and may not have all the
-  metadata a researcher wants. Powerful analysis tools also
-  require a variety of input formats. The current common
-  workflow of spreadsheet manipulation is time-consuming and
-  tedious. We present GeoCORK, an open-source desktop
-  application to address this problem by importing and
-  storing U-Pb geochronology data in a personal, local SQL
-  database. The researcher interacts with the database
-  through user-friendly interfaces which require no coding
-  experience to import, organize, filter, and export U-Pb
-  analyses and metadata. Data can be imported and exported
-  in preset or custom formats and filtered into groups based
-  on custom criteria. Tag categories are intentionally broad
-  to allow for personalized metadata. We also present two
-  example zircon U-Pb databases: a small compilation from
-  the Klamath Mountains (5,764 analyses) with several
-  different data types and formats and a large global
-  compilation (>1.8 million analyses) with more uniform
-  formatting. GeoCORK allows researchers to make the most of
-  available U-Pb data, and it is designed to incorporate
-  other geologic methods in the future.'
+  'Geochronological data are used across many different fields of geology. As analyses become cheaper and easier and online databases grow, researchers have access to an abundance of data for large-scale studies. However, datasets reported from different labs, researchers, and institutions all have their own formatting, and community reporting standards continue to evolve. Existing databases and compilations are incomplete and may not have all the metadata a researcher wants. Powerful analysis tools also require a variety of input formats. The current common workflow of spreadsheet manipulation is time-consuming and tedious. We present GeoCORK, an open-source desktop application to address this problem by importing and storing U-Pb geochronology data in a personal, local SQL database. The researcher interacts with the database through graphical user interfaces (GUIs) which require no coding experience to import, organize, filter, and export U-Pb analyses and metadata. Data can be imported and exported in preset or custom formats and filtered into groups based on custom criteria. Tag categories are intentionally broad to allow for personalized metadata. We also present two example zircon U-Pb databases: a small compilation from the Klamath Mountains (9,214 analyses) with several different data types and formats and a large global compilation (>1.8 million analyses) with more uniform formatting. GeoCORK allows researchers to make the most of available U-Pb data, and it is designed to incorporate other geologic methods in the future.'
 keywords:
   - geochronology
   - uranium lead dating
