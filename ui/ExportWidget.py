@@ -1037,26 +1037,13 @@ class ExportWidget(QWidget):
                 }
                 self.add_worksheet_tab('AgeCalcML concordia', False, True, UPb_columns, [], True)
             case 'Database':
-                self.fileformat_comboBox.setEnabled(False)
                 if self.findChild(QSqlTableModel, 'database_QSqlTableModel') is not None:
                     self.findChild(QSqlTableModel, 'database_QSqlTableModel').clear()
                     self.findChild(QSqlTableModel, 'database_QSqlTableModel').setParent(None)
                     QSqlDatabase.removeDatabase('temp')
                     self.findChild(QWidget, 'database_tab').setParent(None)
 
-                # self.selectionscope_comboBox.setCurrentText('Samples')
-                # self.selectionscope_comboBox.setEnabled(False)
-                # self.columnattributes_stack.setEnabled(False)
-                self.columnselection_comboBox.setEnabled(False)
-                self.editorder_button.setEnabled(False)
-                self.add_worksheet_button.setEnabled(False)
-                self.remove_worksheet_button.setEnabled(False)
-                # self.filterselection_comboBox.hide()
-                self.groupedfilter_comboBox.hide()
-                self.groupedfilter_label.hide()
-                # self.filters_label.hide()
-
-                self.update_database_export()
+                # self.update_database_export()
 
                 """The following code creates a temporary database file to export the selected data to.
                 It is time consuming for large databases, so use DataViewerWidget instead."""
@@ -1108,6 +1095,21 @@ class ExportWidget(QWidget):
 
     def update_database_export(self):
         self.clear_worksheet_data()
+
+        self.fileformat_comboBox.setEnabled(False)
+        # self.selectionscope_comboBox.setCurrentText('Samples')
+        # self.selectionscope_comboBox.setEnabled(False)
+        self.columnattributes_stack.setEnabled(False)
+        self.columnselection_comboBox.setEnabled(False)
+        self.editorder_button.setEnabled(False)
+        self.add_worksheet_button.setEnabled(False)
+        self.remove_worksheet_button.setEnabled(False)
+        self.edit_columnnames_button.setEnabled(False)
+        # self.filterselection_comboBox.hide()
+        self.groupedfilter_comboBox.hide()
+        self.groupedfilter_label.hide()
+        # self.filters_label.hide()
+
         if len(self.filtered_upb_ids) == 0:
             sample_ids_to_subset = []
         else:
@@ -1136,6 +1138,7 @@ class ExportWidget(QWidget):
         self.editorder_button.setEnabled(True)
         self.add_worksheet_button.setEnabled(True)
         self.remove_worksheet_button.setEnabled(True)
+        self.edit_columnnames_button.setEnabled(True)
         self.fileformat_comboBox.setEnabled(True)
         self.filterselection_comboBox.show()
         self.groupedfilter_comboBox.show()
@@ -1689,17 +1692,18 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
         """
         logger_setup.get_logger().info('Refresh Button Clicked')
 
-        # Recreate column stacks and reload checkbox states
-        for tab_index in range(self.workbooktabs.count()):
-            sheet_name = self.workbooktabs.tabText(tab_index)
-            self.save_checkbox_states(sheet_name)
-        self.populate_stack()
-        for tab_index in range(self.workbooktabs.count()):
-            sheet_name = self.workbooktabs.tabText(tab_index)
-            self.load_checkbox_states(sheet_name)
-        for tab_index in range(self.workbooktabs.count()):
-            sheet_name = self.workbooktabs.tabText(tab_index)
-            self.save_checkbox_states(sheet_name)
+        if self.exportformat_comboBox.currentText() != 'Database':
+            # Recreate column stacks and reload checkbox states
+            for tab_index in range(self.workbooktabs.count()):
+                sheet_name = self.workbooktabs.tabText(tab_index)
+                self.save_checkbox_states(sheet_name)
+            self.populate_stack()
+            for tab_index in range(self.workbooktabs.count()):
+                sheet_name = self.workbooktabs.tabText(tab_index)
+                self.load_checkbox_states(sheet_name)
+            for tab_index in range(self.workbooktabs.count()):
+                sheet_name = self.workbooktabs.tabText(tab_index)
+                self.save_checkbox_states(sheet_name)
 
         self.showEvent(None)
 
@@ -1783,7 +1787,7 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
 
         self.samplesincluded_comboBox.clearEditText()
 
-        self.update_table_view()
+        # self.update_table_view()
 
         close_loading_dialog('Loading', 'Loading data for export...')
         logger_setup.get_logger().info(f'ExportWidget populated in {time.time() - start_show_time:.2f} seconds')
