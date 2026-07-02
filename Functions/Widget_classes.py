@@ -2196,13 +2196,7 @@ def get_name_from_id(table: str, item_id: int):
     headers = get_headers(table)
     if table == '"References"':
         table = 'References'
-    if table != 'UPbAnalyses':
-        sql_query = f'SELECT {headers[get_name_column(table)]} FROM "{table}" WHERE {headers[0]}={item_id}'
-    else:
-        # For UPbAnalyses, we need to use the SpotName column
-        sql_query = f'''SELECT SpotName FROM UPbAnalyses
-                        JOIN Spots ON UPbAnalyses.SpotID=Spots.SpotID
-                        WHERE UPbAnalysisID={item_id}'''
+    sql_query = f'SELECT {headers[get_name_column(table)]} FROM "{table}" WHERE {headers[0]}={item_id}'
     # logger_setup.get_logger().debug(f'SQL command: {sql_query}')
     if not query.exec(sql_query):
         logger_setup.get_logger().critical(f"Failed to get name for {item_id} in {table}")
