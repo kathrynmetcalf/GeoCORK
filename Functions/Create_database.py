@@ -331,6 +331,46 @@ CREATE_GEOCHEMICAL_ANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS GeoChemicalAna
                         ON DELETE SET NULL
 )'''
 
+CREATE_GEOCHEMICAL_ANALYSES_GEOCHEMICAL_ANALYSIS_CONTEXTS_TABLE = '''CREATE TABLE IF NOT EXISTS GeoChemicalAnalyses_GeoChemicalAnalysisContexts(
+                    GeoChemAnalysisID INTEGER NOT NULL,
+                    GeoChemAnalysisContextID INTEGER NOT NULL,
+                    GeoChemicalAnalyses_GeoChemicalAnalysisContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GeoChemicalAnalyses_GeoChemicalAnalysisContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (GeoChemAnalysisID, GeoChemAnalysisContextID),
+                    FOREIGN KEY(GeoChemAnalysisID) REFERENCES GeoChemicalAnalyses(GeoChemAnalysisID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(GeoChemAnalysisContextID) REFERENCES GeoChemicalAnalysisContexts(GeoChemAnalysisContextID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+)'''
+
+CREATE_GEOCHEMICAL_ANALYSES_REJECTION_REASONS_TABLE = '''CREATE TABLE IF NOT EXISTS GeochemicalAnalyses_RejectionReasons(
+                    GeoChemAnalysisID INTEGER NOT NULL,
+                    RejectionReasonID INTEGER NOT NULL,
+                    GeochemicalAnalyses_RejectionReasonsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GeochemicalAnalyses_RejectionReasonsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (GeoChemAnalysisID, RejectionReasonID),
+                    FOREIGN KEY(GeoChemAnalysisID) REFERENCES GeoChemicalAnalyses(GeoChemAnalysisID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(RejectionReasonID) REFERENCES RejectionReasons(RejectionReasonID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+)'''
+
+CREATE_GEOCHEMICAL_ANALYSIS_CONTEXTS_TABLE = '''CREATE TABLE IF NOT EXISTS GeoChemicalAnalysisContexts(
+                    GeoChemAnalysisContextID INTEGER PRIMARY KEY,
+                    ParentGeoChemAnalysisContextID INTEGER,
+                    GeoChemAnalysisContextParentRow INTEGER NOT NULL,
+                    GeoChemAnalysisContextName TEXT NOT NULL CHECK (GeoChemAnalysisContextName <> ''),
+                    GeoChemAnalysisContextDescription TEXT,
+                    GeoChemAnalysisContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GeoChemAnalysisContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (GeoChemAnalysisContextName COLLATE NOCASE),
+                    UNIQUE (ParentGeoChemAnalysisContextID, GeoChemAnalysisContextParentRow)
+)'''
+
 CREATE_GEOCHEMCIAL_ANALYTES_TABLE = '''CREATE TABLE IF NOT EXISTS GeoChemicalAnalytes(
                     GeoChemAnalyteID INTEGER PRIMARY KEY,
                     GeoChemAnalyteName TEXT NOT NULL CHECK(GeoChemAnalyteName <> ''),
@@ -2026,6 +2066,13 @@ def create_tables(database=None) -> bool:
         return False
     if not query.exec(CREATE_GEOCHEMICAL_ANALYTE_CLASSES_TABLE):
         logger_setup.get_logger().critical(f'Error creating GeoChemicalAnalyteClasses table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
+
+    # Create GeoChem analysis tag tables
+    if not query.exec(CREATE_GEOCHEMICAL_ANALYSIS_CONTEXTS_TABLE):
+        logger_setup.get_logger().critical(f'Error creating GeochemicalAnalysisContexts table')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
