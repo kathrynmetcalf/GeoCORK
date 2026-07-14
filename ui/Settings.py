@@ -799,6 +799,9 @@ class SettingsDialog(QtW.QDialog):
         self.source_pushButton.clicked.connect(self.add_reference_element)
         self.doi_pushButton.clicked.connect(self.add_reference_element)
 
+        self.upb_checkBox.stateChanged.connect(self.update_analysis_display)
+        self.geochem_checkBox.stateChanged.connect(self.update_analysis_display)
+
         self.custom_theme_colors_checkBox.checkStateChanged.connect(self.update_color_widget_states)
         self.reset_colors_pushButton.clicked.connect(self.reset_color_fields)
 
