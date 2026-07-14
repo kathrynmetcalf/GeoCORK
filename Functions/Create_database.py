@@ -302,8 +302,12 @@ CREATE_GEOCHEMICAL_ANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS GeoChemicalAna
                     GeoChemAnalyteUnitID INTEGER,
                     GeoChemAnalyteError REAL, 
                     GeoChemAnalyteErrorFormatID INTEGER,
-                    GeoChemAnalysesCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    GeoChemAnalysesModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    SpotSize REAL,
+                    SpotSizeUnitID INTEGER,
+                    Rejected INTEGER,
+                    GeoChemAnalysisDescription TEXT,
+                    GeoChemAnalysisCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GeoChemAnalysisModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE (GeoChemAnalysisName COLLATE NOCASE),
                     FOREIGN KEY(SpotID) REFERENCES Spots(SpotID)
                         ON UPDATE CASCADE
@@ -345,11 +349,11 @@ CREATE_GEOCHEMICAL_ANALYSES_GEOCHEMICAL_ANALYSIS_CONTEXTS_TABLE = '''CREATE TABL
                         ON DELETE CASCADE
 )'''
 
-CREATE_GEOCHEMICAL_ANALYSES_REJECTION_REASONS_TABLE = '''CREATE TABLE IF NOT EXISTS GeochemicalAnalyses_RejectionReasons(
+CREATE_GEOCHEMICAL_ANALYSES_REJECTION_REASONS_TABLE = '''CREATE TABLE IF NOT EXISTS GeoChemicalAnalyses_RejectionReasons(
                     GeoChemAnalysisID INTEGER NOT NULL,
                     RejectionReasonID INTEGER NOT NULL,
-                    GeochemicalAnalyses_RejectionReasonsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    GeochemicalAnalyses_RejectionReasonsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GeoChemicalAnalyses_RejectionReasonsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GeoChemicalAnalyses_RejectionReasonsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE (GeoChemAnalysisID, RejectionReasonID),
                     FOREIGN KEY(GeoChemAnalysisID) REFERENCES GeoChemicalAnalyses(GeoChemAnalysisID)
                         ON UPDATE CASCADE
@@ -1862,7 +1866,7 @@ def create_tables(database=None) -> bool:
 
     # Create GeoChem analysis tag tables
     if not query.exec(CREATE_GEOCHEMICAL_ANALYSIS_CONTEXTS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating GeochemicalAnalysisContexts table')
+        logger_setup.get_logger().critical(f'Error creating GeoChemicalAnalysisContexts table')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False

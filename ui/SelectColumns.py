@@ -28,11 +28,11 @@ class SelectColumns(QWidget):
         if 'SampleIfNullView' in self.view_dict:
             self.view_dict.pop('SampleIfNullView')
 
-        self.view_setting_dict = SQLUtils.view_setting_dict
+        self.view_setting_dict = SQLUtils.view_setting_dict.copy()
 
         # Columns that view selections must have but are always hidden: parent ID fields and tree structure fields
         self.hidden_must_haves = ['SampleID', 'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'SpotID',
-                                  'UPbAnalysisID']
+                                  'UPbAnalysisID', 'GeoChemAnalysisID']
 
         self.show_per_page_comboBox.addItems(['10', '25', '50', '100', '250', '500', '1000'])
         self.show_per_page_comboBox.setCurrentText(str(settings.value('show_per_page')))

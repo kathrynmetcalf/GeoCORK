@@ -32,7 +32,7 @@ settings_list = [
     'reference_view_freeze', 'checkable_combobox_height_scalar',
     'checkable_combobox_width_scalar', 'font_family', 'font_size', 'table_font_size', 'debug_level', 'show_per_page',
     'autofill_best_age', 'young_fill_best_age', 'old_fill_best_age', 'best_age_cutoff', 'geocork_version',
-    'current_db_path', 'display_tooltips', 'show_items_missing_data'
+    'current_db_path', 'display_tooltips', 'show_items_missing_data', 'display_analyses'
 ]
 """List of all setting keys used by GeoCORK. This list is used to check for missing settings and to reset settings to default values."""
 
@@ -103,7 +103,8 @@ def default_settings():
                     'default_old_fill_best_age': '"207Pb/206PbAge"',
                     'default_best_age_cutoff': 1000,
                     'default_display_tooltips': 'true',
-                    'default_show_items_missing_data': 'true'}
+                    'default_show_items_missing_data': 'true',
+                    'default_display_analyses': ['UPbAnalyses', 'GeoChemicalAnalyses']}
     for default_key, default_value in default_dict.items():
         custom_key = default_key.split('default_')[1]
         if not settings.contains(default_key) or (settings.contains(default_key) and settings.value(default_key) != default_value):
@@ -476,6 +477,9 @@ class SettingsDialog(QtW.QDialog):
         self.source_pushButton.clicked.connect(self.add_reference_element)
         self.doi_pushButton.clicked.connect(self.add_reference_element)
 
+        self.upb_checkBox.stateChanged.connect(self.update_analysis_display)
+        self.geochem_checkBox.stateChanged.connect(self.update_analysis_display)
+
         self.buttonBox.button(QtW.QDialogButtonBox.StandardButton.Ok).clicked.connect(self.update_settings_close)
         self.buttonBox.button(QtW.QDialogButtonBox.StandardButton.Cancel).clicked.connect(self.close)
         self.buttonBox.button(QtW.QDialogButtonBox.StandardButton.Apply).clicked.connect(self.update_settings)
@@ -554,6 +558,15 @@ class SettingsDialog(QtW.QDialog):
         self.db_reference_lineEdit.setText(self.about_db_model.record(0).value('Citation'))
         self.geocork_version_text.setText(self.about_db_model.record(0).value('Version'))
 
+        if 'UPbAnalyses' in settings.value('display_analyses'):
+            self.upb_checkBox.setChecked(True)
+        else:
+            self.upb_checkBox.setChecked(False)
+        if 'GeoChemicalAnalyses' in settings.value('display_analyses'):
+            self.geochem_checkBox.setChecked(True)
+        else:
+            self.geochem_checkBox.setChecked(False)
+
         self.select_columns.populate_stack()
 
         self.combobox_height_scalar_spinbox.setValue(float(settings.value('checkable_combobox_height_scalar')))
@@ -583,6 +596,19 @@ class SettingsDialog(QtW.QDialog):
         #     self.lazy_batch_comboBox.setEnabled(False)
 
         self.display_tooltips_checkBox.setChecked(settings.value('display_tooltips', type=bool))
+
+    def update_analysis_display(self):
+        display_analyses = settings.value('display_analyses')
+        if self.upb_checkBox.isChecked() and 'UPbAnalyses' not in display_analyses:
+            display_analyses.append('UPbAnalyses')
+        elif not self.upb_checkBox.isChecked() and 'UPbAnalyses' in display_analyses:
+            display_analyses.remove('UPbAnalyses')
+        if self.geochem_checkBox.isChecked() and 'GeoChemicalAnalyses' not in display_analyses:
+            display_analyses.append('GeoChemicalAnalyses')
+        elif not self.geochem_checkBox.isChecked() and 'GeoChemicalAnalyses' in display_analyses:
+            display_analyses.remove('GeoChemicalAnalyses')
+        if display_analyses != settings.value('display_analyses'):
+            settings.setValue('display_analyses', display_analyses)
 
     def populate_best_age_fields(self):
         if settings.value('autofill_best_age') == 'true':

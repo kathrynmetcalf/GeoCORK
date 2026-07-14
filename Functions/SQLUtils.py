@@ -71,7 +71,7 @@ qaliquot_spot_contexts = 'REPLACE(GROUP_CONCAT(DISTINCT SpotContexts.SpotContext
 qaliquot_spot_compositions = 'REPLACE(GROUP_CONCAT(DISTINCT SpotCompositions.SpotCompositionName), ",", "; ") AS SpotCompositionName'
 qaliquot_references = 'REPLACE(GROUP_CONCAT(DISTINCT ReferenceDisplay), ",", "; ") AS UPbReference'
 qaliquot_upb_methods = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAnalysisMethods.UPbAnalysisMethodName), ",", "; ") AS UPbAnalysisMethodName'
-qaliquot_labs = 'REPLACE(GROUP_CONCAT(DISTINCT LabFacilties.LabFacilityName), ",", "; ") AS LabFacilityName'
+qaliquot_upb_labs = 'REPLACE(GROUP_CONCAT(DISTINCT UPbLabFacilities.LabFacilityName), ",", "; ") AS UPbLabFacilityName'
 qaliquot_description = 'Aliquots.AliquotDescription AS AliquotDescription'
 qaliquot_created = 'Aliquots.AliquotCreated AS AliquotCreated'
 qaliquot_modified = 'Aliquots.AliquotModified AS AliquotModified'
@@ -131,30 +131,30 @@ qupb_count_grain_subquery = f'''
 DistinctUPbAnalyses AS 
 (
     SELECT
-    lspuag.GrainID,
+    lspag.GrainID,
     SUM(CASE WHEN UPbAnalyses.Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID) AS AcceptedTotalUPbAnalyses
-    FROM LimitedSpotsUPbAnalysesGrains lspuag
-    INNER JOIN UPbAnalyses ON lspuag.SpotID = UPbAnalyses.SpotID
-    GROUP BY lspuag.GrainID
+    FROM LimitedSpotsAnalysesGrains lspag
+    INNER JOIN UPbAnalyses ON lspag.SpotID = UPbAnalyses.SpotID
+    GROUP BY lspag.GrainID
 )
 '''
 qupb_count_spot_subquery = f'''
 DistinctUPbAnalyses AS 
 (
     SELECT
-    lspuag.SpotID,
+    lspag.SpotID,
     SUM(CASE WHEN UPbAnalyses.Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID) AS AcceptedTotalUPbAnalyses
-    FROM LimitedSpotsUPbAnalysesGrains lspuag
-    INNER JOIN UPbAnalyses ON lspuag.SpotID = UPbAnalyses.SpotID
-    GROUP BY lspuag.SpotID
+    FROM LimitedSpotsAnalysesGrains lspag
+    INNER JOIN UPbAnalyses ON lspag.SpotID = UPbAnalyses.SpotID
+    GROUP BY lspag.SpotID
 )
 '''
 qupb_references = 'REPLACE(GROUP_CONCAT(DISTINCT UPbReferences.ReferenceDisplay), ",", "; ") AS UPbReference'
 qupb_reference = 'UPbReferences.ReferenceDisplay AS UPbReference'
-qupb_lab_facilities = 'REPLACE(GROUP_CONCAT(DISTINCT LabFacilities.LabFacilityName), ",", "; ") AS LabFacilityName'
-qupb_lab_facility = 'LabFacilities.LabFacilityName AS LabFacilityName'
-qupb_instruments = 'REPLACE(GROUP_CONCAT(DISTINCT Instruments.InstrumentName), ",", "; ") AS InstrumentName'
-qupb_instrument = 'Instruments.InstrumentName AS InstrumentName'
+qupb_lab_facilities = 'REPLACE(GROUP_CONCAT(DISTINCT UPbLabFacilities.LabFacilityName), ",", "; ") AS UPbLabFacilityName'
+qupb_lab_facility = 'UPbLabFacilities.LabFacilityName AS UPbLabFacilityName'
+qupb_instruments = 'REPLACE(GROUP_CONCAT(DISTINCT UPbInstruments.InstrumentName), ",", "; ") AS UPbInstrumentName'
+qupb_instrument = 'UPbInstruments.InstrumentName AS UPbInstrumentName'
 qupb_analysis_methods = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAnalysisMethods.UPbAnalysisMethodName), ",", "; ") AS UPbAnalysisMethodName'
 qupb_analysis_method = 'UPbAnalysisMethods.UPbAnalysisMethodName AS UPbAnalysisMethodName'
 qupb_204cps = 'UPbAnalyses."Pb204cps" AS "Pb204cps"'
@@ -244,8 +244,8 @@ qupb_204208 = 'UPbAnalyses."204Pb/208Pb" AS "204Pb/208Pb"'
 qupb_204208_error = 'UPbAnalyses."204Pb/208PbError" AS "204Pb/208PbError"'
 qupb_calc_204208 = 'UPbAnalyses."Calculated204Pb/208Pb" AS "Calculated204Pb/208Pb"'
 qupb_calc_204208_error = 'UPbAnalyses."Calculated204Pb/208PbError" AS "Calculated204Pb/208Pb"'
-qupb_ratio_error_formats = 'REPLACE(GROUP_CONCAT(DISTINCT RatioErrorFormats.ErrorFormatAbbreviation), ",", "; ") AS RatioErrorFormatAbbreviation'
-qupb_ratio_error_format = 'RatioErrorFormats.ErrorFormatAbbreviation AS RatioErrorFormatAbbreviation'
+qupb_ratio_error_formats = 'REPLACE(GROUP_CONCAT(DISTINCT UPbRatioErrorFormats.ErrorFormatAbbreviation), ",", "; ") AS UPbRatioErrorFormatAbbreviation'
+qupb_ratio_error_format = 'UPbRatioErrorFormats.ErrorFormatAbbreviation AS UPbRatioErrorFormatAbbreviation'
 qupb_207206_age = 'UPbAnalyses."207Pb/206PbAge" AS "207Pb/206PbAge"'
 qupb_207206_age_error = 'UPbAnalyses."207Pb/206PbAgeError" AS "207Pb/206PbAgeError"'
 qupb_calc_207206_age = 'UPbAnalyses."Calculated207Pb/206PbAge" AS "Calculated207Pb/206PbAge"'
@@ -282,18 +282,18 @@ qupb_concordance_68v75 = 'UPbAnalyses."CalculatedConcordance_206Pb/238Uv207Pb/23
 qupb_error_corr_68v75 = 'UPbAnalyses."ErrorCorr/Rho_68v75" AS "ErrorCorr/Rho_68v75"'
 qupb_calc_concordance_68v76 = 'UPbAnalyses."CalculatedConcordance_206Pb/238Uv207Pb/206Pb" AS "Concordance_206Pb/238Uv207Pb/206Pb"'
 qupb_calc_concordance_68v75 = 'UPbAnalyses."CalculatedConcordance_206Pb/238Uv207Pb/235U" AS "Concordance_206Pb/238Uv207Pb/235U"'
-qconcordance_formats = 'REPLACE(GROUP_CONCAT(DISTINCT ConcordanceFormats.ConcordanceFormatAbbreviation), ",", "; ") AS ConcordanceFormatAbbreviation'
-qconcordance_format = 'ConcordanceFormats.ConcordanceFormatAbbreviation AS ConcordanceFormatAbbreviation'
-qminsegdisc = 'UPbAnalyses.MinimumSegmentedDiscordance AS MinimumSegmentedDiscordance'
-qspot_size = 'UPbAnalyses.SpotSize AS SpotSize'
-qupb_calc_spot_size = 'UPbAnalyses.CalculatedSpotSize AS CalculatedSpotSize'
-qspot_sizes = f'REPLACE(GROUP_CONCAT(DISTINCT UPbAnalyses.CalculatedSpotSize), ",", "; ") AS CalculatedSpotSize'
-qspot_size_units = 'REPLACE(GROUP_CONCAT(DISTINCT SpotSizeUnits.DistanceUnitAbbreviation), ",", "; ") AS SpotSizeUnitAbbreviation'
-qspot_size_unit = 'SpotSizeUnits.DistanceUnitAbbreviation AS SpotSizeUnitAbbreviation'
+qupb_concordance_formats = 'REPLACE(GROUP_CONCAT(DISTINCT UPbConcordanceFormats.ConcordanceFormatAbbreviation), ",", "; ") AS UPbConcordanceFormatAbbreviation'
+qupb_concordance_format = 'UPbConcordanceFormats.ConcordanceFormatAbbreviation AS UPbConcordanceFormatAbbreviation'
+qupb_minsegdisc = 'UPbAnalyses.MinimumSegmentedDiscordance AS MinimumSegmentedDiscordance'
+qupb_spot_size = 'UPbAnalyses.SpotSize AS UPbSpotSize'
+qupb_calc_spot_size = 'UPbAnalyses.CalculatedSpotSize AS CalculatedUPbSpotSize'
+qupb_spot_sizes = f'REPLACE(GROUP_CONCAT(DISTINCT UPbAnalyses.CalculatedSpotSize), ",", "; ") AS CalculatedUPbSpotSize'
+qupb_spot_size_units = 'REPLACE(GROUP_CONCAT(DISTINCT UPbSpotSizeUnits.DistanceUnitAbbreviation), ",", "; ") AS UPbSpotSizeUnitAbbreviation'
+qupb_spot_size_unit = 'UPbSpotSizeUnits.DistanceUnitAbbreviation AS UPbSpotSizeUnitAbbreviation'
 rejected_text = "'Rejected'"
 accepted_text = "'Accepted'"
 qupb_rejected = f'(CASE WHEN UPbAnalyses.Rejected = 1 THEN {rejected_text} ELSE {accepted_text} END) AS Rejected'
-qupb_rejection_reasons = 'REPLACE(GROUP_CONCAT(DISTINCT UPbRejectionReasons.RejectionReasonName), ",", "; ") AS RejectionReasonName'
+qupb_rejection_reasons = 'REPLACE(GROUP_CONCAT(DISTINCT UPbRejectionReasons.RejectionReasonName), ",", "; ") AS UPbRejectionReasonName'
 qupb_contexts = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAnalysisContexts.UPbAnalysisContextName), ",", "; ") AS UPbAnalysisContextName'
 qupb_created = 'UPbAnalyses.UPbAnalysisCreated AS UPbAnalysisCreated'
 qupb_modified = 'UPbAnalyses.UPbAnalysisModified AS UPbAnalysisModified'
@@ -314,16 +314,78 @@ qgeochem_id = 'GeoChemicalAnalyses.GeoChemAnalysisID AS GeoChemAnalysisID'
 qgeochem_analysis_name = 'GeoChemicalAnalyses.GeoChemAnalysisName AS GeoChemAnalysisName'
 qgeochem_analyte = 'GeoChemicalAnalytes.GeoChemAnalyteName AS GeoChemAnalyteName'
 qgeochem_analyte_abbreviation = 'GeoChemicalAnalytes.GeoChemAnalyteAbbreviation AS GeoChemAnalyteAbbreviation'
+qgeochem_analyte_abbreviations = 'REPLACE(GROUP_CONCAT(DISTINCT GeoChemicalAnalytes.GeoChemAnalyteAbbreviation), ",", "; ") AS GeoChemAnalyteAbbreviation'
 qgeochem_analyte_value = 'GeoChemicalAnalyses.GeoChemAnalyteValue AS GeoChemAnalyteValue'
 qgeochem_analyte_error = 'GeoChemicalAnalyses.GeoChemAnalyteError AS GeoChemAnalyteError'
 qgeochem_analyte_unit = 'GeoChemAnalyteUnits.AnalyticalUnitAbbreviation AS GeoChemAnalyteUnitAbbreviation'
+qgeochem_analyte_units = 'REPLACE(GROUP_CONCAT(DISTINCT GeoChemAnalyteUnits.AnalyticalUnitAbbreviation), ",", "; ") AS GeoChemAnalyteUnitAbbreviation'
 qgeochem_analyte_error_format = 'GeoChemAnalyteErrorFormats.ErrorFormatAbbreviation AS GeoChemAnalyteErrorFormatAbbreviation'
-qgeochem_lab_facility = 'GeoChemLabFacilities.LabFacilityName AS LabFacilityName'
-qgeochem_instrument = 'GeoChemInstruments.InstrumentName AS InstrumentName'
+qgeochem_analyte_error_formats = 'REPLACE(GROUP_CONCAT(DISTINCT GeoChemAnalyteErrorFormats.ErrorFormatAbbreviation), ",", "; ") AS GeoChemAnalyteErrorFormatAbbreviation'
+qgeochem_lab_facility = 'GeoChemLabFacilities.LabFacilityName AS GeoChemLabFacilityName'
+qgeochem_lab_facilities = 'REPLACE(GROUP_CONCAT(DISTINCT GeoChemLabFacilities.LabFacilityName), ",", "; ") AS GeoChemLabFacilityName'
+qgeochem_instrument = 'GeoChemInstruments.InstrumentName AS GeoChemInstrumentName'
+qgeochem_instruments = 'REPLACE(GROUP_CONCAT(DISTINCT GeoChemInstruments.InstrumentName), ",", "; ") AS GeoChemInstrumentName'
 qgeochem_method = 'GeoChemicalMethods.GeoChemicalMethodName AS GeoChemicalMethodName'
+qgeochem_methods = 'REPLACE(GROUP_CONCAT(DISTINCT GeoChemicalMethods.GeoChemicalMethodName), ",", "; ") AS GeoChemicalMethodName'
 qgeochem_reference = 'GeoChemReferences.ReferenceDisplay AS GeoChemReference'
-qgeochem_created = 'GeoChemicalAnalyses.GeoChemAnalysesCreated AS GeoChemAnalysesCreated'
-qgeochem_modified = 'GeoChemicalAnalyses.GeoChemAnalysesModified AS GeoChemAnalysesModified'
+qgeochem_references = 'REPLACE(GROUP_CONCAT(DISTINCT GeoChemReferences.ReferenceDisplay), ",", "; ") AS GeoChemReference'
+qgeochem_spot_size = 'GeoChemicalAnalyses.SpotSize AS GeoChemSpotSize'
+qgeochem_calc_spot_size = 'GeoChemicalAnalyses.CalculatedSpotSize AS CalculatedGeoChemSpotSize'
+qgeochem_spot_sizes = f'REPLACE(GROUP_CONCAT(DISTINCT GeoChemicalAnalyses.CalculatedSpotSize), ",", "; ") AS CalculatedGeoChemSpotSize'
+qgeochem_spot_size_units = 'REPLACE(GROUP_CONCAT(DISTINCT GeoChemSpotSizeUnits.DistanceUnitAbbreviation), ",", "; ") AS GeoChemSpotSizeUnitAbbreviation'
+qgeochem_spot_size_unit = 'GeoChemSpotSizeUnits.DistanceUnitAbbreviation AS GeoChemSpotSizeUnitAbbreviation'
+qgeochem_rejected = f'(CASE WHEN GeoChemicalAnalyses.Rejected = 1 THEN {rejected_text} ELSE {accepted_text} END) AS Rejected'
+qgeochem_rejection_reasons = 'REPLACE(GROUP_CONCAT(DISTINCT GeoChemRejectionReasons.RejectionReasonName), ",", "; ") AS GeoChemRejectionReasonName'
+qgeochem_contexts = 'REPLACE(GROUP_CONCAT(DISTINCT GeoChemicalAnalysisContexts.GeoChemAnalysisContextName), ",", "; ") AS GeoChemAnalysisContextName'
+qgeochem_created = 'GeoChemicalAnalyses.GeoChemAnalysisCreated AS GeoChemAnalysisCreated'
+qgeochem_modified = 'GeoChemicalAnalyses.GeoChemAnalysisModified AS GeoChemAnalysisModified'
+qgeochem_count = 'DistinctGeoChemicalAnalyses.AcceptedTotalGeoChemicalAnalyses AS "Accepted/TotalGeoChemicalAnalyses"'
+qgeochem_count_sample_subquery = f'''
+DistinctGeoChemicalAnalyses AS 
+(
+    SELECT 
+    lsa.SampleID,
+    SUM(CASE WHEN GeoChemicalAnalyses.Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT GeoChemicalAnalyses.GeoChemAnalysisID) AS AcceptedTotalGeoChemicalAnalyses
+    FROM LimitedSamplesAliquots lsa
+    INNER JOIN Spots ON lsa.AliquotID = Spots.AliquotID
+    INNER JOIN GeoChemicalAnalyses ON Spots.SpotID = GeoChemicalAnalyses.SpotID
+    GROUP BY lsa.SampleID
+)
+'''
+qgeochem_count_aliquot_subquery = f'''
+DistinctGeoChemicalAnalyses AS 
+(
+    SELECT
+    lsa.AliquotID,
+    SUM(CASE WHEN GeoChemicalAnalyses.Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT GeoChemicalAnalyses.GeoChemAnalysisID) AS AcceptedTotalGeoChemicalAnalyses
+    FROM LimitedSamplesAliquots lsa
+    INNER JOIN Spots ON lsa.AliquotID = Spots.AliquotID
+    INNER JOIN GeoChemicalAnalyses ON Spots.SpotID = GeoChemicalAnalyses.SpotID
+    GROUP BY lsa.AliquotID
+)
+'''
+qgeochem_count_grain_subquery = f'''
+DistinctGeoChemicalAnalyses AS 
+(
+    SELECT
+    lspag.GrainID,
+    SUM(CASE WHEN GeoChemicalAnalyses.Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT GeoChemicalAnalyses.GeoChemAnalysisID) AS AcceptedTotalGeoChemicalAnalyses
+    FROM LimitedSpotsAnalysesGrains lspag
+    INNER JOIN GeoChemicalAnalyses ON lspag.SpotID = GeoChemicalAnalyses.SpotID
+    GROUP BY lspag.GrainID
+)
+'''
+qgeochem_count_spot_subquery = f'''
+DistinctGeoChemicalAnalyses AS 
+(
+    SELECT
+    lspag.SpotID,
+    SUM(CASE WHEN GeoChemicalAnalyses.Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT GeoChemicalAnalyses.GeoChemAnalysisID) AS AcceptedTotalGeoChemicalAnalyses
+    FROM LimitedSpotsAnalysesGrains lspag
+    INNER JOIN GeoChemicalAnalyses ON lspag.SpotID = GeoChemicalAnalyses.SpotID
+    GROUP BY lspag.SpotID
+)
+'''
 
 # Join lines
 # SampleAge-Age joins
@@ -400,15 +462,15 @@ spot_geochem_analysis_join = 'INNER JOIN GeoChemicalAnalyses ON Spots.SpotID = G
 # UPbJoins
 upb_spot_join = 'INNER JOIN Spots ON UPbAnalyses.SpotID = Spots.SpotID'
 upb_reference_join = 'LEFT JOIN "References" AS UPbReferences ON UPbAnalyses.ReferenceID = UPbReferences.ReferenceID'
-upb_labs_join = 'LEFT JOIN LabFacilities ON UPbAnalyses.LabFacilityID = LabFacilities.LabFacilityID'
-upb_instruments_join = 'LEFT JOIN Instruments ON UPbAnalyses.InstrumentID = Instruments.InstrumentID'
+upb_labs_join = 'LEFT JOIN LabFacilities AS UPbLabFacilities ON UPbAnalyses.LabFacilityID = UPbLabFacilities.LabFacilityID'
+upb_instruments_join = 'LEFT JOIN Instruments AS UPbInstruments ON UPbAnalyses.InstrumentID = UPbInstruments.InstrumentID'
 upb_method_join = 'LEFT JOIN UPbAnalysisMethods ON UPbAnalyses.UPbAnalysisMethodID = UPbAnalysisMethods.UPbAnalysisMethodID'
-upb_ratio_error_format_join = 'LEFT JOIN ErrorFormats AS RatioErrorFormats ON UPbAnalyses.RatioErrorFormatID = RatioErrorFormats.ErrorFormatID'
+upb_ratio_error_format_join = 'LEFT JOIN ErrorFormats AS UPbRatioErrorFormats ON UPbAnalyses.RatioErrorFormatID = UPbRatioErrorFormats.ErrorFormatID'
 upb_age_error_format_join = 'LEFT JOIN ErrorFormats AS UPbAgeErrorFormats ON UPbAnalyses.AgeErrorFormatID = UPbAgeErrorFormats.ErrorFormatID'
 upb_age_unit_join = 'LEFT JOIN AgeUnits AS UPbAgeUnits ON UPbAnalyses.AgeUnitID = UPbAgeUnits.AgeUnitID'
 upb_age_interpretation_join = 'LEFT JOIN AgeInterpretations AS UPbAgeInterpretations ON UPbAnalyses.AgeInterpretationID = UPbAgeInterpretations.AgeInterpretationID'
-upb_concordance_format_join = 'LEFT JOIN ConcordanceFormats ON UPbAnalyses.ConcordanceFormatID = ConcordanceFormats.ConcordanceFormatID'
-upb_spot_size_unit_join = 'LEFT JOIN DistanceUnits AS SpotSizeUnits ON UPbAnalyses.SpotSizeUnitID = SpotSizeUnits.DistanceUnitID'
+upb_concordance_format_join = 'LEFT JOIN ConcordanceFormats AS UPbConcordanceFormats ON UPbAnalyses.ConcordanceFormatID = UPbConcordanceFormats.ConcordanceFormatID'
+upb_spot_size_unit_join = 'LEFT JOIN DistanceUnits AS UPbSpotSizeUnits ON UPbAnalyses.SpotSizeUnitID = UPbSpotSizeUnits.DistanceUnitID'
 upb_rejection_reason_join = '''LEFT JOIN UPbAnalyses_RejectionReasons ON UPbAnalyses.UPbAnalysisID = UPbAnalyses_RejectionReasons.UPbAnalysisID
                                     LEFT JOIN RejectionReasons AS UPbRejectionReasons ON UPbAnalyses_RejectionReasons.RejectionReasonID = UPbRejectionReasons.RejectionReasonID'''
 upb_context_join = '''LEFT JOIN UPbAnalyses_UPbAnalysisContexts ON UPbAnalyses.UPbAnalysisID = UPbAnalyses_UPbAnalysisContexts.UPbAnalysisID
@@ -428,26 +490,34 @@ geochem_method_join = 'LEFT JOIN GeoChemicalMethods ON GeoChemicalAnalyses.GeoCh
 geochem_analyte_join = 'LEFT JOIN GeoChemicalAnalytes ON GeoChemicalAnalyses.GeoChemAnalyteID = GeoChemicalAnalytes.GeoChemAnalyteID'
 geochem_analyte_unit_join = 'LEFT JOIN AnalyticalUnits AS GeoChemAnalyteUnits ON GeoChemicalAnalyses.GeoChemAnalyteUnitID = GeoChemAnalyteUnits.AnalyticalUnitID'
 geochem_analyte_error_format_join = 'LEFT JOIN ErrorFormats AS GeoChemAnalyteErrorFormats ON GeoChemicalAnalyses.GeoChemAnalyteErrorFormatID = GeoChemAnalyteErrorFormats.ErrorFormatID'
-
+geochem_spot_size_unit_join = 'LEFT JOIN DistanceUnits AS GeoChemSpotSizeUnits ON GeoChemicalAnalyses.SpotSizeUnitID = GeoChemSpotSizeUnits.DistanceUnitID'
+geochem_rejection_reasons_join = '''LEFT JOIN GeoChemicalAnalyses_RejectionReasons ON GeoChemicalAnalyses.GeoChemAnalysisID = GeoChemicalAnalyses_RejectionReasons.GeoChemAnalysisID
+                            LEFT JOIN RejectionReasons AS GeoChemRejectionReasons ON GeoChemicalAnalyses_RejectionReasons.RejectionReasonID = GeoChemRejectionReasons.RejectionReasonID'''
+geochem_contexts_join = '''LEFT JOIN GeoChemicalAnalyses_GeoChemicalAnalysisContexts ON GeoChemicalAnalyses.GeoChemAnalysisID = GeoChemicalAnalyses_GeoChemicalAnalysisContexts.GeoChemAnalysisID
+                            LEFT JOIN GeoChemicalAnalysisContexts ON GeoChemicalAnalyses_GeoChemicalAnalysisContexts.GeoChemAnalysisContextID = GeoChemicalAnalysisContexts.GeoChemAnalysisContextID'''
+geochem_distinct_join_sample = '''LEFT JOIN DistinctGeoChemicalAnalyses ON Samples.SampleID = DistinctGeoChemicalAnalyses.SampleID'''
+geochem_distinct_join_aliquot = '''LEFT JOIN DistinctGeoChemicalAnalyses ON Aliquots.AliquotID = DistinctGeoChemicalAnalyses.AliquotID'''
+geochem_distinct_join_grain = '''LEFT JOIN DistinctGeoChemicalAnalyses ON Grains.GrainID = DistinctGeoChemicalAnalyses.GrainID'''
+geochem_distinct_join_spot = '''LEFT JOIN DistinctGeoChemicalAnalyses ON Spots.SpotID = DistinctGeoChemicalAnalyses.SpotID'''
 
 # Limited hierarchy joins
 limited_sample_aliquot_hierarchy_join = f'''
-                        INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON lsa.AliquotID = lspuag.AliquotID
+                        INNER JOIN LimitedSpotsAnalysesGrains lspag ON lsa.AliquotID = lspag.AliquotID
                         '''
-limited_spot_upb_grain_hierarchy_join = f'''
-                        INNER JOIN LimitedSamplesAliquots lsa ON lspuag.AliquotID = lsa.AliquotID
-                        '''
-# GeoChem-specific limited hierarchy: ties LimitedSpotsGeoChemAnalyses back to the LimitedSamplesAliquots tier
-limited_spot_geochem_grain_hierarchy_join = f'''
-                        INNER JOIN LimitedSamplesAliquots lsa ON lspgcg.AliquotID = lsa.AliquotID
+limited_spot_analysis_grain_hierarchy_join = f'''
+                        INNER JOIN LimitedSamplesAliquots lsa ON lspag.AliquotID = lsa.AliquotID
                         '''
 limited_sample_hierarchy_joins = [column_join, column_unit_join]
 # Limited tags
 # Limit the many-to-many relationships
 upb_distinct_join_limited_sample = '''LEFT JOIN DistinctUPbAnalyses ON lsa.SampleID = DistinctUPbAnalyses.SampleID'''
 upb_distinct_join_limited_aliquot = '''LEFT JOIN DistinctUPbAnalyses ON lsa.AliquotID = DistinctUPbAnalyses.AliquotID'''
-upb_distinct_join_limited_grain = '''LEFT JOIN DistinctUPbAnalyses ON lspuag.GrainID = DistinctUPbAnalyses.GrainID'''
-upb_distinct_join_limited_spot = '''LEFT JOIN DistinctUPbAnalyses ON lspuag.SpotID = DistinctUPbAnalyses.SpotID'''
+upb_distinct_join_limited_grain = '''LEFT JOIN DistinctUPbAnalyses ON lspag.GrainID = DistinctUPbAnalyses.GrainID'''
+upb_distinct_join_limited_spot = '''LEFT JOIN DistinctUPbAnalyses ON lspag.SpotID = DistinctUPbAnalyses.SpotID'''
+gc_distinct_join_limited_sample = '''LEFT JOIN DistinctGeoChemicalAnalyses ON lsa.SampleID = DistinctGeoChemicalAnalyses.SampleID'''
+gc_distinct_join_limited_aliquot = '''LEFT JOIN DistinctGeoChemicalAnalyses ON lsa.AliquotID = DistinctGeoChemicalAnalyses.AliquotID'''
+gc_distinct_join_limited_grain = '''LEFT JOIN DistinctGeoChemicalAnalyses ON lspag.GrainID = DistinctGeoChemicalAnalyses.GrainID'''
+gc_distinct_join_limited_spot = '''LEFT JOIN DistinctGeoChemicalAnalyses ON lspag.SpotID = DistinctGeoChemicalAnalyses.SpotID'''
 limited_sample_tags = [
         f'''LimitedSamples_AgeSignatures AS (
             SELECT 
@@ -568,26 +638,26 @@ limited_spot_tags = [
             SELECT s_sc.SpotID, sc.SpotContextName
             FROM SpotContexts sc
             INNER JOIN Spots_SpotContexts s_sc ON sc.SpotContextID = s_sc.SpotContextID
-            INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON s_sc.SpotID = lspuag.SpotID
+            INNER JOIN LimitedSpotsAnalysesGrains lspag ON s_sc.SpotID = lspag.SpotID
         )''',
         f'''LimitedGrains_GrainContexts AS (
             SELECT g_gc.GrainID, gc.GrainContextName
             FROM GrainContexts gc
             INNER JOIN Grains_GrainContexts g_gc ON gc.GrainContextID = g_gc.GrainContextID
-            INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON g_gc.GrainID = lspuag.GrainID
+            INNER JOIN LimitedSpotsAnalysesGrains lspag ON g_gc.GrainID = lspag.GrainID
         )''']
 limited_upb_tags = [
         f'''LimitedUPbAnalyses_UPbAnalysisContexts AS (
             SELECT ua_uac.UPbAnalysisID, ac.UPbAnalysisContextName
             FROM UPbAnalysisContexts ac
             INNER JOIN UPbAnalyses_UPbAnalysisContexts ua_uac ON ac.UPbAnalysisContextID = ua_uac.UPbAnalysisContextID
-            INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON ua_uac.UPbAnalysisID = lspuag.UPbAnalysisID
+            INNER JOIN LimitedSpotsAnalysesGrains lspag ON ua_uac.UPbAnalysisID = lspag.UPbAnalysisID
         )''',
         f'''LimitedUPbAnalyses_RejectionReasons AS (
             SELECT ua_rr.UPbAnalysisID, rr.RejectionReasonName
             FROM RejectionReasons rr
             INNER JOIN UPbAnalyses_RejectionReasons ua_rr ON rr.RejectionReasonID = ua_rr.RejectionReasonID
-            INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON ua_rr.UPbAnalysisID = lspuag.UPbAnalysisID
+            INNER JOIN LimitedSpotsAnalysesGrains lspag ON ua_rr.UPbAnalysisID = lspag.UPbAnalysisID
         )''']
 
 limited_grain_tags = [
@@ -595,7 +665,21 @@ limited_grain_tags = [
             SELECT g_gc.GrainID, gc.GrainContextName
             FROM GrainContexts gc
             INNER JOIN Grains_GrainContexts g_gc ON gc.GrainContextID = g_gc.GrainContextID
-            INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON g_gc.GrainID = lspuag.GrainID
+            INNER JOIN LimitedSpotsAnalysesGrains lspag ON g_gc.GrainID = lspag.GrainID
+        )''']
+
+limited_geochem_tags = [
+        f'''LimitedGeoChemicalAnalyses_GeoChemicalAnalysisContexts AS (
+            SELECT gca_gcac.GeoChemAnalysisID, gcac.GeoChemAnalysisContextName
+            FROM GeoChemicalAnalysisContexts gcac
+            INNER JOIN GeoChemicalAnalyses_GeoChemicalAnalysisContexts gca_gcac ON gcac.GeoChemAnalysisContextID = gca_gcac.GeoChemAnalysisContextID
+            INNER JOIN LimitedSpotsAnalysesGrains lspag ON gca_gcac.GeoChemAnalysisID = lspag.GeoChemAnalysisID
+        )''',
+        f'''LimitedGeoChemicalAnalyses_RejectionReasons AS (
+            SELECT gca_rr.GeoChemAnalysisID, rr.RejectionReasonName
+            FROM RejectionReasons rr
+            INNER JOIN GeoChemicalAnalyses_RejectionReasons gca_rr ON rr.RejectionReasonID = gca_rr.RejectionReasonID
+            INNER JOIN LimitedSpotsAnalysesGrains lspag ON gca_rr.GeoChemAnalysisID = lspag.GeoChemAnalysisID
         )''']
 
 # Limited tag joins
@@ -616,24 +700,25 @@ limited_sample_tags_join = [
 limited_aliquot_tags_join = [f'LEFT JOIN LimitedAliquots_AliquotContexts laac ON lsa.AliquotID = laac.AliquotID']
 
 limited_spot_tags_join = [
-    'LEFT JOIN LimitedSpots_SpotContexts lspsc ON lspuag.SpotID = lspsc.SpotID',
-    'LEFT JOIN LimitedGrains_GrainContexts lggc ON lspuag.GrainID = lggc.GrainID'
+    'LEFT JOIN LimitedSpots_SpotContexts lspsc ON lspag.SpotID = lspsc.SpotID',
+    'LEFT JOIN LimitedGrains_GrainContexts lggc ON lspag.GrainID = lggc.GrainID'
     ]
 
 limited_upb_tags_join = [
-    'LEFT JOIN LimitedUPbAnalyses_UPbAnalysisContexts luac ON lspuag.UPbAnalysisID = luac.UPbAnalysisID',
-    'LEFT JOIN LimitedUPbAnalyses_RejectionReasons lurr ON lspuag.UPbAnalysisID = lurr.UPbAnalysisID'
+    'LEFT JOIN LimitedUPbAnalyses_UPbAnalysisContexts luac ON lspag.UPbAnalysisID = luac.UPbAnalysisID',
+    'LEFT JOIN LimitedUPbAnalyses_RejectionReasons lurr ON lspag.UPbAnalysisID = lurr.UPbAnalysisID'
     ]
 
 limited_grain_tags_join = [
-    'LEFT JOIN LimitedGrains_GrainContexts lggc ON lspuag.GrainID = lggc.GrainID'
+    'LEFT JOIN LimitedGrains_GrainContexts lggc ON lspag.GrainID = lggc.GrainID'
 ]
 
+limited_geochem_tags_join = [
+    'LEFT JOIN LimitedGeoChemicalAnalyses_GeoChemicalAnalysisContexts lgcac ON lspag.GeoChemAnalysisID = lgcac.GeoChemAnalysisID',
+    'LEFT JOIN LimitedGeoChemicalAnalyses_RejectionReasons lgcrr ON lspag.GeoChemAnalysisID = lgcrr.GeoChemAnalysisID'
+    ]
 
-limited_geochem_tags = []
-limited_geochem_tags_join = []
-
-limited_lsa_lspuag_joins = {
+limited_lsa_lspag_joins = {
     'LimitedSamplesAliquots': [column_join,
                     column_unit_join,
                     gps_sample_join,
@@ -641,6 +726,27 @@ limited_lsa_lspuag_joins = {
                     gps_column_join,
                     gps_column_left_joins
                 ],
+    'LimitedSpotsAnalysesGrains': [grain_composition_join,
+                    spot_composition_join,
+                    upb_reference_join,
+                    upb_labs_join,
+                    upb_instruments_join,
+                    upb_method_join,
+                    upb_ratio_error_format_join,
+                    upb_age_error_format_join,
+                    upb_age_unit_join,
+                    upb_concordance_format_join,
+                    upb_age_interpretation_join,
+                    upb_spot_size_unit_join,
+                    geochem_reference_join,
+                    geochem_labs_join,
+                    geochem_instruments_join,
+                    geochem_method_join,
+                    geochem_analyte_join,
+                    geochem_analyte_unit_join,
+                    geochem_analyte_error_format_join,
+                    geochem_rejection_reasons_join,
+                    geochem_contexts_join],
     'LimitedSpotsUPbAnalysesGrains': [grain_composition_join,
                     spot_composition_join,
                     upb_reference_join,
@@ -654,23 +760,25 @@ limited_lsa_lspuag_joins = {
                     upb_age_interpretation_join,
                     upb_spot_size_unit_join],
     'LimitedSpotsGeoChemicalAnalysesGrains': [grain_composition_join,
-                        spot_composition_join,
-                        geochem_reference_join,
-                        geochem_labs_join,
-                        geochem_instruments_join,
-                        geochem_method_join,
-                        geochem_analyte_join,
-                        geochem_analyte_unit_join,
-                        geochem_analyte_error_format_join]
+                    spot_composition_join,
+                    geochem_reference_join,
+                    geochem_labs_join,
+                    geochem_instruments_join,
+                    geochem_method_join,
+                    geochem_analyte_join,
+                    geochem_analyte_unit_join,
+                    geochem_analyte_error_format_join,
+                    geochem_rejection_reasons_join,
+                    geochem_contexts_join]
 }
 
 # Dictionary for limited table abbreviations
 limited_table_abbreviations = {
     'Samples': 'lsa',
     'Aliquots': 'lsa',
-    'Spots': 'lspuag',
-    'UPbAnalyses': 'lspuag',
-    'Grains': 'lspuag',
+    'Spots': 'lspag',
+    'UPbAnalyses': 'lspag',
+    'Grains': 'lspag',
     'Columns': 'lsa',
     'ColumnHeightDepthUnits': 'lsa',
     'SampleLatDirections': 'lsa',
@@ -699,41 +807,42 @@ limited_table_abbreviations = {
     'SpotContexts': 'lspsc',
     'UPbAnalysisContexts': 'luac',
     'UPbRejectionReasons': 'lurr',
-    'SpotCompositions': 'lspuag',
-    'GrainCompositions': 'lspuag',
-    'LabFacilities': 'lspuag',
-    'Instruments': 'lspuag',
-    'UPbAnalysisMethods': 'lspuag',
-    'RatioErrorFormats': 'lspuag',
-    'UPbAgeErrorFormats': 'lspuag',
-    'ConcordanceFormats': 'lspuag',
-    'UPbAgeUnits': 'lspuag',
-    'UPbAgeInterpretations': 'lspuag',
-    'UPbReferences': 'lspuag',
-    'SpotSizeUnits': 'lspuag',
-    'GeoChemicalAnalyses': 'lspgcg',
-    'GeoChemicalAnalytes': 'lspgcg',
-    'GeoChemicalMethods': 'lspgcg',
-    'GeoChemAnalyteUnits': 'lspgcg',
-    'GeoChemAnalyteErrorFormats': 'lspgcg',
-    'GeoChemLabFacilities': 'lspgcg',
-    'GeoChemInstruments': 'lspgcg',
-    'GeoChemReferences': 'lspgcg'
+    'SpotCompositions': 'lspag',
+    'GrainCompositions': 'lspag',
+    'UPbLabFacilities': 'lspag',
+    'UPbInstruments': 'lspag',
+    'UPbAnalysisMethods': 'lspag',
+    'UPbRatioErrorFormats': 'lspag',
+    'UPbAgeErrorFormats': 'lspag',
+    'UPbConcordanceFormats': 'lspag',
+    'UPbAgeUnits': 'lspag',
+    'UPbAgeInterpretations': 'lspag',
+    'UPbReferences': 'lspag',
+    'UPbSpotSizeUnits': 'lspag',
+    'GeoChemicalAnalyses': 'lspag',
+    'GeoChemicalAnalytes': 'lspag',
+    'GeoChemicalMethods': 'lspag',
+    'GeoChemAnalyteUnits': 'lspag',
+    'GeoChemAnalyteErrorFormats': 'lspag',
+    'GeoChemLabFacilities': 'lspag',
+    'GeoChemInstruments': 'lspag',
+    'GeoChemReferences': 'lspag',
+    'GeoChemSpotSizeUnits': 'lspag',
+    'GeoChemicalAnalysisContexts': 'lgcac',
+    'GeoChemRejectionReasons': 'lgcrr'
 }
 
 shared_leaf_tables = {'Spots', 'Grains', 'LabFacilities', 'Instruments',
                       'SpotCompositions', 'GrainCompositions'}
 
-# Dictionary of column leaders that could be included in select statements for LimitedSamplesAliquots and LimitedSpotsUPbAnalysesGrains
+# Dictionary of column leaders that could be included in select statements for LimitedSamplesAliquots and LimitedSpotsAnalysesGrains
 limited_column_leaders = {
     'LimitedSamplesAliquots': [],
-    'LimitedSpotsUPbAnalysesGrains': [],
-    'LimitedSpotsGeoChemicalAnalysesGrains': []
+    'LimitedSpotsAnalysesGrains': []
 }
 for table, abbreviation in limited_table_abbreviations.items():
     limited_column_leaders['LimitedSamplesAliquots'].append(f'{table}.') if abbreviation == 'lsa' else None
-    limited_column_leaders['LimitedSpotsUPbAnalysesGrains'].append(f'{table}.') if abbreviation == 'lspuag' else None
-    limited_column_leaders['LimitedSpotsGeoChemicalAnalysesGrains'].append(f'{table}.') if abbreviation == 'lspgcg' else None
+    limited_column_leaders['LimitedSpotsAnalysesGrains'].append(f'{table}.') if abbreviation == 'lspag' else None
 
 # Many-to-many columns for each table key, key-value pairs for column in the view and table to edit that information, populate multiple selection dropdowns
 many_editable = {
@@ -762,21 +871,23 @@ one_editable = {
     'Spots': {'GrainName': 'Grains', 'AliquotName': 'Aliquots', 'SpotCompositionName': 'SpotCompositions'},
     'UPbAnalyses': {'SpotName': 'Spots', 'GrainName': 'Grains', 'AliquotName': 'Aliquots', 'SampleName': 'Samples',
                     'UPbReference': 'References',
-                    'LabFacilityName': 'LabFacilities', 'InstrumentName': 'Instruments',
+                    'UPbLabFacilityName': 'LabFacilities', 'UPbInstrumentName': 'Instruments',
                     'UPbAnalysisMethodName': 'UPbAnalysisMethods',
-                    'RatioErrorFormatAbbreviation': 'ErrorFormats', 'UPbAgeUnitAbbreviation': 'AgeUnits',
-                    'UPbAgeErrorFormatAbbreviation': 'ErrorFormats', 'ConcordanceFormatAbbreviation': 'ConcordanceFormats',
-                    'SpotSizeUnitAbbreviation': 'DistanceUnits'},
+                    'UPbRatioErrorFormatAbbreviation': 'ErrorFormats', 'UPbAgeUnitAbbreviation': 'AgeUnits',
+                    'UPbAgeErrorFormatAbbreviation': 'ErrorFormats', 'UPbConcordanceFormatAbbreviation': 'ConcordanceFormats',
+                    'UPbSpotSizeUnitAbbreviation': 'DistanceUnits'},
     'References': {}
 }
 
 non_editable = {
-    'Samples': ['SpotCount', 'Accepted/TotalUPbAnalyses', 'RejectionReasonName', 'SampleCreated', 'SampleModified'],
+    'Samples': ['SpotCount', 'Accepted/TotalUPbAnalyses', 'Accepted/TotalGeoChemicalAnalyses', 'RejectionReasonName',
+                'SampleCreated', 'SampleModified'],
     'Columns': ['ColumnCreated', 'ColumnModified'],
-    'Aliquots': ['AliquotCreated', 'AliquotModified'],
-    'Grains': ['GrainCreated', 'GrainModified'],
-    'Spots': ['SpotCreated', 'SpotModified'],
+    'Aliquots': ['Accepted/TotalUPbAnalyses', 'Accepted/TotalGeoChemicalAnalyses', 'AliquotCreated', 'AliquotModified'],
+    'Grains': ['Accepted/TotalUPbAnalyses', 'Accepted/TotalGeoChemicalAnalyses', 'GrainCreated', 'GrainModified'],
+    'Spots': ['Accepted/TotalUPbAnalyses', 'Accepted/TotalGeoChemicalAnalyses', 'SpotCreated', 'SpotModified'],
     'UPbAnalyses': ['UPbAnalysisCreated', 'UPbAnalysisModified'],
+    'GeoChemicalAnalyses': ['GeoChemAnalysisCreated', 'GeoChemAnalysisModified'],
     'References': ['ReferenceDisplay', 'ReferenceCreated', 'ReferenceModified']
 }
 """Non-editable columns for each table key, key-value pairs for column in the view and table the to edit that 
@@ -792,7 +903,7 @@ not_null = {
 }
 "Tables that are the basis for view and their columns that cannot be null"
 
-user_viewable_tables = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'AliquotContexts', 'AnalyticalUnits'
+user_viewable_tables = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'AliquotContexts', 'AnalyticalUnits',
                         'Columns', 'GrainContexts', 'GrainCompositions', 'GeoChemicalMethods',
                         'Instruments', 'LabFacilities',
                         'References', 'Regions', 'RejectionReasons',
@@ -1751,15 +1862,26 @@ as_table_dict = {
     'ColumnGPSFormats': 'GPSFormats',
     'ColumnUnits': 'DistanceUnits',
     'ColumnHeightDepthUnits': 'DistanceUnits',
+    'UPbLabFacilities': 'LabFacilities',
+    'UPbInstruments': 'Instruments',
     'UPbReferences': 'References',
-    'RatioErrorFormats': 'ErrorFormats',
+    'UPbRatioErrorFormats': 'ErrorFormats',
     'UPbAgeErrorFormats': 'ErrorFormats',
     'UPbAgeUnits': 'AgeUnits',
     'UPbAgeInterpretations': 'AgeInterpretations',
-    'SpotSizeUnits': 'DistanceUnits',
+    'UPbConcordanceFormats': 'ConcordanceFormats',
+    'UPbSpotSizeUnits': 'DistanceUnits',
     'UPbRejectionReasons': 'RejectionReasons',
     'UPbAnalysisContexts': 'UPbAnalysisContexts',
-    'DefaultSampleAges': 'SampleAges'
+    'DefaultSampleAges': 'SampleAges',
+    'GeoChemReferences': 'References',
+    'GeoChemLabFacilities': 'LabFacilities',
+    'GeoChemInstruments': 'Instruments',
+    'GeoChemAnalyteErrorFormats': 'ErrorFormats',
+    'GeoChemAnalyteUnits': 'AnalyticalUnits',
+    'GeoChemSpotSizeUnits': 'DistanceUnits',
+    'GeoChemRejectionReasons': 'RejectionReasons',
+    'GeoChemicalAnalysisContexts': 'GeoChemicalAnalysisContexts'
 }
 """Static list of foreign key references found in tables and their associated table.
 Issues with database properly keeping track of this through pragma queries have led to this
@@ -1936,7 +2058,7 @@ table_attributes_dict = {
         "CalculatedConcordance_206Pb/238Uv207Pb/235U",
         "MinimumSegmentedDiscordance",
         "Rejected",
-        "CalculatedSpotSize",
+        "CalculatedUPbSpotSize",
 
         "UPbAnalysisCreated",
         "UPbAnalysisModified"
@@ -2129,8 +2251,10 @@ view_attributes_dict = {
                    qsettings, qunits, qaliquots, qaliquot_contexts, qgrain_count, qgrain_compositions, qgrain_contexts,
                    qspot_count, qspot_compositions, qspot_contexts, qupb_count, qupb_lab_facilities, qupb_instruments,
                    qupb_analysis_methods, qupb_ratio_error_formats, qupb_age_units, qupb_age_error_formats,
-                   qconcordance_formats, qspot_sizes, qupb_rejection_reasons, qupb_contexts, qupb_age_interpretations,
-                   qupb_references, qsample_created, qsample_modified],
+                   qupb_concordance_formats, qupb_spot_sizes, qupb_rejection_reasons, qupb_contexts, qupb_age_interpretations,
+                   qupb_references, qgeochem_count, qgeochem_lab_facilities, qgeochem_instruments, qgeochem_methods,
+                   qgeochem_analyte_error_formats, qgeochem_analyte_units, qgeochem_rejection_reasons, qgeochem_contexts,
+                   qgeochem_references, qsample_created, qsample_modified],
     'SampleEditView': [qsample_id, qsample_name, qigsn, qsample_description, qgps_display, qsample_elev_display,
                        qsample_age_display, qsample_age_constraints, qsample_age_interpretations,
                        qsample_age_references, qcolumn_name, qsample_column_height_depth,
@@ -2138,9 +2262,12 @@ view_attributes_dict = {
                        qrock_types, qsample_contexts, qsampling_methods, qsettings, qunits, qaliquots, qaliquot_contexts,
                        qgrain_count, qgrain_compositions, qgrain_contexts, qspot_count, qspot_compositions,
                        qspot_contexts, qupb_count, qupb_lab_facilities, qupb_instruments, qupb_analysis_methods,
-                       qupb_ratio_error_formats, qupb_age_units, qupb_age_error_formats, qconcordance_formats,
-                       qspot_size, qspot_size_unit, qupb_rejection_reasons, qupb_references, qupb_contexts,
-                       qupb_age_interpretations, qsample_created, qsample_modified],
+                       qupb_ratio_error_formats, qupb_age_units, qupb_age_error_formats, qupb_concordance_formats,
+                       qupb_spot_size, qupb_spot_size_unit, qupb_rejection_reasons, qupb_references, qupb_contexts,
+                       qupb_age_interpretations, qgeochem_count, qgeochem_lab_facilities, qgeochem_instruments,
+                       qgeochem_methods, qgeochem_analyte_error_formats, qgeochem_analyte_units,
+                       qgeochem_rejection_reasons, qgeochem_contexts, qgeochem_references, qsample_created,
+                       qsample_modified],
     'ColumnView': [qcolumn_id, qcolumn_name, qcolumn_description, qcolumn_calc_total_height_depth, qcolumn_gps,
                    qcolumn_elev, qcolumn_created, qcolumn_modified],
     'ColumnEditView': [qcolumn_id, qcolumn_name, qcolumn_description, qcolumn_total_height_depth,
@@ -2150,24 +2277,31 @@ view_attributes_dict = {
                     qsample_id, qaliquot_sample, qaliquot_contexts, qgrain_count, qgrain_compositions, qgrain_contexts,
                     qspot_count, qspot_compositions, qspot_contexts, qupb_count, qupb_lab_facilities,
                     qupb_analysis_methods, qupb_instruments, qupb_ratio_error_formats, qupb_age_units,
-                    qupb_age_error_formats, qconcordance_formats, qspot_sizes, qupb_rejection_reasons, qupb_contexts,
-                    qupb_age_interpretations, qupb_references, qaliquot_created, qaliquot_modified],
+                    qupb_age_error_formats, qupb_concordance_formats, qupb_spot_sizes, qupb_rejection_reasons,
+                    qupb_contexts, qupb_age_interpretations, qupb_references, qgeochem_count, qgeochem_lab_facilities,
+                    qgeochem_instruments, qgeochem_methods, qgeochem_analyte_error_formats, qgeochem_analyte_units,
+                    qgeochem_rejection_reasons, qgeochem_contexts, qgeochem_references, qaliquot_created,
+                    qaliquot_modified],
     'AliquotEditView': [qaliquot_id, qaliquot_parent_id, qaliquot_parent_row, qaliquot_name, qaliquot_description,
                         qsample_id, qaliquot_sample, qaliquot_contexts, qaliquot_created, qaliquot_modified],
     'GrainView': [qgrain_id, qaliquot_id, qsample_id, qgrain_name, qgrain_description, qaliquot_name, qsample_name,
                   qspots, qaliquot_name, qsample_name, qgrain_composition, qgrain_contexts, qspot_compositions,
                   qspot_contexts, qupb_count, qupb_lab_facilities, qupb_instruments, qupb_analysis_methods,
-                  qupb_ratio_error_formats, qupb_age_units, qupb_age_error_formats, qconcordance_formats, qspot_sizes,
-                  qupb_rejection_reasons, qupb_contexts, qupb_age_interpretations, qupb_references, qgrain_created,
-                  qgrain_modified],
+                  qupb_ratio_error_formats, qupb_age_units, qupb_age_error_formats, qupb_concordance_formats,
+                  qupb_spot_sizes, qupb_rejection_reasons, qupb_contexts, qupb_age_interpretations, qupb_references,
+                  qgeochem_count, qgeochem_lab_facilities, qgeochem_instruments, qgeochem_methods,
+                  qgeochem_analyte_error_formats, qgeochem_analyte_units, qgeochem_rejection_reasons, qgeochem_contexts,
+                  qgeochem_references, qgrain_created, qgrain_modified],
     'GrainEditView': [qgrain_id, qaliquot_id, qsample_id, qgrain_name, qgrain_description, qaliquot_name, qsample_name,
                       qgrain_composition, qgrain_contexts, qgrain_created, qgrain_modified],
     'SpotView': [qspot_id, qgrain_id, qaliquot_id, qsample_id, qspot_name, qspot_description, qgrain_name,
                  qaliquot_name, qsample_name, qspot_compositions, qspot_contexts, qgrain_composition, qgrain_contexts,
                  qupb_analyses, qupb_count, qupb_lab_facilities, qupb_instruments, qupb_analysis_methods,
-                 qupb_ratio_error_formats, qupb_age_units, qupb_age_error_formats, qconcordance_formats, qspot_sizes,
-                 qupb_rejection_reasons, qupb_contexts, qupb_age_interpretations, qupb_references, qspot_created,
-                 qspot_modified],
+                 qupb_ratio_error_formats, qupb_age_units, qupb_age_error_formats, qupb_concordance_formats,
+                 qupb_spot_sizes, qupb_rejection_reasons, qupb_contexts, qupb_age_interpretations, qupb_references,
+                 qgeochem_count, qgeochem_lab_facilities, qgeochem_instruments, qgeochem_methods,
+                 qgeochem_analyte_error_formats, qgeochem_analyte_units, qgeochem_rejection_reasons, qgeochem_contexts,
+                 qgeochem_references, qspot_created, qspot_modified],
     'SpotEditView': [qspot_id, qgrain_id, qaliquot_id, qsample_id, qspot_name, qspot_description, qgrain_name,
                      qaliquot_name, qsample_name, qspot_compositions, qspot_contexts, qspot_created, qspot_modified],
     'UPbView': [qupb_id, qspot_id, qgrain_id, qaliquot_id, qsample_id, qupb_analysis_name, qupb_analysis_description,
@@ -2186,7 +2320,7 @@ view_attributes_dict = {
                 qupb_calc_208232_age, qupb_calc_208232_age_error, qupb_calc_best_age, qupb_calc_best_age_error,
                 qupb_calc_best_age_filled, qupb_calc_best_age_filled_error, qupb_age_error_format, qupb_age_unit,
                 qupb_age_interpretation, qupb_calc_spot_size, qupb_calc_concordance_68v76, qupb_error_corr_68v76,
-                qupb_calc_concordance_68v75, qupb_error_corr_68v75, qconcordance_format, qminsegdisc,
+                qupb_calc_concordance_68v75, qupb_error_corr_68v75, qupb_concordance_format, qupb_minsegdisc,
                 qupb_calc_spot_size, qupb_rejected, qupb_rejection_reasons, qupb_contexts, qupb_created, qupb_modified],
     'UPbEditView': [qupb_id, qspot_id, qgrain_id, qaliquot_id, qsample_id, qupb_analysis_name, qupb_analysis_description,
                     qspot_name, qgrain_name, qaliquot_name, qsample_name, qupb_reference, qupb_lab_facility,
@@ -2203,20 +2337,21 @@ view_attributes_dict = {
                     qupb_208232_age_error, qupb_best_age, qupb_best_age_error, qupb_best_age_filled,
                     qupb_best_age_filled_error, qupb_age_error_format, qupb_age_unit, qupb_age_interpretation,
                     qupb_concordance_68v76, qupb_error_corr_68v76, qupb_concordance_68v75, qupb_error_corr_68v75,
-                    qconcordance_format, qminsegdisc, qspot_size, qspot_size_unit, qupb_rejected, qupb_rejection_reasons,
+                    qupb_concordance_format, qupb_minsegdisc, qupb_spot_size, qupb_spot_size_unit, qupb_rejected, qupb_rejection_reasons,
                     qupb_contexts, qupb_created, qupb_modified],
     'ReferenceView': [qreference_id, qreference_display, qauthors, qyear, qtitle, qsource, qdoi, qreference_description,
                       qreference_created, qreference_modified],
     'GeoChemView': [qgeochem_id, qspot_id, qgrain_id, qaliquot_id, qsample_id, qgeochem_analysis_name,
                     qspot_name, qgrain_name, qaliquot_name, qsample_name, qgeochem_analyte, qgeochem_analyte_abbreviation,
                     qgeochem_analyte_value, qgeochem_analyte_error, qgeochem_analyte_error_format, qgeochem_analyte_unit,
-                    qgeochem_method, qgeochem_lab_facility, qgeochem_instrument, qgeochem_reference,
-                    qgeochem_created, qgeochem_modified],
+                    qgeochem_method, qgeochem_lab_facility, qgeochem_instrument, qgeochem_reference, qgeochem_rejected,
+                    qgeochem_rejection_reasons, qgeochem_contexts, qgeochem_created, qgeochem_modified],
     'GeoChemEditView': [qgeochem_id, qspot_id, qgrain_id, qaliquot_id, qsample_id, qgeochem_analysis_name,
                         qspot_name, qgrain_name, qaliquot_name, qsample_name, qgeochem_analyte,
                         qgeochem_analyte_abbreviation, qgeochem_analyte_value, qgeochem_analyte_error,
                         qgeochem_analyte_error_format, qgeochem_analyte_unit, qgeochem_method, qgeochem_lab_facility,
-                        qgeochem_instrument, qgeochem_reference, qgeochem_created, qgeochem_modified]
+                        qgeochem_instrument, qgeochem_reference, qgeochem_rejected, qgeochem_rejection_reasons,
+                        qgeochem_contexts, qgeochem_created, qgeochem_modified]
 }
 
 
@@ -2345,8 +2480,10 @@ aliquot_grain_spot_possible_user_input_fields = {
         'Spot Composition Description': ['SpotCompositions', 'SpotCompositionDescription'],
         'Spot Context': ['SpotContexts', 'SpotContextName'],
         'Spot Context Description': ['SpotContexts', 'SpotContextDescription'],
-        'Spot Size': ['UPbAnalyses', 'SpotSize'],
-        'Spot Size Unit': ['UPbAnalyses', 'SpotSizeUnitID']
+        'UPb Spot Size': ['UPbAnalyses', 'SpotSize'],
+        'UPb Spot Size Unit': ['UPbAnalyses', 'SpotSizeUnitID'],
+        'Geochemical Spot Size': ['GeoChemicalAnalyses', 'SpotSize'],
+        'Geochemical Spot Size Unit': ['GeoChemicalAnalyses', 'SpotSizeUnitID']
     }
 }
 
@@ -2376,7 +2513,7 @@ upb_possible_user_input_fields = {
         'UPb Analysis Method Description': ['UPbAnalysisMethods', 'UPbAnalysisMethodDescription'],
         'Rejected': ['UPbAnalyses', 'Rejected'],
         'Rejection Reason': ['UPbRejectionReasons', 'UPbRejectionReasonName'],
-        'Rejection Reason Description': ['UPbRejectionReasons', 'UPbRejectionReasonDescription'],
+        'Rejection Reason Description': ['UPbRejectionReasons', 'UPbRejectionReasonDescription']
     },
     'Ratios': {
         'U/Th': ['UPbAnalyses', 'U/Th'],
@@ -2454,13 +2591,31 @@ upb_possible_user_input_fields = {
         'Pbppm': ['UPbAnalyses', 'Pbppm'],
     },
 }
+
+geochem_possible_user_input_fields = {
+    'GeoChem Base Info': {
+        'GeoChem Analysis Name': ['GeoChemicalAnalyses', 'GeoChemAnalysisName'],
+        'GeoChem Analysis Description': ['GeoChemicalAnalyses', 'GeoChemAnalysisDescription'],
+        'GeoChem Analysis Context': ['GeoChemicalAnalysisContexts', 'GeoChemicalAnalysisContext'],
+        'GeoChem Analysis Context Description': ['GeoChemicalAnalysisContexts', 'GeoChemicalAnalysisContextDescription'],
+        'Lab Facility Name': ['LabFacilities', 'LabFacilityName'],
+        'Lab Facility Description': ['LabFacilities', 'LabFacilityDescription'],
+        'Instrument Name': ['Instruments', 'InstrumentName'],
+        'Instrument Description': ['Instruments', 'InstrumentDescription'],
+        'GeoChem Analysis Method Name': ['GeoChemicalMethods', 'GeoChemicalMethodName'],
+        'GeoChem Analysis Method Description': ['GeoChemicalMethods', 'GeoChemicalMethodDescription'],
+        'Rejected': ['UPbAnalyses', 'Rejected'],
+        'Rejection Reason': ['GeoChemRejectionReasons', 'GeoChemRejectionReasonName'],
+        'Rejection Reason Description': ['GeoChemRejectionReasons', 'GeoChemRejectionReasonDescription']
+    }
+}
 """Dictionaries of User-readable columns/info able to be imported into the database with list of their associated table 
     and column name. ImporterCategroy: {UserReadableColumnName: [TableName, ColumnName]}"""
 
 combo_box_possible_input_fields = {
-    'Reference': ['References', 'ReferenceID', 'ReferenceDisplay'],
-    'Intrument': ['Instruments', 'InstrumentID', 'InstrumentName'],
-    'Lab Facility': ['LabFacilities', 'LabFacilityID', 'LabFacilityName'],
+    'UPb Reference': ['References', 'ReferenceID', 'ReferenceDisplay'],
+    'UPb Instrument': ['Instruments', 'InstrumentID', 'InstrumentName'],
+    'UPb Lab Facility': ['LabFacilities', 'LabFacilityID', 'LabFacilityName'],
     'UPb Analysis Method': ['UPbAnalysisMethods', 'UPbAnalysisMethodID', 'UPbAnalysisMethodName'],
     'Elevation Unit': ['GPSLocations', 'GPSElevUnitID'],
     'Height/Depth Unit': {
@@ -2472,9 +2627,9 @@ combo_box_possible_input_fields = {
         'Samples': ['SampleAges', 'DirectAgeUnitID'],
         'UPbAnalyses': ['UPbAnalyses', 'AgeUnitID']
     },
-    'U-Pb Age Error': ['UPbAnalyses', 'AgeErrorFormatID'],
-    'Ratio Error': ['UPbAnalyses', 'RatioErrorFormatID'],
-    'Spot Size Unit': ['UPbAnalyses', 'SpotSizeUnitID'],
+    'UPb Age Error': ['UPbAnalyses', 'AgeErrorFormatID'],
+    'UPb Ratio Error': ['UPbAnalyses', 'RatioErrorFormatID'],
+    'UPb Spot Size Unit': ['UPbAnalyses', 'SpotSizeUnitID'],
     'Concordance Format': ['UPbAnalyses', 'ConcordanceFormatID']
 }
 """Dictionaries of User-readable columns/info able to be imported from combo boxes with list of their associated table"""
@@ -2502,7 +2657,7 @@ possible_database_input_fields = [
 
     'SpotID', 'SpotName', 'SpotDescription', 'SpotCompositionName', 'SpotContextName',
 
-    'UPbAnalysisName',
+    'UPbAnalysisID', 'UPbAnalysisName', 'UPbAnalysisDescription', 'UPbAnalysisContextName',
     'Pb204cps', 'Pb206cps', 'Pb207cps', 'Pb208cps', 'Pb*cps', 'Th232cps', 'U235cps', 'U238cps',
     'Uppm', 'Thppm',
     'U/Th', 'Th/U',
@@ -2541,8 +2696,12 @@ possible_database_input_fields = [
     'AgeInterpretationID',
     'Concordance_206Pb/238Uv207Pb/206Pb', 'Concordance_206Pb/238Uv207Pb/235U',
     'ConcordanceFormatID', 'ConcordanceFormatName', 'MinimumSegmentedDiscordance',
-    'SpotSize', 'SpotSizeUnitID',
-    'Rejected',
+    'UPbSpotSize', 'UPbSpotSizeUnitID',
+
+    'GeoChemAnalysisID', 'GeoChemAnalysisName', 'GeoChemAnalysisDescription',
+    'GeoChemSpotSize', 'GeoChemSpotSizeUnitID'
+
+    'UPbRejected',
     'RejectionReasonName',
 
     'LabFacilityID', 'LabFacilityName', 'LabFacilityDescription',
@@ -2577,7 +2736,8 @@ elevation_unit_affected = [['GPSLocations', 'GPSElevUnitID', 'GPSElev', 'GPSElev
 gps_unit_affected = [['GPSLocations', 'GPSFormatID', 'GPSLocationDisplay']]
 heightdepth_unit_affected = [['Samples', 'HeightDepthUnitID', 'HeightDepth', 'HeightDepthError'],
                              ['Columns', 'ColumnTotalHeightDepthUnitID', 'ColumnTotalHeightDepth']]
-spotsize_unit_affected = [['UPbAnalyses', 'SpotSizeUnitID', 'SpotSize']]
+spotsize_unit_affected = [['UPbAnalyses', 'SpotSizeUnitID', 'UPbSpotSize'],
+                          ['GeoChemicalAnalyses', 'SpotSizeUnitID', 'GeoChemSpotSize']]
 concordance_format_affected = [['UPbAnalyses', 'ConcordanceFormatID', 'Concordance_206Pb/238Uv207Pb/206Pb',
                                 'Concordance_206Pb/238Uv207Pb/235U']]
 
@@ -2710,7 +2870,7 @@ def get_join_from_table(join: str, tables: list[str]) -> str:
             case 'Regions':
                 if region_join not in join:
                     join += region_join + '\n'
-            case 'RejectionReasons' | 'UPbRejectionReasons':
+            case 'UPbRejectionReasons':
                 if sample_aliquot_join not in join:
                     join += sample_aliquot_join + '\n'
                 if aliquot_spot_join not in join:
@@ -2719,6 +2879,15 @@ def get_join_from_table(join: str, tables: list[str]) -> str:
                     join += spot_upb_analysis_join + '\n'
                 if upb_rejection_reason_join not in join:
                     join += upb_rejection_reason_join + '\n'
+            case 'GeoChemRejectionReasons':
+                if sample_aliquot_join not in join:
+                    join += sample_aliquot_join + '\n'
+                if aliquot_spot_join not in join:
+                    join += aliquot_spot_join + '\n'
+                if spot_geochem_analysis_join not in join:
+                    join += spot_geochem_analysis_join + '\n'
+                if geochem_rejection_reasons_join not in join:
+                    join += geochem_rejection_reasons_join + '\n'
             case 'RockTypes':
                 if rock_type_join not in join:
                     join += rock_type_join + '\n'
@@ -2811,6 +2980,40 @@ def get_join_from_table(join: str, tables: list[str]) -> str:
                     join += spot_upb_analysis_join + '\n'
                 if upb_reference_join not in join:
                     join += upb_reference_join + '\n'
+            case 'GeoChemicalAnalyses':
+                if sample_aliquot_join not in join:
+                    join += sample_aliquot_join + '\n'
+                if aliquot_spot_join not in join:
+                    join += aliquot_spot_join + '\n'
+                if spot_geochem_analysis_join not in join:
+                    join += spot_geochem_analysis_join + '\n'
+            case 'GeoChemicalAnalysisContexts':
+                if sample_aliquot_join not in join:
+                    join += sample_aliquot_join + '\n'
+                if aliquot_spot_join not in join:
+                    join += aliquot_spot_join + '\n'
+                if spot_geochem_analysis_join not in join:
+                    join += spot_geochem_analysis_join + '\n'
+                if geochem_contexts_join not in join:
+                    join += geochem_contexts_join + '\n'
+            case 'GeoChemicalMethods':
+                if sample_aliquot_join not in join:
+                    join += sample_aliquot_join + '\n'
+                if aliquot_spot_join not in join:
+                    join += aliquot_spot_join + '\n'
+                if spot_geochem_analysis_join not in join:
+                    join += spot_geochem_analysis_join + '\n'
+                if geochem_method_join not in join:
+                    join += geochem_method_join + '\n'
+            case 'GeoChemReferences':
+                if sample_aliquot_join not in join:
+                    join += sample_aliquot_join + '\n'
+                if aliquot_spot_join not in join:
+                    join += aliquot_spot_join + '\n'
+                if spot_geochem_analysis_join not in join:
+                    join += spot_geochem_analysis_join + '\n'
+                if geochem_reference_join not in join:
+                    join += geochem_reference_join + '\n'
             case 'Units':
                 if unit_join not in join:
                     join += unit_join + '\n'
