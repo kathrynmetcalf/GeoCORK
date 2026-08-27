@@ -6079,6 +6079,16 @@ class DisableItemModel(QtG.QStandardItemModel):
             item = self.item(index.row(), index.column()).data(QtC.Qt.ItemDataRole.DisplayRole)
             if item:
                 return item
+        elif role == QtC.Qt.ItemDataRole.ToolTipRole:
+            item = self.item(index.row(), index.column()).data(QtC.Qt.ItemDataRole.DisplayRole)
+            if not isinstance(item, str):
+                item = item.text()
+            query = QSqlQuery()
+            if query.exec(f'SELECT GeoChemAnalyteName, GeoChemAnalyteDescription FROM GeoChemicalAnalytes WHERE GeoChemAnalyteAbbreviation IS {item}'):
+                if query.next():
+                    if query.value('GeoChemAnalyteName') or query.value('GeoChemAnalyteDescription'):
+                        tool_tip = f'{query.value('GeoChemAnalyteName')}: {query.value('GeoChemAnalyteDescription')}'
+                        return tool_tip
         elif role == QtC.Qt.ItemDataRole.ForegroundRole:
             # Return gray text if the row is disabled
             item = self.item(index.row(), index.column()).data(QtC.Qt.ItemDataRole.DisplayRole)
@@ -7676,6 +7686,71 @@ class ActiveSelectionDelegate(WordWrapDelegate):
         option = QtW.QStyleOptionViewItem(option)
         option.state |= QtW.QStyle.StateFlag.State_Active
         super().paint(painter, option, index)
+
+
+class CollapsibleGroupBox(QtW.QWidget):
+    """
+    Group box that can be expanded or collapsed with a click on the button
+    """
+    def __init__(self, title='', parent=None):
+        super().__init__(parent)
+        self.isExpanded = True
+        self.expand_button = QtW.QToolButton(self)
+        self.expand_button.setToolButtonStyle(QtC.Qt.ToolButtonStyle.ToolButtonIconOnly)
+        self.expand_button.setArrowType(Qt.ArrowType.DownArrow)
+        self.expand_button.setCheckable(True)
+        self.expand_button.setChecked(True)
+        # self.expand_button.setSizePolicy(QtW.QSizePolicy.Policy.Minimum, QtW.QSizePolicy.Policy.Minimum)
+        self.header_label = QtW.QLabel(title)
+        self.header_label.setMaximumHeight(self.header_label.sizeHint().height())
+        # self.header_label.setSizePolicy(QtW.QSizePolicy.Policy.Minimum, QtW.QSizePolicy.Policy.Minimum)
+        # self.header_label.setStyleSheet("font-weight: bold;")
+        self.expand_button.setMaximumSize(self.header_label.sizeHint().height(), self.header_label.sizeHint().height())
+
+        self.header_layout = QtW.QHBoxLayout()
+        self.header_layout.addWidget(self.expand_button)
+        self.header_layout.addWidget(self.header_label)
+        self.header_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.header_widget = QtW.QWidget(self)
+        self.header_widget.setLayout(self.header_layout)
+        # self.header_widget.setMaximumHeight(self.header_layout.contentsMargins().top())
+        self.header_widget.mouseReleaseEvent = lambda e: self.expand_button.click()
+
+        self.content_area = QtW.QWidget(self)
+        self.content_area.setSizePolicy(QtW.QSizePolicy.Policy.Preferred, QtW.QSizePolicy.Policy.Minimum)
+
+        self.main_layout = QtW.QVBoxLayout()
+        self.main_layout.addWidget(self.header_widget)
+        self.main_layout.addWidget(self.content_area)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.setLayout(self.main_layout)
+        self.setSizePolicy(QtW.QSizePolicy.Policy.Preferred, QtW.QSizePolicy.Policy.Minimum)
+
+        self.expand_button.toggled.connect(self.onVisibilityChanged)
+
+    def onVisibilityChanged(self, checked):
+        self.isExpanded = checked
+        if self.isExpanded:
+            self.collapse_groupBox()
+        else:
+            self.expand_groupBox()
+
+    def collapse_groupBox(self):
+        if self.isExpanded:
+            self.isExpanded = False
+        self.content_area.setVisible(False)
+        self.content_area.setMaximumHeight(0)
+        # self.setMaximumHeight(self.header_widget.size().height())
+        self.expand_button.setArrowType(Qt.ArrowType.RightArrow)
+
+    def expand_groupBox(self):
+        if not self.isExpanded:
+            self.isExpanded = True
+        self.content_area.setVisible(True)
+        self.content_area.setMaximumHeight(16777215)  # Reset to default maximum height
+        self.setMaximumHeight(16777215)  # Reset to default maximum height
+        self.expand_button.setArrowType(Qt.ArrowType.DownArrow)
 
 
 class FrozenTableView(QtW.QTableView):

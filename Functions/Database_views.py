@@ -1634,10 +1634,25 @@ WITH RECURSIVE ''')
             if 'GeoChemicalAnalyses' not in settings.value(
                     'display_analyses') and self.table != 'GeoChemicalAnalyses' and 'GeoChem' in column:
                 continue
-            for view_column in all_view_columns:
-                if column in view_column:
-                    self.query_columns.append(view_column)
-                    break
+            if self.table == 'GeoChemicalAnalyses' and not any(column in view_column for view_column in all_view_columns):
+                # This is an abbreviation column
+                if 'Value' in column:
+                    lspag_column = f'CASE WHEN GeoChemicalAnalytes.GeoChemAnalyteAbbreviation = "{column.split('Value')[0]}" THEN GeoChemicalAnalytes.GeoChemAnalyteValue END AS "{column}"'
+                elif 'Unit' in column:
+                    lspag_column = f'CASE WHEN GeoChemicalAnalytes.GeoChemAnalyteAbbreviation = "{column.split('Unit')[0]}" THEN GeoChemicalAnalytes.AnalyticalUnitAbbreviation END AS "{column}"'
+                elif 'Format' in column:
+                    lspag_column = f'CASE WHEN GeoChemicalAnalytes.GeoChemAnalyteAbbreviation = "{column.split('ErrorFormat')[0]}" THEN GeoChemicalAnalytes.ErrorFormatAbbreviation END AS "{column}"'
+                elif 'Error' in column:
+                    lspag_column = f'CASE WHEN GeoChemicalAnalytes.GeoChemAnalyteAbbreviation = "{column.split('Error')[0]}" THEN GeoChemicalAnalytes.CalculatedGeoChemAnalyteError END AS "{column}"'
+                else:
+                    lspag_column = f'CASE WHEN GeoChemicalAnalytes.GeoChemAnalyteAbbreviation = "{column}" THEN NULLIF(COALESCE(GeoChemicalAnalyses.CalculatedGeoChemAnalyteValue, "") || "±" || COALESCE(GeoChemicalAnalyses.CalculatedGeoChemAnalyteError, ""), "±") END AS "{column}"'
+                self.lspag_columns.append(lspag_column)
+                self.query_columns.append(column)
+            else:
+                for view_column in all_view_columns:
+                    if column in view_column:
+                        self.query_columns.append(view_column)
+                        break
 
         if self.table in self.limited_tag_joins:
             for col in range(len(self.query_columns)):

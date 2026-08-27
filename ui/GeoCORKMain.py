@@ -27,7 +27,7 @@ from ui.DisplayTables import DisplayTables
 from ui.ExportWidget import ExportWidget
 from ui.Filters import Filters
 from ui.SampleInformation import SampleInformation
-from ui.Settings import SettingsDialog
+from ui.Settings import SettingsDialog, default_settings
 from ui.ViewDataTab import ViewDataTab
 
 
@@ -109,6 +109,7 @@ class GeoCORK(QtW.QMainWindow):
         # if not update_database():
         #     logger_setup.get_logger().critical('Error updating and displaying database')
         #     self.close()
+        # default_settings()
 
         self.tabWidget: PartiallyCloseableTabWidget
         self.tabWidget.set_permanent_tabs(['Data Tables', 'Filters', 'Export'])

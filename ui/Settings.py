@@ -22,17 +22,14 @@ settings_list = [
     'gps_format_abbreviation', 'heightdepth_unit_id', 'heightdepth_unit_abbreviation', 'spotsize_unit_id',
     'spotsize_unit_abbreviation', 'age_error_format_id', 'age_error_format_abbreviation', 'ratio_error_format_id',
     'ratio_error_format_abbreviation', 'concordance_format_id', 'concordance_format_abbreviation', 'reference_format',
-    'decimals_to_show', 'sample_view_columns', 'sample_view_freeze', 'sample_edit_columns', 'sample_edit_freeze',
-    'aliquot_view_columns', 'aliquot_view_freeze', 'aliquot_edit_columns', 'aliquot_edit_freeze',
-    'grain_view_columns', 'grain_view_freeze', 'grain_edit_columns', 'grain_edit_freeze',
-    'spot_view_columns', 'spot_view_freeze', 'spot_edit_columns', 'spot_edit_freeze',
-    'upb_analysis_view_columns', 'upb_analysis_view_freeze', 'upb_analysis_edit_columns', 'upb_analysis_edit_freeze',
-    'geochem_analysis_view_columns', 'geochem_analysis_view_freeze', 'geochem_analysis_edit_columns', 'geochem_analysis_edit_freeze',
-    'column_view_columns', 'column_view_freeze', 'column_edit_columns', 'column_edit_freeze', 'reference_view_columns',
-    'reference_view_freeze', 'checkable_combobox_height_scalar',
-    'checkable_combobox_width_scalar', 'font_family', 'font_size', 'table_font_size', 'debug_level', 'show_per_page',
-    'autofill_best_age', 'young_fill_best_age', 'old_fill_best_age', 'best_age_cutoff', 'geocork_version',
-    'current_db_path', 'display_tooltips', 'show_items_missing_data', 'display_analyses'
+    'geochem_error_format_id', 'geochem_error_format_abbreviation', 'decimals_to_show', 'sample_view_columns',
+    'sample_edit_columns', 'aliquot_view_columns', 'aliquot_edit_columns', 'grain_view_columns', 'grain_edit_columns',
+    'spot_view_columns', 'spot_edit_columns', 'upb_analysis_view_columns', 'upb_analysis_edit_columns',
+    'geochem_analysis_view_columns', 'geochem_analysis_edit_columns', 'column_view_columns', 'column_edit_columns',
+    'reference_view_columns', 'checkable_combobox_height_scalar', 'checkable_combobox_width_scalar', 'font_family',
+    'font_size', 'table_font_size', 'debug_level', 'show_per_page', 'autofill_best_age', 'young_fill_best_age',
+    'old_fill_best_age', 'best_age_cutoff', 'geocork_version', 'current_db_path', 'display_tooltips',
+    'show_items_missing_data', 'display_analyses'
 ]
 """List of all setting keys used by GeoCORK. This list is used to check for missing settings and to reset settings to default values."""
 
@@ -91,6 +88,8 @@ def default_settings():
                     'default_concordance_format_id': 2,
                     'default_concordance_format_abbreviation': 'Con%',
                     'default_reference_format': '''(ifnull(Authors, "") || ", " || ifnull(Year, "") || ", " || ifnull(Source, ""))''',
+                    'default_geochem_error_format_id': 1,
+                    'default_geochem_error_format_abbreviation': '1σ abs',
                     'default_round_values': 'false',
                     'default_decimals_to_show': 4,
                     'default_db_file': '',
@@ -253,12 +252,23 @@ def default_settings():
         settings.setValue('upb_analysis_edit_columns', default_upb_analysis_edit_columns)
 
     default_geochem_analysis_view_columns = []
-    upb_analysis_view_columns = SQLUtils.view_attributes_dict['GeoChemView']
-    for column in upb_analysis_view_columns:
+    geochem_analysis_view_columns = SQLUtils.view_attributes_dict['GeoChemView']
+    for column in geochem_analysis_view_columns:
         if ' AS ' in column:
             column_name = column.split(' AS ')[1].strip('"')
         else:
             column_name = column.strip('"')
+        if 'Created' in column:
+            # Retrieve all analyte abbreviations from the database and include columns for value, error, and unit
+            query = QSqlQuery()
+            if not query.exec(f'SELECT GeoChemAnalyteAbbreviation FROM GeoChemicalAnalytes') and 'Driver' not in query.lastError().text():
+                logger_setup.get_logger().critical(f'Error fetching geochemical analytes for settings')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                continue
+            if 'Driver' not in query.lastError().text():
+                while query.next():
+                    default_geochem_analysis_view_columns.append(query.value('GeoChemAnalyteAbbreviation'))
         default_geochem_analysis_view_columns.append(column_name)
     if (not settings.contains('default_geochem_analysis_view_columns') or
             (settings.contains('default_geochem_analysis_view_columns') and
@@ -273,10 +283,27 @@ def default_settings():
             column_name = column.split(' AS ')[1].strip('"')
         else:
             column_name = column.strip('"')
+        if 'Created' in column:
+            # Retrieve all analyte abbreviations from the database and include columns for value, error, and unit
+            query = QSqlQuery()
+            if not query.exec(f'SELECT GeoChemAnalyteAbbreviation FROM GeoChemicalAnalytes') and 'Driver' not in query.lastError().text():
+                logger_setup.get_logger().critical(f'Error fetching geochemical analytes for settings')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                continue
+            analyte_abbreviations = []
+            if 'Driver' not in query.lastError().text():
+                while query.next():
+                    analyte_abbreviations.append(query.value('GeoChemAnalyteAbbreviation'))
+                for abbreviation in analyte_abbreviations:
+                    default_geochem_analysis_edit_columns.append(f'{abbreviation}Value')
+                    default_geochem_analysis_edit_columns.append(f'{abbreviation}Error')
+                    default_geochem_analysis_edit_columns.append(f'{abbreviation}Unit')
+                    default_geochem_analysis_edit_columns.append(f'{abbreviation}ErrorFormat')
         default_geochem_analysis_edit_columns.append(column_name)
     if (not settings.contains('default_geochem_analysis_edit_columns') or
             (settings.contains('default_geochem_analysis_edit_columns') and
-             set('default_geochem_analysis_edit_columns') == set(default_geochem_analysis_edit_columns))):
+             set('default_geochem_analysis_edit_columns') != set(default_geochem_analysis_edit_columns))):
         settings.setValue('default_geochem_analysis_edit_columns', default_geochem_analysis_edit_columns)
         settings.setValue('geochem_analysis_edit_columns', default_geochem_analysis_edit_columns)
 

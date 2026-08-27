@@ -858,6 +858,9 @@ many_editable = {
     'Spots': {'SpotContextName': 'SpotContexts', 'SpotContextDescription': 'SpotContexts'},
     'UPbAnalyses': {'RejectionReasonName': 'RejectionReasons', 'RejectionReasonDescription': 'RejectionReasons',
                     'UPbAnalysisContextName': 'UPbAnalysisContexts', 'UPbAnalysisContextDescription': 'UPbAnalysisContexts'},
+    'GeoChemicalAnalyses': {'RejectionReasonName': 'RejectionReasons', 'RejectionReasonDescription': 'RejectionReasons',
+                    'GeoChemAnalysisContextName': 'GeoChemicalAnalysisContexts',
+                            'GeoChemAnalysisContextDescription': 'GeoChemicalAnalysisContexts'},
     'References': {'ReferenceDisplay': 'ReferenceDisplay'}
 }
 # One-to-many columns for each table key, key-value pairs for column in the view and table to edit that information, populate single selection dropdowns
@@ -876,6 +879,10 @@ one_editable = {
                     'UPbRatioErrorFormatAbbreviation': 'ErrorFormats', 'UPbAgeUnitAbbreviation': 'AgeUnits',
                     'UPbAgeErrorFormatAbbreviation': 'ErrorFormats', 'UPbConcordanceFormatAbbreviation': 'ConcordanceFormats',
                     'UPbSpotSizeUnitAbbreviation': 'DistanceUnits'},
+    'GeoChemicalAnalyses': {'SpotName': 'Spots', 'GrainName': 'Grains', 'AliquotName': 'Aliquots', 'SampleName': 'Samples',
+                    'GeoChemReference': 'References', 'UPbLabFacilityName': 'LabFacilities', 'UPbInstrumentName': 'Instruments',
+                    'GeoChemicalMethodName': 'GeoChemicalMethods', 'GeoChemAnalyteUnitAbbreviation': 'AnalyticalUnits',
+                    'GeoChemAnalyteErrorFormatAbbreviation': 'ErrorFormats'},
     'References': {}
 }
 
@@ -903,17 +910,16 @@ not_null = {
 }
 "Tables that are the basis for view and their columns that cannot be null"
 
-user_viewable_tables = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'AliquotContexts', 'AnalyticalUnits',
-                        'Columns', 'GrainContexts', 'GrainCompositions', 'GeoChemicalMethods',
-                        'Instruments', 'LabFacilities',
-                        'References', 'Regions', 'RejectionReasons',
+user_viewable_tables = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'AliquotContexts', 'Analytes',
+                        'Columns', 'GrainContexts', 'GrainCompositions', 'GeoChemicalAnalysisContexts',
+                        'GeoChemicalMethods', 'Instruments', 'LabFacilities', 'References', 'Regions', 'RejectionReasons',
                         'RockTypes', 'SampleContexts', 'Samples', 'SamplingMethods', 'Settings', 'SpotCompositions',
                         'SpotContexts', 'UPbAnalysisMethods', 'UPbAnalysisContexts', 'Units']
 """List of all user-viewable tables and trees used throughout GeoCORK."""
 
 user_viewable_trees = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'AliquotContexts', 'Aliquots',
-                       'GeoChemicalMethods', 'GrainContexts', 'Regions', 'RockTypes', 'SampleContexts',
-                       'SamplingMethods', 'Settings', 'SpotCompositions',
+                       'GeoChemicalAnalysisContexts', 'GeoChemicalMethods', 'GrainContexts', 'Regions', 'RockTypes',
+                       'SampleContexts', 'SamplingMethods', 'Settings', 'SpotCompositions',
                        'SpotContexts', 'UPbAnalysisMethods', 'UPbAnalysisContexts', 'Units']
 """List of all user-viewable trees used throughout GeoCORK. If a table is included in this list it is assumed to be in the correct format"""
 
@@ -924,7 +930,8 @@ conditionally_editable_tables = ['GPSLocations', 'SampleAges', 'Grains', 'Spots'
 conditionally_editable_trees = ['Aliquots']
 
 trigger_tables = ['Columns', 'ColumnEditView', 'GPSLocations', 'SampleAges', 'Samples', 'SampleEditView', 'Spots',
-                  'SpotEditView', 'UPbAnalyses', 'UPbView', 'UPbEditView', 'Grains', 'GrainEditView', 'GeoChemView', 'GeoChemEditView']
+                  'SpotEditView', 'UPbAnalyses', 'UPbView', 'UPbEditView', 'Grains', 'GrainEditView',
+                  'GeoChemicalAnalyses', 'GeoChemEditView']
 
 tree_tables_schema = {
     'AgeConstraints.[AgeConstraintName]': {
@@ -2342,14 +2349,12 @@ view_attributes_dict = {
     'ReferenceView': [qreference_id, qreference_display, qauthors, qyear, qtitle, qsource, qdoi, qreference_description,
                       qreference_created, qreference_modified],
     'GeoChemView': [qgeochem_id, qspot_id, qgrain_id, qaliquot_id, qsample_id, qgeochem_analysis_name,
-                    qspot_name, qgrain_name, qaliquot_name, qsample_name, qgeochem_analyte, qgeochem_analyte_abbreviation,
-                    qgeochem_analyte_value, qgeochem_analyte_error, qgeochem_analyte_error_format, qgeochem_analyte_unit,
-                    qgeochem_method, qgeochem_lab_facility, qgeochem_instrument, qgeochem_reference, qgeochem_rejected,
-                    qgeochem_rejection_reasons, qgeochem_contexts, qgeochem_created, qgeochem_modified],
+                    qspot_name, qgrain_name, qaliquot_name, qsample_name, qgeochem_method, qgeochem_lab_facility,
+                    qgeochem_instrument, qgeochem_reference, qgeochem_rejected, qgeochem_rejection_reasons,
+                    qgeochem_contexts, qgeochem_analyte_unit, qgeochem_analyte_error_format, qgeochem_created,
+                    qgeochem_modified],
     'GeoChemEditView': [qgeochem_id, qspot_id, qgrain_id, qaliquot_id, qsample_id, qgeochem_analysis_name,
-                        qspot_name, qgrain_name, qaliquot_name, qsample_name, qgeochem_analyte,
-                        qgeochem_analyte_abbreviation, qgeochem_analyte_value, qgeochem_analyte_error,
-                        qgeochem_analyte_error_format, qgeochem_analyte_unit, qgeochem_method, qgeochem_lab_facility,
+                        qspot_name, qgrain_name, qaliquot_name, qsample_name, qgeochem_method, qgeochem_lab_facility,
                         qgeochem_instrument, qgeochem_reference, qgeochem_rejected, qgeochem_rejection_reasons,
                         qgeochem_contexts, qgeochem_created, qgeochem_modified]
 }
@@ -2593,24 +2598,28 @@ upb_possible_user_input_fields = {
 }
 
 geochem_possible_user_input_fields = {
-    'GeoChem Base Info': {
-        'GeoChem Analysis Name': ['GeoChemicalAnalyses', 'GeoChemAnalysisName'],
-        'GeoChem Analysis Description': ['GeoChemicalAnalyses', 'GeoChemAnalysisDescription'],
-        'GeoChem Analysis Context': ['GeoChemicalAnalysisContexts', 'GeoChemicalAnalysisContext'],
-        'GeoChem Analysis Context Description': ['GeoChemicalAnalysisContexts', 'GeoChemicalAnalysisContextDescription'],
+    'Geochemical Base Info': {
+        'Geochemical Analysis Name': ['GeoChemicalAnalyses', 'GeoChemAnalysisName'],
+        'Geochemical Analysis Description': ['GeoChemicalAnalyses', 'GeoChemAnalysisDescription'],
+        'Geochemical Analysis Context': ['GeoChemicalAnalysisContexts', 'GeoChemicalAnalysisContext'],
+        'Geochemical Analysis Context Description': ['GeoChemicalAnalysisContexts', 'GeoChemicalAnalysisContextDescription'],
+        'Geochemical Analyte Name': ['GeoChemicalAnalytes', 'GeoChemAnalyteName'],
+        'Geochemical Analyte Description': ['GeoChemicalAnalytes', 'GeoChemAnalyteDescription'],
         'Lab Facility Name': ['LabFacilities', 'LabFacilityName'],
         'Lab Facility Description': ['LabFacilities', 'LabFacilityDescription'],
         'Instrument Name': ['Instruments', 'InstrumentName'],
         'Instrument Description': ['Instruments', 'InstrumentDescription'],
-        'GeoChem Analysis Method Name': ['GeoChemicalMethods', 'GeoChemicalMethodName'],
-        'GeoChem Analysis Method Description': ['GeoChemicalMethods', 'GeoChemicalMethodDescription'],
-        'Rejected': ['UPbAnalyses', 'Rejected'],
+        'Geochemical Analysis Method Name': ['GeoChemicalMethods', 'GeoChemicalMethodName'],
+        'Geochemical Analysis Method Description': ['GeoChemicalMethods', 'GeoChemicalMethodDescription'],
+        'Rejected': ['GeoChemicalAnalyses', 'Rejected'],
         'Rejection Reason': ['GeoChemRejectionReasons', 'GeoChemRejectionReasonName'],
         'Rejection Reason Description': ['GeoChemRejectionReasons', 'GeoChemRejectionReasonDescription']
-    }
+    },
+    'Geochemical Analytes': {'Geochemical Analysis Units': ['GeoChemicalAnalyses', 'GeoChemAnalyteUnitID']},
+    'Geochemical Analyte Errors': {'Geochemical Error Formats': ['GeoChemicalAnalyses', 'GeoChemAnalyteErrorFormatID']}
 }
 """Dictionaries of User-readable columns/info able to be imported into the database with list of their associated table 
-    and column name. ImporterCategroy: {UserReadableColumnName: [TableName, ColumnName]}"""
+    and column name. Importer Category: {UserReadableColumnName: [TableName, ColumnName]}"""
 
 combo_box_possible_input_fields = {
     'UPb Reference': ['References', 'ReferenceID', 'ReferenceDisplay'],
