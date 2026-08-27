@@ -81,6 +81,7 @@ settings_list = [
     'gps_format_abbreviation', 'heightdepth_unit_id', 'heightdepth_unit_abbreviation', 'spotsize_unit_id',
     'spotsize_unit_abbreviation', 'age_error_format_id', 'age_error_format_abbreviation', 'ratio_error_format_id',
     'ratio_error_format_abbreviation', 'concordance_format_id', 'concordance_format_abbreviation', 'reference_format',
+    'geochem_error_format_id', 'geochem_error_format_abbreviation',
     'decimals_to_show', 'sample_view_columns', 'sample_view_freeze', 'sample_edit_columns', 'sample_edit_freeze',
     'aliquot_view_columns', 'aliquot_view_freeze', 'aliquot_edit_columns', 'aliquot_edit_freeze',
     'grain_view_columns', 'grain_view_freeze', 'grain_edit_columns', 'grain_edit_freeze',
@@ -91,8 +92,7 @@ settings_list = [
     'reference_view_freeze', 'checkable_combobox_height_scalar',
     'checkable_combobox_width_scalar', 'font_family', 'font_size', 'table_font_size', 'debug_level', 'show_per_page',
     'autofill_best_age', 'young_fill_best_age', 'old_fill_best_age', 'best_age_cutoff', 'geocork_version',
-    'current_db_path', 'display_tooltips', 'show_items_missing_data', 'display_analyses'
-] + COLOR_SETTING_KEYS
+    'current_db_path', 'display_tooltips', 'show_items_missing_data', 'display_analyses'] + COLOR_SETTING_KEYS
 """List of all setting keys used by GeoCORK. This list is used to check for missing settings and to reset settings to default values."""
 
 # True when apply_color_palette() has set a custom palette on the QApplication
