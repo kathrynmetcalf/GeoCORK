@@ -28,6 +28,7 @@ def settings_reset(database: QtS.QSqlDatabase = None) -> bool:
     :return: True for success, False for failure
     """
     tables_affected = [['UPbAnalyses', Create_db.CREATE_UPBANALYSES_TABLE],
+                       ['GeoChemicalAnalyses', Create_db.CREATE_GEOCHEMICAL_ANALYSES_TABLE],
                        ['SampleAges', Create_db.CREATE_SAMPLE_AGE_TABLE],
                        ['GPSLocations', Create_db.CREATE_GPS_LOCATIONS_TABLE],
                        ['Samples', Create_db.CREATE_SAMPLES_TABLE],
@@ -192,7 +193,8 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
     create_savepoint('before_populate')
     logger_setup.get_logger().info('Populating generated columns...')
     populate_count = 0
-    populate_progress = QProgressDialog('Recalculating from settings...', 'Cancel', 0, 11, loading_manager.dialog)
+    total_steps = 12
+    populate_progress = QProgressDialog('Recalculating from settings...', 'Cancel', 0, total_steps, loading_manager.dialog)
     populate_progress.setMinimumDuration(0)
 
     populate_progress.setValue(populate_count + 1)
@@ -212,6 +214,8 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
     age_error_format_id = settings.value('age_error_format_id')  # default to 1 sigma abs
     ratio_error_format_id = settings.value('ratio_error_format_id')  # default to 1 sigma %
     concordance_format_id = settings.value('concordance_format_id')  # default conc ratio
+    # geochem_unit_id = settings.value('geochem_analyte_unit_id')  #
+    geochem_error_format_id = settings.value('geochem_error_format_id')
 
     # Affected list format: [[table1, [unit/type ID headers], column1, column2, ...], [table2, [unit/type ID headers], column1, column2, ...], ...]
     # Save age errors to handle both age unit and age error type
@@ -222,9 +226,11 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
     gps_unit_affected = [['GPSLocations', 'GPSFormatID', 'GPSLocationDisplay']]
     heightdepth_unit_affected = [['Samples', 'HeightDepthUnitID', 'HeightDepth', 'HeightDepthError'],
                                  ['Columns', 'ColumnTotalHeightDepthUnitID', 'ColumnTotalHeightDepth']]
-    spotsize_unit_affected = [['UPbAnalyses', 'SpotSizeUnitID', 'SpotSize']]
+    spotsize_unit_affected = [['UPbAnalyses', 'SpotSizeUnitID', 'SpotSize'], ['GeoChemicalAnalyses', 'SpotSizeUnitID', 'SpotSize']]
     concordance_format_affected = [['UPbAnalyses', 'ConcordanceFormatID', 'Concordance_206Pb/238Uv207Pb/206Pb',
                                     'Concordance_206Pb/238Uv207Pb/235U']]
+    geochem_format_affected = [['GeoChemicalAnalyses', 'GeoChemAnalyteErrorFormatID', 'GeoChemAnalyteError']]
+
     if database is None:
         upb_analyses_model = QtS.QSqlTableModel()
     else:
@@ -244,10 +250,11 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
     age_error_format_affected = [['SampleAges', ['DirectAgeErrorFormatID', 'DirectAgeUnitID'], 'DirectAgeError'],
                                  affected_upb_age]
     ratio_error_format_affected = [affected_upb_ratio]
+    geochem_error_format_affected = [['GeoChemicalAnalyses', 'GeoChemAnalyteErrorFormatID']]
 
     # Convert the columns and catch any errors
 
-    logger_setup.get_logger().info(f'Populate progress: {populate_count}/11')
+    logger_setup.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
     populate_progress.setValue(populate_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -261,7 +268,7 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
         return False
 
     populate_count += 1
-    logger_setup.get_logger().info(f'Populate progress: {populate_count}/11')
+    logger_setup.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
     populate_progress.setValue(populate_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -275,7 +282,7 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
         return False
 
     populate_count += 1
-    logger_setup.get_logger().info(f'Populate progress: {populate_count}/11')
+    logger_setup.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
     populate_progress.setValue(populate_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -289,7 +296,7 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
         return False
 
     populate_count += 1
-    logger_setup.get_logger().info(f'Populate progress: {populate_count}/11')
+    logger_setup.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
     populate_progress.setValue(populate_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -316,7 +323,7 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
         return False
 
     populate_count += 1
-    logger_setup.get_logger().info(f'Populate progress: {populate_count}/11')
+    logger_setup.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
     populate_progress.setValue(populate_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -329,7 +336,7 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
         rollback_savepoint('before_populate')
         return False
     populate_count += 1
-    logger_setup.get_logger().info(f'Populate progress: {populate_count}/11')
+    logger_setup.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
     populate_progress.setValue(populate_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -342,7 +349,7 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
         rollback_savepoint('before_populate')
         return False
     populate_count += 1
-    logger_setup.get_logger().info(f'Populate progress: {populate_count}/11')
+    logger_setup.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
     populate_progress.setValue(populate_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -355,7 +362,20 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
         rollback_savepoint('before_populate')
         return False
     populate_count += 1
-    logger_setup.get_logger().info(f'Populate progress: {populate_count}/11')
+    logger_setup.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
+    populate_progress.setValue(populate_count + 1)
+    # Let the event loop process the dialog's updates
+    QApplication.processEvents()
+    # If the user clicked "Cancel", we can break out
+    if populate_progress.wasCanceled():
+        rollback_savepoint('before_populate')
+        return False
+    if not convert_columns(geochem_error_format_affected, ['ErrorFormatConversions'], ['ErrorFormat'],
+                           [geochem_error_format_id], database=database):
+        rollback_savepoint('before_populate')
+        return False
+    populate_count += 1
+    logger_setup.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
     populate_progress.setValue(populate_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -366,7 +386,7 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
     if not generate_reference_column('References', settings.value('reference_format'), database=database):
         rollback_savepoint('before_populate')
         return False
-    logger_setup.get_logger().info(f'Populate progress: {populate_count}/11')
+    logger_setup.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
     populate_count += 1
     populate_progress.setValue(populate_count + 1)
     # Let the event loop process the dialog's updates
@@ -379,7 +399,7 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
         rollback_savepoint('before_populate')
         return False
     populate_count += 1
-    logger_setup.get_logger().info(f'Populate progress: {populate_count}/11')
+    logger_setup.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
     populate_progress.setValue(populate_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -1362,7 +1382,7 @@ def check_tree_structure(table: str, database: QtS.QSqlDatabase = None) -> bool:
             parent = 'NULL'
         else:
             parent = query.value(parent_id_header)
-        problem_parents.add(parent)
+        problem_parents[parent] = 0
     query.prepare(f"""
          WITH stats AS ( 
             SELECT {parent_id_header}, 
@@ -1416,7 +1436,7 @@ def check_tree_structure(table: str, database: QtS.QSqlDatabase = None) -> bool:
         create_savepoint('before_update_tree_rows')
         for parent_id, children in problem_parent_row_dict.items():
             # sort children by the parent row value, with nulls first
-            children.sort(key=lambda x: x[1])
+            children.sort(key=lambda x: (x[1] is not None, x[1]))
             # find the largest existing parent row
             max_parent_row = problem_parents[parent_id]
             if max_parent_row < len(children):
