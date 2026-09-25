@@ -89,7 +89,7 @@ settings_list = [
     'upb_analysis_view_columns', 'upb_analysis_view_freeze', 'upb_analysis_edit_columns', 'upb_analysis_edit_freeze',
     'geochem_analysis_view_columns', 'geochem_analysis_view_freeze', 'geochem_analysis_edit_columns', 'geochem_analysis_edit_freeze',
     'column_view_columns', 'column_view_freeze', 'column_edit_columns', 'column_edit_freeze', 'reference_view_columns',
-    'reference_view_freeze', 'checkable_combobox_height_scalar',
+    'reference_view_freeze', 'checkable_combobox_height_scalar', 'geochem_values_edit_columns',
     'checkable_combobox_width_scalar', 'font_family', 'font_size', 'table_font_size', 'debug_level', 'show_per_page',
     'autofill_best_age', 'young_fill_best_age', 'old_fill_best_age', 'best_age_cutoff', 'geocork_version',
     'current_db_path', 'display_tooltips', 'show_items_missing_data', 'display_analyses'] + COLOR_SETTING_KEYS

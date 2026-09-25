@@ -1793,7 +1793,8 @@ class ImportWizardDialog(QWidget):
         # Set the column header
         header_text = f"{selected_field}"
         self.right_table.model().setHeaderData(column_index, Qt.Orientation.Horizontal, header_text, Qt.ItemDataRole.EditRole)
-        self.right_table.model().setHeaderData(column_index, Qt.Orientation.Horizontal, self.mapped_brush, Qt.ItemDataRole.BackgroundRole)  # Green background for new column
+        self.right_table.model().setHeaderData(column_index, Qt.Orientation.Horizontal, self.mapped_brush,
+                                               Qt.ItemDataRole.BackgroundRole)  # Green background for new column
 
         # Update the mappings for the current sheet
         # Shift existing mappings to the right, starting with the largest index
@@ -1806,7 +1807,7 @@ class ImportWizardDialog(QWidget):
                 # Shift the header background color
                 background_color = self.right_table.model().headerData(column, Qt.Orientation.Horizontal,
                                                                        Qt.ItemDataRole.BackgroundRole)
-                self.right_table.model().setHeaderData(column + 1, Qt.Orientation.Horizontal, background_color,
+                self.right_table.model().setHeaderData(column+1, Qt.Orientation.Horizontal, background_color,
                                                        Qt.ItemDataRole.BackgroundRole)
                 if column != column_index:
                     self.right_table.model().setHeaderData(column, Qt.Orientation.Horizontal, self.transparent_brush,

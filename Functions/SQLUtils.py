@@ -843,8 +843,6 @@ limited_table_abbreviations = {
     'GeoChemRejectionReasons': 'lgcrr'
 }
 
-shared_leaf_tables = {'Spots', 'Grains', 'LabFacilities', 'Instruments',
-                      'SpotCompositions', 'GrainCompositions'}
 
 
 # Dictionary of column leaders that could be included in select statements for LimitedSamplesAliquots and LimitedSpotsAnalysesGrains
