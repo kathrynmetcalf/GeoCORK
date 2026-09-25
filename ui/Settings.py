@@ -25,11 +25,11 @@ settings_list = [
     'geochem_error_format_id', 'geochem_error_format_abbreviation', 'decimals_to_show', 'sample_view_columns',
     'sample_edit_columns', 'aliquot_view_columns', 'aliquot_edit_columns', 'grain_view_columns', 'grain_edit_columns',
     'spot_view_columns', 'spot_edit_columns', 'upb_analysis_view_columns', 'upb_analysis_edit_columns',
-    'geochem_analysis_view_columns', 'geochem_analysis_edit_columns', 'column_view_columns', 'column_edit_columns',
-    'reference_view_columns', 'checkable_combobox_height_scalar', 'checkable_combobox_width_scalar', 'font_family',
-    'font_size', 'table_font_size', 'debug_level', 'show_per_page', 'autofill_best_age', 'young_fill_best_age',
-    'old_fill_best_age', 'best_age_cutoff', 'geocork_version', 'current_db_path', 'display_tooltips',
-    'show_items_missing_data', 'display_analyses'
+    'geochem_analysis_view_columns', 'geochem_analysis_edit_columns', 'geochem_values_edit_columns',
+    'column_view_columns', 'column_edit_columns', 'reference_view_columns', 'checkable_combobox_height_scalar',
+    'checkable_combobox_width_scalar', 'font_family', 'font_size', 'table_font_size', 'debug_level', 'show_per_page',
+    'autofill_best_age', 'young_fill_best_age', 'old_fill_best_age', 'best_age_cutoff', 'geocork_version',
+    'current_db_path', 'display_tooltips', 'show_items_missing_data', 'display_analyses'
 ]
 """List of all setting keys used by GeoCORK. This list is used to check for missing settings and to reset settings to default values."""
 
@@ -104,6 +104,7 @@ def default_settings():
                     'default_display_tooltips': 'true',
                     'default_show_items_missing_data': 'true',
                     'default_display_analyses': ['UPbAnalyses', 'GeoChemicalAnalyses']}
+    # 'default_display_analyses': ['UPbAnalyses', 'GeoChemicalAnalyses']
     for default_key, default_value in default_dict.items():
         custom_key = default_key.split('default_')[1]
         if not settings.contains(default_key) or (settings.contains(default_key) and settings.value(default_key) != default_value):

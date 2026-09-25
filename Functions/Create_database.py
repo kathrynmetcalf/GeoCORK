@@ -297,11 +297,6 @@ CREATE_GEOCHEMICAL_ANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS GeoChemicalAna
                     LabFacilityID INTEGER,
                     InstrumentID INTEGER,
                     GeoChemicalMethodID INTEGER,
-                    GeoChemAnalyteID REAL, 
-                    GeoChemAnalyteValue REAL,
-                    GeoChemAnalyteUnitID INTEGER,
-                    GeoChemAnalyteError REAL, 
-                    GeoChemAnalyteErrorFormatID INTEGER,
                     SpotSize REAL,
                     SpotSizeUnitID INTEGER,
                     Rejected INTEGER,
@@ -312,7 +307,7 @@ CREATE_GEOCHEMICAL_ANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS GeoChemicalAna
                     FOREIGN KEY(SpotID) REFERENCES Spots(SpotID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
-                    FOREIGN KEY(ReferenceID) REFERENCES "References"(ReferenceID)
+                    FOREIGN KEY (ReferenceID) REFERENCES "References"(ReferenceID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL,
                     FOREIGN KEY(LabFacilityID) REFERENCES LabFacilities(LabFacilityID)
@@ -322,15 +317,6 @@ CREATE_GEOCHEMICAL_ANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS GeoChemicalAna
                         ON UPDATE CASCADE
                         ON DELETE SET NULL,
                     FOREIGN KEY(InstrumentID) REFERENCES Instruments(InstrumentID)
-                        ON UPDATE CASCADE
-                        ON DELETE SET NULL, 
-                    FOREIGN KEY(GeoChemAnalyteID) REFERENCES GeoChemicalAnalytes(GeoChemAnalyteID)
-                        ON UPDATE CASCADE 
-                        ON DELETE SET NULL,
-                    FOREIGN KEY(GeoChemAnalyteUnitID) REFERENCES AnalyticalUnits(AnalyticalUnitID)
-                        ON UPDATE CASCADE 
-                        ON DELETE SET NULL,
-                    FOREIGN KEY(GeoChemAnalyteErrorFormatID) REFERENCES ErrorFormats(ErrorFormatID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL
 )'''
@@ -375,6 +361,35 @@ CREATE_GEOCHEMICAL_ANALYSIS_CONTEXTS_TABLE = '''CREATE TABLE IF NOT EXISTS GeoCh
                     UNIQUE (ParentGeoChemAnalysisContextID, GeoChemAnalysisContextParentRow)
 )'''
 
+CREATE_GEOCHEMICAL_ANALYSIS_VALUES_TABLE = '''CREATE TABLE IF NOT EXISTS GeoChemicalAnalysisValues(
+                    GeoChemAnalysisValueID INTEGER PRIMARY KEY,
+                    GeoChemAnalysisID INTEGER NOT NULL,
+                    ReferenceID INTEGER,
+                    GeoChemAnalyteID REAL, 
+                    GeoChemAnalyteValue REAL,
+                    GeoChemAnalyteUnitID INTEGER,
+                    GeoChemAnalyteError REAL, 
+                    GeoChemAnalyteErrorFormatID INTEGER,
+                    GeoChemAnalysisValueCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GeoChemAnalysisValueModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (GeoChemAnalysisValueID, GeoChemAnalysisID, GeoChemAnalyteID),
+                    FOREIGN KEY(GeoChemAnalysisID) REFERENCES GeoChemicalAnalyses(GeoChemAnalysisID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(ReferenceID) REFERENCES "References"(ReferenceID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL, 
+                    FOREIGN KEY(GeoChemAnalyteID) REFERENCES GeoChemicalAnalytes(GeoChemAnalyteID)
+                        ON UPDATE CASCADE 
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(GeoChemAnalyteUnitID) REFERENCES AnalyticalUnits(AnalyticalUnitID)
+                        ON UPDATE CASCADE 
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(GeoChemAnalyteErrorFormatID) REFERENCES ErrorFormats(ErrorFormatID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL
+)'''
+
 CREATE_GEOCHEMCIAL_ANALYTES_TABLE = '''CREATE TABLE IF NOT EXISTS GeoChemicalAnalytes(
                     GeoChemAnalyteID INTEGER PRIMARY KEY,
                     GeoChemAnalyteName TEXT NOT NULL CHECK(GeoChemAnalyteName <> ''),
@@ -385,6 +400,32 @@ CREATE_GEOCHEMCIAL_ANALYTES_TABLE = '''CREATE TABLE IF NOT EXISTS GeoChemicalAna
                     UNIQUE(GeoChemAnalyteName COLLATE NOCASE),
                     UNIQUE(GeoChemAnalyteAbbreviation COLLATE NOCASE))
 '''
+
+CREATE_GEOCHEMICAL_ANALYTE_CLASSES_TABLE = '''CREATE TABLE IF NOT EXISTS GeoChemicalAnalyteClasses(
+                    GeoChemAnalyteClassID INTEGER PRIMARY KEY,
+                    ParentGeoChemAnalyteClassID INTEGER,
+                    GeoChemAnalyteClassParentRow INTEGER NOT NULL,
+                    GeoChemAnalyteClassName TEXT NOT NULL CHECK (GeoChemAnalyteClassName <> ''),
+                    GeoChemAnalyteClassDescription TEXT,
+                    GeoChemAnalyteClassCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GeoChemAnalyteClassModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (GeoChemAnalyteClassName COLLATE NOCASE)
+)
+'''
+
+CREATE_GEOCHEMICAL_ANALYTES_GEOCHEMICAL_ANALYTE_CLASSES_TABLE = '''CREATE TABLE IF NOT EXISTS GeoChemicalAnalytes_GeoChemicalAnalyteClasses(
+                    GeoChemAnalyteID INTEGER NOT NULL,
+                    GeoChemAnalyteClassID INTEGER NOT NULL,
+                    GeoChemicalAnalytes_GeoChemicalAnalyteClassesCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GeoChemicalAnalytes_GeoChemicalAnalyteClassesModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (GeoChemAnalyteID, GeoChemAnalyteClassID),
+                    FOREIGN KEY(GeoChemAnalyteID) REFERENCES GeoChemicalAnalytes(GeoChemAnalyteID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(GeoChemAnalyteClassID) REFERENCES GeoChemicalAnalyteClasses(GeoChemAnalyteClassID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+)'''
 
 CREATE_GEOCHEMICAL_METHODS_TABLE = '''CREATE TABLE IF NOT EXISTS GeoChemicalMethods(
                     GeoChemicalMethodID INTEGER PRIMARY KEY,
@@ -1870,6 +1911,11 @@ def create_tables(database=None) -> bool:
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
+    if not query.exec(CREATE_GEOCHEMICAL_ANALYTE_CLASSES_TABLE):
+        logger_setup.get_logger().critical(f'Error creating GeoChemicalAnalyteClasses table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
 
     # Create grain tag tables
     if not query.exec(CREATE_GRAIN_COMPOSITION_TABLE):
@@ -2027,6 +2073,12 @@ def create_tables(database=None) -> bool:
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
+    if not query.exec(CREATE_GEOCHEMICAL_ANALYSIS_VALUES_TABLE):
+        logger_setup.get_logger().critical(f'Error creating GeoChemicalAnalysisValues table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
+
     # Create many-to-many sample tables
     if not query.exec(CREATE_SAMPLES_AGESIGNATURES_TABLE):
         logger_setup.get_logger().critical(f'Error creating Samples_AgeSignatures table')
@@ -2103,6 +2155,11 @@ def create_tables(database=None) -> bool:
         return False
 
     # Create GeoChem analysis many-to-many tables
+    if not query.exec(CREATE_GEOCHEMICAL_ANALYTES_GEOCHEMICAL_ANALYTE_CLASSES_TABLE):
+        logger_setup.get_logger().critical(f'Error creating GeoChemicalAnalytes_GeoChemicalAnalyteClasses table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
     if not query.exec(CREATE_GEOCHEMICAL_ANALYSES_GEOCHEMICAL_ANALYSIS_CONTEXTS_TABLE):
         logger_setup.get_logger().critical(f'Error creating GeoChemicalAnalyses_GeoChemicalAnalysisContexts table')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
@@ -3868,10 +3925,75 @@ def populate_geochemical_analytes(database=None) -> bool:
         query = QtS.QSqlQuery()
     else:
         query = QtS.QSqlQuery(database)
+    geochemical_analyte_classes = SQLUtils.geochemical_analyte_classes
+    analyte_class_ids = {}
+    root_row = 0
+    for geochemical_class in geochemical_analyte_classes:
+        if geochemical_class[0] == 'REE':
+            parent_id = analyte_class_ids['element']
+            parent_row = 0
+        elif geochemical_class[0] == 'oxide':
+            parent_id = analyte_class_ids['compound']
+            parent_row = 0
+        else:
+            parent_id = 'NULL'
+            parent_row = root_row
+            root_row += 1
+        sql = f'''INSERT INTO GeoChemicalAnalyteClasses(GeoChemAnalyteClassName, GeoChemAnalyteClassDescription, 
+                    ParentGeoChemAnalyteClassID, GeoChemAnalyteClassParentRow)
+                    VALUES ("{geochemical_class[0]}","{geochemical_class[1]}", {parent_id}, {parent_row})'''
+        if not query.exec(sql):
+            if 'UNIQUE constraint failed' not in query.lastError().text():
+                logger_setup.get_logger().critical('Error populating GeoChemicalAnalyteClasses')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                return False
+            sql = f'''SELECT GeoChemAnalyteClassID FROM GeoChemicalAnalyteClasses WHERE GeoChemAnalyteClassName = "{geochemical_class[0]}"'''
+            if not query.exec(sql):
+                logger_setup.get_logger().critical(f'Error populating GeoChemicalAnalytes')
+                logger_setup.get_logger().debug(f'Error searching GeoChemAnalyteClasses for "{geochemical_class[0]}"')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                return False
+            if not query.next():
+                logger_setup.get_logger().critical(f'Error populating GeoChemicalAnalytes')
+                logger_setup.get_logger().debug(f'Error searching GeoChemAnalyteClasses for "{geochemical_class[0]}"')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                return False
+            analyte_class_id = query.value(0)
+        else:
+            analyte_class_id = query.lastInsertId()
+        analyte_class_ids[geochemical_class[0]] = analyte_class_id
+
     geochemical_analytes = SQLUtils.geochemical_analytes
     for geochemical_analyte in geochemical_analytes:
         sql = f'''INSERT INTO GeoChemicalAnalytes(GeoChemAnalyteName, GeoChemAnalyteAbbreviation, GeoChemAnalyteDescription)
                                 VALUES("{geochemical_analyte[0]}","{geochemical_analyte[1]}","{geochemical_analyte[2]}")'''
+        if not query.exec(sql):
+            if 'UNIQUE constraint failed' not in query.lastError().text():
+                logger_setup.get_logger().critical('Error populating GeoChemicalAnalytes')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                return False
+            else:
+                sql = f'''SELECT GeoChemAnalyteID FROM GeoChemicalAnalytes WHERE GeoChemAnalyteName = "{geochemical_analyte[0]}"'''
+                if not query.exec(sql):
+                    logger_setup.get_logger().critical('Error populating GeoChemicalAnalytes')
+                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    return False
+                if not query.next():
+                    logger_setup.get_logger().critical('Error populating GeoChemicalAnalytes')
+                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    return False
+                analyte_id = query.value(0)
+        else:
+            analyte_id = query.lastInsertId()
+        class_id = analyte_class_ids[geochemical_analyte[3]]
+        sql = f'''INSERT INTO GeoChemicalAnalytes_GeoChemicalAnalyteClasses(GeoChemAnalyteID, GeoChemAnalyteClassID)
+                    VALUES ({analyte_id}, {class_id})'''
         if not query.exec(sql):
             if 'UNIQUE constraint failed' not in query.lastError().text():
                 logger_setup.get_logger().critical('Error populating GeoChemicalAnalytes')

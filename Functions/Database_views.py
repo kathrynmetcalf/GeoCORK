@@ -156,7 +156,9 @@ class ViewQuery:
                         SELECT
                                 {query_columns}
                                FROM LimitedSamplesAliquots lsa
-                               {lsa_hierarchy_join if 'LimitedSpotsAnalysesGrains' in self.limited_hierarchy else ''}
+                               {lsa_hierarchy_join if any(join in self.limited_hierarchy for join in 
+                                                          ['LimitedSpotsAnalysesGrains', 'LimitedSpotsUPbAnalysesGrains', 
+                                                           'LimitedSpotsGeoChemicalAnalysesGrains']) else ''}
                                {lsa_joins}
                                {lspag_joins}
                                 {self.query_where}
@@ -755,6 +757,7 @@ class ViewQuery:
         lspag_joins = []
         spot_upb_join_str = f'{self.join_type} JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID'
         spot_geochem_join_str = f'{self.join_type} JOIN GeoChemicalAnalyses ON Spots.SpotID = GeoChemicalAnalyses.SpotID'
+        geochem_value_join_str = f'{self.join_type} JOIN GeoChemicalAnalysisValues ON GeoChemicalAnalyses.GeoChemAnalysisID = GeoChemicalAnalysisValues.GeoChemAnalysisID'
         if where_table in ['Samples', 'Aliquots', 'Spots', 'UPbAnalyses', 'GeoChemicalAnalyses', 'Grains']:
             if where_table in ['Samples', 'Aliquots']:
                 if headers[0] in ['SampleID', 'AliquotID']:
@@ -876,8 +879,10 @@ class ViewQuery:
                 lspag_from_table = 'Spots'
                 lsa_selects = [SQLUtils.qaliquot_id]
                 lsa_table_joins.append(f'{self.join_type} JOIN Samples ON Aliquots.SampleID = Samples.SampleID')
-                lspag_table_joins.append(spot_upb_join_str)
-                lspag_table_joins.append(spot_geochem_join_str)
+                if 'UPbAnalyses' in settings.value('display_analyses'):
+                    lspag_table_joins.append(spot_upb_join_str)
+                if 'GeoChemicalAnalyses' in settings.value('display_analyses'):
+                    lspag_table_joins.append(spot_geochem_join_str)
                 lspag_table_joins.append('LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID')
                 lsa_selects, lsa_joins = self.get_lsa_from_aliquots(lsa_select_cols, lsa_table_joins, lsa_selects)
                 if where_header == 'SampleID' and 'Aliquots.SampleID AS SampleID' not in lsa_selects:
@@ -943,8 +948,10 @@ class ViewQuery:
                 lsa_from_table = 'Aliquots'
                 lspag_selects = [SQLUtils.qspot_id]
                 lsa_table_joins.append(f'{self.join_type} JOIN Samples ON Aliquots.SampleID = Samples.SampleID')
-                lspag_table_joins.append(spot_upb_join_str)
-                lspag_table_joins.append(spot_geochem_join_str)
+                if 'UPbAnalyses' in settings.value('display_analyses'):
+                    lspag_table_joins.append(spot_upb_join_str)
+                if 'GeoChemicalAnalyses' in settings.value('display_analyses'):
+                    lspag_table_joins.append(spot_geochem_join_str)
                 lspag_table_joins.append('LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID')
                 for col in lspag_select_cols:
                     as_name = col.split(' AS ')[1] if ' AS ' in col else ''
@@ -1084,6 +1091,7 @@ class ViewQuery:
                 lsa_table_joins.append(f'{self.join_type} JOIN Samples ON Aliquots.SampleID = Samples.SampleID')
                 lspag_table_joins.append(f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID')
                 lspag_table_joins.append('LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID')
+                lspag_table_joins.append(geochem_value_join_str)
                 for col in lspag_select_cols:
                     as_name = col.split(' AS ')[1] if ' AS ' in col else ''
                     quoted_show_columns = [f'"{c}"' for c in self.show_columns]
@@ -1152,8 +1160,10 @@ class ViewQuery:
                 lspag_selects = [SQLUtils.qgrain_id]
                 lsa_table_joins.append(f'{self.join_type} JOIN Samples ON Aliquots.SampleID = Samples.SampleID')
                 lspag_table_joins.append(f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID')
-                lspag_table_joins.append(spot_upb_join_str)
-                lspag_table_joins.append(spot_geochem_join_str)
+                if 'UPbAnalyses' in settings.value('display_analyses'):
+                    lspag_table_joins.append(spot_upb_join_str)
+                if 'GeoChemicalAnalyses' in settings.value('display_analyses'):
+                    lspag_table_joins.append(spot_geochem_join_str)
                 for col in lspag_select_cols:
                     as_name = col.split(' AS ')[1] if ' AS ' in col else ''
                     if ((as_name and as_name in self.show_columns) or
@@ -1637,15 +1647,15 @@ WITH RECURSIVE ''')
             if self.table == 'GeoChemicalAnalyses' and not any(column in view_column for view_column in all_view_columns):
                 # This is an abbreviation column
                 if 'Value' in column:
-                    lspag_column = f'CASE WHEN GeoChemicalAnalytes.GeoChemAnalyteAbbreviation = "{column.split('Value')[0]}" THEN GeoChemicalAnalytes.GeoChemAnalyteValue END AS "{column}"'
+                    lspag_column = f'CASE WHEN GeoChemicalAnalysisValues.GeoChemAnalyteAbbreviation = "{column.split('Value')[0]}" THEN GeoChemicalAnalysisValues.GeoChemAnalyteValue END AS "{column}"'
                 elif 'Unit' in column:
-                    lspag_column = f'CASE WHEN GeoChemicalAnalytes.GeoChemAnalyteAbbreviation = "{column.split('Unit')[0]}" THEN GeoChemicalAnalytes.AnalyticalUnitAbbreviation END AS "{column}"'
+                    lspag_column = f'CASE WHEN GeoChemicalAnalysisValues.GeoChemAnalyteAbbreviation = "{column.split('Unit')[0]}" THEN GeoChemicalAnalytes.AnalyticalUnitAbbreviation END AS "{column}"'
                 elif 'Format' in column:
-                    lspag_column = f'CASE WHEN GeoChemicalAnalytes.GeoChemAnalyteAbbreviation = "{column.split('ErrorFormat')[0]}" THEN GeoChemicalAnalytes.ErrorFormatAbbreviation END AS "{column}"'
+                    lspag_column = f'CASE WHEN GeoChemicalAnalysisValues.GeoChemAnalyteAbbreviation = "{column.split('ErrorFormat')[0]}" THEN GeoChemicalAnalytes.ErrorFormatAbbreviation END AS "{column}"'
                 elif 'Error' in column:
-                    lspag_column = f'CASE WHEN GeoChemicalAnalytes.GeoChemAnalyteAbbreviation = "{column.split('Error')[0]}" THEN GeoChemicalAnalytes.CalculatedGeoChemAnalyteError END AS "{column}"'
+                    lspag_column = f'CASE WHEN GeoChemicalAnalysisValues.GeoChemAnalyteAbbreviation = "{column.split('Error')[0]}" THEN GeoChemicalAnalytes.CalculatedGeoChemAnalyteError END AS "{column}"'
                 else:
-                    lspag_column = f'CASE WHEN GeoChemicalAnalytes.GeoChemAnalyteAbbreviation = "{column}" THEN NULLIF(COALESCE(GeoChemicalAnalyses.CalculatedGeoChemAnalyteValue, "") || "±" || COALESCE(GeoChemicalAnalyses.CalculatedGeoChemAnalyteError, ""), "±") END AS "{column}"'
+                    lspag_column = f'CASE WHEN GeoChemicalAnalysisValues.GeoChemAnalyteAbbreviation = "{column}" THEN NULLIF(COALESCE(GeoChemicalAnalysisValues.GeoChemAnalyteValue, "") || "±" || COALESCE(GeoChemicalAnalyses.CalculatedGeoChemAnalyteError, "") || " " || COALESCE(GeoChemicalAnalytes.ErrorFormatAbbreviation, ""), "") END AS "{column}"'
                 self.lspag_columns.append(lspag_column)
                 self.query_columns.append(column)
             else:
