@@ -760,6 +760,7 @@ class ImportWizardDialog(QWidget):
         # Add a vertical spacer to give space at the top
         self.left_top_spacer = QSpacerItem(0, int(self.workbook_tabs.tabBar().size().height()*(1/2)), QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.left_layout.addItem(self.left_top_spacer)
+        # todo: connect to self.right_table resize event and make self.left_table the same height and same global y position
         self.left_layout.addWidget(self.left_table)
 
         self.left_widget = QWidget()
@@ -1001,8 +1002,6 @@ class ImportWizardDialog(QWidget):
         self.btn_import.setEnabled(False)
         self.validate_button.setEnabled(False)
         self.btn_add_column.setEnabled(False)
-        # self.delimiter_edit.setEnabled(False)
-        # self.delimiter_checkbox.setEnabled(False)
         self.combo_upb_reference_comboBox.setEnabled(False)
         self.combo_upb_instrument_comboBox.setEnabled(False)
         self.combo_upb_lab_facility_comboBox.setEnabled(False)
@@ -1030,8 +1029,6 @@ class ImportWizardDialog(QWidget):
         # self.btn_import.setEnabled(True)
         self.validate_button.setEnabled(True)
         self.btn_add_column.setEnabled(True)
-        # self.delimiter_edit.setEnabled(True)
-        # self.delimiter_checkbox.setEnabled(True)
         
     def activate_upb_widgets(self):
         """
@@ -1062,6 +1059,11 @@ class ImportWizardDialog(QWidget):
         self.geochem_spot_size_unit_combobox.setEnabled(True)
 
     def on_cell_clicked(self, index: QModelIndex):
+        """
+        Activates when a cell in self.right_table is double-clicked.
+        Values mapped as "Reference Display", "Instrument Name", "Lab Facility Name", "UPb Analysis Method Name",
+        or "Geochemical Analysis Method Name" are mapped with name and ID, so check for these headers
+        """
         row = index.row()
         column = index.column()
         header_name = self.right_table.model().headerData(column, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
@@ -1070,13 +1072,19 @@ class ImportWizardDialog(QWidget):
             "Reference Display": '"References"',
             "Instrument Name": "Instruments",
             "Lab Facility Name": "LabFacilities",
-            "UPb Analysis Method Name": "UPbAnalysisMethods"
+            "UPb Analysis Method Name": "UPbAnalysisMethods",
+            "Geochemical Analysis Method Name": "GeochemicalAnalysisMethods"
         }
 
         if header_name in table_name_map:
             self.show_listwidget_popup(row, column, header_name, table_name_map[header_name])
 
     def show_listwidget_popup(self, row, column, header_name, table_name):
+        """
+        If the header_name is "Reference Display", "Instrument Name", "Lab Facility Name", "UPb Analysis Method Name",
+        or "Geochemical Analysis Method Name", brings up a list of existing items in the database to select from. These
+        headers are mapped by name and ID.
+        """
         popup = QDialog(self)
         popup.setWindowTitle("Select a valid {} value".format(header_name))
 

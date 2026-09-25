@@ -10,8 +10,9 @@ from PyQt6.QtCore import QEventLoop, Qt, QPoint, QSize, QTimer, QUrl
 from PyQt6.QtGui import QPixmap, QAction, QDesktopServices
 from PyQt6.QtSql import QSqlDatabase
 from PyQt6.QtWidgets import QFileDialog, QPushButton, QMessageBox, QWidget, \
-    QListWidget, QListWidgetItem, QApplication, QLabel
+    QListWidget, QListWidgetItem, QApplication, QLabel, QSplitter
 from PyQt6.uic import loadUi
+from PyQt6.uic.Compiler.qtproxies import QtGui
 
 import logger_setup
 from Functions import Savepoint_manager
@@ -46,7 +47,13 @@ class LandingPage(QWidget):
         self.opendatabase_button.setObjectName("opendatabase_button")
         self.mergedatabase_button = QPushButton('Merge Database')
         self.mergedatabase_button.setObjectName("mergedatabase_button")
+        self.defaultsetting_button = QPushButton('Restore Default Settings')
+        self.defaultsetting_button.setObjectName("defaultsetting_button")
+        self.button_splitter = QSplitter()
+        self.button_splitter.setOrientation(Qt.Orientation.Vertical)
 
+        self.verticalLayout.insertWidget(1, self.defaultsetting_button)
+        self.verticalLayout.insertWidget(1, self.button_splitter)
         self.verticalLayout.insertWidget(1, self.mergedatabase_button)
         self.verticalLayout.insertWidget(1, self.opendatabase_button)
         self.verticalLayout.insertWidget(1, self.newdatabase_button)
@@ -54,6 +61,7 @@ class LandingPage(QWidget):
         self.newdatabase_button.clicked.connect(self.new_database_dialog)
         self.opendatabase_button.clicked.connect(self.showFileDialog)
         self.mergedatabase_button.clicked.connect(self.show_merge_db)
+        self.defaultsetting_button.clicked.connect(self.restore_settings)
 
         self.github_button: QPushButton
         self.github_button.setIcon(qtawesome.icon('fa6b.github', color='black', scale_factor=1.0))
@@ -374,6 +382,13 @@ class LandingPage(QWidget):
         merge_dialog = MergeDatabaseDialog()
         if merge_dialog.exec():
             return
+
+    def restore_settings(self):
+        from Functions.Settings_manager import SettingsManager
+        settings = SettingsManager().settings
+        settings.setValue('default_settings', 'true')
+        msg = QMessageBox(QMessageBox.Icon.Information, 'Restored', 'Default settings restored')
+        msg.exec()
 
     def recents_context_menu(self, pos):
         """
