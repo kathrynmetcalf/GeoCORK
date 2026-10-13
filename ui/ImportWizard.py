@@ -997,8 +997,7 @@ class ImportWizardDialog(QWidget):
                     analytes[analyte_abbreviation] = ['GeoChemicalAnalysisValues', 'GeoChemAnalyteValue']
                     analytes[f'{analyte_abbreviation}Unit'] = ['GeoChemicalAnalysisValues', 'GeoChemAnalyteUnitID']
                     errors[f'{analyte_abbreviation}Error'] = ['GeoChemicalAnalysisValues', 'GeoChemAnalyteError']
-                    errors[f'{analyte_abbreviation}ErrorFormat'] = ['GeoChemicalAnalysisValues',
-                                                                    'GeoChemAnalyteErrorFormatID']
+                    errors[f'{analyte_abbreviation}ErrorFormat'] = ['GeoChemicalAnalysisValues', 'GeoChemAnalyteErrorFormatID']
                 self.geochem_fields['Geochemical Analytes'] = analytes
                 self.geochem_fields['Geochemical Analyte Errors'] = errors
         self.field_dictionaries = [SQLUtils.sample_possible_user_input_fields,
@@ -1011,9 +1010,9 @@ class ImportWizardDialog(QWidget):
 
         # Dictionary of item types and their parent item types to use when importing
         self.item_parent_dict = {'Samples': None, 'Aliquots': 'Samples', 'Spots': 'Aliquots', 'Grains': 'Spots',
-                                 'UPbAnalyses': 'Spots', 'GeoChemicalAnalyses': 'Spots',
-                                 'GeoChemicalAnalysisValues': 'GeoChemicalAnalyses', 'SampleAges': 'Samples',
-                                 'Columns': 'Samples', 'SampleGPSLocations': 'Samples', 'ColumnGPSLocations': 'Columns',
+                            'UPbAnalyses': 'Spots', 'GeoChemicalAnalyses': 'Spots',
+                            'GeoChemicalAnalysisValues': 'GeoChemicalAnalyses', 'SampleAges': 'Samples',
+                            'Columns': 'Samples', 'SampleGPSLocations': 'Samples', 'ColumnGPSLocations': 'Columns',
                                  'References': ['UPbAnalyses', 'GeoChemicalAnalysis']}
 
         # Dictionary of items imported during the current import session
@@ -5808,6 +5807,7 @@ class ImportWizardDialog(QWidget):
                         self.item_ids[table][self.upb_sheet_name][column][id_header] = {}
                         self.item_ids[table][self.geochem_sheet_name][column][id_header] = {}
                         break
+
 
         import_progress_dialog = QProgressDialog(
             "Importing data...", "Cancel", 0, len(self.item_ids.keys()) + 1, self
