@@ -364,7 +364,6 @@ CREATE_GEOCHEMICAL_ANALYSIS_CONTEXTS_TABLE = '''CREATE TABLE IF NOT EXISTS GeoCh
 CREATE_GEOCHEMICAL_ANALYSIS_VALUES_TABLE = '''CREATE TABLE IF NOT EXISTS GeoChemicalAnalysisValues(
                     GeoChemAnalysisValueID INTEGER PRIMARY KEY,
                     GeoChemAnalysisID INTEGER NOT NULL,
-                    ReferenceID INTEGER,
                     GeoChemAnalyteID REAL, 
                     GeoChemAnalyteValue REAL,
                     GeoChemAnalyteUnitID INTEGER,
@@ -376,9 +375,6 @@ CREATE_GEOCHEMICAL_ANALYSIS_VALUES_TABLE = '''CREATE TABLE IF NOT EXISTS GeoChem
                     FOREIGN KEY(GeoChemAnalysisID) REFERENCES GeoChemicalAnalyses(GeoChemAnalysisID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
-                    FOREIGN KEY(ReferenceID) REFERENCES "References"(ReferenceID)
-                        ON UPDATE CASCADE
-                        ON DELETE SET NULL, 
                     FOREIGN KEY(GeoChemAnalyteID) REFERENCES GeoChemicalAnalytes(GeoChemAnalyteID)
                         ON UPDATE CASCADE 
                         ON DELETE SET NULL,
@@ -2202,6 +2198,12 @@ def update_schema(version: str, database: QtS.QSqlDatabase = None) -> str:
     if version == settings.value('default_geocork_version') or version == 0:
         logger_setup.get_logger().info('Database schema is up to date')
         return 'True'
+
+    extant_versions = ['v1.0.0', 'v1.0.1', 'v1.0.2', 'v1.0.3', 'v1.0.4', 'v1.0.5', 'v1.1.0']
+    if version not in extant_versions:
+        logger_setup.get_logger().error(f'Database schema version {version} is not compatible with this version of GeoCORK ({settings.value("default_geocork_version")})')
+        return 'Cancel'
+
     # else:
     #     dialog = QtW.QMessageBox()
     #     dialog.setIcon(QtW.QMessageBox.Icon.Information)

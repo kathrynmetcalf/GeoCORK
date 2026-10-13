@@ -267,11 +267,28 @@ def validate_update(table: str, columns: list, values: list, where: str):
                     return f'{age_list[index].replace(f'"', '')} missing units', header
             error, header = check_update_pairs(all_records, age_error_list[index], 'AgeErrorFormatID')
             if error:
-                if error != 'AgeErrorFormatID missing AgeError':
+                if error != f'AgeErrorFormatID missing {age_error_list[index]}':
                     return "Age error given without error format", header
         error, header = check_update_concordance(all_records)
         if error:
             return error, header
+        error, header = check_update_pairs(all_records, 'SpotSize', 'SpotSizeUnitID')
+        if error:
+            if error != 'SpotSizeUnitID missing SpotSize':
+                return "Spot size given without units", header
+    if table == 'GeoChemicalAnalyses' or table == 'GeoChemicalAnalysisValues':
+        error, header = check_update_pairs(all_records, 'GeoChemAnalyteValue', 'GeoChemAnalyteUnitID')
+        if error:
+            if error != 'GeoChemAnalyteUnitID missing GeoChemAnalyteValue':
+                return "GeoChemAnalyteValue value missing units", header
+        error, header = check_update_pairs(all_records, 'GeoChemAnalyteError', 'GeoChemAnalyteValue')
+        if error:
+            if error != 'GeoChemAnalyteValue missing GeoChemAnalyteError':
+                return "GeoChemAnalyteValue error given without value", header
+        error, header = check_update_pairs(all_records, 'GeoChemAnalyteError', 'GeoChemAnalyteErrorFormatID')
+        if error:
+            if error != 'GeoChemAnalyteErrorFormatID missing GeoChemAnalyteError':
+                return "GeoChemAnalyteError error given without error format", header
         error, header = check_update_pairs(all_records, 'SpotSize', 'SpotSizeUnitID')
         if error:
             if error != 'SpotSizeUnitID missing SpotSize':

@@ -2641,8 +2641,8 @@ geochem_possible_user_input_fields = {
         'Rejection Reason': ['GeoChemRejectionReasons', 'GeoChemRejectionReasonName'],
         'Rejection Reason Description': ['GeoChemRejectionReasons', 'GeoChemRejectionReasonDescription']
     },
-    'Geochemical Analytes': {'Geochemical Analysis Units': ['GeoChemicalAnalyses', 'GeoChemAnalyteUnitID']},
-    'Geochemical Analyte Errors': {'Geochemical Error Formats': ['GeoChemicalAnalyses', 'GeoChemAnalyteErrorFormatID']}
+    'Geochemical Analytes': {'Geochemical Analysis Units': ['GeoChemicalAnalysisValues', 'GeoChemAnalyteUnitID']},
+    'Geochemical Analyte Errors': {'Geochemical Error Formats': ['GeoChemicalAnalysisValues', 'GeoChemAnalyteErrorFormatID']}
 }
 """Dictionaries of User-readable columns/info able to be imported into the database with list of their associated table 
     and column name. Importer Category: {UserReadableColumnName: [TableName, ColumnName]}"""

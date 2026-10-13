@@ -106,10 +106,10 @@ class ColumnMapDialog(QDialog):
                 errors = {}
                 while query.next():
                     analyte_abbreviation = query.value('GeoChemAnalyteAbbreviation')
-                    analytes[analyte_abbreviation] = ['GeoChemicalAnalyses', 'GeoChemAnalyteValue']
-                    analytes[f'{analyte_abbreviation}Unit'] = ['GeoChemicalAnalyses', 'GeoChemAnalyteUnitID']
-                    errors[f'{analyte_abbreviation}Error'] = ['GeoChemicalAnalyses', 'GeoChemAnalyteError']
-                    errors[f'{analyte_abbreviation}ErrorFormat'] = ['GeoChemicalAnalyses', 'GeoChemAnalyteErrorFormatID']
+                    analytes[analyte_abbreviation] = ['GeoChemicalAnalysisValues', 'GeoChemAnalyteValue']
+                    analytes[f'{analyte_abbreviation}Unit'] = ['GeoChemicalAnalysisValues', 'GeoChemAnalyteUnitID']
+                    errors[f'{analyte_abbreviation}Error'] = ['GeoChemicalAnalysisValues', 'GeoChemAnalyteError']
+                    errors[f'{analyte_abbreviation}ErrorFormat'] = ['GeoChemicalAnalysisValues', 'GeoChemAnalyteErrorFormatID']
                 self.geochem_fields['Geochemical Analytes'] = analytes
                 self.geochem_fields['Geochemical Analyte Errors'] = errors
         self.field_dictionaries = [SQLUtils.sample_possible_user_input_fields,
@@ -278,6 +278,7 @@ class LoadMappingDialog(QDialog):
         self.button_box.rejected.connect(self.reject)
         self.list_view.customContextMenuRequested.connect(self.show_context_menu)
         self.list_view.selectionModel().selectionChanged.connect(self.update_selected_name)
+        self.list_view.doubleClicked.connect(self.accept)
 
     def display_mapping_list(self) -> None:
         """
@@ -843,10 +844,10 @@ class ImportWizardDialog(QWidget):
                 errors = {}
                 while query.next():
                     analyte_abbreviation = query.value('GeoChemAnalyteAbbreviation')
-                    analytes[analyte_abbreviation] = ['GeoChemicalAnalyses', 'GeoChemAnalyteValue']
-                    analytes[f'{analyte_abbreviation}Unit'] = ['GeoChemicalAnalyses', 'GeoChemAnalyteUnitID']
-                    errors[f'{analyte_abbreviation}Error'] = ['GeoChemicalAnalyses', 'GeoChemAnalyteError']
-                    errors[f'{analyte_abbreviation}ErrorFormat'] = ['GeoChemicalAnalyses', 'GeoChemAnalyteErrorFormatID']
+                    analytes[analyte_abbreviation] = ['GeoChemicalAnalysisValues', 'GeoChemAnalyteValue']
+                    analytes[f'{analyte_abbreviation}Unit'] = ['GeoChemicalAnalysisValues', 'GeoChemAnalyteUnitID']
+                    errors[f'{analyte_abbreviation}Error'] = ['GeoChemicalAnalysisValues', 'GeoChemAnalyteError']
+                    errors[f'{analyte_abbreviation}ErrorFormat'] = ['GeoChemicalAnalysisValues', 'GeoChemAnalyteErrorFormatID']
                 self.geochem_fields['Geochemical Analytes'] = analytes
                 self.geochem_fields['Geochemical Analyte Errors'] = errors
         self.field_dictionaries = [SQLUtils.sample_possible_user_input_fields,
@@ -859,9 +860,10 @@ class ImportWizardDialog(QWidget):
 
         # Dictionary of item types and their parent item types to use when importing
         self.item_parent_dict = {'Samples': None, 'Aliquots': 'Samples', 'Spots': 'Aliquots', 'Grains': 'Spots',
-                            'UPbAnalyses': 'Spots', 'GeoChemicalAnalyses': 'Spots', 'SampleAges': 'Samples',
+                            'UPbAnalyses': 'Spots', 'GeoChemicalAnalyses': 'Spots',
+                            'GeoChemicalAnalysisValues': 'GeoChemicalAnalyses', 'SampleAges': 'Samples',
                             'Columns': 'Samples', 'SampleGPSLocations': 'Samples', 'ColumnGPSLocations': 'Columns',
-                                 'References': ['UPbAnalyses', 'GeoChemicalAnalyses']}
+                                 'References': ['UPbAnalyses', 'GeoChemicalAnalysisValues']}
 
         # Dictionary of items imported during the current import session
         self.imports = {'SampleID': [], 'AliquotID': [], 'SpotID': [], 'UPbAnalysisID': [], 'GeoChemAnalysisID': [], 'GrainID': []}
@@ -2124,12 +2126,12 @@ class ImportWizardDialog(QWidget):
 
         sheet_dialog.setWindowTitle(f"Select {data_type} data sheet")
         sheet_layout = QVBoxLayout()
-        sheet_label = QLabel(f"Multiple sheets found. Please select the sheet containing {data_type} data:")
+        sheet_label = QLabel(f"{data_type} data sheet:")
         sheet_layout.addWidget(sheet_label)
         sheet_layout.addWidget(combo_sheets)
         button_box = QDialogButtonBox()
         cancel_button = button_box.addButton("Cancel", QDialogButtonBox.ButtonRole.RejectRole)
-        skip_button = button_box.addButton("Skip", QDialogButtonBox.ButtonRole.NoRole)
+        none_button = button_box.addButton("None", QDialogButtonBox.ButtonRole.NoRole)
         ok_button = button_box.addButton("Ok", QDialogButtonBox.ButtonRole.AcceptRole)
         sheet_layout.addWidget(button_box)
         sheet_dialog.setLayout(sheet_layout)
@@ -2141,7 +2143,7 @@ class ImportWizardDialog(QWidget):
             clicked_button = button
             if button == ok_button:
                 sheet_dialog.accept()
-            elif button == skip_button:
+            elif button == none_button:
                 sheet_dialog.done(0)
             else:
                 sheet_dialog.reject()
@@ -2158,7 +2160,7 @@ class ImportWizardDialog(QWidget):
                 self.geochem_combo_sheets.setCurrentText(selected_sheet)
                 self.geochem_sheet_name = selected_sheet
             return True
-        elif clicked_button == skip_button:
+        elif clicked_button == none_button:
             if data_type == 'U-Pb':
                 self.upb_combo_sheets.setCurrentIndex(-1)
                 self.upb_sheet_name = None
@@ -4389,6 +4391,9 @@ class ImportWizardDialog(QWidget):
             elif table == 'GPSLocations':
                 item_tables.append('SampleGPSLocations')
                 item_tables.append('ColumnGPSLocations')
+            elif table == 'GeoChemicalAnalyses':
+                item_tables.append('GeoChemicalAnalyses')
+                item_tables.append('GeoChemicalAnalysisValues')
             else:
                 # tag_tables.append(table)
                 item_tables.append(table)
@@ -5049,12 +5054,20 @@ class ImportWizardDialog(QWidget):
                 self.upb_conc_format_combobox.currentIndex())
             ,
             'GeoChemAnalyteErrorFormatID': self.geochem_error_format_combobox.itemData(
-                self.geochem_error_format_combobox.currentIndex()
-            )
+                self.geochem_error_format_combobox.currentIndex())
             ,
             'GeoChemSpotSizeUnitID': self.geochem_spot_size_unit_combobox.itemData(
                 self.geochem_spot_size_unit_combobox.currentIndex()
             )
+        }
+
+        table_combos = {
+            'Samples': ['HeightDepthUnitID'],
+            'SampleGPSLocations': ['GPSElevUnitID'],
+            'SampleAges': ['DirectAgeErrorFormatID', 'DirectAgeUnitID'],
+            'Columns': ['TotalHeightDepthUnitID'],
+            'UPbAnalyses': ['UPbAgeUnitID', 'UPbAgeErrorFormatID', 'UPbRatioErrorFormatID', 'UPbSpotSizeUnitID', 'UPbConcordanceFormatID'],
+            'GeoChemAnalyses': ['GeoChemAnalyteErrorFormatID', 'GeoChemSpotSizeUnitID']
         }
 
         query = QSqlQuery()
@@ -5107,7 +5120,12 @@ class ImportWizardDialog(QWidget):
                                             self.item_ids[table][sheet] = {}
                                         if column not in self.item_ids[table][sheet]:
                                             self.item_ids[table][sheet][column] = {}
-                                        self.item_ids[table][sheet][column][item_header] = {}
+                                        if table == 'GeoChemicalAnalysisValues':
+                                            if field not in self.item_ids[table][sheet][column]:
+                                                self.item_ids[table][sheet][column][field] = {}
+                                            self.item_ids[table][sheet][column][field][item_header] = {}
+                                        else:
+                                            self.item_ids[table][sheet][column][item_header] = {}
             if self.hidden_mappings:
                 for column, id_header in self.hidden_mappings.items():
                     id_header = list(id_header.keys())[0]
@@ -5126,6 +5144,7 @@ class ImportWizardDialog(QWidget):
                         self.item_ids[table][self.upb_sheet_name][column][id_header] = {}
                         self.item_ids[table][self.geochem_sheet_name][column][id_header] = {}
                         break
+
 
         import_progress_dialog = QProgressDialog(
             "Importing data...", "Cancel", 0, len(self.item_ids.keys())+1, self
@@ -5166,7 +5185,7 @@ class ImportWizardDialog(QWidget):
                 return False
             while query.next():
                 foreign_keys[query.value(3)] = {'foreign_table': query.value(2), 'foreign_column': query.value(4)}
-            if table not in ['SampleAges', 'References', 'SampleGPSLocations', 'ColumnGPSLocations']:
+            if table not in ['SampleAges', 'References', 'SampleGPSLocations', 'ColumnGPSLocations', 'GeoChemicalAnalysisValues']:
                 name_header = get_headers(table)[get_name_column(table)]
             elif table == 'References' and search_dictionary(self.item_ids[table], get_headers(db_table)[0]):
                 # ID column is mapped, so make sure that ReferenceDisplay is too
@@ -5241,6 +5260,9 @@ class ImportWizardDialog(QWidget):
                                     item_data[table][name_header][item_name][header] = item_id
                                     self.item_ids[table][sheet][column][header][item_name] = item_id
                         else:
+                            if table in table_combos:
+                                for item_header in table_combos[table]:
+                                    item_data[table][name_header][item_name][item_header.replace('UPb', '').replace('GeoChem', '')] = combo_values[item_header]
                             for column, item_header in self.item_ids[table][sheet].items():
                                 item_header = list(item_header.keys())[0]
                                 if (item_header not in item_data[table][name_header][item_name] or
@@ -5568,9 +5590,7 @@ class ImportWizardDialog(QWidget):
                             # Add on to what was imported with the analysis chain in the previous method
                             update_values = {}
                             for column in query_columns:
-                                if existing_values[column] == 'NULL' and input_values[column] != 'NULL':
-                                    update_values[column] = input_values[column]
-                                elif (table in SQLUtils.unit_format_affected and
+                                if (table in SQLUtils.unit_format_affected and
                                     column in SQLUtils.unit_format_affected[table]):
                                     if existing_values[column] != input_values[column]:
                                         if not any(input_values[affected_column] != 'NULL' for affected_column in
@@ -5596,6 +5616,9 @@ class ImportWizardDialog(QWidget):
                                         else:
                                             # No existing values depending on this one, so fine to overwrite
                                             update_values[column] = input_values[column]
+                                elif existing_values[column] == 'NULL' and input_values[column] != 'NULL':
+                                    update_values[column] = input_values[column]
+
                             if db_table in SQLUtils.trigger_tables:
                                 error, header = validate_update(db_table, list(update_values.keys()),
                                                                 list(update_values.values()),
