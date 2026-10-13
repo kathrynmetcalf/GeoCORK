@@ -742,9 +742,16 @@ class ViewQuery:
         for id_col in [SQLUtils.qsample_id, SQLUtils.qaliquot_id]:
             lsa_select_cols.remove(id_col) if id_col in lsa_select_cols else None
         lsa_table_joins = SQLUtils.limited_lsa_lspag_joins['LimitedSamplesAliquots'].copy()
-        lspag_select_cols = self.lspag_columns
+        select_cols = self.lspag_columns
+        lspag_id_selects = []
         for id_col in [SQLUtils.qspot_id, SQLUtils.qgrain_id, SQLUtils.qupb_id, SQLUtils.qgeochem_id]:
-            lspag_select_cols.remove(id_col) if id_col in lspag_select_cols else None
+            select_cols.remove(id_col) if id_col in select_cols else None
+            if any(id_col.split(' AS ')[1] in query_col for query_col in self.query_columns):
+                if id_col.split(' AS ')[1] == 'GrainID':
+                    lspag_id_selects.append('Spots.GrainID AS GrainID')
+                else:
+                    lspag_id_selects.append(id_col)
+        lspag_select_cols = lspag_id_selects + select_cols
         if self.table == 'UPbAnalyses' or settings.value('display_analyses') == ['UPbAnalyses']:
             lspag_table_joins = SQLUtils.limited_lsa_lspag_joins['LimitedSpotsUPbAnalysesGrains'].copy()
         elif self.table == 'GeoChemicalAnalyses' or settings.value('display_analyses') == ['GeoChemicalAnalyses']:
@@ -818,7 +825,7 @@ class ViewQuery:
                 for col in lspag_select_cols:
                     as_name = col.split(' AS ')[1] if ' AS ' in col else ''
                     if ((as_name and as_name in self.show_columns) or
-                            (col in [SQLUtils.qspot_id, SQLUtils.qupb_id, SQLUtils.qgeochem_id, SQLUtils.qgrain_id]) or
+                            (col in [SQLUtils.qspot_id, SQLUtils.qupb_id, SQLUtils.qgeochem_id, SQLUtils.qgrain_id, 'Spots.GrainID AS GrainID']) or
                             (as_name in self.order_col or as_name in self.group_col or as_name in self.where) or
                             ('ID' in col and not as_name)):
                         if col not in lspag_selects:
