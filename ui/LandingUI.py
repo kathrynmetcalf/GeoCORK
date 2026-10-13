@@ -69,7 +69,7 @@ class LandingPage(QWidget):
         self.github_button.clicked.connect(self.open_github)
         self.selected_files = None
 
-        self.citation = LinkLabel(text = f'Metcalf, K., & Burges, J. in review. kathrynmetcalf/GeoCORK: GeoCORK {settings.value('default_geocork_version')}. Zenodo. https://doi.org/10.5281/zenodo.15833658',
+        self.citation = LinkLabel(text = f'Metcalf, K., & Burges, J. 2026. kathrynmetcalf/GeoCORK: GeoCORK {settings.value('default_geocork_version')}. Zenodo. https://doi.org/10.5281/zenodo.15833658',
                                   url = 'https://doi.org/10.5281/zenodo.15833658')
         self.citation.setObjectName("citation")
         self.horizontalLayout_4.insertWidget(0, self.citation)
@@ -387,6 +387,8 @@ class LandingPage(QWidget):
         from Functions.Settings_manager import SettingsManager
         settings = SettingsManager().settings
         settings.setValue('default_settings', 'true')
+        from ui.Settings import reset_to_default_settings
+        reset_to_default_settings()
         msg = QMessageBox(QMessageBox.Icon.Information, 'Restored', 'Default settings restored')
         msg.exec()
 
