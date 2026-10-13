@@ -1916,6 +1916,13 @@ def update_schema(version: str, database: QtS.QSqlDatabase = None) -> str:
     if version == settings.value('default_geocork_version') or version == 0:
         logger_setup.get_logger().info('Database schema is up to date')
         return 'True'
+
+    extant_versions = ['v1.0.0', 'v1.0.1', 'v1.0.2', 'v1.0.3', 'v1.0.4', 'v1.0.5']
+    if version not in extant_versions:
+        logger_setup.get_logger().error(
+            f'Database schema version {version} is not compatible with this version of GeoCORK ({settings.value("default_geocork_version")})')
+        return 'Cancel'
+
     # else:
     #     dialog = QtW.QMessageBox()
     #     dialog.setIcon(QtW.QMessageBox.Icon.Information)
