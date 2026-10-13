@@ -627,9 +627,16 @@ class ViewQuery:
         for id_col in [SQLUtils.qsample_id, SQLUtils.qaliquot_id]:
             lsa_select_cols.remove(id_col) if id_col in lsa_select_cols else None
         lsa_table_joins = SQLUtils.limited_lsa_lspuag_joins['LimitedSamplesAliquots'].copy()
-        lspuag_select_cols = self.lspuag_columns
+        select_cols = self.lspuag_columns
+        lspuag_id_selects = []
         for id_col in [SQLUtils.qspot_id, SQLUtils.qgrain_id, SQLUtils.qupb_id]:
-            lspuag_select_cols.remove(id_col) if id_col in lspuag_select_cols else None
+            select_cols.remove(id_col) if id_col in select_cols else None
+            if any(id_col.split(' AS ')[1] in query_col for query_col in self.query_columns):
+                if id_col.split(' AS ')[1] == 'GrainID':
+                    lspuag_id_selects.append('Spots.GrainID AS GrainID')
+                else:
+                    lspuag_id_selects.append(id_col)
+        lspuag_select_cols = lspuag_id_selects + select_cols
         lspuag_table_joins = SQLUtils.limited_lsa_lspuag_joins['LimitedSpotsUPbAnalysesGrains'].copy()
         lsa_selects = []
         lsa_joins = []
@@ -695,7 +702,7 @@ class ViewQuery:
                 for col in lspuag_select_cols:
                     as_name = col.split(' AS ')[1] if ' AS ' in col else ''
                     if ((as_name and as_name in self.show_columns) or
-                            (col in [SQLUtils.qspot_id, SQLUtils.qupb_id, SQLUtils.qgrain_id]) or
+                            (col in [SQLUtils.qspot_id, SQLUtils.qupb_id, SQLUtils.qgrain_id, 'Spots.GrainID AS GrainID']) or
                             (as_name in self.order_col or as_name in self.group_col or as_name in self.where) or
                             ('ID' in col and not as_name)):
                         if col not in lspuag_selects:
