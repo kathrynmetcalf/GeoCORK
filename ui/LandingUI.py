@@ -46,7 +46,10 @@ class LandingPage(QWidget):
         self.opendatabase_button.setObjectName("opendatabase_button")
         self.mergedatabase_button = QPushButton('Merge Database')
         self.mergedatabase_button.setObjectName("mergedatabase_button")
+        self.defaultsetting_button = QPushButton('Restore Default Settings')
+        self.defaultsetting_button.setObjectName("defaultsetting_button")
 
+        self.verticalLayout.insertWidget(1, self.defaultsetting_button)
         self.verticalLayout.insertWidget(1, self.mergedatabase_button)
         self.verticalLayout.insertWidget(1, self.opendatabase_button)
         self.verticalLayout.insertWidget(1, self.newdatabase_button)
@@ -54,6 +57,7 @@ class LandingPage(QWidget):
         self.newdatabase_button.clicked.connect(self.new_database_dialog)
         self.opendatabase_button.clicked.connect(self.showFileDialog)
         self.mergedatabase_button.clicked.connect(self.show_merge_db)
+        self.defaultsetting_button.clicked.connect(self.restore_settings)
 
         self.github_button: QPushButton
         self.github_button.setIcon(qtawesome.icon('fa6b.github', color='black', scale_factor=1.0))
@@ -61,7 +65,7 @@ class LandingPage(QWidget):
         self.github_button.clicked.connect(self.open_github)
         self.selected_files = None
 
-        self.citation = LinkLabel(text = f'Metcalf, K., & Burges, J. in review. kathrynmetcalf/GeoCORK: GeoCORK {settings.value('default_geocork_version')}. Zenodo. https://doi.org/10.5281/zenodo.15833658',
+        self.citation = LinkLabel(text = f'Metcalf, K., & Burges, J. 2026. kathrynmetcalf/GeoCORK: GeoCORK {settings.value('default_geocork_version')}. Zenodo. https://doi.org/10.5281/zenodo.15833658',
                                   url = 'https://doi.org/10.5281/zenodo.15833658')
         self.citation.setObjectName("citation")
         self.horizontalLayout_4.insertWidget(0, self.citation)
@@ -374,6 +378,15 @@ class LandingPage(QWidget):
         merge_dialog = MergeDatabaseDialog()
         if merge_dialog.exec():
             return
+
+    def restore_settings(self):
+        from Functions.Settings_manager import SettingsManager
+        settings = SettingsManager().settings
+        settings.setValue('default_settings', 'true')
+        from ui.Settings import reset_to_default_settings
+        reset_to_default_settings()
+        msg = QMessageBox(QMessageBox.Icon.Information, 'Restored', 'Default settings restored')
+        msg.exec()
 
     def recents_context_menu(self, pos):
         """
