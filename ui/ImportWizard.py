@@ -1826,6 +1826,8 @@ class ImportWizardDialog(QWidget):
     def handle_left_cell_change(self, row, column):
         """
         Handle cell value changes in the left table.
+        :param row: row number for changed cell in left table
+        :param column: column number for changed cell in left table
         """
 
         if ((not self.upb_sheet_name or self.upb_sheet_name not in self.right_tables) and
