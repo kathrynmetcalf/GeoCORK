@@ -1996,7 +1996,8 @@ def get_name_column(table: str) -> int | None:
         return 9
     elif (table in SQLUtils.user_viewable_tables or
           table in ['SampleView', 'SampleEditView', 'Spots', 'GPSLocations', 'FilterGroups', 'ReferenceView',
-                    'ReferenceEditView', 'ColumnView', 'ColumnEditView', 'Grains', 'UPbAnalyses', 'GeoChemicalAnalyses']):
+                    'ReferenceEditView', 'ColumnView', 'ColumnEditView', 'Grains', 'UPbAnalyses', 'GeoChemicalAnalyses',
+                    'GeoChemicalAnalytes']):
         return 1
     elif table in ['SpotView', 'SpotEditView']:
         return 4
