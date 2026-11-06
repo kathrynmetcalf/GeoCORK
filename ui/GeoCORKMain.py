@@ -20,6 +20,8 @@ from Functions.BackupDatabase import BackupThread
 from Functions.Database_manager import update_database, turn_on_foreign_keys
 from Functions.Savepoint_manager import SavepointManager
 from Functions.Settings_manager import SettingsManager
+from SampleMap import SampleMapWindow
+
 settings = SettingsManager().settings
 from Functions.Text_manipulations import shrink_home, expand_home
 from Functions.Widget_classes import PartiallyCloseableTabWidget, get_name_from_id, close_loading_dialog, show_loading_dialog
@@ -29,6 +31,7 @@ from ui.Filters import Filters
 from ui.SampleInformation import SampleInformation
 from ui.Settings import SettingsDialog
 from ui.ViewDataTab import ViewDataTab
+from PyQt6 import QtWebEngineWidgets
 
 
 # import Select_Database as sd  # Eventually get database file from initial dialog
@@ -346,6 +349,11 @@ class GeoCORK(QtW.QMainWindow):
             tab_widget = self.tabWidget.widget(index)
             self.tabWidget.removeTab(index)
             tab_widget.close()
+
+    def open_sample_map(self):
+        self.sample_map = SampleMapWindow(self)
+        self.sample_map.open_samples_requested.connect(lambda ids: self.open_tab(ids, 'Samples', 'Aliquots'))
+        self.sample_map.show()
 
     def saveWindowState(self):
         settings.setValue("ui/GeoChronMain/pos", self.pos())

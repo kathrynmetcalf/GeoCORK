@@ -1,0 +1,198 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    <style>
+        html, body, #map {
+            margin: 0;
+            height: 100%;
+        }
+
+        .leaflet-tooltip {
+            font: 12px/1.35 sans-serif;
+            max-width: 320px;
+            white-space: normal;
+        }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+    // Legacy Esri raster tiles (keyless; Esri retiring in phases 2028-2029) and OSM
+    const LEGACY = {
+        terrain: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}',
+            {
+                maxNativeZoom: 13,
+                maxZoom: 19,
+                attribution: 'Tiles &copy; Esri &mdash; Source: USGS, Esri, TANA, DeLorme, and NPS'
+            }],
+        satellite: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            {
+                maxNativeZoom: 19,
+                maxZoom: 19,
+                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
+            }],
+        openmap: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            {maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'}],
+        macrostrat: ['https://macrostrat.org/api/v2/maps/burwell/emphasized/{z}/{x}/{y}/tile.png',
+            {maxNativeZoom: 19, maxZoom: 19, attribution: '<a href="https://macrostrat.org/">Macrostrat</a>'}]
+    };
+    // ArcGIS Static Basemap Tiles service (API key), 512 px tiles
+    const STATIC_URL = 'https://static-map-tiles-api.arcgis.com/arcgis/rest/services/static-basemap-tiles-service/v1/';
+    const STYLES = {terrain: 'arcgis/outdoor', satellite: 'arcgis/imagery', openmap: 'open/osm-style'};
+
+    const COLOR = '#2b6cb0', SELECTED = '#e53e3e';
+    const map = L.map('map', {preferCanvas: true, worldCopyJump: true}).setView([20, 0], 2);
+    const renderer = L.canvas({padding: 0.5});
+    const markers = {};
+    let selected = new Set(), mode = 'pan', baseLayer = null, bridge = null, shape = null, path = [], pickMarker = null;
+
+    function setBasemap(name, key) {
+        if (baseLayer) map.removeLayer(baseLayer);
+        if (key) {
+            baseLayer = L.tileLayer(STATIC_URL + STYLES[name] + '/static/tile/{z}/{y}/{x}?token=' + encodeURIComponent(key),
+                {tileSize: 512, zoomOffset: -1, maxZoom: 19, attribution: 'Powered by Esri'});
+        } else {
+            baseLayer = L.tileLayer(LEGACY[name][0], LEGACY[name][1]);
+        }
+        baseLayer.addTo(map);
+    }
+
+    function style(id) {
+        const s = selected.has(id);
+        return {radius: s ? 7 : 5, color: '#fff', weight: 1, fillColor: s ? SELECTED : COLOR, fillOpacity: 0.9};
+    }
+
+    function loadSamples(samples) {
+        Object.values(markers).forEach(m => map.removeLayer(m));
+        for (const k in markers) delete markers[k];
+        samples.forEach(s => {
+            const m = L.circleMarker([s.lat, s.lon], Object.assign({renderer: renderer}, style(s.id)));
+            m.bindTooltip(s.html, {sticky: true, direction: 'top'});
+            m.on('click', e => {
+                if (mode !== 'pan') return;
+                L.DomEvent.stopPropagation(e);
+                const ev = e.originalEvent;
+                if (ev.ctrlKey || ev.metaKey) selected.has(s.id) ? selected.delete(s.id) : selected.add(s.id);
+                else if (ev.shiftKey) selected.add(s.id);
+                else selected = new Set([s.id]);
+                refreshStyles();
+                notify();
+            });
+            m.addTo(map);
+            markers[s.id] = m;
+        });
+        selected = new Set([...selected].filter(id => id in markers));
+        refreshStyles();
+    }
+
+    function refreshStyles() {
+        for (const id in markers) {
+            markers[id].setStyle(style(Number(id)));
+            if (selected.has(Number(id))) markers[id].bringToFront();
+        }
+    }
+
+    function notify() {
+        if (bridge) bridge.selectionChanged(JSON.stringify([...selected]));
+    }
+
+    function setSelection(ids) {
+        selected = new Set(ids);
+        refreshStyles();
+    }
+
+    function fitTo(ids) {
+        const pts = (ids.length ? ids : Object.keys(markers).map(Number))
+            .filter(id => id in markers).map(id => markers[id].getLatLng());
+        if (pts.length === 1) map.setView(pts[0], Math.max(map.getZoom(), 10));
+        else if (pts.length) map.fitBounds(L.latLngBounds(pts), {padding: [30, 30]});
+    }
+
+    function flyTo(id) {
+        if (id in markers) map.setView(markers[id].getLatLng(), Math.max(map.getZoom(), 12));
+    }
+
+    function setMode(m) {
+        mode = m;
+        if (m === 'pan') map.dragging.enable(); else map.dragging.disable();
+        map.getContainer().style.cursor = m === 'pan' ? '' : 'crosshair';
+        if (m !== 'pick') clearPick();
+    }
+
+    function clearPick() {
+        if (pickMarker) {
+            map.removeLayer(pickMarker);
+            pickMarker = null;
+        }
+    }
+
+    // Point-in-polygon on container pixels (ray casting)
+    function inPolygon(p, poly) {
+        let inside = false;
+        for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+            const a = poly[i], b = poly[j];
+            if ((a.y > p.y) !== (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x) inside = !inside;
+        }
+        return inside;
+    }
+
+    map.on('mousedown', e => {
+        if (mode !== 'box' && mode !== 'lasso') return;
+        path = [e.latlng];
+        shape = mode === 'box'
+            ? L.rectangle([e.latlng, e.latlng], {color: SELECTED, weight: 1, fillOpacity: 0.1}).addTo(map)
+            : L.polygon([e.latlng], {color: SELECTED, weight: 1, fillOpacity: 0.1}).addTo(map);
+    });
+
+    map.on('mousemove', e => {
+        if (!shape) return;
+        if (mode === 'box') shape.setBounds([path[0], e.latlng]);
+        else {
+            path.push(e.latlng);
+            shape.setLatLngs(path);
+        }
+    });
+
+    map.on('mouseup', e => {
+        if (!shape) return;
+        const ev = e.originalEvent, hits = [];
+        if (mode === 'box') {
+            const b = shape.getBounds();
+            for (const id in markers) if (b.contains(markers[id].getLatLng())) hits.push(Number(id));
+        } else if (path.length > 2) {
+            const poly = path.map(ll => map.latLngToContainerPoint(ll));
+            for (const id in markers) if (inPolygon(map.latLngToContainerPoint(markers[id].getLatLng()), poly)) hits.push(Number(id));
+        }
+        if (ev.ctrlKey || ev.metaKey) hits.forEach(id => selected.delete(id));
+        else if (ev.shiftKey) hits.forEach(id => selected.add(id));
+        else selected = new Set(hits);
+        map.removeLayer(shape);
+        shape = null;
+        path = [];
+        refreshStyles();
+        notify();
+    });
+
+    map.on('click', e => {
+        if (mode === 'pan' && selected.size && !e.originalEvent.shiftKey) {
+            selected.clear();
+            refreshStyles();
+            notify();
+        }
+        if (mode !== 'pick') return;
+        clearPick();
+        pickMarker = L.marker(e.latlng).addTo(map);
+        if (bridge) bridge.locationPicked(e.latlng.lat, L.Util.wrapNum(e.latlng.lng, [-180, 180], true));
+    });
+
+    new QWebChannel(qt.webChannelTransport, ch => {
+        bridge = ch.objects.bridge;
+        bridge.pageReady();
+    });
+</script>
+</body>
+</html>

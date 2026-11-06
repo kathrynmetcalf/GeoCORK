@@ -22,6 +22,8 @@ from Functions import SQLUtils
 from Functions import Savepoint_manager
 from Functions.Database_manager import update_database
 from Functions.Settings_manager import SettingsManager
+from SampleMap import SampleMapWindow
+
 settings = SettingsManager().settings
 from Functions.Database_views import ViewQuery
 from ui.EditView import EditView
@@ -438,7 +440,11 @@ class DisplayTables(QtW.QWidget):
             view_grain_action = view_data_menu.addAction('View Grains')
             view_spot_action = view_data_menu.addAction('View Spots')
             view_upb_analyses_action = view_data_menu.addAction('View U-Pb Analyses')
+
+            view_sample_map = table_menu.addAction('View Sample On Map')
+
             action = table_menu.exec(self.dbTable_tableView.viewport().mapToGlobal(pos))
+
             if action:
                 # get the row that was right-clicked
                 parent_ids = []
@@ -463,6 +469,10 @@ class DisplayTables(QtW.QWidget):
                     self.main_window.open_tab(parent_ids, 'Samples', 'Spots')
                 elif action == view_upb_analyses_action:
                     self.main_window.open_tab(parent_ids, 'Samples', 'UPbAnalyses')
+                elif action == view_sample_map:
+                    self.sample_map = SampleMapWindow(self)
+                    self.sample_map.open_samples_requested.connect(lambda ids: self.main_window.open_tab(parent_ids, 'Samples', 'Aliquots'))
+                    self.sample_map.show()
                 else:
                     self.table_context_menu(action)
         else:
