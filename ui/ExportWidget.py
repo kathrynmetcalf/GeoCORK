@@ -110,7 +110,7 @@ class ExportWidget(QWidget):
             self.exportformat_comboBox.addItem(export_format)
 
         for widget in QApplication.topLevelWidgets():
-            if widget.inherits("QMainWindow"):
+            if widget.inherits("QMainWindow") and widget.objectName() == 'GeoCORKMain':
                 self.db_file = widget.db_file
 
         self.settings = SettingsManager().settings
@@ -1712,6 +1712,15 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
         self.filterselection_comboBox.source_model().update_model_checks(set(self.checked_filter_list), set())
         self.groupedfilter_comboBox.source_model().update_model_checks(set(self.checked_grouped_filter_list), set())
 
+        self.update_table_view()
+
+    def set_checked_samples(self, sample_ids: list):
+        """Check the given SampleIDs in Step 2 and refresh the table view. Call after the widget has been shown so
+        samplesincluded_comboBox is populated; showEvent only re-applies checked_sample_list when the sample count changes."""
+        if self.selectionscope_comboBox.currentText() != 'Samples':
+            self.selectionscope_comboBox.setCurrentText('Samples')  # update_step_2_list shows the combo, clears checks
+        self.checked_sample_list = list(sample_ids)
+        self.samplesincluded_comboBox.source_model().update_model_checks(set(self.checked_sample_list), set())
         self.update_table_view()
 
     def showEvent(self, a0):

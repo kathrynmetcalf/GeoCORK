@@ -12,6 +12,7 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineCore import QWebEngineSettings
 from PyQt6.QtWebEngineWidgets import QWebEngineView
+from PyQt6.QtWidgets import QApplication, QWidget
 
 import Functions.GPS_conversions as GPS
 import Functions.SQLUtils as SQLUtils
@@ -40,8 +41,9 @@ def sample_location_sql() -> str:
     """
     One row per located sample: SQLUtils sample/GPS columns, raw GPS fields, and concatenated Samples tree tags.
     """
-    tag_columns = [f'REPLACE(GROUP_CONCAT(DISTINCT {table}.{schema["name_column"]}), ",", "; ") AS {schema["name_column"]}'
-                   for table, schema in SAMPLE_TAG_TABLES.items()]
+    tag_columns = [
+        f'REPLACE(GROUP_CONCAT(DISTINCT {table}.{schema["name_column"]}), ",", "; ") AS {schema["name_column"]}'
+        for table, schema in SAMPLE_TAG_TABLES.items()]
     columns = ([SQLUtils.qsample_id, SQLUtils.qsample_name, SQLUtils.qigsn, SQLUtils.qsample_description,
                 SQLUtils.qgps, SQLUtils.qsample_elev_display]
                + [f'SampleGPS.{column} AS {column}' for column in GPS_RAW_COLUMNS] + tag_columns)
@@ -56,7 +58,8 @@ def _degrees(deg, minutes, seconds, direction_id):
         return None
     deg = float(deg)
     value = abs(deg) + float(minutes or 0) / 60 + float(seconds or 0) / 3600
-    if math.copysign(1, deg) < 0 or (direction_id and GPS.convert_direction_id_to_abbreviation(direction_id) in ('S', 'W')):
+    if math.copysign(1, deg) < 0 or (
+            direction_id and GPS.convert_direction_id_to_abbreviation(direction_id) in ('S', 'W')):
         return -value
     return value
 
@@ -75,17 +78,17 @@ def decimal_degrees(row: dict):
 def tooltip_html(row: dict) -> str:
     lines = [f'<b>{html.escape(str(row["SampleName"]))}</b>']
     if row['SampleIGSN']:
-        lines.append(f'IGSN: {html.escape(str(row["SampleIGSN"]))}')
+        lines.append(f'<b>IGSN:</b> {html.escape(str(row["SampleIGSN"]))}')
     lines.append(f'{row["Latitude"]:.5f}, {row["Longitude"]:.5f}')
     if row['GPSSampleLocationCalculated']:
-        lines.append(f'Location: {html.escape(str(row["GPSSampleLocationCalculated"]))}')
+        lines.append(f'<b>Location:</b> {html.escape(str(row["GPSSampleLocationCalculated"]))}')
     if row['SampleElevation']:
-        lines.append(f'Elevation: {html.escape(row["SampleElevation"])}')
+        lines.append(f'<b>Elevation:</b> {html.escape(row["SampleElevation"])}')
     for table, schema in SAMPLE_TAG_TABLES.items():
         if row[schema['name_column']]:
-            lines.append(f'{TxM.add_spaces_camel(table)}: {html.escape(str(row[schema["name_column"]]))}')
+            lines.append(f'<b>{TxM.add_spaces_camel(table)}:</b> {html.escape(str(row[schema["name_column"]]))}')
     if row['SampleDescription']:
-        lines.append(f'<i>{html.escape(str(row["SampleDescription"])[:150])}</i>')
+        lines.append(f'<b>Description:</b> <i>{html.escape(str(row["SampleDescription"])[:150])}</i>')
     return '<br>'.join(lines)
 
 
@@ -161,7 +164,8 @@ class SampleMapWindow(QtW.QMainWindow):
         bar.addWidget(self.basemap_comboBox)
         bar.addSeparator()
         modes = QtG.QActionGroup(self)
-        for label, mode in (('Pan', 'pan'), ('Box select', 'box'), ('Lasso select', 'lasso'), ('Add new sample to location', 'pick')):
+        for label, mode in (('Pan', 'pan'), ('Box select', 'box'), ('Lasso select', 'lasso'),
+                            ('Add new sample to location', 'pick')):
             action = bar.addAction(label, lambda checked=False, m=mode: self.js('setMode', m))
             action.setCheckable(True)
             action.setChecked(mode == 'pan')
@@ -187,8 +191,8 @@ class SampleMapWindow(QtW.QMainWindow):
         buttons = QtW.QHBoxLayout()
         self.selection_buttons = []
         for label, slot in (('Edit information...', self.edit_information), ('Edit tags...', self.edit_tags),
-                            ('Open in GeoCORK', lambda: self.open_samples_requested.emit(self.selected_ids)),
-                            ('Export CSV...', self.export_csv)):
+                            # ('Open in GeoCORK', lambda: self.open_samples_requested.emit(self.selected_ids)),
+                            ('Open in exporter', self.open_in_expoter)):
             button = QtW.QPushButton(label)
             button.clicked.connect(slot)
             button.setEnabled(False)
@@ -242,7 +246,8 @@ class SampleMapWindow(QtW.QMainWindow):
                 continue
             row['Latitude'], row['Longitude'] = round(lat, 6), round(lon, 6)
             elevation = row['SampleElevation']
-            row['SampleElevation'] = None if not elevation or elevation.startswith('±') else elevation.replace('± ', ' ')
+            row['SampleElevation'] = None if not elevation or elevation.startswith('±') else elevation.replace('± ',
+                                                                                                               ' ')
             self.samples[row['SampleID']] = row
         self.js('loadSamples', [{'id': sample_id, 'lat': row['Latitude'], 'lon': row['Longitude'],
                                  'html': tooltip_html(row)} for sample_id, row in self.samples.items()])
@@ -285,20 +290,21 @@ class SampleMapWindow(QtW.QMainWindow):
             self.set_selected([dialog.sample_id], push=True)
         self.js('clearPick')
 
-    def export_csv(self):
-        file_name, _ = QtW.QFileDialog.getSaveFileName(self, 'Export selected samples', '',
-                                                       'Comma-Separated Values Files (*.csv)')
-        if not file_name:
+    def open_in_expoter(self):
+        main_widget, export_widget = None, None
+        for widget in QApplication.topLevelWidgets():
+            if widget.inherits("QMainWindow") and widget.objectName() == 'GeoCORKMain':
+                main_widget = widget
+                export_widget = widget.findChild(QWidget, 'ExportWidget')
+        if not export_widget:
+            logger_setup.get_logger().error('Export tab not found')
             return
-        if not file_name.lower().endswith('.csv'):
-            file_name += '.csv'
-        with open(file_name, 'w', newline='', encoding='utf-8') as file:
-            writer = csv.writer(file)
-            writer.writerow(['SampleID'] + TABLE_COLUMNS)
-            for sample_id in self.selected_ids:
-                writer.writerow([sample_id] + [self.samples[sample_id][column] for column in TABLE_COLUMNS])
-        logger_setup.get_logger().info(f'Exported {len(self.selected_ids)} samples to {file_name}')
-        QtG.QDesktopServices.openUrl(QtC.QUrl.fromLocalFile(file_name))
+        logger_setup.get_logger().info(f'Exporting {len(self.selected_ids)} samples to Exporter')
+        # Switch first so showEvent populates the samples combo on first use, then apply the checks
+        main_widget.switch_to_export_tab()
+        export_widget.set_checked_samples(self.selected_ids)
+        main_widget.raise_()
+        main_widget.activateWindow()
 
     def changeEvent(self, event: QtC.QEvent):
         """Re-read the database when the window regains focus so edits made elsewhere in GeoCORK appear."""
