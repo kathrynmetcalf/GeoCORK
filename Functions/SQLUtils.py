@@ -1091,6 +1091,92 @@ export_formats = [
     'Database'
 ]
 
+import_formats = {
+    'USGS Geochron U-Th-Pb in situ': {
+        'template': 'U-Th-Pb_insitu_Template.xlsx',
+        'header_label': 'Field',
+        'header_rows': 4,
+        'upb_sheet': 'U-Th-Pb insitu Data',
+        'sheets': {
+            'U-Th-Pb insitu Summary': {
+                'Sample_ID': 'Sample Name',
+                'SampleDesc': 'Sample Description',
+                'IGSN': 'Sample IGSN',
+                'GeologicalUnit': 'Unit',
+                'SampleSrc': 'Sample Context',
+                'CollectMethod': 'Sampling Method',
+                'RockClass': 'Rock Type',
+                'Lat': 'Sample Latitude degrees',
+                'Long': 'Sample Longitude degrees',
+                'Elevation': 'Sample Elevation',
+                'Country': 'Region',
+                'Age_Text': 'Direct Age',
+                'AgeUnc_Text': 'Direct Age Error',
+                'AgeIntpnType': 'Age Constraint',
+                'AgeIntpnClass': 'Age Interpretation',
+            },
+            'U-Th-Pb insitu Data': {
+                'Sample_ID': 'Sample Name',
+                'SampleMaterial': 'Aliquot Name',
+                'Analysis_ID': 'Spot Name',
+                'U': 'Uppm',
+                'Th': 'Thppm',
+                'Pb': 'Pbppm',
+                'Pb206Pb204': '206Pb/204Pb',
+                'Pb206Pb204Unc': '206Pb/204Pb Error',
+                'Pb208Pb204': '208Pb/204Pb',
+                'Pb208Pb204Unc': '208Pb/204Pb Error',
+                'Pb204Pb206': '204Pb/206Pb',
+                'UTh': 'U/Th',
+                'ThU': 'Th/U',
+                'Pb206Pb207': '206Pb/207Pb',
+                'Pb206Pb207Unc': '206Pb/207Pb Error',
+                'Pb207U235': '207Pb/235U',
+                'Pb207U235Unc': '207Pb/235U Error',
+                'Pb206U238': '206Pb/238U',
+                'Pb206U238Unc': '206Pb/238U Error',
+                'RHOWetherill': 'ErrorCorr/Rho_68v75',
+                'U238Pb206': '238U/206Pb',
+                'U238Pb206Unc': '238U/206Pb Error',
+                'Pb207Pb206': '207Pb/206Pb',
+                'Pb207Pb206Unc': '207Pb/206Pb Error',
+                'RHOTeraWasserburg': 'ErrorCorr/Rho_68v76',
+                'Pb208Th232': '208Pb/232Th',
+                'Pb208Th232Unc': '208Pb/232Th Error',
+                'Th232U238': '232Th/238U',
+                'Pb206U238Age': '206Pb/238UAge',
+                'Pb206U238AgeUnc': '206Pb/238UAge Error',
+                'Pb207U235Age': '207Pb/235UAge',
+                'Pb207U235AgeUnc': '207Pb/235UAge Error',
+                'Pb207Pb206Age': '207Pb/206PbAge',
+                'Pb207Pb206AgeUnc2S': '207Pb/206PbAge Error',
+                'Pb208Th232Age': '208Pb/232ThAge',
+                'Pb208Th232AgeUnc': '208Pb/232ThAge Error',
+                'Age_Text': 'Best Age',
+                'AgeUnc_Text': 'Best Age Error',
+                'PctDiscordW': 'Concordance_206Pb/238Uv207Pb/235U',
+                'PctDiscordTW': 'Concordance_206Pb/238Uv207Pb/206Pb',
+                'AgeIntpnClass': 'Age Interpretation',
+                'DomainAnalyzed': 'Spot Context',
+                'DomainDescript': 'Spot Description',
+            }
+        },
+        'units_formats': {
+            'Elevation Unit': 'm',
+            'Sample Age Error': '2σ abs',
+            'Age Unit': 'Ma',
+            'U-Pb Age Error': '2σ abs',
+            'Ratio Error': '2σ abs',
+            'Concordance Format': 'Dis%'
+        }
+    }
+}
+"""Predefined import formats detected by the ImportWizard. Each format ships a static template workbook
+(template) next to ImportWizard.py. A workbook matches when every template sheet has a sheet whose header_label row has
+identical headings. header_rows template rows are disabled on import. upb_sheet is the template sheet set as the U-Pb
+sheet. sheets maps template headings to importer fields from the *_possible_user_input_fields dictionaries.
+units_formats keys are ImportWizard static_combos keys, values are combo display texts."""
+
 as_table_dict = {
     'DirectAgeErrorFormats': 'ErrorFormats',
     'OldAge': 'Ages',
