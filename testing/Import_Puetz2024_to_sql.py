@@ -8,11 +8,13 @@ from Additional_units_Puetz2024 import additional_unit_tags_dict
 
 """
 This module contains functions to import data from Puetz et al. (2024) into a GeoCORK database. Make sure that you have
-the following files in the same directory as this script:
-From Metcalf and Burges (2025): 
+the following files in the same directory as this script or paste the full file paths:
+From Metcalf and Burges (2026): 
 DB1_2019_edited.xlsx, DB2_2021_edited.xlsx, DB3_2023_edited.xlsx, Additional_units_Puetz2024
 From Puetz et al. (2024):
 DB7_nonmetamorphic_cores.xlsx, DB11_rims.xlsx, DB12_metamorphic_cores.xlsx
+Open GeoCORK and create a new blank database file: Puetz_et_al_2024_DZ.db
+If you use different file names, be sure to update them in the code below
 """
 
 def strip_strings(x):
@@ -220,7 +222,7 @@ def Puetz_importer():
     data_files = ['DB1_2019_edited.xlsx',
                   'DB2_2021_edited.xlsx',
                   'DB3_2023_edited.xlsx']
-    db = 'Puetz_et_al_2024_all.db'
+    db = 'Puetz_et_al_2024_DZ.db'
 
     # --------------------
     # Get the headers for the tables to import into the database
@@ -654,7 +656,7 @@ def Puetz_importer():
 
     # For each unique 'Continent', find all the unique 'Large Region' values
     continents = list(shifted_region_df['Continent'].unique())
-    continents = sorted([region for region in continents if pd.notnull(region)])
+    continents = sorted([region for region in continents if pd.notnull(region)], key=str.casefold)
     for continent in continents:
         large_region_parent_id = region_sql_df.loc[region_sql_df['RegionName'] == continent, 'RegionID'].values[0]
         continent_parent_row = continents.index(continent)
@@ -663,7 +665,7 @@ def Puetz_importer():
         region_parent_row_dictionary[continent] = continent_parent_row
         child_large_regions = list(shifted_region_df[shifted_region_df['Continent'] ==
                                                             continent]['Large Region'].unique())
-        child_large_regions = sorted([region for region in child_large_regions if pd.notnull(region)])
+        child_large_regions = sorted([region for region in child_large_regions if pd.notnull(region)], key=str.casefold)
         for large_region in child_large_regions:
             if pd.isnull(large_region):
                 continue
@@ -676,7 +678,7 @@ def Puetz_importer():
             child_country_small_regions = list(
                 shifted_region_df[(shifted_region_df['Continent'] == continent) & (shifted_region_df['Large Region'] ==
                    large_region)]['Country/Small Region'].unique())
-            child_country_small_regions = sorted([region for region in child_country_small_regions if pd.notnull(region)])
+            child_country_small_regions = sorted([region for region in child_country_small_regions if pd.notnull(region)], key=str.casefold)
             for country_small_region in child_country_small_regions:
                 if pd.isnull(country_small_region):
                     continue
@@ -689,7 +691,7 @@ def Puetz_importer():
                 child_locality_regions = list(shifted_region_df[(shifted_region_df['Continent'] == continent) & (
                         shifted_region_df['Large Region'] == large_region) & (shifted_region_df['Country/Small Region']
                                                                        == country_small_region)]['Locality'].unique())
-                child_locality_regions = sorted([region for region in child_locality_regions if pd.notnull(region)])
+                child_locality_regions = sorted([region for region in child_locality_regions if pd.notnull(region)], key=str.casefold)
                 for locality_region in child_locality_regions:
                     if pd.isnull(locality_region):
                         continue
@@ -868,7 +870,7 @@ def Puetz_importer():
 
     # For each unique unit, find all the unique child unit values
     major_units = list(shifted_unit_df['Major Geographic-Geologic Description'].unique())
-    major_units = sorted([unit for unit in major_units if pd.notnull(unit)])
+    major_units = sorted([unit for unit in major_units if pd.notnull(unit)], key=str.casefold)
     for major_unit in major_units:
         sub_major_unit_parent_id = unit_sql_df.loc[unit_sql_df['UnitName'] == major_unit, 'UnitID'].values[0]
         major_unit_parent_row = major_units.index(major_unit)
@@ -879,7 +881,7 @@ def Puetz_importer():
             unit_parent_row_dictionary[major_unit] = major_unit_parent_row
         child_sub_major_units = list(shifted_unit_df[shifted_unit_df['Major Geographic-Geologic Description']
                                                    == major_unit]['Sub-Major Geographic-Geologic Description'].unique())
-        child_sub_major_units = sorted([unit for unit in child_sub_major_units if pd.notnull(unit)])
+        child_sub_major_units = sorted([unit for unit in child_sub_major_units if pd.notnull(unit)], key=str.casefold)
         for sub_major_unit in child_sub_major_units:
             if pd.isnull(sub_major_unit):
                 continue
@@ -892,7 +894,7 @@ def Puetz_importer():
             child_intermediate_units = list(shifted_unit_df[(shifted_unit_df['Major Geographic-Geologic Description']
                                          == major_unit) & (shifted_unit_df['Sub-Major Geographic-Geologic Description']
                                             == sub_major_unit)]['Intermediate Geologic-Geographic Unit'].unique())
-            child_intermediate_units = sorted([unit for unit in child_intermediate_units if pd.notnull(unit)])
+            child_intermediate_units = sorted([unit for unit in child_intermediate_units if pd.notnull(unit)], key=str.casefold)
             for intermediate_unit in child_intermediate_units:
                 if pd.isnull(intermediate_unit):
                     continue
@@ -907,7 +909,7 @@ def Puetz_importer():
                     shifted_unit_df['Sub-Major Geographic-Geologic Description'] == sub_major_unit) & (
                     shifted_unit_df['Intermediate Geologic-Geographic Unit'] == intermediate_unit)
                     ]['Minor Geologic-Geographic Unit'].unique())
-                child_minor_units = sorted([unit for unit in child_minor_units if pd.notnull(unit)])
+                child_minor_units = sorted([unit for unit in child_minor_units if pd.notnull(unit)], key=str.casefold)
                 for minor_unit in child_minor_units:
                     if pd.isnull(minor_unit):
                         continue
@@ -924,7 +926,7 @@ def Puetz_importer():
                                      (shifted_unit_df['Intermediate Geologic-Geographic Unit'] == intermediate_unit) &
                                      (shifted_unit_df['Minor Geologic-Geographic Unit'] == minor_unit)
                                                  ]['Sub-Minor Geologic-Geographic Unit'].unique())
-                    child_sub_minor_units = sorted([unit for unit in child_sub_minor_units if pd.notnull(unit)])
+                    child_sub_minor_units = sorted([unit for unit in child_sub_minor_units if pd.notnull(unit)], key=str.casefold)
                     for sub_minor_unit in child_sub_minor_units:
                         if pd.isnull(sub_minor_unit):
                             continue
@@ -1128,7 +1130,7 @@ def Puetz_importer():
 
     # For each unique 'Class-1 Rock Type', find all the unique 'Class-2 Rock Type' values
     class1_names = list(shifted_rock_type_df['Class-1 Rock Type'].unique())
-    class1_names = sorted([name for name in class1_names if pd.notnull(name)])
+    class1_names = sorted([name for name in class1_names if pd.notnull(name)], key=str.casefold)
     for class1_name in class1_names:
         class2_parent_id = rock_type_sql_df.loc[rock_type_sql_df['RockTypeName'] == class1_name, 'RockTypeID'].values[0]
         class1_parent_row = class1_names.index(class1_name)
@@ -1138,7 +1140,7 @@ def Puetz_importer():
         child_class2_names = list(
             shifted_rock_type_df[shifted_rock_type_df['Class-1 Rock Type'] == class1_name][
                 'Class-2 Rock Type'].unique())
-        child_class2_names = sorted([name for name in child_class2_names if pd.notnull(name)])
+        child_class2_names = sorted([name for name in child_class2_names if pd.notnull(name)], key=str.casefold)
         for class2_name in child_class2_names:
             if pd.isnull(class2_name):
                 continue
@@ -1152,7 +1154,7 @@ def Puetz_importer():
                 shifted_rock_type_df[(shifted_rock_type_df['Class-1 Rock Type'] == class1_name) & (
                         shifted_rock_type_df['Class-2 Rock Type'] == class2_name)][
                     'Class-3 Rock Type'].unique())
-            child_class3_names = sorted([name for name in child_class3_names if pd.notnull(name)])
+            child_class3_names = sorted([name for name in child_class3_names if pd.notnull(name)], key=str.casefold)
             for class3_name in child_class3_names:
                 if pd.isnull(class3_name):
                     continue
@@ -1167,7 +1169,7 @@ def Puetz_importer():
                             shifted_rock_type_df['Class-2 Rock Type'] == class2_name) & (
                             shifted_rock_type_df['Class-3 Rock Type'] == class3_name)][
                         'Class-4 Rock Type'].unique())
-                child_class4_names = sorted([name for name in child_class4_names if pd.notnull(name)])
+                child_class4_names = sorted([name for name in child_class4_names if pd.notnull(name)], key=str.casefold)
                 for class4_name in child_class4_names:
                     if pd.isnull(class4_name):
                         continue
@@ -1319,7 +1321,6 @@ def Puetz_importer():
     print('Importing U-Pb analysis methods')
 
     # Create the UPbAnalysisMethods table
-    # todo: Populate parent and parent row
 
     static_columns = get_static_columns('UPbAnalysisMethods', db)
 
@@ -1510,7 +1511,6 @@ def Puetz_importer():
     spot_composition_id = 1  # zircon
     grain_composition_id = 1  # zircon
     spot_size_unit_id = 5  # μm
-    concordance_format_id = 5
 
     # Before we change the grain names for duplicate data, merge DB7 (concordant non-metamorphic cores) and
     # DB12 (concordant metamorphic cores) to define non-metamorphic and metamorphic contexts
@@ -1606,7 +1606,7 @@ def Puetz_importer():
     # Add basic/constant information to the UPbAnalyses, Spots, and Grain tables
     grain_sql_df['GrainName'] = upb_analysis_df['Sample&Grain']
     grain_sql_df['GrainID'] = pd.Series(list(range(1, grain_sql_df.shape[0] + 1)), dtype=pd.Int64Dtype())
-    spot_sql_df['GrainID'] = pd.Series(list(range(1, grain_sql_df.shape[0] + 1)), dtype=pd.Int64Dtype())
+    # spot_sql_df['GrainID'] = pd.Series(list(range(1, grain_sql_df.shape[0] + 1)), dtype=pd.Int64Dtype())
     grain_sql_df['GrainCompositionID'] = pd.Series(list(range(1, grain_sql_df.shape[0] + 1)), dtype=pd.Int64Dtype())
     grain_sql_df['GrainCreated'] = pd.to_datetime('now')
     grain_sql_df['GrainModified'] = pd.to_datetime('now')
@@ -1632,7 +1632,6 @@ def Puetz_importer():
     upb_analysis_sql_df['AgeErrorFormatID'] = pd.Series([age_error_format]*upb_analysis_df.shape[0], dtype=pd.Int64Dtype())
     upb_analysis_sql_df['AgeUnitID'] = pd.Series([age_unit_id]*upb_analysis_df.shape[0], dtype=pd.Int64Dtype())
     upb_analysis_sql_df['SpotSizeUnitID'] = pd.Series([spot_size_unit_id]*upb_analysis_df.shape[0], dtype=pd.Int64Dtype())
-    upb_analysis_sql_df['ConcordanceFormatID'] = pd.Series([concordance_format_id]*upb_analysis_df.shape[0], dtype=pd.Int64Dtype())
 
     # Map analyses back to samples
     sample_to_analysis = merged_sample_id_df[['Ref-Sample Key', 'Sample_ID', 'SampleID', 'Mass Spectrometer',
@@ -1804,7 +1803,7 @@ def Puetz_importer():
     upb_analysis_sql_df['207Pb/235UError'] = upb_analysis_df['207Pb/235U            1σ uncert']
     upb_analysis_sql_df['207Pb/206Pb'] = upb_analysis_df['207Pb/206Pb      ratio']
     upb_analysis_sql_df['207Pb/206PbError'] = upb_analysis_df['207Pb/206Pb            1σ uncert']
-    upb_analysis_sql_df['ErrorCorr/Rho'] = upb_analysis_df['Rho (calc.)']
+    upb_analysis_sql_df['ErrorCorr/Rho_68v75'] = upb_analysis_df['Rho (calc.)']
     upb_analysis_sql_df['206Pb/238UAge'] = upb_analysis_df['Calc 206Pb/238U age (Ma)']
     upb_analysis_sql_df['206Pb/238UAgeError'] = upb_analysis_df['Calc 206Pb/238U             2σ uncert']
     upb_analysis_sql_df['207Pb/235UAge'] = upb_analysis_df['Calc 207Pb/235U age (Ma)']
@@ -1813,7 +1812,7 @@ def Puetz_importer():
     upb_analysis_sql_df['207Pb/206PbAgeError'] = upb_analysis_df['Calc 207Pb/206Pb             2σ uncert']
     upb_analysis_sql_df['BestAge'] = upb_analysis_df['Non-Iter. Probability age (Ma)']
     upb_analysis_sql_df['BestAgeError'] = upb_analysis_df['Non iterative           2σ uncert']
-    upb_analysis_sql_df['Concordance_206Pb/238Uv207Pb/206Pb'] = upb_analysis_df['Min. Seg. Disc.']
+    upb_analysis_sql_df['MinimumSegmentedDiscordance'] = upb_analysis_df['Min. Seg. Disc.']
     upb_analysis_sql_df['UPbAnalysisCreated'] = pd.to_datetime('now')
     upb_analysis_sql_df['UPbAnalysisModified'] = pd.to_datetime('now')
 

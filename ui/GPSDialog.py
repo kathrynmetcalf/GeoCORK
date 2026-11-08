@@ -7,15 +7,14 @@ import ui.GPSFields
 import logger_setup
 from Functions.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
 from Functions.Settings_manager import SettingsManager
+from Functions.Widget_classes import close_loading_dialog, show_loading_dialog
 settings = SettingsManager().settings
-from Functions.LoadingDialog_manager import LoadingDialogManager
 
 
 class GPSDialog(QtW.QDialog):
     def __init__(self, table: str, item_ids: list, parent=None):
         super().__init__(parent)
         self.loadWindowState()
-        self.loading_manager = LoadingDialogManager.get_instance()
 
         self.gps_fields = ui.GPSFields.GPSFields(table, item_ids)
         self.setLayout(QtW.QVBoxLayout())
@@ -44,7 +43,11 @@ class GPSDialog(QtW.QDialog):
         self.cancel_button.clicked.connect(self.discard_question)
         self.clear_button.clicked.connect(self.gps_fields.clear_fields)
 
-        self.loading_manager.close_loading_dialog('Loading', f'Opening GPS editor...')
+        self.commit_button.setAutoDefault(False)
+        self.cancel_button.setAutoDefault(False)
+        self.clear_button.setAutoDefault(False)
+
+        close_loading_dialog('Loading', f'Opening GPS editor...')
 
     def commit_question(self):
         QApplication.processEvents()

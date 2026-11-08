@@ -4,18 +4,17 @@ from datetime import datetime
 
 from tzlocal import get_localzone
 
-from PyQt6.QtSql import QSqlDatabase, QSqlTableModel, QSqlQuery
-from PyQt6.QtWidgets import QMessageBox, QFileDialog, QProgressDialog, QApplication
+from PyQt6.QtSql import QSqlDatabase, QSqlQuery
+from PyQt6.QtWidgets import QMessageBox, QProgressDialog, QApplication
 from PyQt6.QtCore import QStandardPaths, QEventLoop
-from PyQt6.QtCore import QThread
 
-import Functions.Database_views as DB_views
 from Functions.BackupDatabase import BackupThread
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Savepoint_manager import SavepointManager
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 import logger_setup
+import Functions.SQLUtils as SQLUtils
 
 
 def turn_on_foreign_keys(database: QSqlDatabase = QSqlDatabase()) -> bool:
@@ -148,10 +147,10 @@ def update_database(database=None) -> bool:
         return False
     schema_success = Create_db.update_schema(db_version, database=db)
     if schema_success == 'False':
-        logger_setup.get_logger().debug(f"Error updating schema from v.{db_version} to v.{settings.value('geocork_version')}")
+        logger_setup.get_logger().debug(f"Error updating schema from {db_version} to {settings.value('geocork_version')}")
         dialog = QMessageBox()
         dialog.setIcon(QMessageBox.Icon.Critical)
-        dialog.setText(f"Error updating schema from v.{db_version} to v.{settings.value('geocork_version')}\nWould you like to try to open the database anyway? \n \n This will likely cause issues with your data and is not recommended.")
+        dialog.setText(f"Error updating schema from {db_version} to {settings.value('geocork_version')}\nWould you like to try to open the database anyway? \n \n This will likely cause issues with your data and is not recommended.")
         dialog.setWindowTitle("Error updating database")
         dialog.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         ret = dialog.exec()
@@ -159,6 +158,9 @@ def update_database(database=None) -> bool:
             loading_manager.close_loading_dialog('Loading', 'Updating database... \n(GeoCORK may be slower for large databases)')
             return False
         logger_setup.get_logger().info('Trying to open the database anyway')
+    elif schema_success == 'Cancel':
+        loading_manager.close_loading_dialog('Loading', 'Updating database... \n(GeoCORK may be slower for large databases)')
+        return False
     elif schema_success != 'True':
         # A backup file was returned to restore
         backup_file = schema_success

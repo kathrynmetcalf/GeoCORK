@@ -57,7 +57,7 @@
           <property name="currentText">
            <string/>
           </property>
-          <property name="placeholderText" stdset="0">
+          <property name="placeholderText">
            <string/>
           </property>
          </widget>
@@ -148,7 +148,7 @@
           <number>0</number>
          </property>
          <item>
-          <widget class="QTableView" name="dbTable_tableView">
+          <widget class="FrozenTableView" name="dbTable_tableView">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
              <horstretch>0</horstretch>
@@ -194,6 +194,13 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>FrozenTableView</class>
+   <extends>QTableView</extends>
+   <header location="global">Functions/Widget_classes.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

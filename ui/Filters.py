@@ -4,6 +4,7 @@ import os
 import re
 import sqlite3
 import sys
+import time
 from collections import defaultdict
 from typing import Literal, Dict, Tuple, List
 
@@ -274,12 +275,12 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
     sampleagebypass = False
     if field_key == 'SampleAges.[OldestAge]':
         field_key = 'SampleAges.[OldestAgeID]'
-        value = f"(SELECT AgeID FROM Ages WHERE AgeName = '{value}')"
+        value = f"(SELECT AgeID FROM Ages WHERE AgeName = '{value}' COLLATE NOCASE)"
         sampleagebypass = True
 
     if field_key == 'SampleAges.[YoungestAge]':
         field_key = 'SampleAges.[YoungestAgeID]'
-        value = f"(SELECT AgeID FROM Ages WHERE AgeName = '{value}')"
+        value = f"(SELECT AgeID FROM Ages WHERE AgeName = '{value}' COLLATE NOCASE)"
         sampleagebypass = True
 
     # ---------- TREE TABLE? (Regions, Ages hierarchy, etc.) ----------
@@ -303,7 +304,7 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
             where = f"{table}.{meta['name_column']} {operator_sql.replace('NOT ', '')}"
         elif '!=' in operator_sql:
             # "is not X" – we want the children of the matching node, so seed with "="
-            where = f"{table}.{meta['name_column']} = '{value}'"
+            where = f"{table}.{meta['name_column']} = '{value}' COLLATE NOCASE"
         else:
             # simple comparisons, case-insensitive on the name
             where = f"{table}.{meta['name_column']} {operator_sql} '{value}' COLLATE NOCASE"
@@ -415,6 +416,8 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
             cond_sql = f"{field_key} {operator_sql} {value}"
         else:
             cond_sql = f"{field_key} {operator_sql} '{value}'"
+            if operator_sql == "=":
+                cond_sql += f" COLLATE NOCASE"
 
     return cond_sql, [], field_key
 
@@ -780,7 +783,7 @@ class InsertFilterGroupDialog(QDialog):
 
         query = QSqlQuery()
 
-        check_query = "SELECT FilterGroupName FROM FilterGroups WHERE FilterGroupName = :name"
+        check_query = "SELECT FilterGroupName FROM FilterGroups WHERE FilterGroupName = :name COLLATE NOCASE"
         query.prepare(check_query)
         query.bindValue(":name", name)
         logger_setup.get_logger().info(f'Checking if name: {name} already exists in FilterGroups table')
@@ -953,6 +956,7 @@ class RuleWidget(QWidget):
 
         # Delete button
         self.delete_button = QPushButton('Delete')
+        self.delete_button.setToolTip('Remove condition from group')
         self.delete_button.clicked.connect(lambda: self.deleteLater())
         self.layout.addWidget(self.delete_button)
 
@@ -964,6 +968,15 @@ class RuleWidget(QWidget):
         if self.table_combo.currentText() == 'SampleAges':
             self.attribute_combo.addItems(['SampleAge', 'SampleAgeOldest', 'SampleAgeYoungest', 'SampleAgeError',
                                            'SampleAgeDescription', 'SampleAgeCreated', 'SampleAgeModified'])
+        elif self.table_combo.currentText() == 'GPSLocations':
+            gps_fields = SQLUtils.table_attributes_dict[self.table_combo.currentText()]
+            if settings.value('gps_format_id') == 7:
+                # UTM format, remove Lat and Lon fields
+                gps_fields = [field for field in gps_fields if not any(latlon in field for latlon in ['Lat', 'Lon'])]
+            else:
+                # Not UTM format, remove UTM fields
+                gps_fields = [field for field in gps_fields if not any(utm in field for utm in ['Zone', 'Easting', 'Northing'])]
+            self.attribute_combo.addItems(gps_fields)
         else:
             self.attribute_combo.addItems(SQLUtils.table_attributes_dict[self.table_combo.currentText()])
         self.attribute_switcher()
@@ -1199,10 +1212,7 @@ class RuleWidget(QWidget):
                 self.attribute_combo.currentText() == 'SampleAgeYoungest'
         )
 
-        name_header = get_headers(self.table_combo.currentText())[name_column]
-
-        if ((self.attribute_combo.currentText() == name_header and
-             self.value_input.placeholderText() == "e.g. abc123") or is_sampleages_age):
+        if self.value_input.placeholderText() == "e.g. abc123" or is_sampleages_age:
 
             value_completer = QtWidgets.QCompleter()
             query = QSqlQuery()
@@ -1263,17 +1273,33 @@ class GroupBox(QGroupBox):
         # Group logical operator
         self.group_operator_combo = FocusWheelComboBox()
         self.group_operator_combo.addItems(['Match all', 'Match any', 'Match none'])
+
+        #Adding tooltips
+        tooltips = [
+            "Returns data fulfilling all rules and subgroup rules",
+            "Returns data fulfilling any rule or subgroup rules",
+            "Returns data that do not fulfill all rules and subgroup rules"
+        ]
+
+        for index, tooltip in enumerate(tooltips):
+            self.group_operator_combo.setItemData(index, tooltip, Qt.ItemDataRole.ToolTipRole)
+
         self.layout.addWidget(self.group_operator_combo)
+
+
 
         # Buttons to add rule or group
         buttons_layout = QHBoxLayout()
         self.add_rule_button = QPushButton('Add rule')
+        self.add_rule_button.setToolTip('Add new condition to group')
         self.add_rule_button.clicked.connect(lambda: self.add_rule(None, None, None, None, None))
 
         self.add_group_button = QPushButton('Add group')
+        self.add_group_button.setToolTip('Add new group of rules')
         self.add_group_button.clicked.connect(lambda: self.add_group(None))
 
         self.delete_button = QPushButton('Delete')
+        self.delete_button.setToolTip('Remove group and all rules in it')
 
         buttons_layout.addWidget(self.add_rule_button)
         buttons_layout.addWidget(self.add_group_button)
@@ -1458,26 +1484,37 @@ class QueryBuilder(QWidget):
         # views Samples that match the criteria
         buttons_layout = QHBoxLayout(self)
         self.view_samples_button = QPushButton('View Samples')
+        self.view_samples_button.setToolTip('View samples that pass the filter')
         buttons_layout.addWidget(self.view_samples_button)
         self.view_samples_button.clicked.connect(self.view_samples)
 
         # views Aliquots that match the criteria
         self.view_aliquots_button = QPushButton('View Aliquots')
+        self.view_aliquots_button.setToolTip('View aliquots that pass the filter')
         buttons_layout.addWidget(self.view_aliquots_button)
         self.view_aliquots_button.clicked.connect(self.view_aliquots)
 
+        # views Grains that match the criteria
+        self.view_grains_button = QPushButton('View Grains')
+        self.view_grains_button.setToolTip('View grains that pass the filter')
+        buttons_layout.addWidget(self.view_grains_button)
+        self.view_grains_button.clicked.connect(self.view_grains)
+
         # views Spots that match the criteria
         self.view_spots_button = QPushButton('View Spots')
+        self.view_spots_button.setToolTip('View spots that pass the filter')
         buttons_layout.addWidget(self.view_spots_button)
         self.view_spots_button.clicked.connect(self.view_spots)
 
         # views UPbAnalyses that match the criteria
         self.view_analyses_button = QPushButton('View Analyses')
+        self.view_analyses_button.setToolTip('View analyses that pass the filter')
         buttons_layout.addWidget(self.view_analyses_button)
         self.view_analyses_button.clicked.connect(self.view_analyses)
 
         # Saves the current filter
         self.save_filter_button = QPushButton('Save Filter')
+        self.save_filter_button.setToolTip('Save current filter criteria for later use')
         buttons_layout.addWidget(self.save_filter_button)
         self.save_filter_button.clicked.connect(self.save_filter)
 
@@ -1530,7 +1567,7 @@ class QueryBuilder(QWidget):
             query = QSqlQuery()
             sql_query = """
                     DELETE FROM FilterGroups 
-                    WHERE FilterGroupName = :filter_name;
+                    WHERE FilterGroupName = :filter_name COLLATE NOCASE;
                 """
             query.prepare(sql_query)
             query.bindValue(":filter_name", item.text())
@@ -1555,7 +1592,7 @@ class QueryBuilder(QWidget):
         sql_query = """
                 SELECT SQLQuery, FilterGroupName 
                 FROM FilterGroups 
-                WHERE FilterGroupName = :filter_name;
+                WHERE FilterGroupName = :filter_name COLLATE NOCASE;
             """
         query.prepare(sql_query)
         query.bindValue(":filter_name", filter_name)
@@ -1595,6 +1632,7 @@ class QueryBuilder(QWidget):
         if len(set(filtered_ids)) > 1000:
             if not self.view_many_results(len(set(filtered_ids))):
                 return
+        show_loading_dialog('Loading', f'Loading {len(set(filtered_ids))} Samples...')
         dataviewer = DataViewerWidget(self, set(filtered_ids), 'Samples')
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         loop = QEventLoop()
@@ -1612,7 +1650,26 @@ class QueryBuilder(QWidget):
         if len(set(filtered_ids)) > 1000:
             if not self.view_many_results(len(set(filtered_ids))):
                 return
+        show_loading_dialog('Loading', f'Loading {len(set(filtered_ids))} Aliquots...')
         dataviewer = DataViewerWidget(self, set(filtered_ids), 'Aliquots', )
+        dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        loop = QEventLoop()
+        dataviewer.destroyed.connect(loop.quit)
+        loop.exec()
+
+    def view_grains(self):
+        """
+        Opens a DataviewerWidget with Grains filtered IDs.
+        """
+        filtered_ids = self.get_filtered_ids('Grains')
+        if filtered_ids is None:
+            QMessageBox.information(self, "No results", f'No matching Grains for given filter(s)')
+            return
+        if len(set(filtered_ids)) > 1000:
+            if not self.view_many_results(len(set(filtered_ids))):
+                return
+        show_loading_dialog('Loading', f'Loading {len(set(filtered_ids))} Grains...')
+        dataviewer = DataViewerWidget(self, set(filtered_ids), 'Grains', )
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         loop = QEventLoop()
         dataviewer.destroyed.connect(loop.quit)
@@ -1629,6 +1686,7 @@ class QueryBuilder(QWidget):
         if len(set(filtered_ids)) > 1000:
             if not self.view_many_results(len(set(filtered_ids))):
                 return
+        show_loading_dialog('Loading', f'Loading {len(set(filtered_ids))} Spots...')
         dataviewer = DataViewerWidget(self, set(filtered_ids), 'Spots')
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         loop = QEventLoop()
@@ -1646,6 +1704,7 @@ class QueryBuilder(QWidget):
         if len(set(filtered_ids)) > 1000:
             if not self.view_many_results(len(set(filtered_ids))):
                 return
+        show_loading_dialog('Loading', f'Loading {len(set(filtered_ids))} UPbAnalyses...')
         dataviewer = DataViewerWidget(self, set(filtered_ids), 'UPbAnalyses')
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         loop = QEventLoop()
@@ -1676,15 +1735,18 @@ class QueryBuilder(QWidget):
         :param str type: Samples, Aliquots, Spots, or UPbAnalyses to query the database for
         :return: list of ids of given type or None
         """
-        show_loading_dialog('Filtering', f'Filtering {type} based on current criteria...')
+        filter_start = time.time()
+        show_loading_dialog('Filtering', f'Filtering {type} based on current criteria...\n\nThis may take minutes for complex filters or large databases.')
         sql_query = self.get_sql(type)
-        uri = f'file:{settings.value('db_file', type=str)}?mode=ro&immutable=1'
+        database = settings.value('db_file', type=str)
+        uri = f'file:{database}?mode=ro&immutable=1'
         try:
             conn = sqlite3.connect(uri, uri=True)
             with conn:
                 cursor = conn.cursor()
                 cursor.execute(sql_query)
-                results = [row[0] for row in cursor.fetchall()]
+                data = cursor.fetchall()
+                results = [row[0] for row in data]
             conn.commit()
             conn.close()
         except sqlite3.Error as e:
@@ -1692,17 +1754,17 @@ class QueryBuilder(QWidget):
             logger_setup.get_logger().debug(f"Failed to get filtered ids")
             logger_setup.get_logger().debug(f"Error: {e}")
             logger_setup.get_logger().debug(f"SQL query: {sql_query}")
-            close_loading_dialog('Filtering', f'Filtering {type} based on current criteria...')
+            close_loading_dialog('Filtering', f'Filtering {type} based on current criteria...\n\nThis may take minutes for complex filters or large databases.')
             return None
         logger_setup.get_logger().debug(f'Filtered ids: {results}')
-        logger_setup.get_logger().info('Gathered filtered ids successfully')
-        close_loading_dialog('Filtering', f'Filtering {type} based on current criteria...')
+        logger_setup.get_logger().info('Gathered filtered ids successfully in {:.2f} seconds'.format(time.time() - filter_start))
+        close_loading_dialog('Filtering', f'Filtering {type} based on current criteria...\n\nThis may take minutes for complex filters or large databases.')
         return results if results else None
 
     def get_sql(self, type: str) -> str:
         """
         Generates a full SQL query based on the given main group box structuree of RuleWidgets and GroupBoxes
-        :param type: Samples, Aliquots, Spots, or UPbAnalyses to query the database for
+        :param type: Samples, Aliquots, Grains, Spots, or UPbAnalyses to query the database for
         :return: final SQL query
         :rtype str
         """
@@ -1742,9 +1804,9 @@ class QueryBuilder(QWidget):
         if as_tables is not None:
             for as_table in as_tables:
                 replace_table = SQLUtils.as_table_dict[as_table]
-                if replace_table in select_tables:
+                if select_tables and replace_table in select_tables:
                     selects = selects.replace(replace_table, as_table)
-                if replace_table in where_tables:
+                if where_tables and replace_table in where_tables:
                     where_clause = where_clause.replace(replace_table, as_table)
 
         # final code to determine the scope of query based on type, also ensures the selected type's table is found
@@ -1763,6 +1825,7 @@ class QueryBuilder(QWidget):
             {join}
             {where}
             """
+
         elif type == 'Aliquots':
             # where = where_clause.replace('Items', 'Aliquots').replace('ItemID', 'AliquotID')
             # Generate join string
@@ -1802,6 +1865,16 @@ class QueryBuilder(QWidget):
                     sql_query = cte + ',\n' + full_sql.split('WITH ')[1] + aliquot_select
             else:
                 sql_query = cte + aliquot_select
+
+        elif type == 'Grains':
+            join = SQLUtils.get_join_from_table(join, ['Spots'])
+            sql_query = full_sql + f"""
+            SELECT DISTINCT GrainID FROM (
+            SELECT Spots.GrainID
+            FROM Samples {join}
+            {where})
+            WHERE GrainID IS NOT NULL;"""
+
         elif type == 'Spots':
             # where = where_clause.replace('Items', 'Spots').replace('ItemID', 'SpotID')
             join = SQLUtils.get_join_from_table(join, ['Spots'])
@@ -1810,6 +1883,7 @@ class QueryBuilder(QWidget):
                 FROM Samples {join}
                 {where})
                 WHERE SpotID IS NOT NULL;"""
+
         elif type == 'UPbAnalyses':
             # where = where_clause.replace('Items', 'UPbAnalyses').replace('ItemID', 'UPbAnalysisID')
             join = SQLUtils.get_join_from_table(join, ['UPbAnalyses'])

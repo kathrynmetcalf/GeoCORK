@@ -3,16 +3,15 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 
-from Functions.Widget_classes import get_name_from_id, get_headers, get_name_column, get_id_from_name, loading_manager
+from Functions.Widget_classes import (get_name_from_id, get_headers, get_name_column, get_id_from_name,
+                                      show_loading_dialog, close_loading_dialog)
 from Functions import SQLUtils
 import logger_setup
-from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 
 class MergeDialog(QtW.QDialog):
     def __init__(self, table, merge_ids, parent=None):
         super(MergeDialog, self).__init__(parent)
-        self.loading_manager = LoadingDialogManager.get_instance()
 
         self.table = table
         self.merge_ids = merge_ids
@@ -22,11 +21,13 @@ class MergeDialog(QtW.QDialog):
         self.id_to_keep = None
         self.change_dictionary = {}
         self.overwrite_ids = []
-        self.id_header = get_headers(self.table)[0]
+        self.moved_ids = []
         self.merge_text = ""
 
+        self.headers = get_headers(self.table)
+        self.id_header = self.headers[0]
         name_column = get_name_column(self.table)
-        name_header = get_headers(self.table)[name_column]
+        name_header = self.headers[name_column]
         keep_combo_label = QtW.QLabel(f"Select {name_header} to keep:")
         self.keep_combo = QtW.QComboBox()
         for record_id in merge_ids:
@@ -61,20 +62,19 @@ class MergeDialog(QtW.QDialog):
         self.change_dictionary = {}
         query = QtS.QSqlQuery()
         foreign_key_tables = SQLUtils.foreign_key_tables
-        self.loading_manager.show_loading_dialog(f'Preparing', f'Preparing merge for {self.table}...')
+        show_loading_dialog(f'Preparing', f'Preparing merge for {self.table}...')
 
         for fk_table in foreign_key_tables:
             # Standard foreign key table
             # Get the Create table statement to find the foreign key column
             logger_setup.get_logger().info(f"Preparing {fk_table}")
-            id_header = get_headers(self.table)[0]
             pragma_query = f"PRAGMA foreign_key_list({fk_table})"
             if not query.exec(pragma_query):
                 logger_setup.get_logger().critical(f"Error merging {self.table}")
                 logger_setup.get_logger().debug(f"Error executing PRAGMA query on {fk_table}")
                 logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
                 logger_setup.get_logger().debug(f"SQL query: {pragma_query}")
-                self.loading_manager.close_loading_dialog(f'Preparing', f'Preparing merge for {self.table}...')
+                close_loading_dialog(f'Preparing', f'Preparing merge for {self.table}...')
                 self.reject()
             while query.next():
                 if query.value(2) == self.table:
@@ -83,11 +83,11 @@ class MergeDialog(QtW.QDialog):
                         self.change_dictionary[fk_table] = {}
                     if not fk_column in self.change_dictionary[fk_table]:
                         self.change_dictionary[fk_table][fk_column] = []
-            self.loading_manager.close_loading_dialog(f'Preparing', f'Preparing merge for {self.table}...')
+            close_loading_dialog(f'Preparing', f'Preparing merge for {self.table}...')
 
         for fk_table in self.change_dictionary:
             logger_setup.get_logger().info(f"Getting IDs for {fk_table}")
-            self.loading_manager.show_loading_dialog(f'Preparing', f'Getting IDs for {fk_table}...')
+            show_loading_dialog(f'Preparing', f'Getting IDs for {fk_table}...')
             id_header = get_headers(fk_table)[0]
             for fk_column in self.change_dictionary[fk_table]:
                 for overwrite_id in self.overwrite_ids:
@@ -97,12 +97,12 @@ class MergeDialog(QtW.QDialog):
                         logger_setup.get_logger().debug(f"Error finding values that need to be changed in {fk_table}")
                         logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
                         logger_setup.get_logger().debug(f"SQL query: {overwrite_query}")
-                        self.loading_manager.close_loading_dialog(f'Preparing', f'Getting IDs for {fk_table}...')
+                        close_loading_dialog(f'Preparing', f'Getting IDs for {fk_table}...')
                         self.reject()
                     while query.next():
                         record_id = query.value(0)
                         self.change_dictionary[fk_table][fk_column].append(record_id)
-            self.loading_manager.close_loading_dialog(f'Preparing', f'Getting IDs for {fk_table}...')
+            close_loading_dialog(f'Preparing', f'Getting IDs for {fk_table}...')
 
         self.merge_text = f"The following changes will be made when merging {self.table} records into '{self.name_to_keep}':\n\n"
         for fk_table in self.change_dictionary:
@@ -121,32 +121,32 @@ class MergeDialog(QtW.QDialog):
         query = QtS.QSqlQuery()
         logger_setup.get_logger().info(f"Merging {len(self.merge_ids)} {self.table}...")
         create_savepoint(f"before_merge")
-        self.loading_manager.show_loading_dialog('Merging', f'Merging {len(self.merge_ids)} {self.table}...')
+        show_loading_dialog('Merging', f'Merging {len(self.merge_ids)} {self.table}...')
 
         # First, handle the children records that need to be updated
         if self.table in SQLUtils.user_viewable_trees:
             existing_children = []
-            find_children_query = f'SELECT {self.id_header} FROM "{self.table}" WHERE {get_headers(self.table)[1]} = {self.id_to_keep}'
+            find_children_query = f'SELECT {self.id_header} FROM "{self.table}" WHERE {self.headers[1]} = {self.id_to_keep}'
             if not query.exec(find_children_query):
                 logger_setup.get_logger().critical(f"Error merging {self.table}")
                 logger_setup.get_logger().debug(f"Error finding existing children during merge")
                 logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
                 logger_setup.get_logger().debug(f"SQL query: {find_children_query}")
                 rollback_savepoint(f"before_merge")
-                self.loading_manager.close_loading_dialog('Merging', f'Merging {len(self.merge_ids)} {self.table}...')
+                close_loading_dialog('Merging', f'Merging {len(self.merge_ids)} {self.table}...')
                 self.reject()
             while query.next():
                 existing_children.append(query.value(0))
             children_to_add = []
             for overwrite_id in self.overwrite_ids:
-                find_children_query = f'SELECT {self.id_header} FROM "{self.table}" WHERE {get_headers(self.table)[1]} = {overwrite_id}'
+                find_children_query = f'SELECT {self.id_header} FROM "{self.table}" WHERE {self.headers[1]} = {overwrite_id} ORDER BY {self.headers[2]}'
                 if not query.exec(find_children_query):
                     logger_setup.get_logger().critical(f"Error merging {self.table}")
                     logger_setup.get_logger().debug(f"Error finding children to add during merge")
                     logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
                     logger_setup.get_logger().debug(f"SQL query: {find_children_query}")
                     rollback_savepoint(f"before_merge")
-                    self.loading_manager.close_loading_dialog('Merging', f'Merging {len(self.merge_ids)} {self.table}...')
+                    close_loading_dialog('Merging', f'Merging {len(self.merge_ids)} {self.table}...')
                     self.reject()
                 while query.next():
                     child_id = query.value(0)
@@ -154,15 +154,15 @@ class MergeDialog(QtW.QDialog):
                         children_to_add.append(child_id)
             parent_row = len(existing_children)
             for child_id in children_to_add:
-                add_child_query = (f'UPDATE "{self.table}" SET {get_headers(self.table)[1]} = {self.id_to_keep}, '
-                                   f'{get_headers(self.table)[2]} = {parent_row} WHERE {self.id_header} = {child_id}')
+                add_child_query = (f'UPDATE "{self.table}" SET {self.headers[1]} = {self.id_to_keep}, '
+                                   f'{self.headers[2]} = {parent_row} WHERE {self.id_header} = {child_id}')
                 if not query.exec(add_child_query):
                     logger_setup.get_logger().critical(f"Error merging {self.table}")
                     logger_setup.get_logger().debug(f"Error adding child during merge")
                     logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
                     logger_setup.get_logger().debug(f"SQL query: {add_child_query}")
                     rollback_savepoint(f"before_merge")
-                    self.loading_manager.close_loading_dialog('Merging', f'Merging {len(self.merge_ids)} {self.table}...')
+                    close_loading_dialog('Merging', f'Merging {len(self.merge_ids)} {self.table}...')
                     self.reject()
                 parent_row += 1
 
@@ -178,11 +178,32 @@ class MergeDialog(QtW.QDialog):
                             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
                             logger_setup.get_logger().debug(f"SQL query: {update_query}")
                             rollback_savepoint(f"before_merge")
-                            self.loading_manager.close_loading_dialog('Merging', f'Merging {len(self.merge_ids)} {self.table}...')
+                            close_loading_dialog('Merging', f'Merging {len(self.merge_ids)} {self.table}...')
                             self.reject()
 
         # Finally, delete the overwritten records
         for overwrite_id in self.overwrite_ids:
+            parent_id = None
+            parent_row = None
+            if self.table in SQLUtils.user_viewable_trees:
+                query.prepare(f'SELECT {self.headers[1]}, {self.headers[2]} FROM "{self.table}" WHERE {self.id_header} = {overwrite_id}')
+                if not query.exec():
+                    logger_setup.get_logger().critical(f"Error merging {self.table}")
+                    logger_setup.get_logger().debug(f"Error finding parent info during merge")
+                    logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+                    logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                    rollback_savepoint(f"before_merge")
+                    close_loading_dialog('Merging', f'Merging {len(self.merge_ids)} {self.table}...')
+                    self.reject()
+                if not query.next():
+                    logger_setup.get_logger().critical(f"Error merging {self.table}")
+                    logger_setup.get_logger().debug(f"Error finding parent info during merge, no record found with id {overwrite_id}")
+                    logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                    rollback_savepoint(f"before_merge")
+                    close_loading_dialog('Merging', f'Merging {len(self.merge_ids)} {self.table}...')
+                    self.reject()
+                parent_id = query.value(0)
+                parent_row = query.value(1)
             delete_query = f'DELETE FROM "{self.table}" WHERE {self.id_header} = {overwrite_id}'
             if not query.exec(delete_query):
                 logger_setup.get_logger().critical(f"Error merging {self.table}")
@@ -190,11 +211,43 @@ class MergeDialog(QtW.QDialog):
                 logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
                 logger_setup.get_logger().debug(f"SQL query: {delete_query}")
                 rollback_savepoint(f"before_merge")
-                self.loading_manager.close_loading_dialog('Merging', f'Merging {len(self.merge_ids)} {self.table}...')
+                close_loading_dialog('Merging', f'Merging {len(self.merge_ids)} {self.table}...')
                 self.reject()
+            if self.table in SQLUtils.user_viewable_trees and parent_row:
+                if parent_id in self.overwrite_ids:
+                    # If the parent is also being deleted, we don't need to update the remaining children
+                    continue
+                affected_ids = []
+                if not parent_id:
+                    where_sql = f'{self.headers[1]} IS NULL AND {self.headers[2]} > {parent_row}'
+                else:
+                    where_sql = f'{self.headers[1]} = {parent_id} AND {self.headers[2]} > {parent_row}'
+                query.prepare(f'SELECT {self.id_header} FROM "{self.table}" WHERE {where_sql}')
+                if not query.exec():
+                    logger_setup.get_logger().critical(f"Error merging {self.table}")
+                    logger_setup.get_logger().debug(f"Error finding affected records during merge")
+                    logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+                    logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                    rollback_savepoint(f"before_merge")
+                    close_loading_dialog('Merging', f'Merging {len(self.merge_ids)} {self.table}...')
+                    self.reject()
+                while query.next():
+                    affected_ids.append(query.value(0))
+                for affected_id in affected_ids:
+                    update_query = f'UPDATE "{self.table}" SET {self.headers[2]} = {self.headers[2]} - 1 WHERE {self.id_header} = {affected_id}'
+                    if not query.exec(update_query):
+                        logger_setup.get_logger().critical(f"Error merging {self.table}")
+                        logger_setup.get_logger().debug(f"Error updating affected record during merge")
+                        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+                        logger_setup.get_logger().debug(f"SQL query: {update_query}")
+                        rollback_savepoint(f"before_merge")
+                        close_loading_dialog('Merging', f'Merging {len(self.merge_ids)} {self.table}...')
+                        self.reject()
+                    if affected_id not in self.overwrite_ids and affected_id not in self.moved_ids:
+                        self.moved_ids.append(affected_id)
 
         logger_setup.get_logger().info(f"Finished merging {self.table}")
-        self.loading_manager.close_loading_dialog('Merging', f'Merging {len(self.merge_ids)} {self.table}...')
+        close_loading_dialog('Merging', f'Merging {len(self.merge_ids)} {self.table}...')
         release_savepoint(f"before_merge")
         QtW.QMessageBox.information(self, "Success", f"Successfully merged {len(self.merge_ids)} {self.table}.")
         self.accept()

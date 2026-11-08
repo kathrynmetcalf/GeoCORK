@@ -227,7 +227,7 @@
     </widget>
    </item>
    <item>
-    <widget class="QTableView" name="tags_tableView">
+    <widget class="FrozenTableView" name="tags_tableView">
      <property name="minimumSize">
       <size>
        <width>100</width>
@@ -280,6 +280,13 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>FrozenTableView</class>
+   <extends>QTableView</extends>
+   <header location="global">Functions/Widget_classes.h</header>
+  </customwidget>
+ </customwidgets>
  <tabstops>
   <tabstop>newName_lineEdit</tabstop>
   <tabstop>newDescription_lineEdit</tabstop>

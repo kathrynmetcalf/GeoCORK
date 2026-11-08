@@ -276,7 +276,7 @@
          </sizepolicy>
         </property>
         <property name="title">
-         <string>UTM</string>
+         <string>UTM (standard)</string>
         </property>
         <layout class="QHBoxLayout" name="horizontalLayout_7">
          <item>

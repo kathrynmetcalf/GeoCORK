@@ -3,18 +3,77 @@ import re
 import sys
 
 from PyQt6 import QtWidgets as QtW, QtCore
-from PyQt6.QtCore import QPoint, QSize, QStandardPaths, QRegularExpression
-from PyQt6.QtGui import QFont, QFontDatabase, QDesktopServices, QRegularExpressionValidator, QAction
+from PyQt6.QtCore import QPoint, QSize, QStandardPaths, QRegularExpression, Qt, pyqtSignal
+from PyQt6.QtGui import (QFont, QFontDatabase, QDesktopServices, QRegularExpressionValidator, QAction, QColor,
+                         QPalette, QBrush)
 from PyQt6.QtSql import QSqlQueryModel, QSqlQuery
-from PyQt6.QtWidgets import QDoubleSpinBox
+from PyQt6.QtWidgets import QDoubleSpinBox, QColorDialog
 from PyQt6.uic import loadUi
 
 import logger_setup
-from Functions.LoadingDialog_manager import LoadingDialogManager
+import Functions.SQLUtils as SQLUtils
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
-from Functions.Widget_classes import get_headers, loading_manager
+from Functions.Widget_classes import get_headers, show_loading_dialog, close_loading_dialog, populate_combo_box
 from ui.SelectColumns import SelectColumns
+
+# ----------------------------------------------------------------------------------------------------------------------
+# Color settings
+# ----------------------------------------------------------------------------------------------------------------------
+COLOR_MODES = ['light', 'dark']
+"""Color modes that each have their own set of color settings."""
+
+COLOR_THEME_MODES = ['System', 'Light', 'Dark']
+"""Options for the 'color_theme_mode' setting. 'System' follows the operating system light/dark preference."""
+
+THEME_COLOR_ROLES = {
+    'text': 'Main text',
+    'fill': 'Fill (background)',
+}
+"""Application theme color roles -> display label. Setting key format: theme_{mode}_{role}_color"""
+
+IMPORTER_COLOR_ROLES = {
+    'mapped': 'Mapped column header',
+    'loaded_mapping': 'Loaded mapping header',
+    'autofilled': 'Auto-filled cell',
+    'conflict': 'Conflict / error cell',
+    'existing': 'Existing record cell',
+    'disabled_text': 'Disabled row text',
+    'text': 'Cell text',
+}
+"""Import Wizard color roles -> display label. Setting key format: importer_{mode}_{role}_color"""
+
+DEFAULT_THEME_COLORS = {
+    'light': {'text': '#000000', 'fill': '#f0f0f0'},
+    'dark': {'text': '#e6e6e6', 'fill': '#2b2b2b'},
+}
+"""Default application theme colors for each mode."""
+
+DEFAULT_IMPORTER_COLORS = {
+    # Light mode values match the colors currently hard-coded in ImportWizard.py
+    'light': {'mapped': '#c0ffb8', 'loaded_mapping': '#b8cfff', 'autofilled': '#d4b8ff', 'conflict': '#ffb8b8',
+              'existing': '#fffab8', 'disabled_text': '#a0a0a0', 'text': '#000000'},
+    # Dark mode values are darker, saturated versions so light text stays readable
+    'dark': {'mapped': '#2f5d2a', 'loaded_mapping': '#2c4373', 'autofilled': '#4e3a78', 'conflict': '#7a2e2e',
+             'existing': '#6e6526', 'disabled_text': '#7a7a7a', 'text': '#e6e6e6'},
+}
+"""Default Import Wizard colors for each mode."""
+
+
+def theme_color_key(mode: str, role: str) -> str:
+    """Setting key for an application theme color, e.g. theme_dark_text_color"""
+    return f'theme_{mode}_{role}_color'
+
+
+def importer_color_key(mode: str, role: str) -> str:
+    """Setting key for an Import Wizard color, e.g. importer_light_conflict_color"""
+    return f'importer_{mode}_{role}_color'
+
+
+THEME_COLOR_KEYS = [theme_color_key(mode, role) for mode in COLOR_MODES for role in THEME_COLOR_ROLES]
+IMPORTER_COLOR_KEYS = [importer_color_key(mode, role) for mode in COLOR_MODES for role in IMPORTER_COLOR_ROLES]
+COLOR_SETTING_KEYS = ['color_theme_mode', 'custom_theme_colors'] + THEME_COLOR_KEYS + IMPORTER_COLOR_KEYS
+"""All color related setting keys"""
 
 settings_list = [
     'default_settings', 'age_unit_id', 'age_unit_abbreviation', 'elevation_unit_id', 'elevation_unit_abbreviation',
@@ -28,12 +87,178 @@ settings_list = [
     'spot_view_columns', 'spot_view_freeze', 'spot_edit_columns', 'spot_edit_freeze',
     'upb_analysis_view_columns', 'upb_analysis_view_freeze', 'upb_analysis_edit_columns', 'upb_analysis_edit_freeze',
     'column_view_columns', 'column_view_freeze', 'column_edit_columns', 'column_edit_freeze', 'reference_view_columns',
-    'reference_view_freeze', 'checkable_combobox_height_scaler',
-    'checkable_combobox_width_scaler', 'font_family', 'font_size', 'table_font_size', 'debug_level', 'show_per_page',
+    'reference_view_freeze', 'checkable_combobox_height_scalar',
+    'checkable_combobox_width_scalar', 'font_family', 'font_size', 'table_font_size', 'debug_level', 'show_per_page',
     'autofill_best_age', 'young_fill_best_age', 'old_fill_best_age', 'best_age_cutoff', 'geocork_version',
-    'current_db_path', 'display_tooltips'
-]
+    'current_db_path', 'display_tooltips', 'show_items_missing_data', 'display_analyses'
+] + COLOR_SETTING_KEYS
 """List of all setting keys used by GeoCORK. This list is used to check for missing settings and to reset settings to default values."""
+
+# True when apply_color_palette() has set a custom palette on the QApplication
+_custom_palette_applied = False
+# Guards against re-entry when changing the color scheme hint emits colorSchemeChanged
+_applying_palette = False
+
+
+def _apply_color_scheme_hint():
+    """
+    Requests the Qt color scheme matching the 'color_theme_mode' setting (Qt 6.8+). On older Qt versions this does
+    nothing and the custom palette (if enabled) is the only change.
+    """
+    hints = QtW.QApplication.styleHints()
+    if not hasattr(hints, 'setColorScheme'):
+        return
+    mode = settings.value('color_theme_mode', 'System')
+    if mode == 'Light':
+        hints.setColorScheme(Qt.ColorScheme.Light)
+    elif mode == 'Dark':
+        hints.setColorScheme(Qt.ColorScheme.Dark)
+    elif hasattr(hints, 'unsetColorScheme'):
+        hints.unsetColorScheme()
+    else:
+        hints.setColorScheme(Qt.ColorScheme.Unknown)
+
+
+def is_dark_mode() -> bool:
+    """
+    Returns True if GeoCORK should currently use the dark mode colors. An explicit 'Light'/'Dark' setting wins,
+    otherwise the operating system preference is used.
+    :rtype: bool
+    """
+    mode = settings.value('color_theme_mode', 'System')
+    if mode == 'Dark':
+        return True
+    if mode == 'Light':
+        return False
+    try:
+        scheme = QtW.QApplication.styleHints().colorScheme()
+        if scheme == Qt.ColorScheme.Dark:
+            return True
+        if scheme == Qt.ColorScheme.Light:
+            return False
+    except AttributeError:
+        # Qt < 6.5 has no colorScheme()
+        pass
+    # Fall back to the lightness of the style's standard palette (not app.palette(), which may be our custom one)
+    style = QtW.QApplication.style()
+    if style is None:
+        return False
+    return style.standardPalette().color(QPalette.ColorRole.Window).lightness() < 128
+
+
+def active_color_mode() -> str:
+    """Returns 'dark' or 'light' depending on is_dark_mode()"""
+    return 'dark' if is_dark_mode() else 'light'
+
+
+def _setting_color(key: str, fallback: str) -> QColor:
+    """Returns the QColor stored in key, or fallback if the stored value is missing/invalid."""
+    color = QColor(str(settings.value(key, fallback)))
+    if not color.isValid():
+        logger_setup.get_logger().warning(f'Invalid color stored for {key}, using {fallback}')
+        color = QColor(fallback)
+    return color
+
+
+def get_theme_color(role: str, dark: bool = None) -> QColor:
+    """
+    Returns the application theme color for the given role ('text' or 'fill').
+    :param str role: key of THEME_COLOR_ROLES
+    :param bool dark: force dark (True) or light (False) colors, None uses the active mode
+    """
+    mode = active_color_mode() if dark is None else ('dark' if dark else 'light')
+    return _setting_color(theme_color_key(mode, role), DEFAULT_THEME_COLORS[mode][role])
+
+
+def get_importer_color(role: str, dark: bool = None) -> QColor:
+    """
+    Returns the Import Wizard color for the given role.
+    :param str role: key of IMPORTER_COLOR_ROLES, e.g. 'conflict'
+    :param bool dark: force dark (True) or light (False) colors, None uses the active mode
+    """
+    mode = active_color_mode() if dark is None else ('dark' if dark else 'light')
+    return _setting_color(importer_color_key(mode, role), DEFAULT_IMPORTER_COLORS[mode][role])
+
+
+def get_importer_brushes(dark: bool = None) -> dict:
+    """
+    Returns {role: QBrush} for every Import Wizard color role in the active (or forced) mode. Intended to replace the
+    hard-coded brushes in ImportWizard.__init__.
+    :param bool dark: force dark (True) or light (False) colors, None uses the active mode
+    """
+    return {role: QBrush(get_importer_color(role, dark)) for role in IMPORTER_COLOR_ROLES}
+
+
+def _blend(color_a: QColor, color_b: QColor, ratio: float = 0.5) -> QColor:
+    """Linear blend of two colors, ratio 0 -> color_a, 1 -> color_b"""
+    return QColor(round(color_a.red() + (color_b.red() - color_a.red()) * ratio),
+                  round(color_a.green() + (color_b.green() - color_a.green()) * ratio),
+                  round(color_a.blue() + (color_b.blue() - color_a.blue()) * ratio))
+
+
+def build_theme_palette(text: QColor, fill: QColor) -> QPalette:
+    """
+    Builds a QPalette from a main text color and a fill color. Bevel colors (light, mid, dark, shadow) are derived
+    by Qt from the fill, input/table backgrounds are a slight shift of the fill, highlight colors are kept from the
+    style's standard palette.
+    """
+    standard = QtW.QApplication.style().standardPalette()
+    palette = QPalette(fill, fill)
+    dark = fill.lightness() < 128
+    base = fill.lighter(115) if dark else fill.lighter(106)
+    alternate_base = base.lighter(112) if dark else base.darker(104)
+    disabled_text = _blend(text, fill, 0.5)
+
+    for group in (QPalette.ColorGroup.Active, QPalette.ColorGroup.Inactive):
+        palette.setColor(group, QPalette.ColorRole.WindowText, text)
+        palette.setColor(group, QPalette.ColorRole.Text, text)
+        palette.setColor(group, QPalette.ColorRole.ButtonText, text)
+        palette.setColor(group, QPalette.ColorRole.ToolTipText, text)
+        palette.setColor(group, QPalette.ColorRole.PlaceholderText, disabled_text)
+        palette.setColor(group, QPalette.ColorRole.Window, fill)
+        palette.setColor(group, QPalette.ColorRole.Button, fill)
+        palette.setColor(group, QPalette.ColorRole.ToolTipBase, fill)
+        palette.setColor(group, QPalette.ColorRole.Base, base)
+        palette.setColor(group, QPalette.ColorRole.AlternateBase, alternate_base)
+        palette.setColor(group, QPalette.ColorRole.Highlight, standard.color(group, QPalette.ColorRole.Highlight))
+        palette.setColor(group, QPalette.ColorRole.HighlightedText,
+                         standard.color(group, QPalette.ColorRole.HighlightedText))
+        palette.setColor(group, QPalette.ColorRole.Link, standard.color(group, QPalette.ColorRole.Link))
+
+    group = QPalette.ColorGroup.Disabled
+    for role in (QPalette.ColorRole.WindowText, QPalette.ColorRole.Text, QPalette.ColorRole.ButtonText,
+                 QPalette.ColorRole.PlaceholderText):
+        palette.setColor(group, role, disabled_text)
+    palette.setColor(group, QPalette.ColorRole.Window, fill)
+    palette.setColor(group, QPalette.ColorRole.Button, fill)
+    palette.setColor(group, QPalette.ColorRole.Base, fill)
+    return palette
+
+
+def apply_color_palette():
+    """
+    Applies the color settings to the active QApplication: sets the light/dark color scheme hint and, if
+    'custom_theme_colors' is enabled, a palette built from the active mode's text and fill colors.
+    """
+    global _custom_palette_applied, _applying_palette
+    app = QtW.QApplication.instance()
+    if app is None or _applying_palette:
+        return
+    _applying_palette = True
+    try:
+        _apply_color_scheme_hint()
+        if settings.value('custom_theme_colors') == 'true':
+            mode = active_color_mode()
+            logger_setup.get_logger().debug(f'Applying custom {mode} mode theme colors')
+            app.setPalette(build_theme_palette(get_theme_color('text'), get_theme_color('fill')))
+            _custom_palette_applied = True
+        elif _custom_palette_applied:
+            # Custom colors were turned off, go back to the style's palette
+            app.setPalette(app.style().standardPalette())
+            _custom_palette_applied = False
+    finally:
+        _applying_palette = False
+
 
 def update_stylesheet():
     """
@@ -50,6 +275,7 @@ def update_stylesheet():
             font-size: {settings.value('table_font_size')}pt;
         }}
         ''')
+    apply_color_palette()
 
 
 def populate_app_defaults():
@@ -60,6 +286,11 @@ def populate_app_defaults():
     settings.setValue('default_font_family', app.font().family())
     settings.setValue('default_font_size', app.font().pointSize())
     settings.setValue('default_table_font_size', app.font().pointSize())
+
+    # Re-apply colors when the operating system switches between light and dark mode (Qt 6.5+)
+    hints = QtW.QApplication.styleHints()
+    if hasattr(hints, 'colorSchemeChanged'):
+        hints.colorSchemeChanged.connect(lambda *_: apply_color_palette())
 
     # If other settings have been set, update the font and stylesheet
     if settings.value('default_settings') == 'false':
@@ -72,186 +303,233 @@ def default_settings():
     """
     # set the default settings values
     # Unit and Format settings
-    settings.setValue('default_age_unit_id', 2)  # Ma
-    settings.setValue('default_age_unit_abbreviation', 'Ma')
-    settings.setValue('default_elevation_unit_id', 2)  # m
-    settings.setValue('default_elevation_unit_abbreviation', 'm')
-    settings.setValue('default_gps_format_id', 1)  # DD +/-
-    settings.setValue('default_gps_format_abbreviation', 'DD +/-')
-    settings.setValue('default_heightdepth_unit_id', 2)  # m
-    settings.setValue('default_heightdepth_unit_abbreviation', 'm')
-    settings.setValue('default_spotsize_unit_id', 5)  # µm
-    settings.setValue('default_spotsize_unit_abbreviation', 'µm')
-    settings.setValue('default_age_error_format_id', 1)  # 1 sigma abs
-    settings.setValue('default_age_error_format_abbreviation', '1σ abs')
-    settings.setValue('default_ratio_error_format_id', 3)  # 1 sigma %
-    settings.setValue('default_ratio_error_format_abbreviation', '1σ %')
-    settings.setValue('default_concordance_format_id', 2)  # Con%
-    settings.setValue('default_concordance_format_abbreviation', 'Con%')
-    # Reference format settings, sets to "Authors, Year, Source"
-    settings.setValue('default_reference_format',
-                      '''(ifnull(Authors, "") || ", " || ifnull(Year, "") || ", " || ifnull(Source, ""))''')
-    settings.setValue('round_values', 'false')
-    settings.setValue('default_decimals_to_show', 4)
+    default_dict = {'default_geocork_version': 'v1.0.5',
+                    'default_age_unit_id': 2,
+                    'default_age_unit_abbreviation': 'Ma',
+                    'default_elevation_unit_id': 2,
+                    'default_elevation_unit_abbreviation': 'm',
+                    'default_gps_format_id': 1,
+                    'default_gps_format_abbreviation': 'DD +/-',
+                    'default_heightdepth_unit_id': 2,
+                    'default_heightdepth_unit_abbreviation': 'm',
+                    'default_spotsize_unit_id': 5,
+                    'default_spotsize_unit_abbreviation': 'µm',
+                    'default_age_error_format_id': 1,
+                    'default_age_error_format_abbreviation': '1σ abs',
+                    'default_ratio_error_format_id': 3,
+                    'default_ratio_error_format_abbreviation': '1σ %',
+                    'default_concordance_format_id': 2,
+                    'default_concordance_format_abbreviation': 'Con%',
+                    'default_reference_format': '''(ifnull(Authors, "") || ", " || ifnull(Year, "") || ", " || ifnull(Source, ""))''',
+                    'default_round_values': 'false',
+                    'default_decimals_to_show': 4,
+                    'default_db_file': '',
+                    'default_checkable_combobox_height_scalar': 1.0,
+                    'default_checkable_combobox_width_scalar': 1.0,
+                    'default_debug_level': 'INFO',
+                    'default_show_per_page': 100,
+                    'default_autofill_best_age': 'true',
+                    'default_young_fill_best_age': '"206Pb/238UAge"',
+                    'default_old_fill_best_age': '"207Pb/206PbAge"',
+                    'default_best_age_cutoff': 1000,
+                    'default_display_tooltips': 'true',
+                    'default_show_items_missing_data': 'true',
+                    # Color settings
+                    'default_color_theme_mode': 'System',
+                    'default_custom_theme_colors': 'false'}
+    for mode in COLOR_MODES:
+        for role in THEME_COLOR_ROLES:
+            default_dict[f'default_{theme_color_key(mode, role)}'] = DEFAULT_THEME_COLORS[mode][role]
+        for role in IMPORTER_COLOR_ROLES:
+            default_dict[f'default_{importer_color_key(mode, role)}'] = DEFAULT_IMPORTER_COLORS[mode][role]
+    for default_key, default_value in default_dict.items():
+        custom_key = default_key.split('default_')[1]
+        if not settings.contains(default_key) or (settings.contains(default_key) and settings.value(default_key) != default_value):
+            settings.setValue(default_key, default_value)
+            settings.setValue(custom_key, default_value)
+        if not settings.contains(custom_key):
+            settings.setValue(custom_key, default_value)
 
+    default_sample_view_columns = []
+    sample_view_columns = SQLUtils.view_attributes_dict['SampleView']
+    for column in sample_view_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_sample_view_columns.append(column_name)
     # Column display settings
-    settings.setValue('default_sample_view_columns', [
-        'SampleID', 'SampleName', 'SampleIGSN', 'SampleDescription', 'GPSSampleLocationCalculated',
-        'SampleElevationCalculated', 'SampleAgeCalculated', 'SampleAgeConstraintName', 'SampleAgeInterpretationName',
-        'SampleAgeReferenceDisplay', 'ColumnName', 'ColumnHeightDepthCalculated', 'SampleAgeSignatureName',
-        'RegionName', 'RockTypeName', 'SampleContextName', 'SamplingMethodName', 'SettingName', 'UnitName',
-        'AliquotName', 'AliquotContextName', 'GrainCount', 'GrainCompositionName', 'GrainContextName', 'SpotCount',
-        'SpotCompositionName', 'SpotContextName', '"Accepted/TotalUPbAnalyses"', 'LabFacilityName',
-        'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation',
-        'ConcordanceFormatAbbreviation', 'CalculatedSpotSize', 'RejectionReasonName', 'UPbAnalysisContextName',
-        'UPbAgeInterpretationName', 'UPbReference', 'SampleCreated', 'SampleModified'
-    ])
+    if (not settings.contains('default_sample_view_columns') or
+            (settings.contains('default_sample_view_columns') and
+            set(settings.value('default_sample_view_columns')) != set(default_sample_view_columns))):
+        settings.setValue('default_sample_view_columns', default_sample_view_columns)
+        settings.setValue('sample_view_columns', default_sample_view_columns)
 
-    settings.setValue('default_sample_edit_columns', [
-        'SampleID', 'SampleName', 'SampleIGSN', 'SampleDescription', 'SampleGPSLocationDisplay', 'SampleElevation',
-        'SampleElevationUnitAbbreviation', 'SampleAgeCalculated', 'SampleAgeConstraintName',
-        'SampleAgeInterpretationName', 'SampleAgeReferenceDisplay', 'ColumnName', 'ColumnHeightDepth',
-        'ColumnHeightDepthUnitAbbreviation','SampleAgeSignatureName', 'RegionName', 'RockTypeName', 'SampleContextName',
-        'SamplingMethodName', 'SettingName', 'UnitName', 'AliquotName', 'AliquotContextName', 'GrainCount',
-        'GrainCompositionName', 'GrainContextName', 'SpotCount', 'SpotCompositionName', 'SpotContextName',
-        '"Accepted/TotalUPbAnalyses"', 'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation',
-        'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'SpotSize',
-        'SpotSizeUnitAbbreviation', 'RejectionReasonName', 'UPbReference', 'UPbAnalysisContextName',
-        'UPbAgeInterpretationName', 'SampleCreated', 'SampleModified'
-    ])
+    default_sample_edit_columns = []
+    sample_edit_columns = SQLUtils.view_attributes_dict['SampleEditView']
+    for column in sample_edit_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_sample_edit_columns.append(column_name)
+    if (not settings.contains('default_sample_edit_columns') or
+            (settings.contains('default_sample_edit_columns') and
+            set(settings.value('default_sample_edit_columns')) != set(default_sample_edit_columns))):
+        settings.setValue('default_sample_edit_columns', default_sample_edit_columns)
+        settings.setValue('sample_edit_columns', default_sample_edit_columns)
 
-    settings.setValue('default_aliquot_view_columns', [
-        'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'AliquotName', 'SampleID', 'SampleName',
-        'AliquotContextName', 'GrainCount', 'GrainCompositionName', 'GrainContextName', 'SpotCount',
-        'SpotCompositionName', 'SpotContextName', '"Accepted/TotalUPbAnalyses"',
-        'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation',
-        'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize', 'RejectionReasonName',
-        'UPbAnalysisContextName', 'UPbAgeInterpretationName', 'UPbReference', 'AliquotCreated', 'AliquotModified'
-    ])
+    default_aliquot_view_columns = []
+    aliquot_view_columns = SQLUtils.view_attributes_dict['AliquotView']
+    for column in aliquot_view_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_aliquot_view_columns.append(column_name)
+    if (not settings.contains('default_aliquot_view_columns') or
+            (settings.contains('default_aliquot_view_columns') and
+            set(settings.value('default_aliquot_view_columns')) != set(default_aliquot_view_columns))):
+        settings.setValue('default_aliquot_view_columns', default_aliquot_view_columns)
+        settings.setValue('aliquot_view_columns', default_aliquot_view_columns)
 
-    settings.setValue('default_aliquot_edit_columns', [
-        'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'AliquotName', 'SampleID', 'SampleName',
-        'AliquotContextName', 'AliquotCreated', 'AliquotModified'
-    ])
+    default_aliquot_edit_columns = []
+    aliquot_edit_columns = SQLUtils.view_attributes_dict['AliquotEditView']
+    for column in aliquot_edit_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_aliquot_edit_columns.append(column_name)
+    if (not settings.contains('default_aliquot_edit_columns') or
+            (settings.contains('default_aliquot_edit_columns') and
+            set(settings.value('default_aliquot_edit_columns')) != set(default_aliquot_edit_columns))):
+        settings.setValue('default_aliquot_edit_columns', default_aliquot_edit_columns)
+        settings.setValue('aliquot_edit_columns', default_aliquot_edit_columns)
 
-    settings.setValue('default_grain_view_columns', [
-        'GrainID', 'SpotID', 'AliquotID', 'SampleID', 'GrainName', 'GrainDescription', 'SpotName', 'AliquotName',
-        'SampleName', 'GrainCompositionName', 'GrainContextName', 'SpotCompositionName', 'SpotContextName',
-        'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation',
-        'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize', '"Accepted/TotalUPbAnalyses"',
-        'UPbAnalysisContextName', 'UPbAgeInterpretationName', 'RejectionReasonName', 'UPbReference',
-        'GrainCreated', 'GrainModified',
-    ])
+    default_grain_view_columns = []
+    grain_view_columns = SQLUtils.view_attributes_dict['GrainView']
+    for column in grain_view_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_grain_view_columns.append(column_name)
+    if (not settings.contains('default_grain_view_columns') or
+            (settings.contains('default_grain_view_columns') and
+             set(settings.value('default_grain_view_columns')) != set(default_grain_view_columns))):
+        settings.setValue('default_grain_view_columns', default_grain_view_columns)
 
-    settings.setValue('default_grain_edit_columns', [
-        'GrainID', 'SpotID', 'AliquotID', 'SampleID', 'GrainName', 'AliquotName', 'SampleName', 'GrainCompositionName',
-        'GrainContextName', 'GrainDescription', 'GrainCreated', 'GrainModified'
-    ])
+    default_grain_edit_columns = []
+    grain_edit_columns = SQLUtils.view_attributes_dict['GrainEditView']
+    for column in grain_edit_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_grain_edit_columns.append(column_name)
+    if (not settings.contains('default_grain_edit_columns') or
+            (settings.contains('default_grain_edit_columns') and
+            set(settings.value('default_grain_edit_columns')) != set(default_grain_edit_columns))):
+        settings.setValue('default_grain_edit_columns', default_grain_edit_columns)
+        settings.setValue('grain_edit_columns', default_grain_edit_columns)
 
-    settings.setValue('default_spot_view_columns', [
-        'SpotID', 'AliquotID', 'SampleID', 'SpotName', 'UPbAnalysisNames', 'GrainName', 'AliquotName', 'SampleName',
-        'SpotCompositionName', 'SpotContextName', 'GrainCompositionName', 'GrainContextName', 'LabFacilityName',
-        'InstrumentName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation',
-        'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize', '"Accepted/TotalUPbAnalyses"',
-        'UPbAnalysisContextName', 'UPbAgeInterpretationName', 'RejectionReasonName', 'UPbReference',
-        'SpotCreated', 'SpotModified'
-    ])
+    default_spot_view_columns = []
+    spot_view_columns = SQLUtils.view_attributes_dict['SpotView']
+    for column in spot_view_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_spot_view_columns.append(column_name)
+    if (not settings.contains('default_spot_view_columns') or
+            (settings.contains('default_spot_view_columns') and
+            set(settings.value('default_spot_view_columns')) != set(default_spot_view_columns))):
+        settings.setValue('default_spot_view_columns', default_spot_view_columns)
 
-    settings.setValue('default_spot_edit_columns', [
-        'SpotID', 'AliquotID', 'SampleID', 'SpotName', 'UPbAnalysisNames', 'GrainName', 'AliquotName', 'SampleName',
-        'SpotCompositionName', 'SpotContextName', 'GrainCompositionName', 'GrainContextName',
-        'SpotCreated', 'SpotModified'
-    ])
+    default_spot_edit_columns = []
+    spot_edit_columns = SQLUtils.view_attributes_dict['SpotEditView']
+    for column in spot_edit_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_spot_edit_columns.append(column_name)
+    if (not settings.contains('default_spot_edit_columns') or
+            (settings.contains('default_spot_edit_columns') and
+            set(settings.value('default_spot_edit_columns')) != set(default_spot_edit_columns))):
+        settings.setValue('default_spot_edit_columns', default_spot_edit_columns)
+        settings.setValue('spot_edit_columns', default_spot_edit_columns)
 
-    settings.setValue('default_upb_analysis_view_columns', [
-        'UPbAnalysisID', 'SpotID', 'AliquotID', 'SampleID', 'UPbAnalysisName', 'SpotName', 'GrainName', 'AliquotName',
-        'SampleName', 'UPbReference', 'LabFacilityName', 'InstrumentName', 'UPbAnalysisMethodName',
-        '"Pb204cps"', '"Pb206cps"', '"Pb207cps"','"Pb208cps"', '"Pb*cps"', '"Th232cps"', '"U235cps"', '"U238cps"',
-        '"Uppm"', '"Thppm"', '"CalculatedU/Th"', '"CalculatedTh/U"',
-        '"Calculated206Pb/207Pb"', '"Calculated206Pb/207PbError"', '"Calculated207Pb/206Pb"',
-        '"Calculated207Pb/206PbError"',
-        '"Calculated207Pb/235U"', '"Calculated207Pb/235UError"', '"Calculated235U/207Pb"',
-        '"Calculated235U/207PbError"',
-        '"Calculated206Pb/238U"', '"Calculated206Pb/238UError"', '"Calculated238U/206Pb"',
-        '"Calculated238U/206PbError"',
-        '"Calculated208Pb/232Th"', '"Calculated208Pb/232ThError"', '"Calculated232Th/208Pb"',
-        '"Calculated232Th/208PbError"',
-        '"Calculated238U/232Th"', '"Calculated238U/232ThError"', '"Calculated232Th/238U"',
-        '"Calculated232Th/238UError"',
-        '"Calculated204Pb/238U"', '"Calculated204Pb/238UError"', '"Calculated238U/204Pb"',
-        '"Calculated238U/204PbError"',
-        '"Calculated206Pb/204Pb"', '"Calculated206Pb/204PbError"', '"Calculated204Pb/206Pb"',
-        '"Calculated204Pb/206PbError"',
-        '"Calculated207Pb/204Pb"', '"Calculated207Pb/204PbError"', '"Calculated204Pb/207Pb"',
-        '"Calculated204Pb/207PbError"',
-        '"Calculated208Pb/204Pb"', '"Calculated208Pb/204PbError"', '"Calculated204Pb/208Pb"',
-        '"Calculated204Pb/208PbError"',
-        '"ErrorCorr/Rho"', '"Calculated207Pb/206PbAge"', '"Calculated207Pb/206PbAgeError"', '"Calculated206Pb/238UAge"',
-        '"Calculated206Pb/238UAgeError"', '"Calculated207Pb/235UAge"', '"Calculated207Pb/235UAgeError"',
-        '"Calculated208Pb/232ThAge"', '"Calculated208Pb/232ThAgeError"', '"CalculatedBestAgeFilled"',
-        '"CalculatedBestAgeErrorFilled"',
-        '"CalculatedSpotSize"', '"CalculatedConcordance_206Pb/238Uv207Pb/206Pb"',
-        '"CalculatedConcordance_206Pb/238Uv207Pb/235U"', 'Rejected', 'RejectionReasonName', 'UPbAnalysisContextName',
-        'UPbAgeInterpretationName', 'SpotCompositionName', 'SpotContextName', 'GrainCompositionName', 'GrainContextName',
-        'UPbAnalysisCreated', 'UPbAnalysisModified'
-    ])
+    default_upb_analysis_view_columns = []
+    upb_analysis_view_columns = SQLUtils.view_attributes_dict['UPbView']
+    for column in upb_analysis_view_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_upb_analysis_view_columns.append(column_name)
+    if (not settings.contains('default_upb_analysis_view_columns') or
+            (settings.contains('default_upb_analysis_view_columns') and
+            set(settings.value('default_upb_analysis_view_columns')) != set(default_upb_analysis_view_columns))):
+        settings.setValue('default_upb_analysis_view_columns', default_upb_analysis_view_columns)
+        settings.setValue('upb_analysis_view_columns', default_upb_analysis_view_columns)
 
-    settings.setValue('default_upb_analysis_edit_columns', [
-        'UPbAnalysisID', 'SpotID', 'AliquotID', 'SampleID', 'UPbAnalysisName', 'SpotName', 'GrainName', 'AliquotName',
-        'SampleName', 'UPbReference', 'LabFacilityName', 'InstrumentName', 'UPbAnalysisMethodName',
-        '"Pb204cps"', '"Pb206cps"', '"Pb207cps"', '"Pb208cps"', '"Pb*cps"', '"Th232cps"', '"U235cps"', '"U238cps"',
-        '"Uppm"', '"Thppm"', '"U/Th"', '"Th/U"',
-        '"206Pb/207Pb"', '"206Pb/207PbError"', '"207Pb/206Pb"', '"207Pb/206PbError"',
-        '"207Pb/235U"', '"207Pb/235UError"', '"235U/207Pb"', '"235U/207PbError"',
-        '"206Pb/238U"', '"206Pb/238UError"', '"238U/206Pb"', '"238U/206PbError"',
-        '"208Pb/232Th"', '"208Pb/232ThError"', '"232Th/208Pb"', '"232Th/208PbError"',
-        '"238U/232Th"', '"238U/232ThError"', '"232Th/238U"', '"232Th/238UError"',
-        '"204Pb/238U"', '"204Pb/238UError"', '"238U/204Pb"', '"238U/204PbError"',
-        '"206Pb/204Pb"', '"206Pb/204PbError"', '"204Pb/206Pb"', '"204Pb/206PbError"',
-        '"207Pb/204Pb"', '"207Pb/204PbError"', '"204Pb/207Pb"', '"204Pb/207PbError"',
-        '"208Pb/204Pb"', '"208Pb/204PbError"', '"204Pb/208Pb"', '"204Pb/208PbError"',
-        '"204Pb/208PbError"', 'RatioErrorFormatAbbreviation', '"ErrorCorr/Rho"',
-        '"207Pb/206PbAge"', '"207Pb/206PbAgeError"', '"207Pb/235UAge"', '"207Pb/235UAgeError"',
-        '"206Pb/238UAge"', '"206Pb/238UAgeError"', '"208Pb/232ThAge"', '"208Pb/232ThAgeError"',
-        '"BestAge"', '"BestAgeError"', '"BestAgeFilled"', '"BestAgeErrorFilled"',
-        'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', '"Concordance_206Pb/238Uv207Pb/206Pb"',
-        '"Concordance_206Pb/238Uv207Pb/235U"', 'ConcordanceFormatAbbreviation',
-        '"SpotSize"', 'SpotSizeUnitAbbreviation', 'Rejected', 'RejectionReasonName', 'UPbAnalysisContextName',
-        'UPbAgeInterpretationName', 'SpotCompositionName', 'SpotContextName', 'GrainCompositionName', 'GrainContextName',
-        'UPbAnalysisCreated', 'UPbAnalysisModified'
-    ])
+    default_upb_analysis_edit_columns = []
+    upb_analysis_edit_columns = SQLUtils.view_attributes_dict['UPbEditView']
+    for column in upb_analysis_edit_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_upb_analysis_edit_columns.append(column_name)
+    if (not settings.contains('default_upb_analysis_edit_columns') or
+            (settings.contains('default_upb_analysis_edit_columns') and
+            set('default_upb_analysis_edit_columns') == set(default_upb_analysis_edit_columns))):
+        settings.setValue('default_upb_analysis_edit_columns', default_upb_analysis_edit_columns)
+        settings.setValue('upb_analysis_edit_columns', default_upb_analysis_edit_columns)
 
-    settings.setValue('default_column_view_columns', [
-        'ColumnID', 'ColumnName', 'ColumnTotalHeightDepthCalculated', 'ColumnGPSLocationCalculated',
-        'ColumnElevationCalculated', 'ColumnDescription', 'ColumnCreated', 'ColumnModified'
-    ])
+    default_column_view_columns = []
+    column_view_columns = SQLUtils.view_attributes_dict['ColumnView']
+    for column in column_view_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_column_view_columns.append(column_name)
+    if (not settings.contains('default_column_view_columns') or
+            (settings.contains('default_column_view_columns') and
+            set(settings.value('default_column_view_columns')) != set(default_column_view_columns))):
+        settings.setValue('default_column_view_columns', default_column_view_columns)
+        settings.setValue('column_view_columns', default_column_view_columns)
 
-    settings.setValue('default_column_edit_columns', [
-        'ColumnID', 'ColumnName', 'ColumnTotalHeightDepth', 'ColumnTotalHeightDepthUnitAbbreviation',
-        'ColumnGPSLocationDisplay', 'ColumnElevation', 'ColumnElevationUnitAbbreviation', 'ColumnDescription',
-        'ColumnCreated', 'ColumnModified'
-    ])
+    default_column_edit_columns = []
+    column_edit_columns = SQLUtils.view_attributes_dict['ColumnEditView']
+    for column in column_edit_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_column_edit_columns.append(column_name)
+    if (not settings.contains('default_column_edit_columns') or
+            (settings.contains('default_column_edit_columns') and
+            set(settings.value('default_column_edit_columns')) != set(default_column_edit_columns))):
+        settings.setValue('default_column_edit_columns', default_column_edit_columns)
+        settings.setValue('column_edit_columns', default_column_edit_columns)
 
-    settings.setValue('default_reference_view_columns', [
-        'ReferenceID', 'ReferenceDisplay', 'Authors', 'Year', 'Title', 'Source', 'DOI', 'ReferenceDescription',
-        'ReferenceCreated', 'ReferenceModified'
-    ])
-
-    settings.setValue('default_geocork_version', 'v1.0.3')
-    settings.setValue('db_file', '')
-
-    settings.setValue('default_checkable_combobox_height_scaler', 1.0)
-    settings.setValue('default_checkable_combobox_width_scaler', 1.0)
-
-    settings.setValue('default_debug_level', 'INFO')
-    settings.setValue('default_show_per_page', 100)
-
-    settings.setValue('default_autofill_best_age', 'true')
-    settings.setValue('default_young_fill_best_age', '"206Pb/238UAge"')
-    settings.setValue('default_old_fill_best_age', '"207Pb/206PbAge"')
-    settings.setValue('default_best_age_cutoff', 1000)
-
-    settings.setValue('default_display_tooltips', True)
+    default_reference_view_columns = []
+    reference_view_columns = SQLUtils.view_attributes_dict['ReferenceView']
+    for column in reference_view_columns:
+        if ' AS ' in column:
+            column_name = column.split(' AS ')[1].strip('"')
+        else:
+            column_name = column.strip('"')
+        default_reference_view_columns.append(column_name)
+    if (not settings.contains('default_reference_view_columns') or
+            (settings.contains('default_reference_view_columns') and
+            set(settings.value('default_reference_view_columns')) != set(default_reference_view_columns))):
+        settings.setValue('default_reference_view_columns', default_reference_view_columns)
+        settings.setValue('reference_view_columns', default_reference_view_columns)
 
 def reset_to_default_settings():
     """
@@ -359,6 +637,56 @@ def update_abbreviation(id_key: str) -> bool:
     return True
 
 
+class ColorButton(QtW.QPushButton):
+    """
+    Push button that displays a color swatch with its hex code and opens a QColorDialog when clicked.
+    """
+    colorChanged = pyqtSignal(str)
+
+    def __init__(self, color: str = '#000000', parent=None):
+        super().__init__(parent)
+        self._color = '#000000'
+        self._text_color = None
+        self.setMinimumSize(90, 25)
+        self.setMaximumHeight(25)
+        self.set_color(color)
+        self.clicked.connect(self.pick_color)
+
+    def color(self) -> str:
+        """Returns the current color as a lowercase '#rrggbb' string"""
+        return self._color
+
+    def set_color(self, color: str):
+        """Sets the swatch color, invalid colors are ignored"""
+        qcolor = QColor(str(color))
+        if not qcolor.isValid():
+            logger_setup.get_logger().warning(f'Invalid color {color} for {self.objectName()}')
+            return
+        self._color = qcolor.name()
+        self._refresh()
+
+    def set_text_color(self, color: str = None):
+        """
+        Sets the color of the hex label drawn on the swatch, used to preview text over a fill color. None picks
+        black or white for contrast.
+        """
+        self._text_color = QColor(str(color)).name() if color and QColor(str(color)).isValid() else None
+        self._refresh()
+
+    def _refresh(self):
+        text_color = self._text_color or ('#000000' if QColor(self._color).lightness() > 127 else '#ffffff')
+        self.setText(self._color.upper())
+        self.setStyleSheet(f'QPushButton {{ background-color: {self._color}; color: {text_color}; '
+                           f'border: 1px solid #808080; border-radius: 3px; }}')
+
+    def pick_color(self):
+        """Opens a color dialog and updates the swatch if a color is chosen"""
+        qcolor = QColorDialog.getColor(QColor(self._color), self, 'Select Color')
+        if qcolor.isValid() and qcolor.name() != self._color:
+            self.set_color(qcolor.name())
+            self.colorChanged.emit(self._color)
+
+
 class SettingsDialog(QtW.QDialog):
     """
     SettingsDialog class allows the user to change the settings of the application. Contains other helper
@@ -371,8 +699,6 @@ class SettingsDialog(QtW.QDialog):
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "Settings.ui")
         loadUi(sources_ui_file, self)
-
-        self.loading_manager = LoadingDialogManager.get_instance()
 
         self.setWindowTitle('Settings')
         self.loadWindowState()
@@ -396,7 +722,12 @@ class SettingsDialog(QtW.QDialog):
 
         self.updated = False
 
+        # Color widgets are built in code and added to the User Interface Settings tab
+        self.build_color_settings()
+
         self.populate_fields()
+
+        self.view_rounded_checkBox.checkStateChanged.connect(self.set_rounding)
 
         self.autofill_best_checkBox.checkStateChanged.connect(self.populate_best_age_fields)
 
@@ -405,6 +736,9 @@ class SettingsDialog(QtW.QDialog):
         self.title_pushButton.clicked.connect(self.add_reference_element)
         self.source_pushButton.clicked.connect(self.add_reference_element)
         self.doi_pushButton.clicked.connect(self.add_reference_element)
+
+        self.custom_theme_colors_checkBox.checkStateChanged.connect(self.update_color_widget_states)
+        self.reset_colors_pushButton.clicked.connect(self.reset_color_fields)
 
         self.buttonBox.button(QtW.QDialogButtonBox.StandardButton.Ok).clicked.connect(self.update_settings_close)
         self.buttonBox.button(QtW.QDialogButtonBox.StandardButton.Cancel).clicked.connect(self.close)
@@ -417,6 +751,173 @@ class SettingsDialog(QtW.QDialog):
 
     def display_tab(self, index):
         self.settings_tabWidget.setCurrentIndex(index)
+
+    def build_color_settings(self):
+        """
+        Builds the Theme Colors and Import Wizard Colors group boxes and adds them to the User Interface Settings tab.
+        Color buttons are stored in self.theme_color_buttons / self.importer_color_buttons keyed by setting key.
+        """
+        self.theme_color_buttons = {}
+        self.importer_color_buttons = {}
+        self.theme_preview_labels = {}
+        mode_titles = {'light': 'Light mode', 'dark': 'Dark mode'}
+
+        # Theme colors
+        theme_groupBox = QtW.QGroupBox('Theme Colors', self.ui_tab)
+        theme_groupBox.setObjectName('theme_colors_groupBox')
+        theme_grid = QtW.QGridLayout(theme_groupBox)
+
+        theme_grid.addWidget(QtW.QLabel('Color mode:'), 0, 0)
+        self.color_mode_comboBox = QtW.QComboBox(theme_groupBox)
+        self.color_mode_comboBox.setObjectName('color_mode_comboBox')
+        self.color_mode_comboBox.addItems(COLOR_THEME_MODES)
+        self.color_mode_comboBox.setMinimumHeight(25)
+        self.color_mode_comboBox.setToolTip('System follows the operating system light/dark preference')
+        theme_grid.addWidget(self.color_mode_comboBox, 0, 1, 1, 2)
+
+        self.custom_theme_colors_checkBox = QtW.QCheckBox('Use custom text and fill colors', theme_groupBox)
+        self.custom_theme_colors_checkBox.setObjectName('custom_theme_colors_checkBox')
+        self.custom_theme_colors_checkBox.setToolTip('When unchecked, the default colors of the system style are used')
+        theme_grid.addWidget(self.custom_theme_colors_checkBox, 1, 0, 1, 3)
+
+        for col, mode in enumerate(COLOR_MODES, start=1):
+            header = QtW.QLabel(f'<b>{mode_titles[mode]}</b>')
+            header.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            theme_grid.addWidget(header, 2, col)
+        row = 3
+        for role, label in THEME_COLOR_ROLES.items():
+            theme_grid.addWidget(QtW.QLabel(f'{label}:'), row, 0)
+            for col, mode in enumerate(COLOR_MODES, start=1):
+                key = theme_color_key(mode, role)
+                button = ColorButton(DEFAULT_THEME_COLORS[mode][role], theme_groupBox)
+                button.setObjectName(f'{key}_button')
+                button.colorChanged.connect(self.update_color_previews)
+                self.theme_color_buttons[key] = button
+                theme_grid.addWidget(button, row, col)
+            row += 1
+        theme_grid.addWidget(QtW.QLabel('Preview:'), row, 0)
+        for col, mode in enumerate(COLOR_MODES, start=1):
+            preview = QtW.QLabel('Sample text', theme_groupBox)
+            preview.setObjectName(f'theme_{mode}_preview_label')
+            preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            preview.setMinimumHeight(25)
+            self.theme_preview_labels[mode] = preview
+            theme_grid.addWidget(preview, row, col)
+        theme_grid.setColumnStretch(1, 1)
+        theme_grid.setColumnStretch(2, 1)
+
+        # Import Wizard colors
+        importer_groupBox = QtW.QGroupBox('Import Wizard Colors', self.ui_tab)
+        importer_groupBox.setObjectName('importer_colors_groupBox')
+        importer_grid = QtW.QGridLayout(importer_groupBox)
+        description = QtW.QLabel('Colors used to highlight headers and cells in the Import Wizard. The set used '
+                                 'follows the active color mode.', importer_groupBox)
+        description.setWordWrap(True)
+        importer_grid.addWidget(description, 0, 0, 1, 3)
+        for col, mode in enumerate(COLOR_MODES, start=1):
+            header = QtW.QLabel(f'<b>{mode_titles[mode]}</b>')
+            header.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            importer_grid.addWidget(header, 1, col)
+        row = 2
+        for role, label in IMPORTER_COLOR_ROLES.items():
+            importer_grid.addWidget(QtW.QLabel(f'{label}:'), row, 0)
+            for col, mode in enumerate(COLOR_MODES, start=1):
+                key = importer_color_key(mode, role)
+                button = ColorButton(DEFAULT_IMPORTER_COLORS[mode][role], importer_groupBox)
+                button.setObjectName(f'{key}_button')
+                button.colorChanged.connect(self.update_color_previews)
+                self.importer_color_buttons[key] = button
+                importer_grid.addWidget(button, row, col)
+            row += 1
+        importer_grid.setColumnStretch(1, 1)
+        importer_grid.setColumnStretch(2, 1)
+
+        reset_layout = QtW.QHBoxLayout()
+        reset_layout.addStretch()
+        self.reset_colors_pushButton = QtW.QPushButton('Reset Colors to Defaults', self.ui_tab)
+        self.reset_colors_pushButton.setObjectName('reset_colors_pushButton')
+        self.reset_colors_pushButton.setToolTip('Resets only the color fields, click Apply or OK to save')
+        reset_layout.addWidget(self.reset_colors_pushButton)
+
+        colors_layout = QtW.QHBoxLayout()
+        colors_layout.addWidget(theme_groupBox, 1, Qt.AlignmentFlag.AlignTop)
+        colors_layout.addWidget(importer_groupBox, 1, Qt.AlignmentFlag.AlignTop)
+
+        ui_layout = self.ui_tab.layout()
+        ui_layout.addLayout(colors_layout)
+        ui_layout.addLayout(reset_layout)
+        ui_layout.addStretch()
+
+    def populate_color_fields(self):
+        """
+        Populates the color widgets with the stored color settings.
+        """
+        mode = settings.value('color_theme_mode', 'System')
+        self.color_mode_comboBox.setCurrentText(mode if mode in COLOR_THEME_MODES else 'System')
+        self.custom_theme_colors_checkBox.setChecked(settings.value('custom_theme_colors') == 'true')
+        for key, button in {**self.theme_color_buttons, **self.importer_color_buttons}.items():
+            button.set_color(settings.value(key, settings.value(f'default_{key}')))
+        self.update_color_widget_states()
+        self.update_color_previews()
+
+    def reset_color_fields(self):
+        """
+        Resets the color widgets (not the stored settings) to the default colors. Saved with Apply/OK.
+        """
+        self.color_mode_comboBox.setCurrentText(settings.value('default_color_theme_mode', 'System'))
+        self.custom_theme_colors_checkBox.setChecked(settings.value('default_custom_theme_colors') == 'true')
+        for mode in COLOR_MODES:
+            for role in THEME_COLOR_ROLES:
+                self.theme_color_buttons[theme_color_key(mode, role)].set_color(DEFAULT_THEME_COLORS[mode][role])
+            for role in IMPORTER_COLOR_ROLES:
+                self.importer_color_buttons[importer_color_key(mode, role)].set_color(
+                    DEFAULT_IMPORTER_COLORS[mode][role])
+        self.update_color_widget_states()
+        self.update_color_previews()
+
+    def update_color_widget_states(self):
+        """Enables the theme color buttons only when custom theme colors are turned on."""
+        enabled = self.custom_theme_colors_checkBox.isChecked()
+        for button in self.theme_color_buttons.values():
+            button.setEnabled(enabled)
+        for label in self.theme_preview_labels.values():
+            label.setEnabled(enabled)
+
+    def update_color_previews(self, *_):
+        """
+        Updates the theme preview labels (text over fill) and draws the importer swatch labels in that mode's
+        importer text color so readability can be judged before saving.
+        """
+        for mode in COLOR_MODES:
+            text = self.theme_color_buttons[theme_color_key(mode, 'text')].color()
+            fill = self.theme_color_buttons[theme_color_key(mode, 'fill')].color()
+            self.theme_preview_labels[mode].setStyleSheet(
+                f'QLabel {{ color: {text}; background-color: {fill}; border: 1px solid #808080; border-radius: 3px; }}')
+
+            importer_text = self.importer_color_buttons[importer_color_key(mode, 'text')].color()
+            for role in IMPORTER_COLOR_ROLES:
+                button = self.importer_color_buttons[importer_color_key(mode, role)]
+                # Text colors are previewed as a swatch with contrasting label, fills with the importer text color
+                button.set_text_color(None if role in ('text', 'disabled_text') else importer_text)
+
+    def save_color_settings(self) -> bool:
+        """
+        Saves the color widgets to the settings.
+        :return: True if any color setting changed
+        :rtype: bool
+        """
+        new_values = {'color_theme_mode': self.color_mode_comboBox.currentText(),
+                      'custom_theme_colors': 'true' if self.custom_theme_colors_checkBox.isChecked() else 'false'}
+        for key, button in {**self.theme_color_buttons, **self.importer_color_buttons}.items():
+            new_values[key] = button.color()
+        changed = False
+        for key, value in new_values.items():
+            if str(settings.value(key)).lower() != str(value).lower():
+                update_setting(key, value)
+                changed = True
+        if changed:
+            logger_setup.get_logger().info('Color settings updated')
+        return changed
 
     def populate_fields(self):
         """
@@ -433,7 +934,8 @@ class SettingsDialog(QtW.QDialog):
         else:
             self.view_rounded_checkBox.setChecked(False)
             self.decimals_comboBox.setEnabled(False)
-        self.set_combobox(self.gps_format_comboBox, self.gps_format_model)
+        populate_combo_box(self.gps_format_comboBox, **{'table': 'GPSFormats', 'column': 2})
+        # self.set_combobox(self.gps_format_comboBox, self.gps_format_model)
         self.gps_format_comboBox.setCurrentText(settings.value('gps_format_abbreviation'))
         self.set_combobox(self.elev_unit_comboBox, self.elevation_unit_model)
         self.elev_unit_comboBox.setCurrentText(settings.value('elevation_unit_abbreviation'))
@@ -485,8 +987,8 @@ class SettingsDialog(QtW.QDialog):
 
         self.select_columns.populate_stack()
 
-        self.combobox_height_scaler_spinbox.setValue(float(settings.value('checkable_combobox_height_scaler')))
-        self.combobox_width_scaler_spinbox.setValue(float(settings.value('checkable_combobox_width_scaler')))
+        self.combobox_height_scalar_spinbox.setValue(float(settings.value('checkable_combobox_height_scalar')))
+        self.combobox_width_scalar_spinbox.setValue(float(settings.value('checkable_combobox_width_scalar')))
 
         # List of font sizes to populate the font size comboboxes
         font_sizes = [str(i) for i in range(6, 21)]
@@ -502,7 +1004,18 @@ class SettingsDialog(QtW.QDialog):
             self.fontComboBox.addItems([settings.value('default_font_family')])
         self.fontComboBox.setCurrentFont(QFont(settings.value('font_family')))
 
+        # self.lazy_batch_comboBox.addItems(['100', '250', '500', '1000', '2500', '5000', '10000'])
+        # self.lazy_batch_comboBox.setCurrentText(str(settings.value('lazy_loading_batch_size')))
+        # if settings.value('lazy_loading_enabled') == 'true':
+        #     self.lazy_checkBox.setChecked(True)
+        #     self.lazy_batch_comboBox.setEnabled(True)
+        # else:
+        #     self.lazy_checkBox.setChecked(False)
+        #     self.lazy_batch_comboBox.setEnabled(False)
+
         self.display_tooltips_checkBox.setChecked(settings.value('display_tooltips', type=bool))
+
+        self.populate_color_fields()
 
     def populate_best_age_fields(self):
         if settings.value('autofill_best_age') == 'true':
@@ -534,6 +1047,14 @@ class SettingsDialog(QtW.QDialog):
             self.old_age_fill_comboBox.setEnabled(False)
             self.cutoff_age_lineEdit.setEnabled(False)
 
+    def set_rounding(self):
+        if self.view_rounded_checkBox.isChecked():
+            settings.setValue('round_values', 'true')
+            self.decimals_comboBox.setEnabled(True)
+        else:
+            settings.setValue('round_values', 'false')
+            self.decimals_comboBox.setEnabled(False)
+
     def update_settings(self):
         """
         Updates the settings to current values within the various comboboxes and lineedits. Updates the database
@@ -541,7 +1062,7 @@ class SettingsDialog(QtW.QDialog):
         """
         # No longer using default settings
         logger_setup.get_logger().info('Updating settings')
-        self.loading_manager.show_loading_dialog('Updating', 'Updating settings...')
+        show_loading_dialog('Updating', 'Updating settings...')
         settings.setValue('default_settings', 'false')
 
         # Save the settings to the QSettings object
@@ -576,7 +1097,7 @@ class SettingsDialog(QtW.QDialog):
                         self.db_description_lineEdit.text(), self.db_reference_link_lineEdit.text(),
                         self.db_created_by_lineEdit.text(), self.db_reference_lineEdit.text()]
         query = QSqlQuery()
-        about_qry = f"""UPDATE About SET (Name, Authors, Description, ReferenceLink, CreatedBy, Citation) = 
+        about_qry = f"""UPDATE About SET (Name, Authors, Description, ReferenceLink, CreatedBy, Citation) =
             ({', '.join('?'*len(about_values))}) WHERE AboutID = 1"""
         query.prepare(about_qry)
         for value in about_values:
@@ -589,51 +1110,64 @@ class SettingsDialog(QtW.QDialog):
         self.select_columns.save_list_states()
 
         # Style sheet related values
-        self.combobox_height_scaler_spinbox: QDoubleSpinBox
-        style_settings = {'checkable_combobox_height_scaler': self.combobox_height_scaler_spinbox.value(),
-                          'checkable_combobox_width_scaler': self.combobox_width_scaler_spinbox.value(),
+        self.combobox_height_scalar_spinbox: QDoubleSpinBox
+        style_settings = {'checkable_combobox_height_scalar': self.combobox_height_scalar_spinbox.value(),
+                          'checkable_combobox_width_scalar': self.combobox_width_scalar_spinbox.value(),
                           'font_size': float(self.font_size_comboBox.currentText()),
                           'table_font_size': float(self.table_font_size_comboBox.currentText()),
                           'font_family': self.fontComboBox.currentFont().family()}
         # Updating the style sheet takes time, so only do it if necessary
+        stylesheet_updated = False
         for key, value in style_settings.items():
             if settings.value(key) != value:
-                update_setting('checkable_combobox_height_scaler', self.combobox_height_scaler_spinbox.value())
-                update_setting('checkable_combobox_width_scaler', self.combobox_width_scaler_spinbox.value())
+                update_setting('checkable_combobox_height_scalar', self.combobox_height_scalar_spinbox.value())
+                update_setting('checkable_combobox_width_scalar', self.combobox_width_scalar_spinbox.value())
 
                 update_setting('font_size', float(self.font_size_comboBox.currentText()))
                 update_setting('table_font_size', float(self.table_font_size_comboBox.currentText()))
                 update_setting('font_family', self.fontComboBox.currentFont().family())
 
-                self.loading_manager.show_loading_dialog('Updating', 'Updating style...')
+                show_loading_dialog('Updating', 'Updating style...')
                 update_stylesheet()
-                self.loading_manager.close_loading_dialog('Updating', 'Updating style...')
+                close_loading_dialog('Updating', 'Updating style...')
+                stylesheet_updated = True
                 break
 
-        update_setting('display_tooltips', self.display_tooltips_checkBox.isChecked())
+        # Color settings, update_stylesheet() already applies the palette
+        if self.save_color_settings() and not stylesheet_updated:
+            apply_color_palette()
+
+        # if self.lazy_checkBox.isChecked():
+        #     update_setting('lazy_loading_enabled', 'true')
+        #     update_setting('lazy_loading_batch_size', int(self.lazy_batch_comboBox.currentText()))
+        # else:
+        #     update_setting('lazy_loading_enabled', 'false')
+        #
+        # update_setting('display_tooltips', self.display_tooltips_checkBox.isChecked())
 
         self.populate_fields()
-        self.loading_manager.close_loading_dialog('Updating', 'Updating settings...')
+        close_loading_dialog('Updating', 'Updating settings...')
         logger_setup.get_logger().info('Updated settings successfully')
         self.updated = True
 
+
     def update_settings_close(self):
-        """
-        Updates the settings and closes the dialog.
-        """
-        self.update_settings()
-        self.close()
+            """
+            Updates the settings and closes the dialog.
+            """
+            self.update_settings()
+            self.close()
 
     def restore_defaults(self):
         """
         Restores the default settings for the application. This is called when the user clicks the Restore Defaults
         """
-        self.loading_manager.show_loading_dialog('Restoring Default Settings', 'Currently updating settings...')
+        show_loading_dialog('Restoring Default Settings', 'Currently updating settings...')
         logger_setup.get_logger().info('Restoring default settings')
         settings.setValue('default_settings', 'true')
         reset_to_default_settings()
         self.populate_fields()
-        self.loading_manager.close_loading_dialog('Restoring Default Settings', 'Currently updating settings...')
+        close_loading_dialog('Restoring Default Settings', 'Currently updating settings...')
 
     def set_combobox(self, comboBox: QtW.QComboBox, model: QSqlQueryModel):
         """

@@ -54,7 +54,7 @@
        <item row="0" column="1">
         <widget class="QComboBox" name="exportformat_comboBox">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
@@ -187,7 +187,7 @@
        <item row="5" column="1">
         <widget class="CheckableComboBox" name="filterselection_comboBox">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
@@ -205,19 +205,14 @@
           </size>
          </property>
          <property name="placeholderText">
-          <string>None</string>
+          <string/>
          </property>
-         <item>
-          <property name="text">
-           <string>None</string>
-          </property>
-         </item>
         </widget>
        </item>
        <item row="2" column="1">
         <widget class="QComboBox" name="selectionscope_comboBox">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
@@ -249,7 +244,7 @@
        <item row="3" column="1">
         <widget class="CheckableComboBox" name="samplesincluded_comboBox">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
@@ -270,19 +265,14 @@
           <string/>
          </property>
          <property name="placeholderText">
-          <string>None</string>
+          <string/>
          </property>
-         <item>
-          <property name="text">
-           <string>None</string>
-          </property>
-         </item>
         </widget>
        </item>
        <item row="1" column="1">
         <widget class="QComboBox" name="fileformat_comboBox">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
@@ -314,7 +304,7 @@
        <item row="7" column="1">
         <widget class="CheckableComboBox" name="groupedfilter_comboBox">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
@@ -332,19 +322,14 @@
           </size>
          </property>
          <property name="currentText">
-          <string>None</string>
+          <string/>
          </property>
          <property name="currentIndex">
-          <number>0</number>
+          <number>-1</number>
          </property>
          <property name="placeholderText">
-          <string>None</string>
+          <string/>
          </property>
-         <item>
-          <property name="text">
-           <string>None</string>
-          </property>
-         </item>
         </widget>
        </item>
        <item row="3" column="0">
@@ -434,7 +419,7 @@
      <item>
       <widget class="QLabel" name="label_7">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="MinimumExpanding" vsizetype="Preferred">
+        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
@@ -459,7 +444,7 @@
      <item>
       <widget class="QComboBox" name="columnselection_comboBox">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+        <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
@@ -481,7 +466,7 @@
      <item>
       <widget class="QStackedWidget" name="columnattributes_stack">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
+        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
@@ -510,6 +495,9 @@
    </item>
    <item>
     <layout class="QVBoxLayout" name="workbook_layout">
+     <property name="sizeConstraint">
+      <enum>QLayout::SetDefaultConstraint</enum>
+     </property>
      <item>
       <widget class="QLabel" name="datatables_label">
        <property name="text">

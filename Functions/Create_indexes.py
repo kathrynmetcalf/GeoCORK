@@ -1341,7 +1341,7 @@ def create_indexes(database=None) -> bool:
 
 
     if not query.exec(CREATE_UPBANALYSES_REFERENCE_INDEX):
-        logger_setup.get_logger().critical(f'Error creating UPbAnalyses_Spots index')
+        logger_setup.get_logger().critical(f'Error creating UPbAnalyses_References index')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         loading_manager.close_loading_dialog('Loading', 'Indexing database...')

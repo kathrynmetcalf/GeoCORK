@@ -3,6 +3,7 @@ from PyQt6.QtSql import QSqlDatabase
 
 import Functions.Create_database as Create_db
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from Widget_classes import update_modified_timestamp
 
 
 def check_database_schema(database: QtS.QSqlDatabase, blank_schema_file: str):
@@ -343,6 +344,7 @@ def check_database_schema(database: QtS.QSqlDatabase, blank_schema_file: str):
                             print(f'Failed to update UPbAnalyses: {query.lastError().text()}')
                             rollback_savepoint('before_convert_schema')
                             return
+                    update_modified_timestamp('UPbAnalyses', table_model.record(row).value("UPbAnalysisID"))
                 table_model.clear()
                 if not drop_table(key):
                     rollback_savepoint('before_convert_schema')

@@ -1,13 +1,12 @@
 import os
-import os
 import sys
+import time
 
 from PyQt6 import QtCore as QtC
-from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtSql import QSqlDatabase, QSqlQuery
-from PyQt6.QtWidgets import QPushButton, QTreeView
+from PyQt6.QtCore import QTimer
+from PyQt6.QtSql import QSqlDatabase
+from PyQt6.QtWidgets import QTreeView
 from PyQt6.uic import loadUi
 
 import Functions.Text_manipulations as TxM
@@ -16,9 +15,8 @@ from Functions import SQLUtils
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.Widget_classes import (
-    TreeSortFilterProxyModel, DisplayRoundedModel, DisplayRoundedQueryModel, SQLiteTableModel, WordWrapDelegate,
-    save_expanded_state, restore_expanded_state, TreeModel,
-    ReadableProxyModel, get_view_from_table, show_loading_dialog, close_loading_dialog
+    TreeSortFilterProxyModel, DisplayRoundedModel, DisplayRoundedQueryModel, SQLiteTableModel, save_expanded_state,
+    TreeModel, ReadableProxyModel, get_view_from_table, show_loading_dialog, close_loading_dialog, FrozenTableView
 )
 from Functions.Database_views import ViewQuery
 
@@ -26,7 +24,8 @@ from Functions.Database_views import ViewQuery
 class DisplayTablesSimplified(QtW.QWidget):
     def __init__(self, parent, db_file: str):
         super().__init__(parent)
-        # logger_setup.get_logger().info("Starting the display tables window")
+        logger_setup.get_logger().info(f"Loading simplified {self.tables}")
+        start_time = time.time()
         self.setObjectName('database_tab')
 
         self.db_file = db_file
@@ -42,6 +41,7 @@ class DisplayTablesSimplified(QtW.QWidget):
         sources_ui_file = os.path.join(base_path, "DisplayTablesSimplified.ui")
         loadUi(sources_ui_file, self)
 
+        self.dbTable_treeView.setUniformRowHeights(True)
 
         # List of all user-viewable tables in the database
         self.user_view_tables = SQLUtils.export_database_tables_viewable
@@ -66,6 +66,8 @@ class DisplayTablesSimplified(QtW.QWidget):
         self.display_table_list()
 
         self.connect_signals()
+
+        logger_setup.get_logger().info(f'Loaded simplified {self.table} in {time.time() - start_time} seconds')
 
     def connect_signals(self):
         # Signal for table combo box
@@ -105,7 +107,7 @@ class DisplayTablesSimplified(QtW.QWidget):
         :return:
         """
 
-        self.dbTable_tableView: QtW.QTableView
+        self.dbTable_tableView: FrozenTableView
         self.dbTable_treeView: QtW.QTreeView
         self.dbTable_comboBox: QtW.QComboBox
         table = self.dbTable_comboBox.currentText()
@@ -119,6 +121,15 @@ class DisplayTablesSimplified(QtW.QWidget):
             save_expanded_state(self.previous_table, self.dbTable_treeView)
         self.previous_table = self.table
 
+        if self.table != get_view_from_table(self.table):
+            if settings.value('show_items_missing_data'):
+                msg = f'Loading related data for {self.table}...\n\nSettings to speed up loading:\n- Hide items with missing data\n- Reduce the columns shown'
+            else:
+                msg = f'Loading related data for {self.table}...\n\nSettings to speed up loading:\n- Reduce the columns shown'
+        else:
+            msg = f'Loading {self.table}...'
+        show_loading_dialog('Loading', msg)
+
         if self.table in self.dbtree_list:
             logger_setup.get_logger().info(f'Switching to tree view for {self.table}')
             self.switch_to_tree()
@@ -129,7 +140,6 @@ class DisplayTablesSimplified(QtW.QWidget):
                 query_args = {'show_columns': show_columns}
                 view_query = ViewQuery(self.table, False, **query_args)
                 table_query = view_query.table_query
-                show_loading_dialog('Loading', f'Loading related data for {self.table}...')
             else:
                 table_query = f'SELECT * FROM {table}'
             try:
@@ -137,7 +147,6 @@ class DisplayTablesSimplified(QtW.QWidget):
             except NameError:
                 # There is no view_query, so just use the table query and database file
                 self.model = SQLiteTableModel(table_query, database=self.db_file)
-            close_loading_dialog('Loading', f'Loading related data for {self.table}...')
             if self.model.last_error:
                 logger_setup.get_logger().critical(f'Error loading {self.table}')
                 return
@@ -151,6 +160,8 @@ class DisplayTablesSimplified(QtW.QWidget):
             self.dbTable_treeView.hideColumn(1)  # don't show ID column
             self.dbTable_treeView.hideColumn(2)  # don't show parent ID column
             self.dbTable_treeView.hideColumn(3)  # don't show parent row column
+            if isinstance(self.dbTable_treeView.model(), TreeSortFilterProxyModel):
+                self.dbTable_treeView.model().update_visible_columns()
             # Keep the tree sorted as dictated by the database
             self.dbTable_treeView.setSortingEnabled(False)
             self.dbTable_treeView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -164,7 +175,11 @@ class DisplayTablesSimplified(QtW.QWidget):
                 query_args = {'show_columns': show_columns}
                 view_query = ViewQuery(self.table, False, **query_args)
                 table_query = view_query.table_query
-                show_loading_dialog('Loading', f'Loading related data for {self.table}...')
+                if settings.value('show_items_missing_data'):
+                    msg = f'Loading related data for {self.table}...\n\nSettings to speed up loading:\n- Hide items with missing data\n- Reduce the columns shown'
+                else:
+                    msg = f'Loading related data for {self.table}...\n\nSettings to speed up loading:\n- Reduce the columns shown'
+                show_loading_dialog('Loading', msg)
             else:
                 table_query = f'SELECT * FROM {table}'
             try:
@@ -172,23 +187,31 @@ class DisplayTablesSimplified(QtW.QWidget):
             except NameError:
                 # There is no view_query, so just use the table query and database file
                 self.model = SQLiteTableModel(table_query, database=self.db_file)
-            close_loading_dialog('Loading', f'Loading related data for {self.table}...')
+            if self.table != get_view_from_table(self.table):
+                if settings.value('show_items_missing_data'):
+                    msg = f'Loading related data for {self.table}...\n\nSettings to speed up loading:\n- Hide items with missing data\n- Reduce the columns shown'
+                else:
+                    msg = f'Loading related data for {self.table}...\n\nSettings to speed up loading:\n- Reduce the columns shown'
+                close_loading_dialog('Loading', msg)
+            else:
+                close_loading_dialog('Loading', f'Loading {self.table}...')
             if self.model.last_error:
                 logger_setup.get_logger().critical(f'Error loading {self.table}')
                 return
             self.table_proxy_model.setSourceModel(self.model)
 
-            self.dbTable_tableView.setWordWrap(True)
-            self.dbTable_tableView.setTextElideMode(Qt.TextElideMode.ElideNone)  # Prevent text truncation
-            self.dbTable_tableView.setItemDelegate(WordWrapDelegate(self.dbTable_tableView))
-
             self.table_proxy_model.setFilterKeyColumn(-1)  # search all columns
+            self.dbTable_tableView.setSelectionBehavior(QtW.QAbstractItemView.SelectionBehavior.SelectRows)
             self.dbTable_tableView.setModel(self.table_proxy_model)
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
             self.dbTable_tableView.resizeColumnsToContents()
             self.dbTable_tableView.setSortingEnabled(True)
             self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
             self.dbTable_tableView.verticalHeader().hide()
+
+            for column in range(self.table_proxy_model.columnCount()):
+                if self.dbTable_tableView.columnWidth(column) > 400:
+                    self.dbTable_tableView.setColumnWidth(column, 400)
 
             # Optimize window resizing
             self.resize_timer = QTimer()
@@ -199,16 +222,26 @@ class DisplayTablesSimplified(QtW.QWidget):
             self.dbTable_tableView.horizontalHeader().sectionResized.connect(self.optimizeVerticalResize)
             self.dbTable_tableView.verticalHeader().sectionResized.connect(self.optimizeVerticalResize)
         else:
-            print("Error: Tried to switch to a table with no table or tree..Don't know how it got here")
+            print("Error: Tried to switch to a table with no table or tree...Don't know how it got here")
+
+        if self.table != get_view_from_table(self.table):
+            if settings.value('show_items_missing_data'):
+                msg = f'Loading related data for {self.table}...\n\nSettings to speed up loading:\n- Hide items with missing data\n- Reduce the columns shown'
+            else:
+                msg = f'Loading related data for {self.table}...\n\nSettings to speed up loading:\n- Reduce the columns shown'
+            close_loading_dialog('Loading', msg)
+        else:
+            close_loading_dialog('Loading', f'Loading {self.table}...')
 
 
     def optimizeVerticalResize(self, logical_index, old_size, new_size):
         """Trigger a delayed row height update when the user resizes the window vertically."""
-        self.resize_timer.start(250)  # Add a slight delay to avoid excessive updates
+        self.resize_timer.start(100)  # Add a slight delay to avoid excessive updates
 
     def resizeRowsOptimized(self):
         """Resize rows only when resizing stops."""
         self.dbTable_tableView.resizeRowsToContents()
+        self.dbTable_tableView.sync_row_heights()
 
     def search(self):
         """

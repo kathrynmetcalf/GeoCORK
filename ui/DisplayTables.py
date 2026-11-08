@@ -1,5 +1,4 @@
 import re
-import sqlite3
 import os
 import sys
 import webbrowser
@@ -8,20 +7,15 @@ import qtawesome
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
-from PyQt6 import QtSql as QtS
-from PyQt6.QtCore import Qt, QEventLoop, QStandardPaths, QPoint, QSettings, QSize, QAbstractTableModel, QTimer, \
-    QRegularExpression, QSortFilterProxyModel, QItemSelectionModel
-from PyQt6.QtSql import QSqlQuery
-from PyQt6.QtWidgets import QFileDialog, QWidget, QPushButton, QTabWidget, QTableWidgetItem, QTableWidget, QTreeView, \
-    QStyle, QApplication, QTableView, QLineEdit, QMessageBox, QAbstractItemView
+from PyQt6.QtCore import Qt, QTimer, QRegularExpression
+from PyQt6.QtWidgets import QPushButton, QTableWidgetItem, QLineEdit
 
 from PyQt6.uic import loadUi
 from Functions.Widget_classes import (
-    TreeSortFilterProxyModel, DisplayRoundedModel, DisplayRoundedQueryModel, SQLiteTableModel, WordWrapDelegate,
-    save_expanded_state, restore_expanded_state, expand_collapse, TreeContextMenu, TreeModel,
-    ReadableProxyModel, add_tree_popup, FrozenTableView, get_name_column, get_headers, get_total_records,
-    get_record_index, close_loading_dialog, show_loading_dialog, columns_as_list, TableToolTipModel,
-    set_table, get_id_from_name, scroll_to_record, get_view_from_table
+    TreeSortFilterProxyModel, DisplayRoundedModel, DisplayRoundedQueryModel, SQLiteTableModel, save_expanded_state,
+    expand_collapse, TreeContextMenu, TreeModel, ReadableProxyModel, add_tree_popup, FrozenTableView, get_name_column,
+    get_headers, get_total_records, get_record_row, close_loading_dialog, show_loading_dialog, columns_as_list,
+    TableToolTipModel, get_id_from_name, scroll_to_record, get_view_from_table, TrackExpandedTreeView
 )
 import Functions.Text_manipulations as TxM
 from Functions import SQLUtils
@@ -29,7 +23,6 @@ from Functions import Savepoint_manager
 from Functions.Database_manager import update_database
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
-from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Database_views import ViewQuery
 from ui.EditView import EditView
 from ui.EditTable import EditTable
@@ -46,7 +39,6 @@ class DisplayTables(QtW.QWidget):
     def __init__(self, parent):
         super().__init__(parent)
         logger_setup.get_logger().info("Starting the display tables window")
-        self.loading_manager = LoadingDialogManager.get_instance()
 
         # Load the ui file
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
@@ -85,9 +77,6 @@ class DisplayTables(QtW.QWidget):
         self.show_cols = []
         self.timer = QTimer()
         self.db_stackedWidget: QtW.QStackedWidget
-        # logger_setup.get_logger().info("Adding the frozen table view")
-        # self.dbFrozen_tableView = FrozenTableView()
-        # self.db_stackedWidget.addWidget(self.dbFrozen_tableView)
         self.switch_to_table()
 
         # Pagination variables
@@ -110,10 +99,13 @@ class DisplayTables(QtW.QWidget):
         all_names = columns_as_list(sql_query, [self.name_header])[0]
         if not all_names:
             return
-        values = set(all_names)
-        self.name_completer.setModel(QtC.QStringListModel(values))
+        list_model = QtC.QStringListModel(sorted(all_names, key=str.casefold))
+        list_proxy_model = ReadableProxyModel()
+        list_proxy_model.setSourceModel(list_model)
+        self.name_completer.setModel(list_proxy_model)
         self.name_completer.setFilterMode(QtC.Qt.MatchFlag.MatchContains)
         self.name_completer.setCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        self.name_completer.setModelSorting(QtW.QCompleter.ModelSorting.CaseInsensitivelySortedModel)
         self.name_completer.setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
 
         self.goto_line_edit: QLineEdit
@@ -130,9 +122,9 @@ class DisplayTables(QtW.QWidget):
         self.edit_samples_pushButton.clicked.connect(lambda: self.edit_samples_popup('edit_pushButton'))
         # Context menu for table and tree views
         self.dbTable_tableView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
+        self.dbTable_tableView.frozen_table_view.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.dbTable_tableView.customContextMenuRequested.connect(self.show_context_menu)
-        # self.dbFrozen_tableView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
-        # self.dbFrozen_tableView.customContextMenuRequested.connect(self.show_context_menu)
+        self.dbTable_tableView.frozen_table_view.customContextMenuRequested.connect(self.show_context_menu)
         self.dbTable_treeView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.dbTable_treeView.customContextMenuRequested.connect(self.show_context_menu)
 
@@ -144,14 +136,6 @@ class DisplayTables(QtW.QWidget):
         self.refresh_button.setIcon(qtawesome.icon('fa6s.rotate-right', color='green', scale_factor=1.2))
         self.refresh_button.clicked.connect(self.display_table)
 
-    # def switch_to_frozen_table(self):
-    #     """
-    #     Sets the current widget to a frozen table view
-    #     :return:
-    #     """
-    #     self.db_stackedWidget: QtW.QStackedWidget
-    #     self.db_stackedWidget.setCurrentWidget(self.dbFrozen_tableView)
-
     def display_table(self):
         """
         Displays the selected table
@@ -159,48 +143,55 @@ class DisplayTables(QtW.QWidget):
         """
         self.edit_pushButton: QPushButton
         self.dbTable_tableView: QtW.QTableView
-        self.dbTable_treeView: QtW.QTreeView
+        self.dbTable_treeView: TrackExpandedTreeView
         self.dbTable_comboBox: QtW.QComboBox
         self.add_pushButton: QtW.QPushButton
         table = self.dbTable_comboBox.currentText()
         self.table = TxM.remove_spaces(table)
 
-        logger_setup.get_logger().info(f'Displaying {self.table}')
+        logger_setup.get_logger().info(f'Displaying {get_total_records(self.table, '')} {self.table}')
         if self.table != get_view_from_table(self.table):
-            self.loading_manager.show_loading_dialog('Loading', f'Loading related data for {self.table}...')
+            if settings.value('show_items_missing_data'):
+                msg = f'Loading related data for {self.table}...\n\nSettings to speed up loading:\n- Hide items with missing data\n- Reduce the columns shown'
+            else:
+                msg = f'Loading related data for {self.table}...\n\nSettings to speed up loading:\n- Reduce the columns shown'
         else:
-            self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table}...')
+            msg = f'Displaying {get_total_records(self.table, '')} {self.table}...'
+        show_loading_dialog('Loading', msg)
         start_display_time = time.time()
         # If moving from a tree table, save the expanded state first
-        if self.previous_table in self.dbtree_list and self.previous_table != self.table:
+        if self.previous_table in self.dbtree_list and self.previous_table != self.table and self.model.rowCount() > 0:
             save_expanded_state(self.previous_table, self.dbTable_treeView)
         if self.table in self.dbtree_list:
             logger_setup.get_logger().info(f'Switching to tree view for {self.table}')
             start_display_tree_time = time.time()
-            self.dbTable_treeView: QTreeView
+            self.dbTable_treeView: TrackExpandedTreeView
             self.switch_to_tree()
             self.edit_samples_pushButton.hide()
             self.model = SQLiteTableModel(f'SELECT * FROM {self.table}')
             if self.model.last_error:
                 logger_setup.get_logger().critical(f'Error displaying {self.table}')
-                self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table}...')
+                close_loading_dialog('Loading', msg)
                 self.parent().close()
+            self.total_records = self.model.rowCount()
             self.tree_model = TreeModel(self.model, None)
             self.tree_proxy_model.setSourceModel(self.tree_model)
             self.tree_proxy_model.setFilterKeyColumn(-1)
             # self.edit_pushButton.clicked.connect(lambda: self.edit_popup(self.model))
 
             self.dbTable_treeView.setModel(self.tree_proxy_model)
+            self.dbTable_treeView.setUniformRowHeights(True)
             logger_setup.get_logger().info(
                 f'Populated tree view in {time.time() - start_display_tree_time:.2f} seconds')
             self.dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
             self.dbTable_treeView.hideColumn(1)  # don't show ID column
             self.dbTable_treeView.hideColumn(2)  # don't show parent ID column
             self.dbTable_treeView.hideColumn(3)  # don't show parent row column
+            if isinstance(self.dbTable_treeView.model(), TreeSortFilterProxyModel):
+                self.dbTable_treeView.model().update_visible_columns()
             # Keep the tree sorted as dictated by the database
             self.dbTable_treeView.setSortingEnabled(False)
             self.dbTable_treeView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
-            restore_expanded_state(table, self.dbTable_treeView)
             self.dbTable_treeView.setTextElideMode(Qt.TextElideMode.ElideNone)  # Prevent text truncation
 
             self.name_column = get_name_column(get_view_from_table(self.table))
@@ -224,6 +215,8 @@ class DisplayTables(QtW.QWidget):
                     self.dbTable_treeView.setColumnWidth(column, 400)
             logger_setup.get_logger().info(f'Resized columns in {time.time() - start_column_resize_time} seconds')
 
+            self.page_info_label.setText(f'{self.total_records} {self.table}')
+
             logger_setup.get_logger().info(
                 f'Set up tree view for {self.table} in {time.time() - start_display_tree_time} seconds')
 
@@ -243,7 +236,6 @@ class DisplayTables(QtW.QWidget):
                               'group_col': f'{id_header}', 'order_col': f'{self.name_header}'}
                 view_query = ViewQuery(self.table, False, **query_args)
                 table_query = view_query.table_query
-                show_loading_dialog('Loading', f'Loading related data for {self.table}...')
             else:
                 self.show_cols = '*'
                 self.name_header = get_headers(self.table)[self.name_column]
@@ -260,24 +252,31 @@ class DisplayTables(QtW.QWidget):
             except NameError:
                 # There is no view_query, so just use the table query
                 self.model = SQLiteTableModel(table_query)
-            close_loading_dialog('Loading', f'Loading related data for {self.table}...')
+            close_loading_dialog('Loading', msg)
             if self.model.last_error is not None:
                 logger_setup.get_logger().critical(f'Error displaying {self.table}')
-                self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table}...')
+                close_loading_dialog('Loading', msg)
                 self.parent().close()
+            self.dbTable_tableView.setSortingEnabled(True)
             self.model.set_table(self.table)
             self.table_proxy_model.setSourceModel(self.model)
-            self.dbTable_tableView: QTableView
-            self.dbTable_tableView.setWordWrap(True)
-            self.dbTable_tableView.setTextElideMode(Qt.TextElideMode.ElideNone)  # Prevent text truncation
-            self.dbTable_tableView.setItemDelegate(WordWrapDelegate(self.dbTable_tableView))
-
             self.table_proxy_model.setFilterKeyColumn(-1)  # search all columns
+            # Sort the table by the name column
+            proxy_name_column = None
+            for column in range(self.table_proxy_model.columnCount()):
+                header = self.model.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+                if header == self.name_header:
+                    proxy_name_column = column
+                    break
+            if proxy_name_column:
+                self.table_proxy_model.sort(proxy_name_column, QtC.Qt.SortOrder.AscendingOrder)
+            self.dbTable_tableView: FrozenTableView
+            self.dbTable_tableView.setSelectionBehavior(QtW.QAbstractItemView.SelectionBehavior.SelectRows)
+            self.dbTable_tableView.frozen_table_view.setSelectionBehavior(QtW.QAbstractItemView.SelectionBehavior.SelectRows)
+
             self.dbTable_tableView.setModel(self.table_proxy_model)
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
-            # self.dbTable_tableView.setItemDelegate(WordWrapDelegate(self.dbTable_tableView))
-            self.dbTable_tableView.setSortingEnabled(True)
-            self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
+            # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
             self.dbTable_tableView.verticalHeader().hide()
 
             self.name_header = self.model.headerData(self.name_column, QtC.Qt.Orientation.Horizontal,
@@ -289,15 +288,6 @@ class DisplayTables(QtW.QWidget):
                     pass
                 self.dbTable_tableView.doubleClicked.connect(self.open_doi_link)
             self.set_go_to_completer()
-            # Sort the table by the name column
-            proxy_name_column = None
-            for column in range(self.table_proxy_model.columnCount()):
-                header = self.model.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-                if header == self.name_header:
-                    proxy_name_column = column
-                    break
-            if proxy_name_column:
-                self.table_proxy_model.sort(proxy_name_column, QtC.Qt.SortOrder.AscendingOrder)
 
             # Optimize window resizing
             self.resize_timer = QTimer()
@@ -321,7 +311,6 @@ class DisplayTables(QtW.QWidget):
             for column in range(self.table_proxy_model.columnCount()):
                 if self.dbTable_tableView.columnWidth(column) > 400:
                     self.dbTable_tableView.setColumnWidth(column, 400)
-            self.dbTable_tableView.verticalScrollBar().setRange(0, self.table_proxy_model.rowCount())
 
         else:
             logger_setup.get_logger().error(f"Error {self.table}: Tried to switch to a table with no table or tree...")
@@ -333,7 +322,7 @@ class DisplayTables(QtW.QWidget):
         self.previous_table = self.table
         self.search_lineEdit.setText("")
         self.search()
-        self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table}...')
+        close_loading_dialog('Loading', msg)
         logger_setup.get_logger().info(f'Displayed {self.table} in {time.time() - start_display_time} seconds')
 
     def edit_samples_popup(self, text=None):
@@ -345,15 +334,15 @@ class DisplayTables(QtW.QWidget):
         # Add the sample ID for any rows that are selected
         if self.dbTable_tableView.selectedIndexes():
             selected_indexes = self.dbTable_tableView.selectedIndexes()
-        # elif self.dbFrozen_tableView.selectedIndexes():
-        #     selected_indexes = self.dbFrozen_tableView.selectedIndexes()
         else:
             logger_setup.get_logger().error("Select rows to edit")
             return
         for index in selected_indexes:
             id_index = index.siblingAtColumn(0)
-            selected_samples.append(id_index.data(QtC.Qt.ItemDataRole.DisplayRole))
-        self.loading_manager.show_loading_dialog('Loading', f'Opening Sample Information window...')
+            sample_id = id_index.data(QtC.Qt.ItemDataRole.DisplayRole)
+            if sample_id and sample_id not in selected_samples:
+                selected_samples.append(sample_id)
+        show_loading_dialog('Loading', f'Opening Sample Information window...')
         dlg = SampleInformation(self, selected_samples)
         dlg.exec()
         if dlg.updated:
@@ -363,12 +352,13 @@ class DisplayTables(QtW.QWidget):
             self.display_table()
 
     def edit_popup(self):
-        self.loading_manager.show_loading_dialog('Loading', f'Opening edit window for {self.table}...')
+        show_loading_dialog('Loading', f'Opening edit window for {self.table}...')
         view_tables = ['Samples', 'Aliquots', 'Spots', 'UPbAnalyses', 'Columns', 'References']
         if self.table in view_tables:
             dlg = EditView(self, self.table)
         elif self.table in self.dbtree_list:
-            save_expanded_state(self.table, self.dbTable_treeView)
+            if self.model.rowCount() > 0:
+                save_expanded_state(self.table, self.dbTable_treeView)
             dlg = EditTree(self, self.table)
         else:
             dlg = EditTable(self, self.table)
@@ -381,15 +371,15 @@ class DisplayTables(QtW.QWidget):
 
     def add_popup(self, action: QtG.QAction | None = None):
         dlg = None
-        self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {self.table}...')
-        if self.table in self.dbtree_list:
+        show_loading_dialog('Loading', f'Opening add window for {self.table}...')
+        if self.table in self.dbtree_list and self.model.rowCount() > 0:
             save_expanded_state(self.table, self.dbTable_treeView)
             dlg_args = add_tree_popup(self.dbTable_treeView, action)
             if dlg_args:
                 dlg = AddTreeTags(self, self.table, **dlg_args)
         elif self.table in ['References', '"References"']:
             table = 'References'
-            self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
+            show_loading_dialog('Loading', f'Opening add window for {table}...')
             dlg = NewReference(self)
         else:
             dlg = AddTags(self, self.table)
@@ -403,7 +393,7 @@ class DisplayTables(QtW.QWidget):
             self.display_table()
 
     def open_doi_link(self, item: QTableWidgetItem):
-        self.dbTable_tableView: QTableView
+        self.dbTable_tableView: FrozenTableView
         if self.dbTable_tableView.model().headerData(item.column(), Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole) == "DOI":
             text:str = item.data(Qt.ItemDataRole.DisplayRole)
             if text.startswith('doi:'):
@@ -426,7 +416,7 @@ class DisplayTables(QtW.QWidget):
         :return:
         """
         self.dbTable_tableView: QtW.QTableView
-        self.dbTable_treeView: QtW.QTreeView
+        self.dbTable_treeView: TrackExpandedTreeView
         tree_menu = TreeContextMenu()
         table_menu = QtW.QMenu()
         edit_action = table_menu.addAction('Edit')
@@ -460,7 +450,7 @@ class DisplayTables(QtW.QWidget):
                 for index in selected_indexes:
                     parent_id = self.table_proxy_model.data(self.table_proxy_model.index(index.row(), 0),
                                                             QtC.Qt.ItemDataRole.DisplayRole)
-                    if parent_id not in parent_ids:
+                    if str(parent_id) not in parent_ids:
                         parent_ids.append(str(parent_id))
 
                 # index = self.dbTable_tableView.indexAt(pos)
@@ -513,7 +503,7 @@ class DisplayTables(QtW.QWidget):
 
     def optimizeVerticalResize(self, logical_index, old_size, new_size):
         """Trigger a delayed row height update when the user resizes the window vertically."""
-        self.resize_timer.start(250)  # Add a slight delay to avoid excessive updates
+        self.resize_timer.start(100)  # Add a slight delay to avoid excessive updates
 
     def resizeRowsOptimized(self):
         """Resize rows only when resizing stops."""
@@ -588,10 +578,10 @@ class DisplayTables(QtW.QWidget):
             if not record_id:
                 logger_setup.get_logger().error(f'Could not find record ID for record name: {record_name}')
                 return
-            index = get_record_index(self.table, record_id)
+            row = get_record_row(self.table, record_id)
 
-            if index != -1:
-                new_page = index // self.rows_per_page
+            if row != -1:
+                new_page = row // self.rows_per_page
                 if self.current_page != new_page:
                     self.current_page = new_page
                     self.display_table()
@@ -620,7 +610,7 @@ class DisplayTables(QtW.QWidget):
         self.show_per_page_comboBox: QtW.QComboBox
         self.prev_button.show()
         self.next_button.show()
-        self.page_info_label.show()
+        # self.page_info_label.show()
         self.show_per_page_comboBox.show()
         self.show_per_page_label.show()
         self.goto_line_edit.show()
@@ -638,7 +628,7 @@ class DisplayTables(QtW.QWidget):
         self.show_per_page_comboBox: QtW.QComboBox
         self.prev_button.hide()
         self.next_button.hide()
-        self.page_info_label.hide()
+        # self.page_info_label.hide()
         self.show_per_page_comboBox.hide()
         self.show_per_page_label.hide()
         self.goto_line_edit.hide()
@@ -649,7 +639,7 @@ class DisplayTables(QtW.QWidget):
         self.display_table()
 
     def closeEvent(self, event):
-        if self.table in self.dbtree_list:
+        if self.table in self.dbtree_list and self.model.rowCount() > 0:
             save_expanded_state(self.table, self.dbTable_treeView)
         event.accept()
         super().closeEvent(event)

@@ -4,7 +4,6 @@ from PyQt6 import QtCore as QtC
 import logger_setup
 
 
-
 def update_modified_timestamp(table: str, record_ids: list):
     """
     Update the ModifiedTimestamp field for the given records.
@@ -33,12 +32,12 @@ def update_modified_timestamp(table: str, record_ids: list):
     elif len(record_ids) == 1:
         where_sql = f'{record_id_header} = {record_ids[0]}'
     if not query.exec(f'UPDATE {table} SET {modified_header} = CURRENT_TIMESTAMP WHERE {where_sql}'):
-        logger_setup.get_logger().error(
-            f'Unable to update modified timestamps for {table}')
         logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
         logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        return f'Error updating modified timestamp for {table}'
+    return ''
 
-def validate_insert(table: str, columns: list, values: list, GPSFormatID: int | None):
+def validate_insert(table: str, columns: list, values: list, gps_format_id: int | None):
     """
     Check that the values being inserted into the database are valid
     The corresponding columns and values should be in the same index in their respective lists
@@ -46,7 +45,7 @@ def validate_insert(table: str, columns: list, values: list, GPSFormatID: int | 
     :param str table: table to be inserted into
     :param list columns: list of names of columns to be inserted into
     :param list values: list of values to be inserted into the columns
-    :param int GPSFormatID: the id of the GPS format to be used for the GPS location, if applicable
+    :param int gps_format_id: the id of the GPS format to be used for the GPS location, if applicable
     :return:
     """
     if len(columns) != len(values):
@@ -61,7 +60,7 @@ def validate_insert(table: str, columns: list, values: list, GPSFormatID: int | 
             if error != 'ColumnTotalHeightDepthUnitID missing ColumnTotalHeightDepth':
                 return "Column total height/depth value missing units", 'ColumnTotalHeightDepthUnitID'
     if table == 'GPSLocations':
-        error, header = check_gps_format_insert(pairs, GPSFormatID)
+        error, header = check_gps_format_insert(pairs, gps_format_id)
         if error:
             return error, header
     if table == 'SampleAges':
@@ -132,7 +131,7 @@ def validate_insert(table: str, columns: list, values: list, GPSFormatID: int | 
             if error:
                 if error != 'AgeErrorFormatID missing AgeError':
                     return "Age error given without error format", 'AgeErrorFormatID'
-        error, header = check_insert_pairs(pairs, 'Concordance', 'ConcordanceFormatID')
+        error, header = check_insert_concordance(pairs, values[columns.index('ConcordanceFormatID')] if 'ConcordanceFormatID' in columns else None)
         if error:
             if error != 'ConcordanceFormatID missing Concordance':
                 return "Concordance/discordance given without type", 'ConcordanceFormatID'
@@ -155,13 +154,12 @@ def validate_update(table: str, columns: list, values: list, where: str):
     """
     if len(columns) != len(values):
         return "Number of columns to set does not match number of values given", None
-    query = QtS.QSqlQuery()
-    column_str = ", ".join(columns)
-    value_str = ", ".join([str(value) for value in values])
     pairs = []
     for index in range(len(columns)):
         if isinstance(values[index], QtC.QVariant) and values[index].isNull():
             pairs.append(([columns[index], 'NULL']))
+        elif values[index] in ['', None]:
+            pairs.append(([columns[index], '']))
         else:
             pairs.append([columns[index], values[index]])
     table_model = QtS.QSqlQueryModel()
@@ -180,13 +178,15 @@ def validate_update(table: str, columns: list, values: list, where: str):
         for index in range(len(columns)):
             if columns[index] == column_name:
                 new_value = values[index]
-                if new_value == '' or new_value is None or (isinstance(new_value, QtC.QVariant) and new_value.isNull()):
+                if new_value in ['NULL', 'Null'] or (isinstance(new_value, QtC.QVariant) and new_value.isNull()):
                     new_value = 'NULL'
+                elif new_value in ['', None]:
+                    new_value = ''
                 break
         old_values = []
         for row in range(table_model.rowCount()):
             old_value = table_model.data(table_model.index(row, col, QtC.QModelIndex()))
-            if old_value == '' or old_value is None or (isinstance(old_value, QtC.QVariant) and old_value.isNull()):
+            if old_value in ['', None, 'NULL', 'Null'] or (isinstance(old_value, QtC.QVariant) and old_value.isNull()):
                 old_value = 'NULL'
             old_values.append(old_value)
         all_records.append([column_name, new_value, old_values])
@@ -216,12 +216,12 @@ def validate_update(table: str, columns: list, values: list, where: str):
         youngest_unit_error, header = check_update_pairs(all_records, 'YoungestDirectAge', 'DirectAgeUnitID')
         if youngest_unit_error == 'DirectAgeUnitID missing YoungestDirectAge':
             youngest_unit_error = None
-        direct_ages_error, header = check_update_age_range(all_records, 'OldestDirectAge', 'YoungestDirectAge')
+        direct_ages_error, header = check_update_age_range(all_records, 'OldestDirectAge', 'YoungestDirectAge', 'DirectAge')
         if direct_ages_error:
             return direct_ages_error, header
         if unit_error or oldest_unit_error or youngest_unit_error:
             return "Direct age missing units", 'DirectAgeUnitID'
-        relative_error, header = check_update_age_range(all_records, 'OldestAgeID', 'YoungestAgeID')
+        relative_error, header = check_update_age_range(all_records, 'OldestAgeID', 'YoungestAgeID', 'DirectAge')
         if relative_error:
             return relative_error, header
     if table == 'Samples':
@@ -242,33 +242,38 @@ def validate_update(table: str, columns: list, values: list, where: str):
         age_error_list = []
         for column in all_records:
             if column[0].endswith('AgeError'):
-                age_error_list.append(f'"{column}"')
+                age_error_list.append(column[0])
             elif column[0].endswith('Error'):
-                ratio_error_list.append(f'"{column}"')
+                ratio_error_list.append(column[0])
         ratio_list = [column.replace('Error', '') for column in ratio_error_list]
         age_list = [column.replace('Error', '') for column in age_error_list]
         for index in range(len(ratio_error_list)):
             error, header = check_update_pairs(all_records, ratio_error_list[index], ratio_list[index])
             if error:
-                if error != f'{ratio_list[index]} missing {ratio_error_list[index]}':
-                    return f'{ratio_error_list[index]} missing {ratio_list[index]}', header
+                if error != f'{ratio_list[index].replace(f'"', '')} missing {ratio_error_list[index].replace(f'"', '')}':
+                    return f'{ratio_error_list[index].replace(f'"', '')} missing {ratio_list[index].replace(f'"', '')}', header
             error, header = check_update_pairs(all_records, ratio_error_list[index], 'RatioErrorFormatID')
             if error:
-                if error != 'RatioErrorFormatID missing RatioError':
+                if error != f'RatioErrorFormatID missing {ratio_error_list[index].replace(f'"', '')}':
                     return "Ratio error given without error format", header
         for index in range(len(age_error_list)):
             error, header = check_update_pairs(all_records, age_error_list[index], age_list[index])
             if error:
-                if error != f'{age_list[index]} missing {age_error_list[index]}':
-                    return f'{age_error_list[index]} missing {age_list[index]}', header
+                if error != f'{age_list[index].replace(f'"', '')} missing {age_error_list[index].replace(f'"', '')}':
+                    return f'{age_error_list[index].replace(f'"', '')} missing {age_list[index].replace(f'"', '')}', header
+            error, header = check_update_pairs(all_records, age_list[index], 'AgeUnitID')
+            if error:
+                if error != f'AgeUnitID missing {age_list[index].replace(f'"', '')}':
+                    return f'{age_list[index].replace(f'"', '')} missing units', header
             error, header = check_update_pairs(all_records, age_error_list[index], 'AgeErrorFormatID')
             if error:
-                if error != 'AgeErrorFormatID missing AgeError':
+                # An error format with no error value in this column is fine (the import wizard sets the
+                # error format globally, so it is present even for age error columns that were not mapped)
+                if error != f'AgeErrorFormatID missing {age_error_list[index].replace(f'"', '')}':
                     return "Age error given without error format", header
-        error, header = check_update_pairs(all_records, 'Concordance', 'ConcordanceFormatID')
+        error, header = check_update_concordance(all_records)
         if error:
-            if error != 'ConcordanceFormatID missing Concordance':
-                return "Concordance/discordance given without format", header
+            return error, header
         error, header = check_update_pairs(all_records, 'SpotSize', 'SpotSizeUnitID')
         if error:
             if error != 'SpotSizeUnitID missing SpotSize':
@@ -305,7 +310,7 @@ def check_update_units(all_records: list, value_col: str, unit_id_col: str):
     # A unit id missing a value is not problematic
     return None, None
 
-def check_insert_pairs(pairs: list, column1: str, column2: str) -> None:
+def check_insert_pairs(pairs: list, column1: str, column2: str):
     """
     Checks a pair of columns that should have data in both columns or both be NULL.
     :param list pairs: list of values to validate
@@ -331,6 +336,8 @@ def check_insert_pairs(pairs: list, column1: str, column2: str) -> None:
     return None, None
 
 def check_update_pairs(all_records: list, column1, column2):
+    column1 = column1.replace(f'"', '')
+    column2 = column2.replace(f'"', '')
     new_column1 = None
     new_column2 = None
     old_column1s = []
@@ -402,7 +409,7 @@ def check_insert_age_range(pairs: list, old_column: str, young_column: str):
                 return f'Oldest direct age is younger than youngest direct age', old_column
     return None, None
 
-def check_update_age_range(all_records: list, old_column: str, young_column: str):
+def check_update_age_range(all_records: list, old_column: str, young_column: str, direct_column: str):
     from Functions.Widget_classes import SQLiteTableModel, get_headers
     if not all_records or not old_column or not young_column:
         return 'Incomplete data given for age range'
@@ -418,6 +425,9 @@ def check_update_age_range(all_records: list, old_column: str, young_column: str
         if record[0] == young_column:
             new_young = record[1]
             old_youngs = record[2]
+        if record[0] == direct_column:
+            new_direct = record[1]
+            old_directs = record[2]
     if age_model:
         if new_old != 'NULL':
             age_model.setQuery(f'SELECT * FROM Ages WHERE {get_headers('Ages')[0]} = {new_old}')
@@ -462,6 +472,12 @@ def check_update_age_range(all_records: list, old_column: str, young_column: str
                     youngest_old = age_model.index(0, 5).data(QtC.Qt.ItemDataRole.DisplayRole)
                     if oldest_old < new_oldest_young and youngest_old < new_youngest_young:
                         return f'Oldest relative age is younger than youngest relative age', old_column
+        if new_old != 'NULL' and new_direct != 'NULL':
+            if new_direct > new_oldest_old:
+                return f'Direct age not in relative age range', direct_column
+        if new_young != 'NULL' and new_direct != 'NULL':
+            if new_direct < new_youngest_young:
+                return f'Direct age not in relative age range', direct_column
     else:
         if new_old != 'NULL' and new_young != 'NULL':
             if new_old < new_young:
@@ -476,6 +492,12 @@ def check_update_age_range(all_records: list, old_column: str, young_column: str
                 if old_old != 'NULL':
                     if old_old < new_young:
                         return f'Oldest direct age is younger than youngest direct age', old_column
+        if new_old != 'NULL' and new_direct != 'NULL':
+            if new_direct > new_old:
+                return f'Direct age not in direct age range', old_column
+        if new_young != 'NULL' and new_direct != 'NULL':
+            if new_direct < new_young:
+                return f'Direct age not in direct age range', old_column
     return None, None
 
 def check_gps_format_insert(pairs: list, format_id: int):
@@ -486,35 +508,67 @@ def check_gps_format_insert(pairs: list, format_id: int):
     gps_format_model.select()
     while gps_format_model.canFetchMore():
         gps_format_model.fetchMore()
-    gps_format_model.setFilter(f'GPSFormatID = {format_id}')
-    gps_format_abbreviation = gps_format_model.data(gps_format_model.index(0, 2))
+    from Functions.Widget_classes import get_name_from_id
+    gps_format_abbreviation = get_name_from_id('GPSFormats', format_id)
     for pair in pairs:
         if pair[0] == 'GPSLatDeg':
             new_latdeg = f'{pair[1]}'
+            if not try_float(new_latdeg) and new_latdeg != 'NULL' and new_latdeg != '':
+                return 'Latitude degrees must be a number', 'GPSLatDeg'
         elif pair[0] == 'GPSLatMin':
             new_latmin = f'{pair[1]}'
+            if not try_float(new_latmin) and new_latmin != 'NULL' and new_latmin != '':
+                return 'Latitude minutes must be a number', 'GPSLatMin'
         elif pair[0] == 'GPSLatSec':
             new_latsec = f'{pair[1]}'
+            if not try_float(new_latsec) and new_latsec != 'NULL' and new_latsec != '':
+                return 'Latitude seconds must be a number', 'GPSLatSec'
         elif pair[0] == 'GPSLatDirectionID':
             new_latdir = f'{pair[1]}'
         elif pair[0] == 'GPSLonDeg':
             new_londeg = f'{pair[1]}'
+            if not try_float(new_londeg) and new_londeg != 'NULL' and new_londeg != '':
+                return 'Longitude degrees must be a number', 'GPSLonDeg'
         elif pair[0] == 'GPSLonMin':
             new_lonmin = f'{pair[1]}'
+            if not try_float(new_lonmin) and new_lonmin != 'NULL' and new_lonmin != '':
+                return 'Longitude minutes must be a number', 'GPSLonMin'
         elif pair[0] == 'GPSLonSec':
             new_lonsec = f'{pair[1]}'
+            if not try_float(new_lonsec) and new_lonsec != 'NULL' and new_lonsec != '':
+                return 'Longitude seconds must be a number', 'GPSLonSec'
         elif pair[0] == 'GPSLonDirectionID':
             new_londir = f'{pair[1]}'
         elif pair[0] == 'GPSUTMZone':
             new_utmzone = f'{pair[1]}'
+            if new_utmzone != 'NULL' and new_utmzone != '':
+                zone_int_str = ''
+                # Go through each character and add it to the zone_int_str if it is a digit, stop when we reach a non-digit character after we have started adding digits
+                for char in new_utmzone:
+                    if char.isdigit():
+                        zone_int_str += char
+                    elif len(zone_int_str) > 0:
+                        break
+                if not try_float(zone_int_str) or zone_int_str == '':
+                    return 'UTM zone must include a number', 'GPSUTMZone'
+                if not new_utmzone.replace(zone_int_str, '').replace(' ', '') in ['N', 'S']:
+                    return 'GeoCORK accepts standard UTM coordinates. Convert NATO UTM coordinates to standard before inserting', 'GPSUTMZone'
         elif pair[0] == 'GPSUTMN':
             new_utmn = f'{pair[1]}'
+            if not try_float(new_utmn) and new_utmn != 'NULL' and new_utmn != '':
+                return 'UTM northing must be a number', 'GPSUTMN'
         elif pair[0] == 'GPSUTME':
             new_utme = f'{pair[1]}'
+            if not try_float(new_utme) and new_utme != 'NULL' and new_utme != '':
+                return 'UTM easting must be a number', 'GPSUTME'
         elif pair[0] == 'GPSElev':
             new_elev = f'{pair[1]}'
+            if not try_float(new_elev) and new_elev != 'NULL' and new_elev != '':
+                return 'Elevation must be a number', 'GPSElev'
         elif pair[0] == 'GPSElevError':
             new_elev_error = f'{pair[1]}'
+            if not try_float(new_elev_error) and new_elev_error != 'NULL' and new_elev_error != '':
+                return 'Elevation error must be a number', 'GPSElevError'
         elif pair[0] == 'GPSElevUnitID':
             new_elev_unit = f'{pair[1]}'
 
@@ -605,6 +659,22 @@ def check_gps_format_insert(pairs: list, format_id: int):
             return 'Missing easting in UTM format', 'GPSUTME'
         if new_utmzone != 'NULL' and (new_utme == 'NULL' or new_utmn == 'NULL'):
             return 'UTM zone given without coordinates in UTM format', 'GPSUTMZone'
+        if new_utmzone != 'NULL' and new_utmn != 'NULL' and new_utme != 'NULL':
+            zone_int_str = ''
+            # Go through each character and add it to the zone_int_str if it is a digit, stop when we reach a non-digit character after we have started adding digits
+            for char in new_utmzone:
+                if char.isdigit():
+                    zone_int_str += char
+                elif len(zone_int_str) > 0:
+                    break
+            zone_letter = new_utmzone.replace(zone_int_str, '').replace(' ', '')
+            if not zone_letter:
+                return 'Missing hemisphere (N or S) after UTM zone.\nGeoCORK accepts standard UTM coordinates.\nConvert NATO UTM coordinates to standard before inserting', 'GPSUTMZone'
+            if not zone_letter in ['N', 'S']:
+                if 0 <= new_utmn <= 100000 and 0 <= new_utme <= 100000:
+                    return 'GeoCORK accepts standard UTM coordinates. Convert NATO UTM coordinates to standard before inserting', 'GPSUTMZone'
+                else:
+                    return 'Standard UTM coordinates given with NATO zone.\nThe standard zone should be the zone number followed by N for northern hemisphere or S for southern hemisphere.', 'GPSUTMZone'
     if new_elev != 'NULL' and new_elev_unit == 'NULL':
         return 'Elevation missing units', 'GPSElevUnitID'
     if new_elev_error != 'NULL' and new_elev == 'NULL':
@@ -617,51 +687,71 @@ def check_gps_format_update(all_records: list, new_format_id: int):
     gps_format_model.select()
     while gps_format_model.canFetchMore():
         gps_format_model.fetchMore()
-    gps_format_model.setFilter(f'GPSFormatID = {new_format_id}')
-    gps_format_abbreviation = gps_format_model.data(gps_format_model.index(0, 2))
+    from Functions.Widget_classes import get_name_from_id
+    gps_format_abbreviation = get_name_from_id('GPSFormats', new_format_id)
     for record in all_records:
         if record[0] == 'GPSLatDeg':
-            new_latdeg = record[1]
-            old_latdegs = record[2]
+            new_latdeg = str(record[1])
+            old_latdegs = str(record[2])
+            if not try_float(record[1]) and record[1] != 'NULL' and record[1] != '':
+                return 'Latitude degrees must be a number', 'GPSLatDeg'
         elif record[0] == 'GPSLatMin':
-            new_latmin = record[1]
-            old_latmins = record[2]
+            new_latmin = str(record[1])
+            old_latmins = str(record[2])
+            if not try_float(record[1]) and record[1] != 'NULL' and record[1] != '':
+                return 'Latitude minutes must be a number', 'GPSLatMin'
         elif record[0] == 'GPSLatSec':
-            new_latsec = record[1]
-            old_latsecs = record[2]
+            new_latsec = str(record[1])
+            old_latsecs = str(record[2])
+            if not try_float(record[1]) and record[1] != 'NULL' and record[1] != '':
+                return 'Latitude seconds must be a number', 'GPSLatSec'
         elif record[0] == 'GPSLatDirectionID':
-            new_latdir = record[1]
-            old_latdirs = record[2]
+            new_latdir = str(record[1])
+            old_latdirs = str(record[2])
         elif record[0] == 'GPSLonDeg':
-            new_londeg = record[1]
-            old_londegs = record[2]
+            new_londeg = str(record[1])
+            old_londegs = str(record[2])
+            if not try_float(record[1]) and record[1] != 'NULL' and record[1] != '':
+                return 'Longitude degrees must be a number', 'GPSLonDeg'
         elif record[0] == 'GPSLonMin':
-            new_lonmin = record[1]
-            old_lonmins = record[2]
+            new_lonmin = str(record[1])
+            old_lonmins = str(record[2])
+            if not try_float(record[1]) and record[1] != 'NULL' and record[1] != '':
+                return 'Longitude minutes must be a number', 'GPSLonMin'
         elif record[0] == 'GPSLonSec':
-            new_lonsec = record[1]
-            old_lonsecs = record[2]
+            new_lonsec = str(record[1])
+            old_lonsecs = str(record[2])
+            if not try_float(record[1]) and record[1] != 'NULL' and record[1] != '':
+                return 'Longitude seconds must be a number', 'GPSLonSec'
         elif record[0] == 'GPSLonDirectionID':
-            new_londir = record[1]
-            old_londirs = record[2]
+            new_londir = str(record[1])
+            old_londirs = str(record[2])
         elif record[0] == 'GPSUTMZone':
-            new_utmzone = record[1]
-            old_utmzones = record[2]
+            new_utmzone = str(record[1])
+            old_utmzones = str(record[1])
         elif record[0] == 'GPSUTMN':
-            new_utmn = record[1]
-            old_utmns = record[2]
+            new_utmn = str(record[1])
+            old_utmns = str(record[1])
+            if not try_float(record[1]) and record[1] != 'NULL' and record[1] != '':
+                return 'UTM northing must be a number', 'GPSUTMN'
         elif record[0] == 'GPSUTME':
-            new_utme = record[1]
-            old_utmes = record[2]
+            new_utme = str(record[1])
+            old_utmes = str(record[1])
+            if not try_float(record[1]) and record[1] != 'NULL' and record[1] != '':
+                return 'UTM easting must be a number', 'GPSUTME'
         elif record[0] == 'GPSElev':
-            new_elev = record[1]
-            old_elevs = record[2]
+            new_elev = str(record[1])
+            old_elevs = str(record[1])
+            if not try_float(record[1]) and record[1] != 'NULL' and record[1] != '':
+                return 'Elevation must be a number', 'GPSElev'
         elif record[0] == 'GPSElevError':
-            new_elev_error = record[1]
-            old_elev_errors = record[2]
+            new_elev_error = str(record[1])
+            old_elev_errors = str(record[1])
+            if not try_float(record[1]) and record[1] != 'NULL' and record[1] != '':
+                return 'Elevation error must be a number', 'GPSElevError'
         elif record[0] == 'GPSElevUnitID':
-            new_elev_unit = record[1]
-            old_elev_units = record[2]
+            new_elev_unit = str(record[1])
+            old_elev_units = str(record[1])
 
     if 'D' in gps_format_abbreviation:
         # DD, DDM, or DMS
@@ -691,20 +781,40 @@ def check_gps_format_update(all_records: list, new_format_id: int):
                 return 'Minutes given without degrees in degree format', 'GPSLatDeg'
             if (new_londeg == 'NULL' and new_lonmin != 'NULL') or (new_londeg == '' and 'NULL' not in old_londegs):
                 return 'Minutes given without degrees in degree format', 'GPSLonDeg'
-        elif 'DDM ' in gps_format_abbreviation:
-            if new_latsec != 'NULL' or (new_latsec == '' and 'NULL' not in old_latsecs):
-                return 'Seconds given in DDM format', 'GPSLatSec'
-            if new_lonsec != 'NULL' or (new_lonsec == '' and 'NULL' not in old_lonsecs):
-                return 'Seconds given in DDM format', 'GPSLonSec'
-        elif 'DMS' in gps_format_abbreviation:
-            if (new_latsec == '' and 'NULL' not in old_latsecs) or (new_latsec == 'NULL' and new_lonsec != 'NULL'):
-                return 'Missing seconds lat in DMS format', 'GPSLatSec'
-            if (new_latsec != 'NULL' and new_lonsec == 'NULL') or (new_lonsec == '' and 'NULL' not in old_lonsecs):
-                return 'Missing seconds lon in DMS format', 'GPSLonSec'
-            if (new_latmin == 'NULL' and new_latsec != 'NULL') or (new_latmin == '' and 'NULL' not in old_latmins):
-                return 'Seconds given without minutes in DMS format', 'GPSLatMin'
-            if (new_lonmin == 'NULL' and new_lonsec != 'NULL') or (new_lonmin == '' and 'NULL' not in old_lonmins):
-                return 'Seconds given without minutes in DMS format', 'GPSLonMin'
+            try:
+                if new_latdeg != '' and new_latdeg != 'NULL':
+                    int(new_latdeg)
+            except ValueError:
+                return f'Decimal degrees given in {gps_format_abbreviation} format', 'GPSLatDeg'
+            try:
+                if new_londeg != '' and new_londeg != 'NULL':
+                    int(new_londeg)
+            except ValueError:
+                return f'Decimal degrees given in {gps_format_abbreviation} format', 'GPSLonDeg'
+            if 'DDM ' in gps_format_abbreviation:
+                if new_latsec != 'NULL' or (new_latsec == '' and 'NULL' not in old_latsecs):
+                    return 'Seconds given in DDM format', 'GPSLatSec'
+                if new_lonsec != 'NULL' or (new_lonsec == '' and 'NULL' not in old_lonsecs):
+                    return 'Seconds given in DDM format', 'GPSLonSec'
+            elif 'DMS' in gps_format_abbreviation:
+                if (new_latsec == '' and 'NULL' not in old_latsecs) or (new_latsec == 'NULL' and new_lonsec != 'NULL'):
+                    return 'Missing seconds lat in DMS format', 'GPSLatSec'
+                if (new_latsec != 'NULL' and new_lonsec == 'NULL') or (new_lonsec == '' and 'NULL' not in old_lonsecs):
+                    return 'Missing seconds lon in DMS format', 'GPSLonSec'
+                if (new_latmin == 'NULL' and new_latsec != 'NULL') or (new_latmin == '' and 'NULL' not in old_latmins):
+                    return 'Seconds given without minutes in DMS format', 'GPSLatMin'
+                if (new_lonmin == 'NULL' and new_lonsec != 'NULL') or (new_lonmin == '' and 'NULL' not in old_lonmins):
+                    return 'Seconds given without minutes in DMS format', 'GPSLonMin'
+                try:
+                    if new_latmin != '' and new_latmin != 'NULL':
+                        int(new_latmin)
+                except ValueError:
+                    return 'Decimal minutes given in DMS format', 'GPSLatMin'
+                try:
+                    if new_lonmin != '' and new_lonmin != 'NULL':
+                        int(new_lonmin)
+                except ValueError:
+                    return 'Decimal minutes given in DMS format', 'GPSLonMin'
         if '+/-' in gps_format_abbreviation:
             if new_latdir != 'NULL' or (new_latdir == '' and 'NULL' not in old_latdirs):
                 return 'Use signs instead of directions in +/- format', 'GPSLatDirectionID'
@@ -766,6 +876,29 @@ def check_gps_format_update(all_records: list, new_format_id: int):
                 (new_utme != 'NULL' and new_utmzone == '' and 'NULL' in old_utmzones) or
                 (new_utme == '' and 'NULL' not in old_utmes and new_utmzone == 'NULL')):
             return 'Missing UTM zone in UTM format', 'GPSUTMZone'
+        if ((new_utmzone != 'NULL' or (new_utmzone == '' and 'NULL' not in old_utmzones)) and
+                (new_utmn != 'NULL' or (new_utmn == '' and 'NULL' not in old_utmns)) and
+                (new_utme != 'NULL' or (new_utme == '' and 'NULL' not in old_utmes))):
+            # UTM zone, northing, and easting will all be set
+            utmzone = new_utmzone if new_utmzone else old_utmzones[0]
+            utmn = new_utmn if new_utmn else old_utmns[0]
+            utme = new_utme if new_utme else old_utmes[0]
+
+            zone_int_str = ''
+            # Go through each character and add it to the zone_int_str if it is a digit, stop when we reach a non-digit character after we have started adding digits
+            for char in utmzone:
+                if char.isdigit():
+                    zone_int_str += char
+                elif len(zone_int_str) > 0:
+                    break
+            zone_letter = utmzone.replace(zone_int_str, '').replace(' ', '')
+            if not zone_letter:
+                return 'Missing hemisphere (N or S) after UTM zone.\nGeoCORK accepts standard UTM coordinates.\nConvert NATO UTM coordinates to standard before updating', 'GPSUTMZone'
+            if not zone_letter in ['N', 'S']:
+                if 0 <= int(utmn) <= 100000 or 0 <= int(utme) <= 100000:
+                    return 'GeoCORK accepts standard UTM coordinates.\nConvert NATO UTM coordinates to standard before updating', 'GPSUTMZone'
+                else:
+                    return 'Standard UTM coordinates given with NATO zone.\nThe standard zone should be the zone number followed by N for northern hemisphere or S for southern hemisphere.', 'GPSUTMZone'
         if ((new_utmzone != 'NULL' and new_utme == 'NULL') or
                 (new_utmzone != 'NULL' and new_utme == '' and 'NULL' in old_utmes) or
                 (new_utmzone == '' and 'NULL' not in old_utmzones and new_utme == 'NULL')):
@@ -774,6 +907,69 @@ def check_gps_format_update(all_records: list, new_format_id: int):
         return 'Elevation missing units', 'GPSElevUnitID'
     if (new_elev == 'NULL' and new_elev_error != 'NULL') or (new_elev == 'NULL' and new_elev_error == '' and 'NULL' not in old_elev_errors) or (new_elev == '' and 'NULL' in old_elevs and new_elev_error != 'NULL'):
         return 'Elevation error missing elevation', 'GPSElev'
+    return None, None
+
+def check_insert_concordance(pairs: list, concordance_format_id: int):
+    if not pairs or not concordance_format_id:
+        return 'Incomplete data given for concordance'
+    concordance_format_model = QtS.QSqlTableModel()
+    concordance_format_model.setTable('ConcordanceFormats')
+    concordance_format_model.select()
+    while concordance_format_model.canFetchMore():
+        concordance_format_model.fetchMore()
+    new_68v76_concordance = 'NULL'
+    new_68v75_concordance = 'NULL'
+    for pair in pairs:
+        if pair[0] == 'Concordance_206Pb/238Uv207Pb/206Pb':
+            new_68v76_concordance = pair[1]
+        elif pair[0] == 'Concordance_207Pb/238Uv207Pb/235U':
+            new_68v75_concordance = pair[1]
+    if (new_68v76_concordance != 'NULL' or new_68v75_concordance != 'NULL') and not concordance_format_id:
+        return 'Concordance format ID missing', 'ConcordanceFormatID'
+    # if 'MinSegDisc' in format_name:
+    #     if new_68v76_concordance != 'NULL' or new_68v75_concordance != 'NULL':
+    #         return '206Pb/238Uv207Pb/206Pb and 207Pb/238Uv207Pb/235U concordance values should be NULL in MinSegDisc format', 'Concordance_206Pb/238Uv207Pb/206Pb'
+    return None, None
+
+def check_update_concordance(all_records: list):
+    """
+    Check that concordance/discordance values will not be left without a concordance format after the update.
+    A concordance format with no concordance values is allowed (the import wizard sets the format globally from a
+    combo box, so it is present even when no concordance columns were mapped).
+    Columns not being updated have a new value of '' and are checked against their old values.
+    :param list all_records: list of lists [column_name, new_value, old_values] for each column in the table
+    :return: error message and header, or None, None
+    """
+    concordance_columns = ['Concordance_206Pb/238Uv207Pb/206Pb', 'Concordance_206Pb/238Uv207Pb/235U']
+    new_concordances = {}
+    old_concordances = {}
+    new_format_id = ''
+    old_format_ids = []
+    for record in all_records:
+        if record[0] in concordance_columns:
+            new_concordances[record[0]] = str(record[1])
+            old_concordances[record[0]] = [str(value) for value in record[2]]
+        elif record[0] == 'ConcordanceFormatID':
+            new_format_id = str(record[1])
+            old_format_ids = [str(value) for value in record[2]]
+    if new_format_id == '' and all(value == '' for value in new_concordances.values()):
+        # Nothing concordance related is changing
+        return None, None
+
+    def has_concordance(column):
+        new_value = new_concordances.get(column, '')
+        if new_value == '':
+            # Not being updated, so use the existing values
+            return any(value != 'NULL' for value in old_concordances.get(column, []))
+        return new_value != 'NULL'
+
+    concordance_given = any(has_concordance(column) for column in concordance_columns)
+    if new_format_id == '':
+        format_missing = 'NULL' in old_format_ids
+    else:
+        format_missing = new_format_id == 'NULL'
+    if concordance_given and format_missing:
+        return 'Concordance/discordance given without type', 'ConcordanceFormatID'
     return None, None
 
 def check_dependencies(table: str, record_id_header: str, record_ids: list, record_names: list):
@@ -872,3 +1068,10 @@ def check_dependencies(table: str, record_id_header: str, record_ids: list, reco
     if table == 'Aliquots':
         # Check which samples it belongs to
         dependencies_text = build_dependencies_check(table, 'Samples', 'SampleID', record_ids, record_names)
+
+def try_float(value):
+    try:
+        float(value)
+        return True
+    except ValueError:
+        return False

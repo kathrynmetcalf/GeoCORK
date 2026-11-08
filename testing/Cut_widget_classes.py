@@ -1,3 +1,27 @@
+# class CheckableTreeItem(TreeItem):
+#     """
+#     A tree item that can be checked or unchecked. This is used in the CheckableTreeModel to allow users to select
+#     multiple items in the tree. It inherits from TreeItem and adds a check state property to indicate whether the item
+#     is checked or not.
+#     """
+#     def __init__(self, record: QtS.QSqlRecord, parent: TreeItem = None):
+#         super().__init__(record, parent)
+#         self.checkState = QtC.Qt.CheckState.Unchecked
+#
+#     def setCheckState(self, state: QtC.Qt.CheckState):
+#         """
+#         Set the check state of the item. This is used to mark the item as checked or unchecked in the tree view.
+#         :param state: CheckState to set for the item, such as Checked, Unchecked, or PartiallyChecked
+#         """
+#         self.checkState = state
+#
+#     def getCheckState(self):
+#         """
+#         Get the check state of the item. This is used to retrieve the current check state of the item in the tree view.
+#         :return: CheckState of the item, such as Checked, Unchecked, or PartiallyChecked
+#         """
+#         return self.checkState
+
 # # class DecimalDelegate(QtW.QStyledItemDelegate):
 # #     """
 # #     Custom delegate to display numerical values with a fixed number of decimal places based upon user

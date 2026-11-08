@@ -85,6 +85,7 @@ class MergeDatabaseDialog(QDialog):
 
             upb_count = source_conn.execute('SELECT COUNT(*) FROM UPbAnalyses').fetchall()
             self.source_db_upb_label.setText(f'UPbAnalyses: {upb_count[0][0]}')
+        source_conn.close()
 
     def update_incoming_stats(self):
         """
@@ -104,6 +105,7 @@ class MergeDatabaseDialog(QDialog):
 
             upb_count = incoming_conn.execute('SELECT COUNT(*) FROM UPbAnalyses').fetchall()
             self.incoming_db_upb_label.setText(f'UPbAnalyses: {upb_count[0][0]}')
+        incoming_conn.close()
 
     def validate(self) -> bool:
         """
@@ -120,13 +122,13 @@ class MergeDatabaseDialog(QDialog):
             except sqlite3.Error as e:
                 logger_setup.get_logger().critical(f"Error opening source database: {e.sqlite_errorname}")
                 logger_setup.get_logger().debug(f"Error: {e}")
-
+                return False
             try:
                 incoming_conn = sqlite3.connect(self.incoming_db_file)
             except sqlite3.Error as e:
                 logger_setup.get_logger().critical(f"Error opening incoming database: {e.sqlite_errorname}")
                 logger_setup.get_logger().debug(f"Error: {e}")
-
+                return False
             with source_conn:
                 try:
                     source_conn.execute('BEGIN;')
@@ -158,7 +160,8 @@ class MergeDatabaseDialog(QDialog):
                         logger_setup.get_logger().critical('Incoming connection could not be established.')
                     logger_setup.get_logger().info(f'SQL error: {e}')
                     return False
-
+            source_conn.close()
+            incoming_conn.close()
             self.buttonBox.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
             return True
         return False

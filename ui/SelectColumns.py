@@ -4,7 +4,7 @@ import sys
 from PyQt6 import QtCore
 from PyQt6.QtGui import QStandardItem
 from PyQt6.QtWidgets import (
-    QWidget, QListView
+    QWidget, QListView, QMessageBox
 )
 from PyQt6.uic import loadUi
 
@@ -36,11 +36,17 @@ class SelectColumns(QWidget):
 
         self.show_per_page_comboBox.addItems(['10', '25', '50', '100', '250', '500', '1000'])
         self.show_per_page_comboBox.setCurrentText(str(settings.value('show_per_page')))
+        if settings.value('show_items_missing_data') == 'true':
+            self.show_missing_checkBox.setCheckState(QtCore.Qt.CheckState.Checked)
+        else:
+            self.show_missing_checkBox.setCheckState(QtCore.Qt.CheckState.Unchecked)
+        self.show_missing_checkBox.setToolTip(f'Show samples, aliquots, grain, and spots that are missing aliquots, grains, spots, or analyses.\nSlows down GeoCORK when enabled.')
         self.reset_table_pushButton.clicked.connect(self.reset_table_columns)
         self.columnselection_comboBox.addItems(self.view_dict.keys())
         self.load_list_states()
 
         self.columnselection_comboBox.currentIndexChanged.connect(self.switch_table_layout)
+        self.show_missing_checkBox.stateChanged.connect(self.update_show_missing)
 
     def populate_stack(self):
         logger_setup.get_logger().info('Populating column selection stack')
@@ -62,7 +68,7 @@ class SelectColumns(QWidget):
         logger_setup.get_logger().info(f'Populating checks for {view_name}')
         model = ColumnItemModel()
         view_name_col = get_name_column(view_name)
-        field_items = self.view_dict[view_name]
+        field_items = settings.value(f'default_{self.view_setting_dict[view_name]}')
         settings_columns = settings.value(self.view_setting_dict[view_name])
         if 'Edit' not in view_name:
             field_items = self.handle_autofill(field_items)
@@ -187,3 +193,17 @@ class SelectColumns(QWidget):
                     field_name = f'{field_name.replace('Filled', '')}'
                 field_names.append(field_name)
         return field_names
+
+    def update_show_missing(self):
+        if self.show_missing_checkBox.checkState() == QtCore.Qt.CheckState.Checked:
+            settings.setValue('show_items_missing_data', 'true')
+            msg = QMessageBox(QMessageBox.Icon.Warning, 'Performance Warning',
+                              'Data with incomplete sample, aliquot, grain, spot, and analysis records will be shown.\nThis can significantly slow down GeoCORK for large databases.',
+                              QMessageBox.StandardButton.Ok)
+            msg.exec()
+        else:
+            settings.setValue('show_items_missing_data', 'false')
+            msg = QMessageBox(QMessageBox.Icon.Warning, 'Data Hidden Warning',
+            'Only data with complete sample, aliquot, grain, spot, and analysis records will be shown in windows but can still be selected in dropdown menus.\nThis can speed up GeoCORK for large databases.',
+                              QMessageBox.StandardButton.Ok)
+            msg.exec()

@@ -12,7 +12,7 @@ from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.LoadingDialog_manager import LoadingDialogManager
 loading_manager = LoadingDialogManager.get_instance()
-from Functions.Widget_classes import set_table, get_columns
+from Functions.Widget_classes import set_table, get_columns, get_headers, bulk_update_parent_row
 # the below imports are required for GPS conversions, pycharm detects no usage do not remove
 # below comments are for pycharm to ignore issues
 # noinspection PyUnresolvedReferences
@@ -34,6 +34,12 @@ def settings_reset(database: QtS.QSqlDatabase = None) -> bool:
                        ['Columns', Create_db.CREATE_COLUMNS_TABLE],
                        ['References', Create_db.CREATE_REFERENCES_TABLE]]
     if drop_virtual_columns(tables_affected, database=database):
+        import Functions.SQLUtils as SQLUtils
+        for tree_table in SQLUtils.user_viewable_trees:
+            if tree_table == 'Aliquots':
+                continue
+            if not check_tree_structure(tree_table, database=database):
+                return False
         if populate_generated_columns(database):
             return True
         else:
@@ -369,7 +375,7 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
     if populate_progress.wasCanceled():
         rollback_savepoint('before_populate')
         return False
-    if not generate_age_display_column('SampleAges', database=database):
+    if not generate_age_display_columns('SampleAges', database=database):
         rollback_savepoint('before_populate')
         return False
     populate_count += 1
@@ -552,10 +558,10 @@ def generate_columns(affected_column_names: list[str], table: str, table_id_head
     return True
 
 
-def generate_age_display_column(table: str, database: QtS.QSqlDatabase = None) -> bool:
+def generate_age_display_columns(table: str, database: QtS.QSqlDatabase = None) -> bool:
     """
-    Generate a calculated column in the given table that displays the age in a user-friendly format.
-    :param table: Name of the table where the calculated age column will be added.
+    Generate calculated columns in the given table that displays the age in a user-friendly format.
+    :param table: Name of the table where the calculated age columns will be added.
     :param database: QSqlDatabase instance to use, if None the default database is used.
     :return: True for success, False for failure
     :rtype: bool
@@ -564,8 +570,16 @@ def generate_age_display_column(table: str, database: QtS.QSqlDatabase = None) -
         query = QtS.QSqlQuery()
     else:
         query = QtS.QSqlQuery(db=database)
-    column = 'SampleAgeDisplay'
+    column = 'SampleAgeConverted'
     sql_alter = f'ALTER TABLE "{table}" ADD COLUMN {column} TEXT AS (ifnull(CalculatedDirectAge, "") || "±" || ifnull(CalculatedDirectAgeError, "") || ", " || ifnull(CalculatedOldestDirectAge, "") || "-" || ifnull(CalculatedYoungestDirectAge, "") || ", " || ifnull(OldestAgeID, "") || "-" || ifnull(YoungestAgeID, ""))'
+    logger_setup.get_logger().info(f'Adding the calculated column {column}')
+    if not query.exec(sql_alter):
+        logger_setup.get_logger().critical(f'Error adding the calculated column {column}')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
+    column = 'SampleAgeDisplay'
+    sql_alter = f'ALTER TABLE "{table}" ADD COLUMN {column} TEXT AS (ifnull(DirectAge, "") || "±" || ifnull(DirectAgeError, "")  || " (" || ifnull(DirectAgeUnitID, "") || ")" || ", " || ifnull(OldestDirectAge, "") || "-" || ifnull(YoungestDirectAge, "") || ", " || ifnull(OldestAgeID, "") || "-" || ifnull(YoungestAgeID, ""))'
     logger_setup.get_logger().info(f'Adding the calculated column {column}')
     if not query.exec(sql_alter):
         logger_setup.get_logger().critical(f'Error adding the calculated column {column}')
@@ -714,17 +728,25 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
                  'GPSLonDirectionID', 'GPSUTMZone', 'GPSUTMN', 'GPSUTME', 'deg_symbol', 'min_symbol', 'sec_symbol']
     modules = ['GPS', 'pyproj']
     global_vars = {name: globals()[name] for name in modules}
-
     if selected_id == 7:  # UTM selected
         sql_zone_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedZone VIRTUAL'
         sql_e_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedEasting VIRTUAL'
         sql_n_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedNorthing VIRTUAL'
+        sql_e_display_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedEastingDisplay VIRTUAL'
+        sql_n_display_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedNorthingDisplay VIRTUAL'
         sql_gps_alters = [sql_zone_alter, sql_e_alter, sql_n_alter]
+        sql_gps_display_alters = [sql_e_display_alter, sql_n_display_alter]
+        sql_gps_all_alters = sql_gps_alters + sql_gps_display_alters
     else:  # lat, lon of some form selected
+        dd_conversions = retrieve_conversions('GPSFormatConversions', 'GPSFormat', 1, database=database)
         sql_lat_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedLat VIRTUAL'
         sql_lon_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedLon VIRTUAL'
+        sql_lat_display_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedLatDisplay VIRTUAL'
+        sql_lon_display_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedLonDisplay VIRTUAL'
         sql_gps_alters = [sql_lat_alter, sql_lon_alter]
-    for sql_gps_alter in sql_gps_alters:
+        sql_gps_display_alters = [sql_lat_display_alter, sql_lon_display_alter]
+        sql_gps_all_alters = sql_gps_alters + sql_gps_display_alters
+    for sql_gps_alter in sql_gps_all_alters:
         logger_setup.get_logger().info(
             f'Adding the calculated column {sql_gps_alter.split("COLUMN ")[1].split(" VIRTUAL")[0]}')
         if not query.exec(sql_gps_alter):
@@ -757,14 +779,36 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
         deg_symbol = u'\N{DEGREE SIGN}'
         min_symbol = "'"
         sec_symbol = '"'
-        # deg_symbol = '\u00b0'
-        # deg_symbol = '°'
         local_vars = {name: locals()[name] for name in variables}
         if database is None:
             update_query = QtS.QSqlQuery()
         else:
             update_query = QtS.QSqlQuery(db=database)
-
+        if selected_id != 7:
+            for dd_conversion in dd_conversions:
+                if dd_conversion[0] == gps_format_id:
+                    gps_code = dd_conversion[1]
+                    if '°' in gps_code:
+                        gps_code = gps_code.replace('°', '')
+                    exec(gps_code, global_vars, local_vars)
+                    gps_display = local_vars.get('converted')
+                    gps_elements = gps_display.split(', ')
+                    if gps_elements[0]:
+                        for sql_gps_alter in sql_gps_alters:
+                            if 'Display' in sql_gps_alter:
+                                continue
+                            gps_column = sql_gps_alter.split('COLUMN ')[1].split(" VIRTUAL")[0]
+                            update_query.prepare(f'UPDATE {table} SET {gps_column}=:value WHERE "GPSLocationID"={gps_id}')
+                            update_query.bindValue(':value', float(gps_elements[sql_gps_alters.index(sql_gps_alter)]))
+                            if not update_query.exec():
+                                logger_setup.get_logger().critical(
+                                    f'Error adding the calculated column {gps_column}')
+                                logger_setup.get_logger().debug(f'Error: {update_query.lastError().text()}')
+                                logger_setup.get_logger().debug(f'SQL query: {update_query.lastQuery()}')
+                                logger_setup.get_logger().debug(f'Bound values: {update_query.boundValues()}')
+                                rollback_savepoint('before_populate')
+                                return False
+                    break
         for conversion in conversions:
             if conversion[0] == gps_format_id:
                 gps_code = conversion[1]
@@ -783,10 +827,38 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
                     rollback_savepoint('before_populate')
                     return False
                 gps_elements = gps_display.split(', ')
-                for sql_gps_alter in sql_gps_alters:
+                if selected_id == 7 and len(gps_elements) != len(sql_gps_display_alters):
+                    # Begins with zone which does not have a separate Display column
+                    if gps_elements[0]:
+                        for sql_gps_alter in sql_gps_alters:
+                            if 'Display' in sql_gps_alter:
+                                continue
+                            gps_column = sql_gps_alter.split('COLUMN ')[1].split(" VIRTUAL")[0]
+                            update_query.prepare(f'UPDATE {table} SET {gps_column}=:value WHERE "GPSLocationID"={gps_id}')
+                            calculated_value = gps_elements[sql_gps_alters.index(sql_gps_alter)]
+                            if 'Zone' not in gps_column:
+                                for char in gps_elements[sql_gps_alters.index(sql_gps_alter)]:
+                                    if not char.isdigit() and char != '.':
+                                        calculated_value = calculated_value.replace(char, '')
+                                calculated_value = float(calculated_value)
+                            update_query.bindValue(':value', calculated_value)
+                            if not update_query.exec():
+                                logger_setup.get_logger().critical(
+                                    f'Error adding the calculated column {gps_column}')
+                                logger_setup.get_logger().debug(f'Error: {update_query.lastError().text()}')
+                                logger_setup.get_logger().debug(f'SQL query: {update_query.lastQuery()}')
+                                logger_setup.get_logger().debug(f'Bound values: {update_query.boundValues()}')
+                                rollback_savepoint('before_populate')
+                                return False
+                    gps_display_elements = gps_elements[1:3]
+                else:
+                    gps_display_elements = gps_elements
+                for sql_gps_alter in sql_gps_display_alters:
+                    if 'Display' not in sql_gps_alter:
+                        pass
                     gps_column = sql_gps_alter.split('COLUMN ')[1].split(" VIRTUAL")[0]
                     update_query.prepare(f'UPDATE {table} SET {gps_column}=:value WHERE "GPSLocationID"={gps_id}')
-                    update_query.bindValue(':value', gps_elements[sql_gps_alters.index(sql_gps_alter)])
+                    update_query.bindValue(':value', gps_display_elements[sql_gps_display_alters.index(sql_gps_alter)])
                     if not update_query.exec():
                         logger_setup.get_logger().critical(
                             f'Error adding the calculated column {gps_column}')
@@ -1050,9 +1122,9 @@ def convert_gps_location(gps_id: int, database: QtS.QSqlDatabase = None) -> bool
     release_savepoint('before_populate_gps')
     return True
 
-def return_sample_age_display(sample_age_id: int, database: QtS.QSqlDatabase = None) -> str:
+def return_sample_age_converted(sample_age_id: int, database: QtS.QSqlDatabase = None) -> str:
     """
-    During a transaction, this function will return the display string for a sample age.
+    Convert a sample age to its display format based on the AgeUnitConversions and ErrorFormatConversions tables.
     :param sample_age_id: The sample age ID to convert.
     :param database: QSqlDatabase instance to use, if None the default database is used.
     :return: age_display: The string representation of the sample age.
@@ -1133,7 +1205,34 @@ def return_sample_age_display(sample_age_id: int, database: QtS.QSqlDatabase = N
                 calc_age_values.append('')
         else:
             pass
-    age_display = f'{calc_age_values[0]}±{calc_age_values[1]}, {calc_age_values[2]}-{calc_age_values[3]}, {OldestAgeID}-{YoungestAgeID}'
+    age_converted = f'{calc_age_values[0]}±{calc_age_values[1]}, {calc_age_values[2]}-{calc_age_values[3]}, {OldestAgeID}-{YoungestAgeID}'
+    return age_converted
+
+def return_sample_age_display(sample_age_id: int, database: QtS.QSqlDatabase = None) -> str:
+    """
+    Return a sample age display string from the database.
+    """
+    if database is None:
+        sample_age_model = QtS.QSqlTableModel()
+    else:
+        sample_age_model = QtS.QSqlTableModel(db=database)
+    set_table(sample_age_model, 'SampleAges')
+    sample_age_model.setFilter(f'SampleAgeID={sample_age_id}')
+    if sample_age_model.lastError().text() != '':
+        logger_setup.get_logger().critical(f'Error getting SampleAges')
+        logger_setup.get_logger().debug(f'Error: {sample_age_model.lastError().text()}')
+        logger_setup.get_logger().debug(f'Filter: {sample_age_model.filter()}')
+        return ''
+    if sample_age_model.rowCount() == 0:
+        logger_setup.get_logger().debug(f'No SampleAges with ID {sample_age_id} found. It may have been deleted.')
+        return ''
+    DirectAge = sample_age_model.record(0).value('DirectAge')
+    DirectAgeError = sample_age_model.record(0).value('DirectAgeError')
+    OldestDirectAge = sample_age_model.record(0).value('OldestDirectAge')
+    YoungestDirectAge = sample_age_model.record(0).value('YoungestDirectAge')
+    OldestAgeID = sample_age_model.record(0).value('OldestAgeID')
+    YoungestAgeID = sample_age_model.record(0).value('YoungestAgeID')
+    age_display = f'{DirectAge}±{DirectAgeError}, {OldestDirectAge}-{YoungestDirectAge}, {OldestAgeID}-{YoungestAgeID}'
     return age_display
 
 def convert_sample_age(sample_age_id: int, database: QtS.QSqlDatabase = None) -> bool:
@@ -1230,4 +1329,114 @@ def convert_sample_age(sample_age_id: int, database: QtS.QSqlDatabase = None) ->
         return False
     logger_setup.get_logger().info(f'Successfully updated SampleAge display')
     release_savepoint('before_populate_age')
+    return True
+
+def check_tree_structure(table: str, database: QtS.QSqlDatabase = None) -> bool:
+    """
+    Check the structure of the tree and update if necessary.
+    Look for gaps in parent row values
+    :param table: The name of the table to check the structure of.
+    :param database: QSqlDatabase instance to use, if None the default database is used.
+    :return: True for success, False for failure
+    """
+    if database is None:
+        query = QtS.QSqlQuery()
+    else:
+        query = QtS.QSqlQuery(db=database)
+    table_headers = get_headers(table)
+    if not any('Parent' in header for header in table_headers):
+        # This is not a tree table, so no structure to check
+        return True
+    problem_parent_row_dict = {}
+    id_header = table_headers[0]
+    parent_id_header = table_headers[1]
+    parent_row_header = table_headers[2]
+    problem_parents = {}
+    if not query.exec(f'SELECT "{parent_id_header}" FROM "{table}" WHERE "{parent_row_header}" IS NULL'):
+        logger_setup.get_logger().critical(f'Error selecting from {table}')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
+    while query.next():
+        if not query.value(parent_id_header):
+            parent = 'NULL'
+        else:
+            parent = query.value(parent_id_header)
+        problem_parents.add(parent)
+    query.prepare(f"""
+         WITH stats AS ( 
+            SELECT {parent_id_header}, 
+            MIN({parent_row_header}) AS minr, 
+            MAX({parent_row_header}) AS maxr, 
+            COUNT(*) AS cnt 
+            FROM {table} 
+            GROUP BY {parent_id_header} 
+        )
+        SELECT {parent_id_header}, maxr
+        FROM stats WHERE minr <> 0 OR maxr <> cnt - 1 
+        """)
+    if not query.exec():
+        logger_setup.get_logger().critical(f'Error selecting from {table}')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
+    while query.next():
+        if not query.value(parent_id_header):
+            parent = 'NULL'
+        else:
+            parent = query.value(parent_id_header)
+        problem_parents[parent] = query.value('maxr')
+    if problem_parents != {}:
+        logger_setup.get_logger().info(f'Found {len(problem_parents)} tree structure problems in {table}')
+        if 'NULL' in problem_parents and len(problem_parents) == 1:
+            problem_parent_text = 'IS NULL'
+        elif 'NULL' in problem_parents:
+            problem_parent_text = f'IS NULL OR "{parent_id_header}" IN ({", ".join(str(parent) for parent in problem_parents if parent != "NULL")})'
+        else:
+            problem_parent_text = f'IN ({", ".join(str(parent) for parent in problem_parents)})'
+        if not query.exec(f'SELECT "{id_header}", "{parent_id_header}", "{parent_row_header}" FROM "{table}" WHERE "{parent_id_header}" {problem_parent_text}'):
+            logger_setup.get_logger().critical(f'Error selecting from {table}')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            return False
+        while query.next():
+            item_id = query.record().value(id_header)
+            if not query.record().value(parent_id_header):
+                parent_id = 'NULL'
+            else:
+                parent_id = query.record().value(parent_id_header)
+            parent_row = query.record().value(parent_row_header)
+            if parent_row in ['', None, 'NULL']:
+                parent_row = None
+            if parent_id not in problem_parent_row_dict:
+                problem_parent_row_dict[parent_id] = []
+            children = problem_parent_row_dict[parent_id]
+            children.append((item_id, parent_row))
+            problem_parent_row_dict[parent_id] = children
+        create_savepoint('before_update_tree_rows')
+        for parent_id, children in problem_parent_row_dict.items():
+            # sort children by the parent row value, with nulls first
+            children.sort(key=lambda x: x[1])
+            # find the largest existing parent row
+            max_parent_row = problem_parents[parent_id]
+            if max_parent_row < len(children):
+                max_parent_row = len(children)
+            if not bulk_update_parent_row(table, parent_id, 1, max_parent_row):
+                logger_setup.get_logger().error(f'Error updating {table} structure')
+                rollback_savepoint('before_update_tree_rows')
+                return False
+            for i, child in enumerate(children):
+                item_id = child[0]
+                query.prepare(f'UPDATE "{table}" SET "{parent_row_header}"=? WHERE "{id_header}"=?')
+                query.bindValue(0, i)
+                query.bindValue(1, item_id)
+                if not query.exec():
+                    logger_setup.get_logger().critical(f'Error updating {table} structure')
+                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                    rollback_savepoint('before_update_tree_rows')
+                    return False
+        release_savepoint('before_update_tree_rows')
+    logger_setup.get_logger().info(f'Successfully checked {table} structure')
     return True
