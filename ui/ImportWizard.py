@@ -2875,7 +2875,7 @@ class ImportWizardDialog(QWidget):
             self.sheet_mappings[self.current_sheet_name][logical_index] = (new_field)
             self.right_table.model().setHeaderData(logical_index, Qt.Orientation.Horizontal, f"{new_field}",
                                                    Qt.ItemDataRole.EditRole)
-            self.right_table.model().setHeaderData(logical_index, Qt.Orientation.Horizontal, self.green_brush,
+            self.right_table.model().setHeaderData(logical_index, Qt.Orientation.Horizontal, self.mapped_brush,
                                                    Qt.ItemDataRole.BackgroundRole)
 
             # If old field is Sample Name / Aliquot Name / Grain Name / Spot Name / Analysis Name, auto-clear left table
@@ -3828,9 +3828,9 @@ class ImportWizardDialog(QWidget):
                     self.left_table.setItem(row, spot_col, QTableWidgetItem(f"{aliquot_name}-{spot_counter}"))
                     self.left_table.setItem(row, analysis_col, QTableWidgetItem(f"{aliquot_name}-{spot_counter}"))
                     if grain_item:
-                        self.update_left_table_background(self.left_table.item(row, grain_col), self.purple_brush)
-                    self.update_left_table_background(self.left_table.item(row, spot_col), self.purple_brush)
-                    self.update_left_table_background(self.left_table.item(row, analysis_col), self.purple_brush)
+                        self.update_left_table_background(self.left_table.item(row, grain_col), self.autofilled_brush)
+                    self.update_left_table_background(self.left_table.item(row, spot_col), self.autofilled_brush)
+                    self.update_left_table_background(self.left_table.item(row, analysis_col), self.autofilled_brush)
             spot_name_item = self.left_table.item(row, spot_col)
             if spot_name_item and spot_name_item.text().strip() not in ["", 'NULL', None]:
                 spot_name = spot_name_item.text().strip()
@@ -4478,7 +4478,7 @@ class ImportWizardDialog(QWidget):
                             existing_spot_name = query.value(0)
                             if existing_spot_name.lower() != spot_name.lower():
                                 existing_grains.add(grain_name)
-                                self.left_table.item(row_idx, grain_col).setBackground(self.red_brush)  # Light red
+                                self.left_table.item(row_idx, grain_col).setBackground(self.conflict_brush)  # Light red
             if sheet_name == self.upb_sheet_name:
                 analysis_id = get_id_from_name('UPbAnalyses', analysis_name)
             else:
@@ -5348,7 +5348,7 @@ class ImportWizardDialog(QWidget):
                                 logger_setup.get_logger().error(
                                     f'Aliquot {record["Aliquot Name"]} exists but is already associated with a different Sample.\nAliquot names must be unique.')
                                 # Highlight the cell in the left table
-                                self.left_table.item(row_idx, aliquot_col).setBackground(self.red_brush)  # Light red
+                                self.left_table.item(row_idx, aliquot_col).setBackground(self.conflict_brush)  # Light red
                                 self.workbook_tabs.setCurrentIndex(
                                     self.workbook_tabs.indexOf(self.right_tables[analysis_sheet]))
                                 # scroll the left table to the row
@@ -5455,7 +5455,7 @@ class ImportWizardDialog(QWidget):
                                 logger_setup.get_logger().error(
                                     f'Spot {record["Spot Name"]} exists but is already associated with a different Aliquot.\nSpot names must be unique.')
                                 # Highlight the cell in the left table
-                                self.left_table.item(row_idx, spot_col).setBackground(self.red_brush)  # Light red
+                                self.left_table.item(row_idx, spot_col).setBackground(self.conflict_brush)  # Light red
                                 self.workbook_tabs.setCurrentIndex(
                                     self.workbook_tabs.indexOf(self.right_tables[analysis_sheet]))
                                 # scroll the left table to the row
@@ -5558,7 +5558,7 @@ class ImportWizardDialog(QWidget):
                                         f'Grain {record["Grain Name"]} exists but is already associated with Spots from a different aliquot.\nGrain names must be unique.')
                                     # Highlight the cell in the left table
                                     self.left_table.item(row_idx, grain_col).setBackground(
-                                        self.red_brush)  # Light red
+                                        self.conflict_brush)  # Light red
                                     self.workbook_tabs.setCurrentIndex(
                                         self.workbook_tabs.indexOf(self.right_tables[analysis_sheet]))
                                     # scroll the left table to the row
@@ -5670,7 +5670,7 @@ class ImportWizardDialog(QWidget):
                                 logger_setup.get_logger().error(
                                     f'{analysis_table} {record[analysis_header]} exists but is already associated with a different Spot.\nAnalysis names must be unique.')
                                 # Highlight the cell in the left table
-                                self.left_table.item(row_idx, analysis_col).setBackground(self.red_brush)  # Light red
+                                self.left_table.item(row_idx, analysis_col).setBackground(self.conflict_brush)  # Light red
                                 self.workbook_tabs.setCurrentIndex(
                                     self.workbook_tabs.indexOf(self.right_tables[analysis_sheet]))
                                 # scroll the left table to the row
