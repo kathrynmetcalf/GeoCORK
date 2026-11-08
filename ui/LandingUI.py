@@ -6,9 +6,10 @@ from pathlib import Path
 
 import qtawesome
 from PyQt6 import QtCore, QtWidgets
-from PyQt6.QtCore import QEventLoop, Qt, QPoint, QSize, QTimer, QUrl
-from PyQt6.QtGui import QPixmap, QAction, QDesktopServices
+from PyQt6.QtCore import QEvent, QEventLoop, Qt, QPoint, QSize, QTimer, QUrl
+from PyQt6.QtGui import QPixmap, QAction, QDesktopServices, QGuiApplication, QPainter, QPalette
 from PyQt6.QtSql import QSqlDatabase
+from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QFileDialog, QPushButton, QMessageBox, QWidget, \
     QListWidget, QListWidgetItem, QApplication, QLabel
 from PyQt6.uic import loadUi
@@ -25,12 +26,22 @@ from ui.MergeDatabaseUI import MergeDatabaseDialog
 from ui.Settings import update_stylesheet
 
 
+LOGO_BOX = QSize(500, 100)
+"""Maximum size of the landing page logo; the logo is scaled to fit while keeping its aspect ratio."""
+
+THEME_EVENTS = (QEvent.Type.PaletteChange, QEvent.Type.ApplicationPaletteChange, QEvent.Type.StyleChange)
+"""Widget events that may mean the light/dark appearance changed (stylesheet swap, palette swap, OS theme)."""
+
+
 class LandingPage(QWidget):
     def __init__(self, start_filepath=None):
         super().__init__()
         logger_setup.get_logger().info("Starting Landing Page...")
 
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        self.base_path = base_path
+        self._applied_theme = None  # (is_dark, device_pixel_ratio, text_color) last applied
+        self._logo_cache = {}  # (is_dark, device_pixel_ratio) -> QPixmap
         sources_ui_file =os.path.join(base_path,  "LandingPage.ui")
         loadUi(sources_ui_file, self)
         self.setWindowTitle('GeoCORK')
@@ -60,7 +71,6 @@ class LandingPage(QWidget):
         self.defaultsetting_button.clicked.connect(self.restore_settings)
 
         self.github_button: QPushButton
-        self.github_button.setIcon(qtawesome.icon('fa6b.github', color='black', scale_factor=1.0))
         self.github_button.setIconSize(QSize(35,35))
         self.github_button.clicked.connect(self.open_github)
         self.selected_files = None
@@ -85,10 +95,11 @@ class LandingPage(QWidget):
         for path in self.list_recents:
             self.listWidget.addItem(shrink_home(path))
 
-        pixmap = QPixmap(os.path.join(base_path, 'GeoCORK_Logo.png'))
-        scaled_pixmap = pixmap.scaled(500, 100, Qt.AspectRatioMode.KeepAspectRatio,
-                                      Qt.TransformationMode.SmoothTransformation)
-        self.label.setPixmap(scaled_pixmap)
+        # Logo and GitHub icon follow the light/dark appearance of the current stylesheet
+        self.apply_theme()
+        style_hints = QGuiApplication.styleHints()
+        if hasattr(style_hints, 'colorSchemeChanged'):  # Qt 6.5+: OS light/dark switch
+            style_hints.colorSchemeChanged.connect(lambda _scheme: self.queue_theme_update())
 
         self.show()
 
@@ -112,6 +123,90 @@ class LandingPage(QWidget):
         self.saveWindowState()
         logger_setup.get_logger().info("Closing Landing Page...")
         super().closeEvent(a0)
+
+    # ------------------------------------------------------------------ theme
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        if event.type() in THEME_EVENTS:
+            self.queue_theme_update()
+
+    def showEvent(self, event):
+        # The theme may have changed in Settings while GeoCORKMain was open and this page was hidden
+        super().showEvent(event)
+        self.queue_theme_update()
+
+    def queue_theme_update(self):
+        """
+        Defer the theme update to the next event-loop pass so Qt has finished re-polishing the widget
+        with the new stylesheet before the colours are read. Repeated calls are harmless.
+        """
+        QTimer.singleShot(0, self.apply_theme)
+
+    def is_dark_mode(self) -> bool:
+        """
+        Determine whether the landing page is currently displayed in dark mode, using the colours actually
+        applied by the stylesheet/palette rather than a stored setting, so any theme mechanism is supported.
+        :return: True if the window background is dark
+        """
+        self.ensurePolished()
+        background = self.palette().color(self.backgroundRole())
+        text = self.palette().color(QPalette.ColorRole.WindowText)
+        # Dark mode = light text on a dark background
+        return background.lightness() < text.lightness()
+
+    def apply_theme(self):
+        """
+        Update theme-dependent elements (logo and GitHub icon) to match the current light/dark appearance.
+        """
+        is_dark = self.is_dark_mode()
+        dpr = self.devicePixelRatioF()
+        text_color = self.palette().color(QPalette.ColorRole.WindowText).name()
+        theme_key = (is_dark, dpr, text_color)
+        if theme_key == self._applied_theme:
+            return
+        self._applied_theme = theme_key
+        logger_setup.get_logger().debug(f"Landing page theme: {'dark' if is_dark else 'light'}")
+
+        pixmap = self.get_logo_pixmap(is_dark, dpr)
+        if pixmap is not None and not pixmap.isNull():
+            self.label.setPixmap(pixmap)
+
+        # Match the GitHub icon to the stylesheet's text colour
+        self.github_button.setIcon(qtawesome.icon('fa6b.github', color=text_color, scale_factor=1.0))
+
+    def get_logo_pixmap(self, is_dark: bool, dpr: float):
+        """
+        Render the light or dark GeoCORK SVG logo, scaled to LOGO_BOX, at the screen's pixel density.
+        Falls back to GeoCORK_Logo.png if the SVG is missing or invalid.
+        :param bool is_dark: whether to use the dark mode logo
+        :param float dpr: device pixel ratio of the screen showing the landing page
+        :return: QPixmap of the logo, or None if no logo could be loaded
+        """
+        cache_key = (is_dark, dpr)
+        if cache_key in self._logo_cache:
+            return self._logo_cache[cache_key]
+
+        svg_name = 'GeoCORKLogo_Darkmode.svg' if is_dark else 'GeoCORKLogo_Lightmode.svg'
+        renderer = QSvgRenderer(os.path.join(self.base_path, svg_name))
+        if renderer.isValid():
+            size = renderer.defaultSize().scaled(LOGO_BOX, Qt.AspectRatioMode.KeepAspectRatio)
+            pixmap = QPixmap(QSize(round(size.width() * dpr), round(size.height() * dpr)))
+            pixmap.fill(Qt.GlobalColor.transparent)
+            painter = QPainter(pixmap)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            renderer.render(painter)
+            painter.end()
+            pixmap.setDevicePixelRatio(dpr)
+        else:
+            logger_setup.get_logger().debug(f"Could not load {svg_name}, falling back to GeoCORK_Logo.png")
+            pixmap = QPixmap(os.path.join(self.base_path, 'GeoCORK_Logo.png'))
+            if pixmap.isNull():
+                return None
+            pixmap = pixmap.scaled(LOGO_BOX, Qt.AspectRatioMode.KeepAspectRatio,
+                                   Qt.TransformationMode.SmoothTransformation)
+
+        self._logo_cache[cache_key] = pixmap
+        return pixmap
 
     def open_about_db(self):
         # This is a new database, so prompt the user to fill in the About Database form
