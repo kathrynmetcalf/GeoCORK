@@ -57,6 +57,22 @@ QUICK_SELECT_OXIDES = [('SiO2',), ('TiO2',), ('Al2O3',), ('Fe2O3T', 'FeOT', 'Fe2
                        ('CaO',), ('Na2O',), ('K2O',), ('P2O5',), ('LOI',), ('TOTAL',)]
 QUICK_SELECT_REE = [('La',), ('Ce',), ('Pr',), ('Nd',), ('Sm',), ('Eu',), ('Gd',), ('Tb',), ('Dy',), ('Ho',), ('Er',),
                     ('Tm',), ('Yb',), ('Lu',)]
+# Quick Select sequence for the U-Pb sheet. Entries are importer field names (keys of
+# SQLUtils.upb_possible_user_input_fields / aliquot_grain_spot_possible_user_input_fields). Alternatives cover inverse
+# ratios (Tera-Wasserburg) and the different correlation/discordance fields; an error step pre-selects the same
+# alternative as the value step before it.
+QUICK_SELECT_UPB = [('Uppm',), ('Thppm',), ('U/Th',), ('Th/U',),
+                    ('207Pb/206Pb', '206Pb/207Pb'), ('207Pb/206Pb Error', '206Pb/207Pb Error'),
+                    ('207Pb/235U', '235U/207Pb'), ('207Pb/235U Error', '235U/207Pb Error'),
+                    ('206Pb/238U', '238U/206Pb'), ('206Pb/238U Error', '238U/206Pb Error'),
+                    ('ErrorCorr/Rho_68v75', 'ErrorCorr/Rho_68v76'),
+                    ('207Pb/235UAge',), ('207Pb/235UAge Error',),
+                    ('206Pb/238UAge',), ('206Pb/238UAge Error',),
+                    ('207Pb/206PbAge',), ('207Pb/206PbAge Error',),
+                    ('Best Age',), ('Best Age Error',),
+                    ('Concordance_206Pb/238Uv207Pb/206Pb', 'Concordance_206Pb/238Uv207Pb/235U',
+                     'Minimum Segmented Discordance'),
+                    ('Spot Context', 'UPb Analysis Context', 'Spot Composition')]
 
 
 def read_field_headings(wb, label: str, max_rows: int) -> dict[str, list[str]]:
@@ -449,6 +465,17 @@ class ImportWizardDialog(QWidget):
 
         main_layout = QVBoxLayout(self)
 
+        # Colors and brushes, pulls from dynamic settings
+        importer_brushes = get_importer_brushes()
+        self.disabled_text_brush = importer_brushes['disabled_text']
+        self.mapped_brush = importer_brushes['mapped']
+        self.loaded_mapping_brush = importer_brushes['loaded_mapping']
+        self.text_brush = importer_brushes['text']
+        self.transparent_brush = QBrush(Qt.GlobalColor.transparent)
+        self.autofilled_brush = importer_brushes['autofilled']
+        self.conflict_brush = importer_brushes['conflict']
+        self.existing_brush = importer_brushes['existing']
+
         # Top bar: file selection, sheet, etc.
         top_layout = QHBoxLayout()
         self.btn_select = QPushButton("Select Excel File")
@@ -530,6 +557,14 @@ class ImportWizardDialog(QWidget):
         self.btn_quick_select_ree.clicked.connect(lambda: self.start_quick_select('REE', QUICK_SELECT_REE))
         header_layout.addWidget(self.btn_quick_select_ree, 0, Qt.AlignmentFlag.AlignRight)
 
+        self.btn_quick_select_upb = QPushButton("Quick Select U-Pb")
+        self.btn_quick_select_upb.setFixedWidth(150)
+        self.btn_quick_select_upb.setToolTip(
+            'Map U-Pb concentrations, ratios, errors, ages, discordance and rim/core in order. '
+            'Click a cell or header in each field\'s column when prompted.')
+        self.btn_quick_select_upb.clicked.connect(lambda: self.start_quick_select('U-Pb', QUICK_SELECT_UPB, 'upb'))
+        header_layout.addWidget(self.btn_quick_select_upb, 0, Qt.AlignmentFlag.AlignRight)
+
         # Quick Select prompt bar, hidden until a Quick Select sequence is started
         self.quick_select_active = False
         self.quick_select_name = ''
@@ -543,9 +578,10 @@ class ImportWizardDialog(QWidget):
         self.quick_select_frame.setFrameShape(QFrame.Shape.StyledPanel)
         self.quick_select_frame.setAutoFillBackground(True)
         qs_palette = self.quick_select_frame.palette()
-        qs_palette.setColor(QPalette.ColorRole.Window, QColor("#FFFAB8"))  # Light yellow
-        qs_palette.setColor(QPalette.ColorRole.WindowText, QColor("#000000"))
+        qs_palette.setBrush(QPalette.ColorRole.Window, self.existing_brush)
+        qs_palette.setBrush(QPalette.ColorRole.WindowText, self.text_brush)
         self.quick_select_frame.setPalette(qs_palette)
+
         quick_select_layout = QHBoxLayout(self.quick_select_frame)
         quick_select_layout.setContentsMargins(8, 4, 8, 4)
 
@@ -586,8 +622,11 @@ class ImportWizardDialog(QWidget):
         self.quick_select_cursor_label.setWindowFlags(Qt.WindowType.ToolTip | Qt.WindowType.FramelessWindowHint)
         self.quick_select_cursor_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.quick_select_cursor_label.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+        qs_color = self.existing_brush.color()
+        qs_text_color = self.text_brush.color()
         self.quick_select_cursor_label.setStyleSheet(
-            'QLabel { background-color: #FFFAB8; color: #000000; border: 1px solid #A0A0A0; padding: 2px 5px; }')
+            f'QLabel {{ background-color: rgba({qs_color.red()}, {qs_color.green()}, {qs_color.blue()}, {qs_color.alpha()}); '
+            f'color: {qs_text_color.name()}; border: 1px solid #A0A0A0; padding: 2px 5px; }}')
         self.quick_select_cursor_label.hide()
         # (widget, previous mouse tracking state) pairs the cursor label event filter is installed on
         self.quick_select_filtered_widgets = []
@@ -1046,16 +1085,7 @@ class ImportWizardDialog(QWidget):
         self.rejected_icon = qtawesome.icon('fa5s.minus-circle', color='red', scale_factor=1.0)
         self.accepted_icon = qtawesome.icon('fa5s.check', color='green', scale_factor=1.0)
 
-        # Colors and brushes, pulls from dynamic settings
-        importer_brushes = get_importer_brushes()
-        self.disabled_text_brush = importer_brushes['disabled_text']
-        self.mapped_brush = importer_brushes['mapped']
-        self.loaded_mapping_brush = importer_brushes['loaded_mapping']
-        self.text_brush = importer_brushes['text']
-        self.transparent_brush = QBrush(Qt.GlobalColor.transparent)
-        self.autofilled_brush = importer_brushes['autofilled']
-        self.conflict_brush = importer_brushes['conflict']
-        self.existing_brush = importer_brushes['existing']
+
 
         # Sample IDs added or updated during import
         self.sample_ids = []
@@ -1162,6 +1192,7 @@ class ImportWizardDialog(QWidget):
         self.btn_add_column.setEnabled(False)
         self.btn_quick_select_oxides.setEnabled(False)
         self.btn_quick_select_ree.setEnabled(False)
+        self.btn_quick_select_upb.setEnabled(False)
         self.combo_upb_reference_comboBox.setEnabled(False)
         self.combo_upb_instrument_comboBox.setEnabled(False)
         self.combo_upb_lab_facility_comboBox.setEnabled(False)
@@ -1286,6 +1317,7 @@ class ImportWizardDialog(QWidget):
         importer_help += """\nDouble click row headers (numbers) to toggle rows as accepted or rejected."""
         importer_help += """\nDouble click column headers (numbers) in the right table to map them to database fields. Use the dropdown or type."""
         importer_help += """\nOn the geochemistry sheet, Quick Select Oxides/REE prompts for each analyte in order; click a cell or header in its column to map it and move to the next. Skip analytes that are absent, use Back to undo, Fill Rest to map the remaining analytes to the following columns, and Esc to stop."""
+        importer_help += """\nOn the U-Pb sheet, Quick Select U-Pb does the same for concentrations, ratios, errors, ages, discordance and rim/core."""
         importer_help += """\nRight click on row and column headers or cells for more features."""
         importer_help += """\nSelections from all dropdowns in the upper right apply to all rows."""
         importer_help += """\nSave and load column mappings with the buttons at the bottom."""
@@ -2865,31 +2897,44 @@ class ImportWizardDialog(QWidget):
 
     def update_quick_select_buttons(self):
         """
-        Quick Select maps geochemical analytes, so only enable it while the geochemistry sheet is shown.
+        Oxide/REE Quick Select is only enabled on the geochemistry sheet and U-Pb Quick Select on the U-Pb sheet.
         """
-        enabled = bool(self.geochem_sheet_name) and self.current_sheet_name == self.geochem_sheet_name \
-                  and self.current_sheet_name in self.right_tables
-        self.btn_quick_select_oxides.setEnabled(enabled)
-        self.btn_quick_select_ree.setEnabled(enabled)
+        loaded = self.current_sheet_name in self.right_tables
+        geochem_enabled = loaded and bool(self.geochem_sheet_name) and self.current_sheet_name == self.geochem_sheet_name
+        upb_enabled = loaded and bool(self.upb_sheet_name) and self.current_sheet_name == self.upb_sheet_name
+        self.btn_quick_select_oxides.setEnabled(geochem_enabled)
+        self.btn_quick_select_ree.setEnabled(geochem_enabled)
+        self.btn_quick_select_upb.setEnabled(upb_enabled)
 
-    def start_quick_select(self, name: str, sequence: list[tuple]):
+    def start_quick_select(self, name: str, sequence: list[tuple], target: str = 'geochem'):
         """
-        Starts a Quick Select sequence. The user is prompted for each analyte in turn and clicking any cell or header
-        in a column maps that column to the analyte, then moves on to the next one.
+        Starts a Quick Select sequence. The user is prompted for each field in turn and clicking any cell or header
+        in a column maps that column to the field, then moves on to the next one.
 
         :param name: Display name of the sequence, e.g. 'REE'.
-        :param sequence: List of steps; each step is a tuple of analyte abbreviations, the first being the default.
+        :param sequence: List of steps; each step is a tuple of field names, the first being the default.
+        :param target: 'geochem' to map geochemical analytes on the geochemistry sheet, or 'upb' to map U-Pb fields
+            on the U-Pb sheet.
         """
-        if not self.geochem_sheet_name or self.geochem_sheet_name not in self.right_tables:
-            QMessageBox.warning(self, "Quick Select", "Select a geochemical data sheet first.")
+        if target == 'upb':
+            sheet_name = self.upb_sheet_name
+            sheet_label = 'U-Pb'
+            # Fields the importer accepts for U-Pb analyses, plus Spot Info for rim/core style columns
+            available = {field for category in SQLUtils.upb_possible_user_input_fields.values() for field in category}
+            available.update(SQLUtils.aliquot_grain_spot_possible_user_input_fields['Spot Info'].keys())
+        else:
+            sheet_name = self.geochem_sheet_name
+            sheet_label = 'geochemical'
+            # Only offer analytes that exist in GeoChemicalAnalytes, otherwise the import would fail later
+            available = self.geochem_fields.get('Geochemical Analytes')
+        if not sheet_name or sheet_name not in self.right_tables:
+            QMessageBox.warning(self, "Quick Select", f"Select a {sheet_label} data sheet first.")
             return
         if self.quick_select_active:
             self.stop_quick_select()
-        if self.current_sheet_name != self.geochem_sheet_name:
-            self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[self.geochem_sheet_name]))
+        if self.current_sheet_name != sheet_name:
+            self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[sheet_name]))
 
-        # Only offer analytes that exist in GeoChemicalAnalytes, otherwise the import would fail later
-        available = self.geochem_fields.get('Geochemical Analytes')
         steps = []
         missing = []
         for step in sequence:
@@ -2901,11 +2946,11 @@ class ImportWizardDialog(QWidget):
             if valid:
                 steps.append(valid)
         if not available:
-            logger_setup.get_logger().warning('Quick Select: could not check analytes against GeoChemicalAnalytes')
+            logger_setup.get_logger().warning(f'Quick Select {name}: could not check fields against the database')
         if missing:
-            logger_setup.get_logger().warning(f'Quick Select {name}: analytes not in database, skipped: {missing}')
+            logger_setup.get_logger().warning(f'Quick Select {name}: fields not available, skipped: {missing}')
         if not steps:
-            QMessageBox.warning(self, "Quick Select", f"None of the {name} analytes exist in the database.")
+            QMessageBox.warning(self, "Quick Select", f"None of the {name} fields are available for import.")
             return
 
         self.quick_select_name = name
@@ -2920,7 +2965,7 @@ class ImportWizardDialog(QWidget):
         self.quick_select_frame.show()
         self.update_quick_select_prompt()
         self.install_quick_select_cursor_filter()
-        logger_setup.get_logger().info(f'Quick Select {name} started with {len(steps)} analytes')
+        logger_setup.get_logger().info(f'Quick Select {name} started with {len(steps)} fields')
 
     def update_quick_select_prompt(self, analyte: str | None = None):
         """
@@ -2931,6 +2976,14 @@ class ImportWizardDialog(QWidget):
         total = len(self.quick_select_steps)
         step = self.quick_select_step
         options = self.quick_select_steps[step]
+        if analyte is None and len(options) > 1 and self.quick_select_history:
+            # Follow the alternative picked in the previous step, e.g. 238U/206Pb -> 238U/206Pb Error -> Rho_68v76
+            previous = self.quick_select_history[-1]
+            previous_options = self.quick_select_steps[previous['step']]
+            if previous['step'] == step - 1 and previous['analyte'] in previous_options:
+                index = previous_options.index(previous['analyte'])
+                if index < len(options):
+                    analyte = options[index]
 
         self.quick_select_combo.blockSignals(True)
         self.quick_select_combo.clear()
