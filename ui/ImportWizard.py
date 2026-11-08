@@ -997,7 +997,8 @@ class ImportWizardDialog(QWidget):
                     analytes[analyte_abbreviation] = ['GeoChemicalAnalysisValues', 'GeoChemAnalyteValue']
                     analytes[f'{analyte_abbreviation}Unit'] = ['GeoChemicalAnalysisValues', 'GeoChemAnalyteUnitID']
                     errors[f'{analyte_abbreviation}Error'] = ['GeoChemicalAnalysisValues', 'GeoChemAnalyteError']
-                    errors[f'{analyte_abbreviation}ErrorFormat'] = ['GeoChemicalAnalysisValues', 'GeoChemAnalyteErrorFormatID']
+                    errors[f'{analyte_abbreviation}ErrorFormat'] = ['GeoChemicalAnalysisValues',
+                                                                    'GeoChemAnalyteErrorFormatID']
                 self.geochem_fields['Geochemical Analytes'] = analytes
                 self.geochem_fields['Geochemical Analyte Errors'] = errors
         self.field_dictionaries = [SQLUtils.sample_possible_user_input_fields,
@@ -1791,7 +1792,8 @@ class ImportWizardDialog(QWidget):
 
         # Set the column header
         header_text = f"{selected_field}"
-        self.right_table.model().setHeaderData(column_index, Qt.Orientation.Horizontal, header_text, Qt.ItemDataRole.EditRole)
+        self.right_table.model().setHeaderData(column_index, Qt.Orientation.Horizontal, header_text,
+                                               Qt.ItemDataRole.EditRole)
         self.right_table.model().setHeaderData(column_index, Qt.Orientation.Horizontal, self.mapped_brush,
                                                Qt.ItemDataRole.BackgroundRole)  # Green background for new column
 
@@ -3726,8 +3728,8 @@ class ImportWizardDialog(QWidget):
             analysis_name = analysis_item.text().strip() if analysis_item else ""
 
             if sample_name in ["", 'NULL', None]:
-                sample_item.setBackground(self.red_brush)
-                logger_setup.get_logger().info(f"Sample Name empty in row {row}.")  # Light red
+                sample_item.setBackground(self.conflict_brush)
+                logger_setup.get_logger().info(f"Sample Name empty in row {row}.")
                 QMessageBox.warning(self, "No Sample Name",
                                     f"Please enter a Sample Name in row {row + 1} (red) or disable it before proceeding.")
                 self.left_table.scrollToItem(sample_item)
@@ -3737,15 +3739,15 @@ class ImportWizardDialog(QWidget):
                 # If Aliquot Name is missing, set equal to Sample Name value
                 self.left_table.setItem(row, aliquot_col, QTableWidgetItem(sample_name))
                 self.update_left_table_background(self.left_table.item(row, aliquot_col),
-                                                  self.purple_brush)  # Light purple
+                                                  self.autofilled_brush)
             if spot_name in ["", 'NULL', None] and analysis_name not in ["", 'NULL', None]:
                 # If the Spot Name is missing but the Analysis Name exists, set equal to Analysis Name
                 self.left_table.setItem(row, spot_col, QTableWidgetItem(analysis_name))
-                self.update_left_table_background(self.left_table.item(row, spot_col), self.purple_brush)
+                self.update_left_table_background(self.left_table.item(row, spot_col), self.autofilled_brush)
             elif spot_name not in ["", 'NULL', None] and analysis_name in ["", 'NULL', None]:
                 # If the Analysis Name is missing but the Spot Name exists, set equal to Spot Name
                 self.left_table.setItem(row, analysis_col, QTableWidgetItem(spot_name))
-                self.update_left_table_background(self.left_table.item(row, analysis_col), self.purple_brush)
+                self.update_left_table_background(self.left_table.item(row, analysis_col), self.autofilled_brush)
             elif grain_name not in ["", 'NULL', None] and spot_name in ["", 'NULL', None] and analysis_name in ["",
                                                                                                                 'NULL',
                                                                                                                 None]:
@@ -3756,8 +3758,8 @@ class ImportWizardDialog(QWidget):
                 spot_counter += 1
                 self.left_table.setItem(row, spot_col, QTableWidgetItem(f"{grain_name}-{spot_counter}"))
                 self.left_table.setItem(row, analysis_col, QTableWidgetItem(f"{grain_name}-{spot_counter}"))
-                self.update_left_table_background(self.left_table.item(row, spot_col), self.purple_brush)
-                self.update_left_table_background(self.left_table.item(row, analysis_col), self.purple_brush)
+                self.update_left_table_background(self.left_table.item(row, spot_col), self.autofilled_brush)
+                self.update_left_table_background(self.left_table.item(row, analysis_col), self.autofilled_brush)
             elif grain_name in ["", 'NULL', None] and spot_name in ["", 'NULL', None] and analysis_name in ["", 'NULL',
                                                                                                             None]:
                 # If the grain column is defined but grain name, spot name, and analysis name are missing, set all three to AliquotName-counter
@@ -4209,7 +4211,8 @@ class ImportWizardDialog(QWidget):
                                     different_item_gps = True
                                     for col in gps_columns:
                                         index = self.right_tables[sheet].model().index(row, col)
-                                        self.right_tables[sheet].model().setData(index, self.conflict_brush, Qt.ItemDataRole.ForegroundRole)
+                                        self.right_tables[sheet].model().setData(index, self.conflict_brush,
+                                                                                 Qt.ItemDataRole.ForegroundRole)
                     if different_item_gps:
                         QMessageBox(QMessageBox.Icon.Warning, f'Conflicts Detected',
                                     f'Red cells in the right table indicate GPS coordinate conflicts for the same {item_import_header}.\n\n'
@@ -4259,7 +4262,8 @@ class ImportWizardDialog(QWidget):
                                             different_item_gps = True
                                             for col in gps_columns:
                                                 index = self.right_tables[sheet].model().index(row, col)
-                                                self.right_tables[sheet].setData(index, self.conflict_brush, Qt.ItemDataRole.ForegroundRole)
+                                                self.right_tables[sheet].setData(index, self.conflict_brush,
+                                                                                 Qt.ItemDataRole.ForegroundRole)
                     if different_item_gps:
                         QMessageBox(QMessageBox.Icon.Warning, f'Conflicts Detected',
                                     f'Red cells in the right table indicate GPS coordinate conflicts for the same {item_import_header} with existing database entries.\n\n'
@@ -4302,7 +4306,8 @@ class ImportWizardDialog(QWidget):
                                     different_column_gps = True
                                     for col in gps_columns:
                                         index = self.right_tables[sheet].model().index(row, col)
-                                        self.right_tables[sheet].setData(index, self.conflict_brush, Qt.ItemDataRole.ForegroundRole)
+                                        self.right_tables[sheet].setData(index, self.conflict_brush,
+                                                                         Qt.ItemDataRole.ForegroundRole)
                     if different_column_gps:
                         QMessageBox(QMessageBox.Icon.Warning, f'Conflicts Detected',
                                     'Red cells in the right table indicate GPS coordinate conflicts for the same Column Name.\n\n'
@@ -4771,7 +4776,8 @@ class ImportWizardDialog(QWidget):
                                 count_dict[table] = item_count + 1
                                 item_col = right_cols[name_header]
                                 right_idx = self.right_table.model().index(row_idx, int(item_col))
-                                self.right_table.model().setData(right_idx, self.conflict_brush, Qt.ItemDataRole.BackgroundRole)
+                                self.right_table.model().setData(right_idx, self.conflict_brush,
+                                                                 Qt.ItemDataRole.BackgroundRole)
 
             # Stop for each sheet with issues
             if not new_analysis:
@@ -4979,9 +4985,11 @@ class ImportWizardDialog(QWidget):
                                     # Highlight the conflicting name and description fields in red
                                     conflicts = True
                                     name_idx = self.right_tables[sheet].model().index(row_idx, name_column)
-                                    self.right_tables[sheet].model().setData(name_idx, self.conflict_brush, Qt.ItemDataRole.BackgroundRole)
+                                    self.right_tables[sheet].model().setData(name_idx, self.conflict_brush,
+                                                                             Qt.ItemDataRole.BackgroundRole)
                                     column_idx = self.right_tables[sheet].model().index(row_idx, description_column)
-                                    self.right_tables[sheet].model().setData(column_idx, self.conflict_brush, Qt.ItemDataRole.BackgroundRole)
+                                    self.right_tables[sheet].model().setData(column_idx, self.conflict_brush,
+                                                                             Qt.ItemDataRole.BackgroundRole)
 
             # Stop for each sheet with conflicts
             if conflicts:
@@ -5807,7 +5815,6 @@ class ImportWizardDialog(QWidget):
                         self.item_ids[table][self.upb_sheet_name][column][id_header] = {}
                         self.item_ids[table][self.geochem_sheet_name][column][id_header] = {}
                         break
-
 
         import_progress_dialog = QProgressDialog(
             "Importing data...", "Cancel", 0, len(self.item_ids.keys()) + 1, self
