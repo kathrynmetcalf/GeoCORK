@@ -28,7 +28,7 @@ from Functions.Check_triggers import validate_insert, validate_update
 from Functions.Database_manager import update_database
 from Functions.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
 from Functions.Settings_manager import SettingsManager
-from Settings import get_importer_brushes
+from ui.Settings import get_importer_brushes
 from ui.EditView import EditView
 
 settings = SettingsManager().settings
@@ -1750,11 +1750,11 @@ class ImportWizardDialog(QWidget):
                 if item is None:
                     item = QTableWidgetItem()
                     table.setItem(row, column, item)
-                item.setData(Qt.ItemDataRole.EditRole, "NULL")
+                item.setData(Qt.ItemDataRole.EditRole, "")
         elif isinstance(table, QTableView):
             for row in range(table.model().rowCount()):
                 index = table.model().index(row, column)
-                table.model().setData(index, "NULL", Qt.ItemDataRole.DisplayRole)
+                table.model().setData(index, "", Qt.ItemDataRole.DisplayRole)
                 table.model().userDataChanged.emit(index, index, [Qt.ItemDataRole.DisplayRole])
         logger_setup.get_logger().info(f'Set column {column} to blank')
 
@@ -2035,7 +2035,7 @@ class ImportWizardDialog(QWidget):
             current_value = None
 
         header_name = self.left_table.horizontalHeaderItem(column).text().strip()
-        # headers for U-Pb data in right table
+        # headers for data in right table
         right_column = None
         for r_column in range(self.right_tables[self.current_sheet_name].model().columnCount()):
             r_header_name = self.right_tables[self.current_sheet_name].model().headerData(r_column,
@@ -2044,7 +2044,7 @@ class ImportWizardDialog(QWidget):
             if r_header_name == header_name:
                 right_column = r_column
                 break
-        if right_column is None:
+        if right_column is None and current_value:
             # Add a new column for this field
             header_field = None
             for field_dict in self.field_dictionaries:
