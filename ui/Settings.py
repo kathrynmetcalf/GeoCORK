@@ -304,7 +304,7 @@ def default_settings():
     """
     # set the default settings values
     # Unit and Format settings
-    default_dict = {'default_geocork_version': 'v1.0.5',
+    default_dict = {'default_geocork_version': 'v1.1.0',
                     'default_age_unit_id': 2,
                     'default_age_unit_abbreviation': 'Ma',
                     'default_elevation_unit_id': 2,

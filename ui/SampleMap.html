@@ -30,7 +30,7 @@
             }],
         openmap: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png',
             {maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'}],
-        macrostrat: ['https://tiles.macrostrat.org/carto/{z}/{x}/{y}.png',
+        macrostrat: ['https://macrostrat.org/api/v2/maps/burwell/emphasized/{z}/{x}/{y}/tile.png',
             {maxNativeZoom: 19, maxZoom: 19, attribution: '<a href="https://macrostrat.org/">Macrostrat</a>'}]
     };
     // ArcGIS Static Basemap Tiles service (API key), 512 px tiles
@@ -160,11 +160,7 @@ const link = (url, text) => `<a href="#" onclick="bridge && bridge.openUrl(${esc
 
 function macrostratHtml(unit) {
   const lines = [unit.name ? `<b>${esc(unit.name)}</b>` : '<b>Unnamed map unit</b>'];
-  // lithology
   if (unit.lith) lines.push(`<b>Lithology:</b> ${esc(unit.lith)}`);
-
-  if (unit.descrip) lines.push(`<b>Description:</b> ${esc(unit.descrip)}`);
-
   const from = unit.b_int, to = unit.t_int;
   if (from) {
     let age = esc(from.int_name);
@@ -172,13 +168,11 @@ function macrostratHtml(unit) {
     age += ` (${from.b_age} - ${to ? to.t_age : from.t_age} Ma)`;
     lines.push(`<b>Age:</b> ${age}`);
   }
-
   const ref = unit.ref;
   if (ref) {
     let text = esc(ref.name || '') + (ref.ref_year ? ` (${esc(ref.ref_year)})` : '') + (ref.ref_source ? `, ${esc(ref.ref_source)}` : '');
     lines.push(`<b>Reference:</b> ${ref.url ? link(ref.url, text) : text}`);
   }
-
   return lines.join('<br>');
 }
 
@@ -196,8 +190,9 @@ function queryMacrostrat(latlng) {
 }
 
 map.on('click', e => {
-  if (mode === 'pan' && selected.size && !e.originalEvent.shiftKey) { selected.clear(); refreshStyles(); notify(); }
+  // Empty-map click: on Macrostrat it queries geology and keeps the selection; on other basemaps it clears it
   if (mode === 'pan' && basemapName === 'macrostrat') queryMacrostrat(e.latlng);
+  else if (mode === 'pan' && selected.size && !e.originalEvent.shiftKey) { selected.clear(); refreshStyles(); notify(); }
   if (mode !== 'pick') return;
   clearPick();
   pickMarker = L.marker(e.latlng).addTo(map);

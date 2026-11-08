@@ -199,3 +199,75 @@ class UPbData(DataProvider):
         if opts.get('max_discordance'):
             df = df[df['Discordance%'].isna() | (df['Discordance%'].abs() <= opts['max_discordance'])]
         return df.replace([np.inf, -np.inf], np.nan)
+
+
+# ---------------------------------------------------------------- geochemistry
+
+PPM_FACTORS = {'Parts per million': 1, 'Micrograms per gram': 1, 'Milligrams per kilogram': 1,
+               'Parts per billion': 1e-3, 'Nanograms per gram': 1e-3, 'Parts per trillion': 1e-6,
+               'Weight percent': 1e4}
+"""AnalyticalUnits name: factor to ppm for mass-fraction units"""
+UNIT_TO_PPM = {unit[1]: PPM_FACTORS[unit[0]] for unit in SQLUtils.analytical_units if unit[0] in PPM_FACTORS}
+"""AnalyticalUnits abbreviation (from SQLUtils.analytical_units): factor to ppm"""
+
+GEOCHEM_ANALYTE_JOIN = ('LEFT JOIN GeoChemicalAnalytes '
+                        'ON GeoChemicalAnalysisValues.GeoChemAnalyteID = GeoChemicalAnalytes.GeoChemAnalyteID')
+"""SQLUtils.geochem_analyte_join joins on GeoChemicalAnalyses.GeoChemAnalyteID, which is not a column of the current
+GeoChemicalAnalyses table; GeoChemAnalyteID is in GeoChemicalAnalysisValues."""
+
+REFERENCE_COMPOSITIONS = [
+    'Chondrite_PON', 'Chondrite_MS95', 'Chondrite_SM89', 'ChondriteREE_ON', 'PM_PON', 'PM_SM89', 'Pyrolite_MS95',
+    'DMM_WH2005', 'E-DMM_WH2005', 'D-DMM_WH2005', 'DM_SS2004', 'NMORB_Gale2013', 'NMORB_SM89', 'EMORB_Gale2013',
+    'EMORB_SM89', 'DMORB_Gale2013', 'MORB_Gale2013', 'OIB_SM89', 'UCC_McLennan2001', 'UCC_RG2003', 'UCC_RG2014',
+    'MCC_RG2014', 'LCC_McLennan2001', 'LCC_RG2003', 'LCC_RG2014', 'BCC_McLennan2001', 'BCC_RG2003', 'BCC_RG2014',
+    'PAAS_Pourmand2012', 'PAAS_TM1985', 'NASC_Gromet1984', 'EUS_Bau2018', 'PHS_Condie1993', 'PRS_Condie1993',
+    'ARS_Condie1993', 'MUQ_Kamber2005', 'GLOSS_P2014', 'GLOSS2_P2014']
+"""pyrolite.geochem.norm reference compositions offered for normalization"""
+
+
+@register_provider
+class GeoChemData(DataProvider):
+    """
+    Geochemical analyses for the selected samples, pivoted to one row per analysis (or per sample) with one column per
+    GeoChemAnalyteAbbreviation in ppm. Values in non-mass-fraction units (cps, ratios, delta, epsilon, ...) are excluded
+    and counted in attrs['excluded_values'].
+    """
+    key = 'geochem'
+    label = 'Geochemical analyses'
+    options = [
+        Option('level', 'Plot', 'choice', 'Analyses', ['Analyses', 'Sample mean']),
+        Option('exclude_rejected', 'Exclude rejected', 'bool', True),
+    ]
+    index = ['SampleID', 'SampleName', 'GeoChemAnalysisID', 'GeoChemAnalysisName']
+
+    def fetch(self, sample_ids: list[int]) -> pd.DataFrame:
+        if not sample_ids:
+            return pd.DataFrame()
+        columns = [SQLUtils.qsample_id, SQLUtils.qsample_name, SQLUtils.qgeochem_id, SQLUtils.qgeochem_analysis_name,
+                   SQLUtils.qgeochem_rejected, SQLUtils.qgeochem_analyte_abbreviation, SQLUtils.qgeochem_analyte_value,
+                   SQLUtils.qgeochem_analyte_unit, SQLUtils.qgeochem_analyte_error, SQLUtils.qgeochem_analyte_error_format]
+        sql = (f'SELECT {", ".join(columns)}\nFROM GeoChemicalAnalyses\n{SQLUtils.geochem_spot_join}\n'
+               f'{SQLUtils.spot_aliquot_join}\n{SQLUtils.aliquot_sample_join}\n{SQLUtils.geochem_analyte_value_join}\n'
+               f'{GEOCHEM_ANALYTE_JOIN}\n{SQLUtils.geochem_analyte_unit_join}\n{SQLUtils.geochem_analyte_error_format_join}\n'
+               f'WHERE Samples.SampleID IN ({", ".join(str(int(i)) for i in sample_ids)})')
+        return query_frame(sql)
+
+    def prepare(self, df: pd.DataFrame, opts: dict) -> pd.DataFrame:
+        if df.empty:
+            return df
+        if opts.get('exclude_rejected', True):
+            df = df[df['Rejected'] != 'Rejected']
+        factor = df['GeoChemAnalyteUnitAbbreviation'].map(UNIT_TO_PPM)
+        excluded = int((factor.isna() & df['GeoChemAnalyteValue'].notna()).sum())
+        df = df[factor.notna()].assign(ppm=pd.to_numeric(df['GeoChemAnalyteValue'], errors='coerce') * factor)
+        if df.empty:
+            out = pd.DataFrame(columns=self.index)
+        else:
+            out = df.pivot_table(index=self.index, columns='GeoChemAnalyteAbbreviation', values='ppm',
+                                 aggfunc='mean').reset_index()
+            out.columns.name = None
+            if opts.get('level') == 'Sample mean':
+                out = out.drop(columns=['GeoChemAnalysisID', 'GeoChemAnalysisName']).groupby(
+                    ['SampleID', 'SampleName'], as_index=False).mean()
+        out.attrs['excluded_values'] = excluded
+        return out

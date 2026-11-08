@@ -4961,8 +4961,9 @@ class ImportWizardDialog(QWidget):
             ambiguous_static_values[sheet] = {}
             disabled_rows = self.right_tables[sheet].model().rows_for_status('disabled')
             for column, field in column_mappings.items():
-                if field in static_fields:
-                    static_table = static_fields[field]
+                # Per-analyte unit/error format columns (e.g. SiO2Unit, SiO2ErrorFormat) are static values too
+                static_table = static_fields.get(field) or self.geochem_analyte_static_table(field)
+                if static_table:
                     if field == 'Rejected':
                         static_values = {}
                         static_values[0] = 'False'
@@ -5209,6 +5210,15 @@ class ImportWizardDialog(QWidget):
             self.import_clicked = False
             return
 
+        # GeoChemicalAnalysisValues holds one row per analysis per analyte, so it is imported separately once the
+        # GeoChemicalAnalyses rows exist
+        self.imported_geochem_value_count = 0
+        if analysis_data and not self.import_geochem_values_to_db():
+            rollback_savepoint('before_import')
+            logger_setup.get_logger().error('Import canceled')
+            self.import_clicked = False
+            return
+
         if not self.import_many_to_many_to_db(many_tables):
             rollback_savepoint('before_import')
             logger_setup.get_logger().error('Import canceled')
@@ -5233,6 +5243,8 @@ class ImportWizardDialog(QWidget):
         if imported_geochem_analyses < 0:
             imported_geochem_analyses = 0
         imported_message += f"UPb Analyses: {imported_upb_analyses}\nGeochemical Analyses: {imported_geochem_analyses}\n"
+        if self.imported_geochem_value_count:
+            imported_message += f"Geochemical Analyte Values: {self.imported_geochem_value_count}\n"
         QMessageBox.information(self, "Success", imported_message)
         if not update_database():
             logger_setup.get_logger().critical('Error updating and displaying database')
@@ -5747,7 +5759,7 @@ class ImportWizardDialog(QWidget):
                             logger_setup.get_logger().info(f"Existing {analysis_table}: {record[analysis_header]}")
                         elif self.conflict_mode == 'overwrite' and analysis_id:
                             # Delete the existing item first and then create a new one
-                            if not delete_data(analysis_table[analysis_id], enable_message=False):
+                            if not delete_data(analysis_table, [analysis_id], enable_message=False):
                                 logger_setup.get_logger().critical(
                                     f'Could not overwrite existing {analysis_table} in the database')
                                 logger_setup.get_logger().debug(
@@ -5978,6 +5990,9 @@ class ImportWizardDialog(QWidget):
                 logger_setup.get_logger().info('Canceled importing data')
                 rollback_savepoint('before_import_items')
                 return False
+            if table == 'GeoChemicalAnalysisValues':
+                # One row per analysis per analyte with no name column; handled by import_geochem_values_to_db
+                continue
             logger_setup.get_logger().info(f'Importing {table}')
             table_name_columns = {}
             if table == 'SampleGPSLocations' or table == 'ColumnGPSLocations':
@@ -6642,6 +6657,319 @@ class ImportWizardDialog(QWidget):
             return False
 
         release_savepoint('before_import_items')
+        return True
+
+    def geochem_analyte_static_table(self, field):
+        """
+        Returns the static table for per-analyte unit/error format fields on the geochemistry sheet
+        (e.g. 'SiO2Unit' -> 'AnalyticalUnits', 'SiO2ErrorFormat' -> 'ErrorFormats'), otherwise None.
+        """
+        analytes = self.geochem_fields.get('Geochemical Analytes', {}) or {}
+        errors = self.geochem_fields.get('Geochemical Analyte Errors', {}) or {}
+        if field in analytes and analytes[field][1] == 'GeoChemAnalyteUnitID':
+            return 'AnalyticalUnits'
+        if field in errors and errors[field][1] == 'GeoChemAnalyteErrorFormatID':
+            return 'ErrorFormats'
+        return None
+
+    def import_geochem_values_to_db(self):
+        """
+        Imports the oxide/REE/trace analyte values on the geochemistry sheet into GeoChemicalAnalysisValues.
+        Each mapped analyte column becomes one row per GeoChemicalAnalyses entry:
+            GeoChemAnalysisID           -> analysis on that row (created in import_analyses_to_db)
+            GeoChemAnalyteID            -> GeoChemicalAnalytes ID for the mapped abbreviation (e.g. SiO2)
+            GeoChemAnalyteValue         -> original cell value
+            GeoChemAnalyteUnitID        -> '<abbr>Unit' column, else 'Geochemical Analysis Unit' column, else GC unit combo
+            GeoChemAnalyteError         -> '<abbr>Error' column
+            GeoChemAnalyteErrorFormatID -> '<abbr>ErrorFormat' column, else 'Geochemical Analysis Error Format'
+                                           column, else GC error format combo (only set when an error is present)
+        Assumes using QSqlDatabase() default connection.
+        :return: True on success, False if the import should be rolled back
+        """
+        values_table = 'GeoChemicalAnalysisValues'
+        sheet = self.geochem_sheet_name
+        if not sheet or sheet not in self.right_tables or not self.sheet_mappings.get(sheet):
+            return True
+
+        analytes = self.geochem_fields.get('Geochemical Analytes', {}) or {}
+        errors = self.geochem_fields.get('Geochemical Analyte Errors', {}) or {}
+
+        # abbreviation -> {'value': column, 'unit': column, 'error': column, 'error_format': column}
+        analyte_columns = {}
+        row_unit_column = None
+        row_error_format_column = None
+        for column, field in self.sheet_mappings[sheet].items():
+            abbreviation = None
+            key = None
+            if field in analytes:
+                target = analytes[field][1]
+                if target == 'GeoChemAnalyteValue':
+                    abbreviation, key = field, 'value'
+                elif target == 'GeoChemAnalyteUnitID' and field.endswith('Unit'):
+                    abbreviation, key = field[:-len('Unit')], 'unit'
+            elif field in errors:
+                target = errors[field][1]
+                if target == 'GeoChemAnalyteErrorFormatID' and field.endswith('ErrorFormat'):
+                    abbreviation, key = field[:-len('ErrorFormat')], 'error_format'
+                elif target == 'GeoChemAnalyteError' and field.endswith('Error'):
+                    abbreviation, key = field[:-len('Error')], 'error'
+            elif field == 'Geochemical Analysis Unit':
+                row_unit_column = column
+            elif field == 'Geochemical Analysis Error Format':
+                row_error_format_column = column
+            if abbreviation:
+                analyte_columns.setdefault(abbreviation, {})[key] = column
+
+        # Only analytes with a mapped value column can be imported
+        analyte_columns = {abbr: cols for abbr, cols in analyte_columns.items() if 'value' in cols}
+        if not analyte_columns:
+            logger_setup.get_logger().info('No geochemical analyte columns mapped, no analyte values to import')
+            return True
+
+        query = QSqlQuery()
+
+        # GeoChemAnalyteID for each abbreviation (GeoChemicalAnalytes is populated from SQLUtils.geochemical_analytes)
+        analyte_ids = {}
+        if not query.exec('SELECT GeoChemAnalyteID, GeoChemAnalyteAbbreviation FROM GeoChemicalAnalytes'):
+            logger_setup.get_logger().critical('Could not load geochemical analytes from the database')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            return False
+        while query.next():
+            analyte_ids[query.value(1)] = query.value(0)
+        missing = [abbr for abbr in analyte_columns if abbr not in analyte_ids]
+        if missing:
+            logger_setup.get_logger().error(
+                f'Geochemical analytes not found in GeoChemicalAnalytes: {", ".join(missing)}')
+            return False
+
+        # Columns that exist in GeoChemicalAnalysisValues
+        table_columns = set()
+        if not query.exec(f'PRAGMA table_info("{values_table}")'):
+            logger_setup.get_logger().critical(f'Could not retrieve column info for {values_table}')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            return False
+        while query.next():
+            table_columns.add(query.value(1))
+        value_id_header = get_headers(values_table)[0]
+
+        # Default unit/error format from the GC combo boxes
+        default_unit_id = self.geochem_unit_combobox.itemData(self.geochem_unit_combobox.currentIndex())
+        default_error_format_id = self.geochem_error_format_combobox.itemData(
+            self.geochem_error_format_combobox.currentIndex())
+
+        # Analysis names come from the left table, the same as import_analyses_to_db
+        left_table = self.left_tables[sheet]
+        analysis_col = None
+        for column in range(left_table.columnCount()):
+            header_item = left_table.horizontalHeaderItem(column)
+            if header_item and header_item.text() == 'Geochemical Analysis Name':
+                analysis_col = column
+                break
+        if analysis_col is None:
+            logger_setup.get_logger().error('Cannot import geochemical analyte values without a Geochemical Analysis Name')
+            return False
+
+        def clean(value):
+            """Return None for blank/NULL cells, otherwise the stripped value"""
+            if value is None:
+                return None
+            if isinstance(value, float) and value != value:
+                # NaN from pandas
+                return None
+            if isinstance(value, str):
+                value = value.strip()
+                if value in ('', 'NULL'):
+                    return None
+            return value
+
+        def to_number(value):
+            """Store numeric text as a number, otherwise keep the original value"""
+            if isinstance(value, str):
+                try:
+                    return float(value)
+                except ValueError:
+                    return value
+            return value
+
+        def static_id(column, row):
+            if column is None:
+                return None
+            mapped = self.lookup_static_mapping(sheet, column, self.right_tables[sheet].model().index(row, column).data())
+            return None if mapped in ('NULL', '', None) else mapped
+
+        model = self.right_tables[sheet].model()
+        disabled_rows = model.rows_for_status('disabled')
+        row_count = model.rowCount()
+        new_analysis_ids = set(self.analysis_imports.get('GeoChemAnalysisID', []))
+
+        create_savepoint('before_import_geochem_values')
+        progress_dialog = QProgressDialog("Importing geochemical analyte values...", "Cancel", 0, row_count, self)
+        progress_dialog.setMinimumDuration(0)
+        inserted = 0
+        updated = 0
+
+        for row in range(row_count):
+            progress_dialog.setValue(row + 1)
+            QApplication.processEvents()
+            if progress_dialog.wasCanceled():
+                logger_setup.get_logger().info('Canceled importing geochemical analyte values')
+                rollback_savepoint('before_import_geochem_values')
+                return False
+            if row in disabled_rows:
+                continue
+
+            analysis_item = left_table.item(row, analysis_col)
+            analysis_name = analysis_item.text().strip() if analysis_item else ''
+            if not analysis_name:
+                continue
+
+            if not query.prepare('SELECT GeoChemAnalysisID FROM GeoChemicalAnalyses '
+                                 'WHERE GeoChemAnalysisName = :name COLLATE NOCASE'):
+                logger_setup.get_logger().critical(f'Error importing values for {analysis_name}')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                rollback_savepoint('before_import_geochem_values')
+                return False
+            query.bindValue(':name', analysis_name)
+            if not query.exec() or not query.next():
+                logger_setup.get_logger().critical(
+                    f'Could not find Geochemical Analysis "{analysis_name}" to attach analyte values to')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                rollback_savepoint('before_import_geochem_values')
+                return False
+            analysis_id = query.value(0)
+            new_analysis = analysis_id in new_analysis_ids
+
+            if not new_analysis and self.conflict_mode == 'skip':
+                logger_setup.get_logger().info(f'Skipping analyte values for existing analysis "{analysis_name}"')
+                continue
+
+            row_unit_id = static_id(row_unit_column, row) or default_unit_id
+            row_error_format_id = static_id(row_error_format_column, row) or default_error_format_id
+
+            for abbreviation, columns in analyte_columns.items():
+                value = clean(model.index(row, columns['value']).data())
+                if value is None:
+                    continue
+                error = clean(model.index(row, columns['error']).data()) if 'error' in columns else None
+                unit_id = static_id(columns.get('unit'), row) or row_unit_id
+                error_format_id = (static_id(columns.get('error_format'), row) or row_error_format_id
+                                   if error is not None else None)
+
+                values = {'GeoChemAnalysisID': analysis_id,
+                          'GeoChemAnalyteID': analyte_ids[abbreviation],
+                          'GeoChemAnalyteValue': to_number(value),
+                          'GeoChemAnalyteUnitID': unit_id,
+                          'GeoChemAnalyteError': to_number(error) if error is not None else None,
+                          'GeoChemAnalyteErrorFormatID': error_format_id}
+                values = {col: val for col, val in values.items() if col in table_columns}
+                data_columns = [col for col in values if col not in ('GeoChemAnalysisID', 'GeoChemAnalyteID')]
+
+                # Existing value for this analysis/analyte?
+                existing_query = (f'SELECT "{value_id_header}", '
+                                  + ', '.join(f'"{col}"' for col in data_columns)
+                                  + f' FROM "{values_table}" WHERE GeoChemAnalysisID = :analysis_id '
+                                    f'AND GeoChemAnalyteID = :analyte_id')
+                if not query.prepare(existing_query):
+                    logger_setup.get_logger().critical(f'Error importing {abbreviation} for {analysis_name}')
+                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    rollback_savepoint('before_import_geochem_values')
+                    return False
+                query.bindValue(':analysis_id', analysis_id)
+                query.bindValue(':analyte_id', analyte_ids[abbreviation])
+                if not query.exec():
+                    logger_setup.get_logger().critical(f'Error importing {abbreviation} for {analysis_name}')
+                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                    rollback_savepoint('before_import_geochem_values')
+                    return False
+
+                if query.next():
+                    existing_id = query.value(0)
+                    existing = {col: query.value(idx + 1) for idx, col in enumerate(data_columns)}
+                    if new_analysis or self.conflict_mode == 'overwrite':
+                        update_values = {col: values[col] for col in data_columns}
+                    else:
+                        # 'add to': only fill in columns that are empty in the database
+                        update_values = {col: values[col] for col in data_columns
+                                         if existing[col] in (None, '') and values[col] is not None}
+                        if existing.get('GeoChemAnalyteValue') not in (None, '') and \
+                                existing.get('GeoChemAnalyteValue') != values.get('GeoChemAnalyteValue'):
+                            logger_setup.get_logger().warning(
+                                f'{analysis_name} already has {abbreviation} = {existing["GeoChemAnalyteValue"]}; '
+                                f'keeping it instead of {values["GeoChemAnalyteValue"]}')
+                    if not update_values:
+                        continue
+                    if values_table in SQLUtils.trigger_tables:
+                        error_msg, header = validate_update(
+                            values_table, list(update_values.keys()),
+                            ['NULL' if v is None else v for v in update_values.values()],
+                            f'"{value_id_header}" = {existing_id}')
+                        if error_msg:
+                            logger_setup.get_logger().error(
+                                f'Error updating {abbreviation} for {analysis_name}: {error_msg}')
+                            rollback_savepoint('before_import_geochem_values')
+                            return False
+                    update_sql = (f'UPDATE "{values_table}" SET '
+                                  + ', '.join(f'"{col}" = :{col}' for col in update_values)
+                                  + f' WHERE "{value_id_header}" = :value_id')
+                    if not query.prepare(update_sql):
+                        logger_setup.get_logger().critical(f'Error importing {abbreviation} for {analysis_name}')
+                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        rollback_savepoint('before_import_geochem_values')
+                        return False
+                    for col, val in update_values.items():
+                        query.bindValue(f':{col}', QVariant() if val is None else val)
+                    query.bindValue(':value_id', existing_id)
+                    if not query.exec():
+                        logger_setup.get_logger().critical(f'Error importing {abbreviation} for {analysis_name}')
+                        logger_setup.get_logger().debug(f'Failed to update {values_table}')
+                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                        rollback_savepoint('before_import_geochem_values')
+                        return False
+                    updated += 1
+                    continue
+
+                if values_table in SQLUtils.trigger_tables:
+                    error_msg, header = validate_insert(values_table, list(values.keys()),
+                                                        ['NULL' if v is None else v for v in values.values()], None)
+                    if error_msg:
+                        logger_setup.get_logger().error(
+                            f'Error inserting {abbreviation} for {analysis_name}: {error_msg}')
+                        rollback_savepoint('before_import_geochem_values')
+                        return False
+                insert_sql = (f'INSERT INTO "{values_table}" ('
+                              + ', '.join(f'"{col}"' for col in values)
+                              + ') VALUES ('
+                              + ', '.join(f':{col}' for col in values) + ')')
+                if not query.prepare(insert_sql):
+                    logger_setup.get_logger().critical(f'Error importing {abbreviation} for {analysis_name}')
+                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    rollback_savepoint('before_import_geochem_values')
+                    return False
+                for col, val in values.items():
+                    query.bindValue(f':{col}', QVariant() if val is None else val)
+                if not query.exec():
+                    logger_setup.get_logger().critical(f'Error importing {abbreviation} for {analysis_name}')
+                    logger_setup.get_logger().debug(f'Failed to insert into {values_table}')
+                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                    rollback_savepoint('before_import_geochem_values')
+                    return False
+                inserted += 1
+
+        progress_dialog.close()
+        release_savepoint('before_import_geochem_values')
+        self.imported_geochem_value_count = inserted + updated
+        logger_setup.get_logger().info(f'Imported {inserted} and updated {updated} geochemical analyte values')
         return True
 
     def import_many_to_many_to_db(self, many_tables):

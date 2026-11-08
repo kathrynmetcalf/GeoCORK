@@ -310,3 +310,200 @@ class TeraWasserburg(Concordia):
     def curve(self, t):
         e238, e235 = np.expm1(LAMBDA_238 * t), np.expm1(LAMBDA_235 * t)
         return 1 / e238, e235 / (U238_U235 * e238)
+
+
+# ---------------------------------------------------------------- geochemistry (pyrolite)
+
+from Functions.Plot_data import REFERENCE_COMPOSITIONS
+
+TIO2_PER_TI = 79.866 / 47.867
+MAJOR_OXIDES = ['SiO2', 'TiO2', 'Al2O3', 'Fe2O3T', 'MnO', 'MgO', 'CaO', 'Na2O', 'K2O', 'P2O5']
+MULTI_ELEMENT = ['Cs', 'Rb', 'Ba', 'Th', 'U', 'Nb', 'Ta', 'K', 'La', 'Ce', 'Pb', 'Pr', 'Sr', 'P', 'Nd', 'Zr', 'Hf',
+                 'Sm', 'Eu', 'Ti', 'Gd', 'Tb', 'Dy', 'Y', 'Ho', 'Er', 'Tm', 'Yb', 'Lu']
+"""Extended multi-element (spider) set, ordered by pyrolite by_incompatibility when plotted"""
+TAS_EXAMPLE_IDS = ['Pc', 'Ba', 'Bs', 'O1', 'O2', 'U1', 'U2', 'U3', 'S1', 'S2', 'S3']
+
+
+def element_ppm(df: pd.DataFrame) -> pd.DataFrame:
+    """Element columns in ppm; elements reported only as oxides (e.g. K2O, TiO2, P2O5, FeOT) are converted with pyrolite."""
+    from pyrolite.geochem.ind import common_elements, common_oxides, get_cations
+    from pyrolite.geochem.transform import oxide_conversion
+    elements, oxides = common_elements(as_set=True), common_oxides(as_set=True) - {'LOI'}  # LOI is not a formula
+    out = df[[c for c in df.columns if c in elements]].copy()
+    for oxide in [c for c in df.columns if c in oxides]:
+        formula = oxide[:-1] if oxide.endswith('T') else oxide  # Fe2O3T / FeOT: total iron
+        cations = [str(c) for c in get_cations(formula)]
+        if len(cations) == 1:  # fill rows missing the element (column may exist from other analyses)
+            converted = oxide_conversion(formula, cations[0])(df[oxide])
+            out[cations[0]] = out[cations[0]].fillna(converted) if cations[0] in out else converted
+    return out
+
+
+def major_oxides_wt(df: pd.DataFrame, anhydrous: bool) -> pd.DataFrame:
+    """Major oxides in wt% with Fe as Fe2O3T; optionally renormalized to 100% volatile-free (LOI/H2O excluded)."""
+    wt = pd.DataFrame(index=df.index)
+    for oxide in MAJOR_OXIDES:
+        if oxide in df:
+            wt[oxide] = df[oxide] / 1e4
+    missing = pd.Series(np.nan, index=df.index)
+    fe2o3_plus_feo = df.get('Fe2O3', missing) + df.get('FeO', missing) * 1.11134
+    wt['Fe2O3T'] = wt.get('Fe2O3T', missing).fillna(df.get('FeOT', missing) * 1.11134 / 1e4).fillna(
+        fe2o3_plus_feo.fillna(df.get('Fe2O3', missing)) / 1e4)
+    wt['TiO2'] = wt.get('TiO2', missing).fillna(df.get('Ti', missing) * TIO2_PER_TI / 1e4)
+    wt = wt.dropna(axis=1, how='all')
+    if anhydrous:
+        wt = wt.div(wt.sum(axis=1, min_count=1), axis=0) * 100
+    return wt
+
+
+def expand_log_limits(ax, x: pd.Series, y: pd.Series, pad=1.3):
+    """Widen a template's fixed log limits so data outside them stay visible."""
+    for values, get, set_ in ((x, ax.get_xlim, ax.set_xlim), (y, ax.get_ylim, ax.set_ylim)):
+        values = values[np.isfinite(values) & (values > 0)]
+        if len(values):
+            low, high = get()
+            set_(min(low, values.min() / pad), max(high, values.max() * pad))
+
+
+class GeoChemPlot(PlotType):
+    category = 'Geochemistry'
+    data = 'geochem'
+
+    def status(self, df, plotted: int, needed: str) -> str:
+        message = f'{plotted} of {len(df)} {"samples" if "GeoChemAnalysisID" not in df else "analyses"} plotted'
+        if plotted < len(df):
+            message += f' (others missing {needed})'
+        if df.attrs.get('excluded_values'):
+            message += f'; {df.attrs["excluded_values"]} values in non-concentration units ignored'
+        return message
+
+    @staticmethod
+    def legend(ax, loc='best'):
+        handles, labels = ax.get_legend_handles_labels()
+        if handles:
+            ax.legend(loc=loc, fontsize='small', frameon=False)
+
+
+@register_plot
+class TASPlot(GeoChemPlot):
+    name = 'Total alkali-silica (TAS)'
+    options = [
+        GROUPING,
+        Option('anhydrous', 'Renormalize to 100% anhydrous', 'bool', True),
+        Option('labels', 'Field labels', 'choice', 'volcanic', ['volcanic', 'intrusive', 'ID', 'None']),
+        Option('fields', 'Fields', 'choice', 'All', ['All', 'Pc, Ba, Bs, O1-O2, U1-U3, S1-S3']),
+    ]
+
+    def draw(self, fig, df, opts):
+        from pyrolite.plot.templates import TAS
+        wt = major_oxides_wt(df, opts['anhydrous'])
+        data = df.assign(SiO2_wt=wt.get('SiO2'), alkali_wt=wt.get('Na2O', np.nan) + wt.get('K2O', np.nan))
+        data = data.dropna(subset=['SiO2_wt', 'alkali_wt'])
+        ax = fig.add_subplot()
+        TAS(ax=ax, linewidth=0.5, add_labels=opts['labels'] != 'None', which_model='LeMaitre',
+            which_labels=opts['labels'] if opts['labels'] != 'None' else 'ID',
+            which_ids=None if opts['fields'] == 'All' else TAS_EXAMPLE_IDS)
+        for i, (label, group) in enumerate(groups(data, opts)):
+            ax.scatter(group['SiO2_wt'], group['alkali_wt'], s=18, color=f'C{i % 10}', edgecolor='k', lw=0.3,
+                       zorder=3, label=f'{label} (n={len(group)})')
+        ax.set_xlabel('SiO$_2$ (wt%)')
+        ax.set_ylabel('Na$_2$O + K$_2$O (wt%)')
+        self.legend(ax, 'upper left')
+        return self.status(df, len(data), 'SiO2, Na2O or K2O')
+
+
+@register_plot
+class PearcePlot(GeoChemPlot):
+    name = 'Pearce Th/Yb, TiO2/Yb v Nb/Yb'
+    options = [GROUPING]
+
+    def draw(self, fig, df, opts):
+        from pyrolite.plot.templates import pearceThNbYb, pearceTiNbYb
+        from pyrolite.util.plot.axes import share_axes
+        el = element_ppm(df)
+        tio2 = major_oxides_wt(df, False).get('TiO2', np.nan)
+        data = df.assign(NbYb=el.get('Nb') / el.get('Yb'), ThYb=el.get('Th') / el.get('Yb'),
+                         TiYb=tio2 / el.get('Yb') if 'Yb' in el else np.nan)
+        ax = fig.subplots(1, 2)
+        share_axes(ax, which='x')
+        pearceThNbYb(ax=ax[0])
+        pearceTiNbYb(ax=ax[1])
+        for i, (label, group) in enumerate(groups(data, opts)):
+            for axis, y in ((ax[0], 'ThYb'), (ax[1], 'TiYb')):
+                g = group.dropna(subset=['NbYb', y])
+                axis.scatter(g['NbYb'], g[y], s=18, color=f'C{i % 10}', edgecolor='k', lw=0.3, zorder=3,
+                             label=f'{label} (n={len(g)})')
+        for axis, y in ((ax[0], 'ThYb'), (ax[1], 'TiYb')):
+            expand_log_limits(axis, data['NbYb'], data[y])
+        ax[1].set_ylabel('TiO$_2$ (wt%) / Yb (ppm)')
+        self.legend(ax[0], 'upper left')
+        plotted = int(data[['NbYb', 'ThYb']].notna().all(axis=1).sum())
+        return self.status(df, plotted, 'Nb, Th or Yb') + f'; {int(data[["NbYb", "TiYb"]].notna().all(axis=1).sum())} with TiO2/Yb'
+
+
+class NormalizedPlot(GeoChemPlot):
+    show_option = Option('show', 'Show', 'choice', 'Analyses', ['Analyses', 'Analyses + sample median', 'Sample median'])
+    reference_option = Option('reference', 'Normalize to', 'choice', 'Chondrite_PON', REFERENCE_COMPOSITIONS)
+
+    def columns(self, el: pd.DataFrame, opts) -> list[str]:
+        raise NotImplementedError
+
+    def plot_group(self, ax, frame, color, opts, **kwargs):
+        raise NotImplementedError
+
+    def draw(self, fig, df, opts):
+        el = element_ppm(df)
+        columns = self.columns(el, opts)
+        norm = el[columns].pyrochem.normalize_to(opts['reference'], units='ppm') if columns else pd.DataFrame()
+        norm = norm.dropna(axis=1, how='all').dropna(axis=0, how='all')
+        if norm.empty:
+            return f'No {self.needed} with values in {opts["reference"]}'
+        ax = fig.add_subplot()
+        data = df.loc[norm.index]
+        for i, (label, group) in enumerate(groups(data, opts)):
+            color, rows = f'C{i % 10}', norm.loc[group.index]
+            if opts['show'] != 'Sample median':
+                self.plot_group(ax, rows, color, opts, alpha=0.4 if len(rows) > 1 else 0.9, lw=0.8)
+            if opts['show'] != 'Analyses':
+                self.plot_group(ax, rows.median().to_frame().T, color, opts, lw=2.2)
+            ax.plot([], [], color=color, lw=2, label=f'{label} (n={len(rows)})')
+        values = norm.to_numpy(dtype=float)
+        values = values[np.isfinite(values) & (values > 0)]
+        ax.set_ylim(10 ** np.floor(np.log10(values.min())), 10 ** np.ceil(np.log10(values.max())))  # all groups
+        if opts.get('unity_line', True):
+            ax.axhline(1, color='0.5', lw=0.8, ls='--', zorder=0)
+        ax.set_ylabel(f'Sample / {opts["reference"]}')
+        self.legend(ax)
+        return self.status(df, len(norm), self.needed)
+
+
+@register_plot
+class SpiderPlot(NormalizedPlot):
+    name = 'Multi-element spider'
+    needed = 'trace elements'
+    options = [GROUPING, NormalizedPlot.reference_option,
+               Option('elements', 'Elements', 'choice', 'Extended multi-element', ['Extended multi-element', 'All available']),
+               Option('order', 'Order', 'choice', 'incompatibility', ['incompatibility', 'number']),
+               NormalizedPlot.show_option, Option('unity_line', 'Unity line', 'bool', True)]
+
+    def columns(self, el, opts):
+        return [c for c in el.columns if opts['elements'] == 'All available' or c in MULTI_ELEMENT]
+
+    def plot_group(self, ax, frame, color, opts, **kwargs):
+        frame.pyroplot.spider(ax=ax, index_order=opts['order'], color=color, **kwargs)
+
+
+@register_plot
+class REEPlot(NormalizedPlot):
+    name = 'REE spider'
+    needed = 'rare earth elements'
+    options = [GROUPING, NormalizedPlot.reference_option,
+               Option('index', 'x axis', 'choice', 'elements', ['elements', 'radii']),
+               NormalizedPlot.show_option, Option('unity_line', 'Unity line', 'bool', True)]
+
+    def columns(self, el, opts):
+        from pyrolite.geochem.ind import REE
+        return [c for c in REE() if c in el.columns]
+
+    def plot_group(self, ax, frame, color, opts, **kwargs):
+        frame.pyroplot.REE(ax=ax, index=opts['index'], color=color, **kwargs)
