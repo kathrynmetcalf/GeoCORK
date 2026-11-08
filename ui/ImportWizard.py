@@ -8,14 +8,15 @@ import pandas as pd
 import qtawesome
 from PyQt6 import QtCore
 from PyQt6.QtCore import Qt, QPoint, QSize, QStringListModel, QRect, QVariant, QModelIndex, QAbstractTableModel, \
-    QEventLoop, QTimer, QStandardPaths, QSortFilterProxyModel
-from PyQt6.QtGui import QBrush, QColor, QFont, QAction, QPalette, QIcon
+    QEventLoop, QTimer, QStandardPaths, QSortFilterProxyModel, QEvent
+from PyQt6.QtGui import QBrush, QColor, QFont, QAction, QPalette, QIcon, QShortcut, QKeySequence, QCursor
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel, QTableView,
     QComboBox, QTableWidget, QTableWidgetItem, QMessageBox, QHBoxLayout, QComboBox,
     QLineEdit, QInputDialog, QMenu, QDialog, QFormLayout, QSplitter, QAbstractItemView, QCheckBox,
-    QProgressDialog, QListWidget, QListView, QDialogButtonBox, QTabWidget, QSpacerItem, QSizePolicy, QGridLayout
+    QProgressDialog, QListWidget, QListView, QDialogButtonBox, QTabWidget, QSpacerItem, QSizePolicy, QGridLayout,
+    QFrame
 )
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
@@ -45,8 +46,15 @@ from ui.New_reference import NewReference
 
 CONFIG_FILE = 'column_mappings.json'
 CONFIG_FILE = QStandardPaths.writableLocation(
-        QStandardPaths.StandardLocation.AppDataLocation) + f"/column_mappings.json"
+    QStandardPaths.StandardLocation.AppDataLocation) + f"/column_mappings.json"
 
+# Quick Select sequences for the geochemistry sheet. Each step is a tuple of GeoChemAnalyteAbbreviation values; the
+# first entry is the default and any others are alternatives the user can switch to from the Quick Select bar
+# (e.g. total iron reported as Fe2O3T or FeOT). Abbreviations must match SQLUtils.geochemical_analytes.
+QUICK_SELECT_OXIDES = [('SiO2',), ('TiO2',), ('Al2O3',), ('Fe2O3T', 'FeOT', 'Fe2O3', 'FeO'), ('MnO',), ('MgO',),
+                       ('CaO',), ('Na2O',), ('K2O',), ('P2O5',), ('LOI',), ('TOTAL',)]
+QUICK_SELECT_REE = [('La',), ('Ce',), ('Pr',), ('Nd',), ('Sm',), ('Eu',), ('Gd',), ('Tb',), ('Dy',), ('Ho',), ('Er',),
+                    ('Tm',), ('Yb',), ('Lu',)]
 
 
 class ColumnMapDialog(QDialog):
@@ -109,7 +117,8 @@ class ColumnMapDialog(QDialog):
                     analytes[analyte_abbreviation] = ['GeoChemicalAnalysisValues', 'GeoChemAnalyteValue']
                     analytes[f'{analyte_abbreviation}Unit'] = ['GeoChemicalAnalysisValues', 'GeoChemAnalyteUnitID']
                     errors[f'{analyte_abbreviation}Error'] = ['GeoChemicalAnalysisValues', 'GeoChemAnalyteError']
-                    errors[f'{analyte_abbreviation}ErrorFormat'] = ['GeoChemicalAnalysisValues', 'GeoChemAnalyteErrorFormatID']
+                    errors[f'{analyte_abbreviation}ErrorFormat'] = ['GeoChemicalAnalysisValues',
+                                                                    'GeoChemAnalyteErrorFormatID']
                 self.geochem_fields['Geochemical Analytes'] = analytes
                 self.geochem_fields['Geochemical Analyte Errors'] = errors
         self.field_dictionaries = [SQLUtils.sample_possible_user_input_fields,
@@ -120,7 +129,8 @@ class ColumnMapDialog(QDialog):
                                    SQLUtils.upb_possible_user_input_fields,
                                    self.geochem_fields]
 
-        tab_names = ["Sample Info", "GPS Info", "Column Info", "Aliquot/Grain/Spot Info", "Reference", "U-Pb Data", "Geochemical Data"]
+        tab_names = ["Sample Info", "GPS Info", "Column Info", "Aliquot/Grain/Spot Info", "Reference", "U-Pb Data",
+                     "Geochemical Data"]
         try:
             if parent.current_sheet_name == parent.upb_sheet_name:
                 current_tab_name = "U-Pb Data"  # default tab to open to
@@ -154,7 +164,7 @@ class ColumnMapDialog(QDialog):
                 combo.addItem("None")
                 combo.addItems(possible_values.keys())
                 if current_field in possible_values:
-                    combo.setCurrentIndex(list(possible_values.keys()).index(current_field)+1)
+                    combo.setCurrentIndex(list(possible_values.keys()).index(current_field) + 1)
                     current_tab_name = tab_name
                 combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
                 combo.selection_changed.connect(self.on_combo_changed)
@@ -179,7 +189,6 @@ class ColumnMapDialog(QDialog):
 
         # Set the current tab to U-Pb Data, or another tab is a field is already set
         tab_widget.setCurrentIndex(tab_names.index(current_tab_name))
-
 
     def on_combo_changed(self):
         """
@@ -231,6 +240,7 @@ class LoadMappingDialog(QDialog):
     """
     Class to load a helper dialog to assist the user in selecting previously saved column mappings to the column map dictionary.
     """
+
     def __init__(self, parent: QWidget) -> None:
         """
         Creates a LoadMappingDialog instance with a defined parent widget
@@ -447,13 +457,97 @@ class ImportWizardDialog(QWidget):
 
         header_layout = QHBoxLayout()
         header_layout.addWidget(QLabel("Notice: These dropdowns will overwrite all data in the tables.   "), 1,
-                                   Qt.AlignmentFlag.AlignLeft)
+                                Qt.AlignmentFlag.AlignLeft)
 
         self.btn_add_column = QPushButton("Add Column")
         self.btn_add_column.setFixedWidth(150)
         self.btn_add_column.setToolTip('Adds a blank column to the right of all existing columns')
         self.btn_add_column.clicked.connect(lambda: self.add_column(None, False))
         header_layout.addWidget(self.btn_add_column, 1, Qt.AlignmentFlag.AlignRight)
+
+        # Quick Select buttons: step through a fixed analyte order, mapping one clicked column per analyte
+        self.btn_quick_select_oxides = QPushButton("Quick Select Oxides")
+        self.btn_quick_select_oxides.setFixedWidth(150)
+        self.btn_quick_select_oxides.setToolTip(
+            'Map major-element oxides in order (' + ', '.join(step[0] for step in QUICK_SELECT_OXIDES) +
+            '). Click a cell or header in each oxide\'s column when prompted.')
+        self.btn_quick_select_oxides.clicked.connect(lambda: self.start_quick_select('Oxides', QUICK_SELECT_OXIDES))
+        header_layout.addWidget(self.btn_quick_select_oxides, 0, Qt.AlignmentFlag.AlignRight)
+
+        self.btn_quick_select_ree = QPushButton("Quick Select REE")
+        self.btn_quick_select_ree.setFixedWidth(150)
+        self.btn_quick_select_ree.setToolTip(
+            'Map rare earth elements in order (' + ', '.join(step[0] for step in QUICK_SELECT_REE) +
+            '). Click a cell or header in each element\'s column when prompted.')
+        self.btn_quick_select_ree.clicked.connect(lambda: self.start_quick_select('REE', QUICK_SELECT_REE))
+        header_layout.addWidget(self.btn_quick_select_ree, 0, Qt.AlignmentFlag.AlignRight)
+
+        # Quick Select prompt bar, hidden until a Quick Select sequence is started
+        self.quick_select_active = False
+        self.quick_select_name = ''
+        self.quick_select_steps = []
+        self.quick_select_step = 0
+        # One entry per completed or skipped step so Back can undo it:
+        # {'step', 'analyte', 'column', 'previous_field', 'displaced_column'}
+        self.quick_select_history = []
+
+        self.quick_select_frame = QFrame()
+        self.quick_select_frame.setFrameShape(QFrame.Shape.StyledPanel)
+        self.quick_select_frame.setAutoFillBackground(True)
+        qs_palette = self.quick_select_frame.palette()
+        qs_palette.setColor(QPalette.ColorRole.Window, QColor("#FFFAB8"))  # Light yellow
+        qs_palette.setColor(QPalette.ColorRole.WindowText, QColor("#000000"))
+        self.quick_select_frame.setPalette(qs_palette)
+        quick_select_layout = QHBoxLayout(self.quick_select_frame)
+        quick_select_layout.setContentsMargins(8, 4, 8, 4)
+
+        self.quick_select_label = QLabel()
+        self.quick_select_label.setTextFormat(Qt.TextFormat.RichText)
+        quick_select_layout.addWidget(self.quick_select_label, 1)
+
+        self.quick_select_combo = QComboBox()
+        self.quick_select_combo.setToolTip('Analyte to assign to the next clicked column')
+        self.quick_select_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        quick_select_layout.addWidget(self.quick_select_combo)
+
+        self.btn_quick_select_back = QPushButton("Back")
+        self.btn_quick_select_back.setToolTip('Undo the previous step')
+        self.btn_quick_select_back.clicked.connect(self.quick_select_back)
+        quick_select_layout.addWidget(self.btn_quick_select_back)
+
+        self.btn_quick_select_skip = QPushButton("Skip")
+        self.btn_quick_select_skip.setToolTip('This analyte is not in the sheet; move to the next one')
+        self.btn_quick_select_skip.clicked.connect(self.quick_select_skip)
+        quick_select_layout.addWidget(self.btn_quick_select_skip)
+
+        self.btn_quick_select_fill = QPushButton("Fill Rest")
+        self.btn_quick_select_fill.setToolTip(
+            'Map all remaining analytes to the columns immediately after the last mapped column, in order')
+        self.btn_quick_select_fill.clicked.connect(self.quick_select_fill_rest)
+        quick_select_layout.addWidget(self.btn_quick_select_fill)
+
+        self.btn_quick_select_stop = QPushButton("Stop")
+        self.btn_quick_select_stop.setToolTip('End Quick Select and keep the mappings made so far (Esc)')
+        self.btn_quick_select_stop.clicked.connect(lambda: self.stop_quick_select())
+        quick_select_layout.addWidget(self.btn_quick_select_stop)
+
+        self.quick_select_frame.hide()
+
+        # Small label that follows the cursor over the table while Quick Select is active ("Select La")
+        self.quick_select_cursor_label = QLabel(self)
+        self.quick_select_cursor_label.setWindowFlags(Qt.WindowType.ToolTip | Qt.WindowType.FramelessWindowHint)
+        self.quick_select_cursor_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.quick_select_cursor_label.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+        self.quick_select_cursor_label.setStyleSheet(
+            'QLabel { background-color: #FFFAB8; color: #000000; border: 1px solid #A0A0A0; padding: 2px 5px; }')
+        self.quick_select_cursor_label.hide()
+        # (widget, previous mouse tracking state) pairs the cursor label event filter is installed on
+        self.quick_select_filtered_widgets = []
+        self.quick_select_combo.currentTextChanged.connect(self.update_quick_select_cursor_label)
+
+        self.quick_select_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Escape), self)
+        self.quick_select_shortcut.activated.connect(
+            lambda: self.stop_quick_select() if self.quick_select_active else None)
 
         self.combo_upb_groupBox = CollapsibleGroupBox('U-Pb info')
         combo_upb_layout = QGridLayout()
@@ -489,7 +583,7 @@ class ImportWizardDialog(QWidget):
 
         combo_upb_layout.addWidget(QLabel("U-Pb Analysis Method:"), 0, 6, Qt.AlignmentFlag.AlignRight)
         combo_upb_layout.addWidget(self.combo_upb_analysis_method_comboBox, 0, 7, Qt.AlignmentFlag.AlignLeft)
-        
+
         self.combo_geochem_groupBox = CollapsibleGroupBox('Geochemical info')
         combo_geochem_layout = QGridLayout()
 
@@ -497,31 +591,33 @@ class ImportWizardDialog(QWidget):
         self.combo_geochem_reference_comboBox = CheckableComboBox()
         self.combo_geochem_reference_comboBox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         self.combo_geochem_reference_comboBox.setToolTip('Applies the selected instrument to all geochemical rows')
-        
+
         # ComboBox for setting GeoChem Instrument
         self.combo_geochem_instrument_comboBox = CheckableComboBox()
         self.combo_geochem_instrument_comboBox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         self.combo_geochem_instrument_comboBox.setToolTip('Applies the selected instrument to all geochemical rows')
-        
+
         # ComboBox for setting GeoChem Lab Facility
         self.combo_geochem_lab_facility_comboBox = CheckableComboBox()
         self.combo_geochem_lab_facility_comboBox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         self.combo_geochem_lab_facility_comboBox.setToolTip('Applies the selected lab facility to all geochemical rows')
-        
+
         # ComboBox for setting GeoChem Analysis Method
         self.combo_geochem_analysis_method_comboBox = CheckableTreeCombobox()
-        self.combo_geochem_analysis_method_comboBox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
-        self.combo_geochem_analysis_method_comboBox.setToolTip('Applies the selected analysis method to all geochemical rows')
-        
+        self.combo_geochem_analysis_method_comboBox.setSizePolicy(QSizePolicy.Policy.Preferred,
+                                                                  QSizePolicy.Policy.Minimum)
+        self.combo_geochem_analysis_method_comboBox.setToolTip(
+            'Applies the selected analysis method to all geochemical rows')
+
         combo_geochem_layout.addWidget(QLabel('GC Reference:'), 0, 0, Qt.AlignmentFlag.AlignRight)
         combo_geochem_layout.addWidget(self.combo_geochem_reference_comboBox, 0, 1, Qt.AlignmentFlag.AlignLeft)
-        
+
         combo_geochem_layout.addWidget(QLabel('GC Instrument:'), 0, 2, Qt.AlignmentFlag.AlignRight)
         combo_geochem_layout.addWidget(self.combo_geochem_instrument_comboBox, 0, 3, Qt.AlignmentFlag.AlignLeft)
-        
+
         combo_geochem_layout.addWidget(QLabel('GC Lab Facility:'), 0, 4, Qt.AlignmentFlag.AlignRight)
         combo_geochem_layout.addWidget(self.combo_geochem_lab_facility_comboBox, 0, 5, Qt.AlignmentFlag.AlignLeft)
-        
+
         combo_geochem_layout.addWidget(QLabel('GC Analysis Method:'), 0, 6, Qt.AlignmentFlag.AlignRight)
         combo_geochem_layout.addWidget(self.combo_geochem_analysis_method_comboBox, 0, 7, Qt.AlignmentFlag.AlignLeft)
 
@@ -605,7 +701,7 @@ class ImportWizardDialog(QWidget):
         combo_upb_layout.addWidget(self.upb_age_error_combobox, 1, 1, Qt.AlignmentFlag.AlignLeft)
         self.upb_age_error_combobox.setCurrentText(settings.value('age_error_format_abbreviation'))
         self.upb_age_error_combobox.setToolTip('Applies the selected age error format to all U-Pb rows')
-        
+
         self.upb_age_unit_combobox = QComboBox()
         # self.upb_age_unit_combobox.setFixedWidth(100)
         self.upb_age_unit_combobox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
@@ -645,7 +741,7 @@ class ImportWizardDialog(QWidget):
         combo_upb_layout.addWidget(self.upb_conc_format_combobox, 1, 9, Qt.AlignmentFlag.AlignLeft)
         self.upb_conc_format_combobox.setCurrentText(settings.value('concordance_format_abbreviation'))
         self.upb_conc_format_combobox.setToolTip('Applies the selected concordance format to all U-Pb rows')
-        
+
         self.geochem_unit_combobox = QComboBox()
         # self.geochem_unit_combobox.setFixedWidth(100)
         self.geochem_unit_combobox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
@@ -653,7 +749,7 @@ class ImportWizardDialog(QWidget):
             self.geochem_unit_combobox.addItem(display_text, backend_id)
         combo_geochem_layout.addWidget(QLabel("GC Analysis Unit:"), 1, 0, Qt.AlignmentFlag.AlignRight)
         combo_geochem_layout.addWidget(self.geochem_unit_combobox, 1, 1, Qt.AlignmentFlag.AlignLeft)
-        
+
         self.geochem_error_format_combobox = QComboBox()
         # self.geochem_error_format_combobox.setFixedWidth(100)
         self.geochem_error_format_combobox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
@@ -684,6 +780,7 @@ class ImportWizardDialog(QWidget):
         combo_box_layout.addWidget(self.combo_sample_groupBox)
         combo_box_layout.addWidget(self.combo_upb_groupBox)
         combo_box_layout.addWidget(self.combo_geochem_groupBox)
+        combo_box_layout.addWidget(self.quick_select_frame)
         combo_box_layout.setContentsMargins(0, 0, 0, 0)
 
         main_layout.addLayout(combo_box_layout)
@@ -698,19 +795,19 @@ class ImportWizardDialog(QWidget):
                        "GC Analysis Method": self.combo_geochem_analysis_method_comboBox
                        }
         self.static_combos = {
-                       "Elevation Unit": self.elevation_unit_combobox,
-                       "Height/Depth Unit": self.heightdepth_unit_combobox,
-                       "Sample Age Error": self.sample_age_error_combobox,
-                       "Sample Age Unit": self.sample_age_unit_combobox,
-                       "U-Pb Age Error": self.upb_age_error_combobox,
-                       "U-Pb Age Unit": self.upb_age_unit_combobox,
-                       "U-Pb Ratio Error": self.upb_ratio_error_combobox,
-                       "U-Pb Spot Size Unit": self.upb_spot_size_unit_combobox,
-                       "U-Pb Concordance Format": self.upb_conc_format_combobox,
-                       "GC Analysis Unit": self.geochem_unit_combobox,
-                       "GC Analysis Error Format": self.geochem_error_format_combobox,
-                       "GC Spot Size Unit": self.geochem_spot_size_unit_combobox
-                       }
+            "Elevation Unit": self.elevation_unit_combobox,
+            "Height/Depth Unit": self.heightdepth_unit_combobox,
+            "Sample Age Error": self.sample_age_error_combobox,
+            "Sample Age Unit": self.sample_age_unit_combobox,
+            "U-Pb Age Error": self.upb_age_error_combobox,
+            "U-Pb Age Unit": self.upb_age_unit_combobox,
+            "U-Pb Ratio Error": self.upb_ratio_error_combobox,
+            "U-Pb Spot Size Unit": self.upb_spot_size_unit_combobox,
+            "U-Pb Concordance Format": self.upb_conc_format_combobox,
+            "GC Analysis Unit": self.geochem_unit_combobox,
+            "GC Analysis Error Format": self.geochem_error_format_combobox,
+            "GC Spot Size Unit": self.geochem_spot_size_unit_combobox
+        }
 
         # Splitter for left (pinned) vs right (main) tables
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -759,7 +856,8 @@ class ImportWizardDialog(QWidget):
 
         self.left_layout = QVBoxLayout()
         # Add a vertical spacer to give space at the top
-        self.left_top_spacer = QSpacerItem(0, int(self.workbook_tabs.tabBar().size().height()*(1/2)), QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.left_top_spacer = QSpacerItem(0, int(self.workbook_tabs.tabBar().size().height() * (1 / 2)),
+                                           QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.left_layout.addItem(self.left_top_spacer)
         # todo: connect to self.right_table resize event and make self.left_table the same height and same global y position
         self.left_layout.addWidget(self.left_table)
@@ -779,12 +877,14 @@ class ImportWizardDialog(QWidget):
         self.btn_save_mapping = QPushButton("Save Mapping")
         self.btn_save_mapping.clicked.connect(self.save_mapping)
         bottom_layout.addWidget(self.btn_save_mapping)
-        self.btn_save_mapping.setToolTip('Saves the current column mappings, U-Pb metadata selections, and various units/formats to a user-defined name for future use.')
+        self.btn_save_mapping.setToolTip(
+            'Saves the current column mappings, U-Pb metadata selections, and various units/formats to a user-defined name for future use.')
 
         self.btn_load_mapping = QPushButton("Load Mapping")
         self.btn_load_mapping.clicked.connect(self.load_mapping)
         bottom_layout.addWidget(self.btn_load_mapping)
-        self.btn_load_mapping.setToolTip('Loads a previously saved mapping, overwriting the current column mappings, U-Pb metadata selections, and various units/formats.')
+        self.btn_load_mapping.setToolTip(
+            'Loads a previously saved mapping, overwriting the current column mappings, U-Pb metadata selections, and various units/formats.')
 
         self.conflict_combo = QComboBox()
         self.conflict_combo.addItems(["skip", "add to", "overwrite"])
@@ -794,12 +894,14 @@ class ImportWizardDialog(QWidget):
         self.conflict_label.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         bottom_layout.addWidget(self.conflict_label)
         bottom_layout.addWidget(self.conflict_combo)
-        self.conflict_combo.setToolTip('Determines how to handle importing items that already exist in the database. "Skip" will not import the item. "Add to" will add any new data to the existing item. "Overwrite" will replace the existing item with the imported data.')
+        self.conflict_combo.setToolTip(
+            'Determines how to handle importing items that already exist in the database. "Skip" will not import the item. "Add to" will add any new data to the existing item. "Overwrite" will replace the existing item with the imported data.')
 
         self.validate_button = QPushButton("Validate Import Data")
         self.validate_button.clicked.connect(self.validate_data)
         bottom_layout.addWidget(self.validate_button)
-        self.validate_button.setToolTip('Validates that all required fields are filled, mainly that Sample, Aliquot, and Spot are filled in. Grains are optional')
+        self.validate_button.setToolTip(
+            'Validates that all required fields are filled, mainly that Sample, Aliquot, and Spot are filled in. Grains are optional')
 
         self.btn_import = QPushButton("Import to Database")
         self.btn_import.clicked.connect(self.check_and_import)
@@ -847,7 +949,8 @@ class ImportWizardDialog(QWidget):
                     analytes[analyte_abbreviation] = ['GeoChemicalAnalysisValues', 'GeoChemAnalyteValue']
                     analytes[f'{analyte_abbreviation}Unit'] = ['GeoChemicalAnalysisValues', 'GeoChemAnalyteUnitID']
                     errors[f'{analyte_abbreviation}Error'] = ['GeoChemicalAnalysisValues', 'GeoChemAnalyteError']
-                    errors[f'{analyte_abbreviation}ErrorFormat'] = ['GeoChemicalAnalysisValues', 'GeoChemAnalyteErrorFormatID']
+                    errors[f'{analyte_abbreviation}ErrorFormat'] = ['GeoChemicalAnalysisValues',
+                                                                    'GeoChemAnalyteErrorFormatID']
                 self.geochem_fields['Geochemical Analytes'] = analytes
                 self.geochem_fields['Geochemical Analyte Errors'] = errors
         self.field_dictionaries = [SQLUtils.sample_possible_user_input_fields,
@@ -860,13 +963,14 @@ class ImportWizardDialog(QWidget):
 
         # Dictionary of item types and their parent item types to use when importing
         self.item_parent_dict = {'Samples': None, 'Aliquots': 'Samples', 'Spots': 'Aliquots', 'Grains': 'Spots',
-                            'UPbAnalyses': 'Spots', 'GeoChemicalAnalyses': 'Spots',
-                            'GeoChemicalAnalysisValues': 'GeoChemicalAnalyses', 'SampleAges': 'Samples',
-                            'Columns': 'Samples', 'SampleGPSLocations': 'Samples', 'ColumnGPSLocations': 'Columns',
-                                 'References': ['UPbAnalyses', 'GeoChemicalAnalysisValues']}
+                                 'UPbAnalyses': 'Spots', 'GeoChemicalAnalyses': 'Spots',
+                                 'GeoChemicalAnalysisValues': 'GeoChemicalAnalyses', 'SampleAges': 'Samples',
+                                 'Columns': 'Samples', 'SampleGPSLocations': 'Samples', 'ColumnGPSLocations': 'Columns',
+                                 'References': ['UPbAnalyses', 'GeoChemicalAnalysis']}
 
         # Dictionary of items imported during the current import session
-        self.imports = {'SampleID': [], 'AliquotID': [], 'SpotID': [], 'UPbAnalysisID': [], 'GeoChemAnalysisID': [], 'GrainID': []}
+        self.imports = {'SampleID': [], 'AliquotID': [], 'SpotID': [], 'UPbAnalysisID': [], 'GeoChemAnalysisID': [],
+                        'GrainID': []}
         self.skipped_import_ids = {}
 
         # Mapping of tag IDs to columns and rows in import sheets. This is built when the tags are imported.
@@ -888,7 +992,7 @@ class ImportWizardDialog(QWidget):
         self.geochem_sheet_name = None
 
         self.analysis_imports = {'SampleID': [], 'AliquotID': [], 'SpotID': [], 'GrainID': [], 'UPbAnalysisID': [],
-                            'GeoChemAnalysisID': []}
+                                 'GeoChemAnalysisID': []}
 
         # Icons for accepted/rejected
         self.rejected_icon = qtawesome.icon('fa5s.minus-circle', color='red', scale_factor=1.0)
@@ -916,6 +1020,8 @@ class ImportWizardDialog(QWidget):
         logger_setup.get_logger().info("Import Wizard initialized")
 
     def closeEvent(self, a0):
+        if self.quick_select_active:
+            self.stop_quick_select()
         self.combo_upb_reference_comboBox.disconnect()
         self.combo_upb_instrument_comboBox.disconnect()
         self.combo_upb_lab_facility_comboBox.disconnect()
@@ -974,7 +1080,8 @@ class ImportWizardDialog(QWidget):
             self.combo_upb_lab_facility_comboBox.set_line_edit_text('')
             self.combo_geochem_lab_facility_comboBox.set_line_edit_text('')
 
-        if combo in [self.combo_upb_analysis_method_comboBox, self.combo_geochem_analysis_method_comboBox] or combo is None:
+        if combo in [self.combo_upb_analysis_method_comboBox,
+                     self.combo_geochem_analysis_method_comboBox] or combo is None:
             self.combo_upb_analysis_method_comboBox.setFixedWidth(150)
             self.combo_geochem_analysis_method_comboBox.setFixedWidth(150)
             self.combo_upb_analysis_method_comboBox.set_single_click(True)
@@ -986,10 +1093,10 @@ class ImportWizardDialog(QWidget):
             self.combo_upb_analysis_method_comboBox.closing.connect(
                 lambda: self.set_all_rows("UPb Analysis Method Name", self.combo_upb_analysis_method_comboBox))
             self.combo_geochem_analysis_method_comboBox.closing.connect(
-                lambda: self.set_all_rows("Geochemical Analysis Method Name", self.combo_geochem_analysis_method_comboBox))
+                lambda: self.set_all_rows("Geochemical Analysis Method Name",
+                                          self.combo_geochem_analysis_method_comboBox))
             self.combo_upb_analysis_method_comboBox.set_line_edit_text('')
             self.combo_geochem_analysis_method_comboBox.set_line_edit_text('')
-
 
     def deactivate_widgets(self):
         """
@@ -1004,6 +1111,8 @@ class ImportWizardDialog(QWidget):
         self.btn_import.setEnabled(False)
         self.validate_button.setEnabled(False)
         self.btn_add_column.setEnabled(False)
+        self.btn_quick_select_oxides.setEnabled(False)
+        self.btn_quick_select_ree.setEnabled(False)
         self.combo_upb_reference_comboBox.setEnabled(False)
         self.combo_upb_instrument_comboBox.setEnabled(False)
         self.combo_upb_lab_facility_comboBox.setEnabled(False)
@@ -1031,7 +1140,7 @@ class ImportWizardDialog(QWidget):
         # self.btn_import.setEnabled(True)
         self.validate_button.setEnabled(True)
         self.btn_add_column.setEnabled(True)
-        
+
     def activate_upb_widgets(self):
         """
         Enables all U-Pb widgets within the import wizard
@@ -1046,7 +1155,7 @@ class ImportWizardDialog(QWidget):
         self.upb_age_unit_combobox.setEnabled(True)
         self.upb_spot_size_unit_combobox.setEnabled(True)
         self.upb_conc_format_combobox.setEnabled(True)
-        
+
     def activate_geochem_widgets(self):
         """
         Enables all geochem widgets within the import wizard
@@ -1068,7 +1177,8 @@ class ImportWizardDialog(QWidget):
         """
         row = index.row()
         column = index.column()
-        header_name = self.right_table.model().headerData(column, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
+        header_name = self.right_table.model().headerData(column, Qt.Orientation.Horizontal,
+                                                          Qt.ItemDataRole.DisplayRole)
 
         table_name_map = {
             "Reference Display": '"References"',
@@ -1126,6 +1236,7 @@ class ImportWizardDialog(QWidget):
         importer_help = """Select the .xlsx file to import and identify the sheet with U-Pb data, if any."""
         importer_help += """\nDouble click row headers (numbers) to toggle rows as accepted or rejected."""
         importer_help += """\nDouble click column headers (numbers) in the right table to map them to database fields. Use the dropdown or type."""
+        importer_help += """\nOn the geochemistry sheet, Quick Select Oxides/REE prompts for each analyte in order; click a cell or header in its column to map it and move to the next. Skip analytes that are absent, use Back to undo, Fill Rest to map the remaining analytes to the following columns, and Esc to stop."""
         importer_help += """\nRight click on row and column headers or cells for more features."""
         importer_help += """\nSelections from all dropdowns in the upper right apply to all rows."""
         importer_help += """\nSave and load column mappings with the buttons at the bottom."""
@@ -1236,7 +1347,8 @@ class ImportWizardDialog(QWidget):
 
         if geochem_analysis_units_query.exec():
             while geochem_analysis_units_query.next():
-                self.analytical_units.append((geochem_analysis_units_query.value(0), geochem_analysis_units_query.value(1)))
+                self.analytical_units.append(
+                    (geochem_analysis_units_query.value(0), geochem_analysis_units_query.value(1)))
         else:
             logger_setup.get_logger().error(f"Failed to find analytical units")
             logger_setup.get_logger().debug(f"Error: {geochem_analysis_units_query.lastError().text()}")
@@ -1255,8 +1367,8 @@ class ImportWizardDialog(QWidget):
             upb_row_count = self.left_tables[self.upb_sheet_name].rowCount()
             if upb_row_count == 0:
                 response = QMessageBox.question(self, "No U-Pb Data",
-                                           "There is no U-Pb data selected.\nContinue without U-Pb data?",
-                                           QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                                                "There is no U-Pb data selected.\nContinue without U-Pb data?",
+                                                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
                 if response != QMessageBox.StandardButton.Yes:
                     return False
                 else:
@@ -1339,14 +1451,13 @@ class ImportWizardDialog(QWidget):
         self.btn_import.setDisabled(False)
         return True
 
-
     def validate_ids(self, sheet_name):
         """
         Validate Analysis Name, Sample Name, Aliquot Name, (Grain Name) and Spot Name in the left_table against the database.
         Flag rows that have matching entries in the database.
         """
         if ((not self.upb_sheet_name or not self.upb_sheet_name in self.right_tables) and
-            (not self.geochem_sheet_name or not self.geochem_sheet_name in self.right_tables)):
+                (not self.geochem_sheet_name or not self.geochem_sheet_name in self.right_tables)):
             return True
         if sheet_name not in [self.upb_sheet_name, self.geochem_sheet_name]:
             logger_setup.get_logger().critical("Tried to validate a non-data sheet")
@@ -1366,7 +1477,6 @@ class ImportWizardDialog(QWidget):
             if use_defaults:
                 # Step 3: Fill empty cells with default values
                 if self.fill_empty_cells_with_defaults(empty_cells, sheet_name):
-
                     # Optional: Give user a chance to review and adjust the values
                     data_type = 'U-Pb' if sheet_name == self.upb_sheet_name else 'Geochemical'
                     QMessageBox.information(self, "Review",
@@ -1378,7 +1488,6 @@ class ImportWizardDialog(QWidget):
                 return False
         logger_setup.get_logger().info("Validation of IDs complete")
         return True
-
 
     def edit_combo_box(self, pos):
         """
@@ -1581,7 +1690,6 @@ class ImportWizardDialog(QWidget):
             self.mark_selected_rows_rejected([logical_index], True)
         self.update_left_table_row_status()
 
-
     def add_column(self, column_index=None, before=False, field=None):
         """
         Adds a column to the right QTableWidget
@@ -1594,18 +1702,18 @@ class ImportWizardDialog(QWidget):
         logger_setup.get_logger().info(f'Adding column {column_index} for field {field}')
 
         if (self.sender() in [self.combo_upb_reference_comboBox, self.combo_upb_instrument_comboBox,
-                             self.combo_upb_lab_facility_comboBox, self.combo_upb_analysis_method_comboBox]
+                              self.combo_upb_lab_facility_comboBox, self.combo_upb_analysis_method_comboBox]
                 and self.upb_sheet_name and self.upb_sheet_name in self.right_tables):
             # Set the current sheet to the U-Pb data sheet
             self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[self.upb_sheet_name]))
         elif (self.sender() in [self.combo_geochem_reference_comboBox, self.combo_geochem_instrument_comboBox,
                                 self.combo_geochem_lab_facility_comboBox, self.combo_geochem_analysis_method_comboBox]
-                and self.geochem_sheet_name and self.geochem_sheet_name in self.right_tables):
+              and self.geochem_sheet_name and self.geochem_sheet_name in self.right_tables):
             # Set the current sheet to the Geochemical data sheet
             self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[self.geochem_sheet_name]))
 
         if column_index is None:
-            column_index = self.right_table.model().columnCount()-1
+            column_index = self.right_table.model().columnCount() - 1
         if field is None:
             dialog = ColumnMapDialog(None, self.sheet_mappings[self.current_sheet_name], self)
             if dialog.exec():
@@ -1621,7 +1729,8 @@ class ImportWizardDialog(QWidget):
             return
 
         for test_idx in range(self.right_table.model().columnCount()):
-            header = self.right_table.model().headerData(test_idx, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
+            header = self.right_table.model().headerData(test_idx, Qt.Orientation.Horizontal,
+                                                         Qt.ItemDataRole.DisplayRole)
             if header and header.startswith(selected_field):
                 QMessageBox.warning(self, "Duplicate Column", f"Column '{selected_field}' already exists.")
                 return
@@ -1634,8 +1743,10 @@ class ImportWizardDialog(QWidget):
 
         # Set the column header
         header_text = f"{selected_field}"
-        self.right_table.model().setHeaderData(column_index, Qt.Orientation.Horizontal, header_text, Qt.ItemDataRole.EditRole)
-        self.right_table.model().setHeaderData(column_index, Qt.Orientation.Horizontal, self.green_brush, Qt.ItemDataRole.BackgroundRole)  # Green background for new column
+        self.right_table.model().setHeaderData(column_index, Qt.Orientation.Horizontal, header_text,
+                                               Qt.ItemDataRole.EditRole)
+        self.right_table.model().setHeaderData(column_index, Qt.Orientation.Horizontal, self.green_brush,
+                                               Qt.ItemDataRole.BackgroundRole)  # Green background for new column
 
         # Update the mappings for the current sheet
         # Shift existing mappings to the right, starting with the largest index
@@ -1646,12 +1757,13 @@ class ImportWizardDialog(QWidget):
                 # Shift the mapping right by one
                 self.sheet_mappings[self.current_sheet_name][column + 1] = field
                 # Shift the header background color
-                background_color = self.right_table.model().headerData(column, Qt.Orientation.Horizontal, Qt.ItemDataRole.BackgroundRole)
-                self.right_table.model().setHeaderData(column+1, Qt.Orientation.Horizontal, background_color,
+                background_color = self.right_table.model().headerData(column, Qt.Orientation.Horizontal,
+                                                                       Qt.ItemDataRole.BackgroundRole)
+                self.right_table.model().setHeaderData(column + 1, Qt.Orientation.Horizontal, background_color,
                                                        Qt.ItemDataRole.BackgroundRole)
                 if column != column_index:
                     self.right_table.model().setHeaderData(column, Qt.Orientation.Horizontal, self.transparent_brush,
-                                                       Qt.ItemDataRole.BackgroundRole)
+                                                           Qt.ItemDataRole.BackgroundRole)
         self.sheet_mappings[self.current_sheet_name][column_index] = selected_field
         # Update the original columns mapping
         for index, column in self.original_columns[self.current_sheet_name].items():
@@ -1683,7 +1795,8 @@ class ImportWizardDialog(QWidget):
             field = "GeoChemicalMethodID"
 
         # add additional ID column if column is References, Instruments, Analysis Methods, or Lab Facilities
-        if selected_field in ["Reference Display", "Instrument Name", "Lab Facility Name", "UPb Analysis Method Name", "Geochemical Analysis Method Name"]:
+        if selected_field in ["Reference Display", "Instrument Name", "Lab Facility Name", "UPb Analysis Method Name",
+                              "Geochemical Analysis Method Name"]:
             # ADD ID Column to the tablewidget
             # Insert the new column at the end of the table
             column_index = self.right_table.model().columnCount()
@@ -1691,7 +1804,8 @@ class ImportWizardDialog(QWidget):
 
             # Set the column header
             header_text = f"{field}"
-            self.right_table.model().setHeaderData(column_index, Qt.Orientation.Horizontal, header_text, Qt.ItemDataRole.EditRole)
+            self.right_table.model().setHeaderData(column_index, Qt.Orientation.Horizontal, header_text,
+                                                   Qt.ItemDataRole.EditRole)
 
             # Update the mappings for the current sheet
             self.sheet_mappings[self.current_sheet_name][column_index] = field
@@ -1786,7 +1900,6 @@ class ImportWizardDialog(QWidget):
             elif action == remove_column:
                 self.remove_selected_columns(selected_columns)
 
-
     def show_right_table_vertical_header_context_menu(self, pos: QPoint):
         """
         Context menu for the right table.
@@ -1818,7 +1931,6 @@ class ImportWizardDialog(QWidget):
             elif action == accept_action:
                 self.mark_selected_rows_rejected(selected_rows, False)
 
-
     # ---------------------------
     #     File & Sheet Loading
     # ---------------------------
@@ -1845,7 +1957,9 @@ class ImportWizardDialog(QWidget):
         # headers for U-Pb data in right table
         right_column = None
         for r_column in range(self.right_tables[self.current_sheet_name].model().columnCount()):
-            r_header_name = self.right_tables[self.current_sheet_name].model().headerData(r_column, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
+            r_header_name = self.right_tables[self.current_sheet_name].model().headerData(r_column,
+                                                                                          Qt.Orientation.Horizontal,
+                                                                                          Qt.ItemDataRole.DisplayRole)
             if r_header_name == header_name:
                 right_column = r_column
                 break
@@ -1863,14 +1977,16 @@ class ImportWizardDialog(QWidget):
                 if header_field:
                     break
             if header_field:
-                self.add_column(field = header_field)
-                right_column = self.right_tables[self.current_sheet_name].model().columnCount()-1
+                self.add_column(field=header_field)
+                right_column = self.right_tables[self.current_sheet_name].model().columnCount() - 1
         if right_column is not None:
             # Update the value in the right table as well
             self.right_tables[self.current_sheet_name].blockSignals(True)
             index = self.right_tables[self.current_sheet_name].model().index(row, right_column)
-            if self.right_tables[self.current_sheet_name].model().data(index, Qt.ItemDataRole.DisplayRole) != current_value:
-                self.right_tables[self.current_sheet_name].model().setData(index, current_value, Qt.ItemDataRole.DisplayRole)
+            if self.right_tables[self.current_sheet_name].model().data(index,
+                                                                       Qt.ItemDataRole.DisplayRole) != current_value:
+                self.right_tables[self.current_sheet_name].model().setData(index, current_value,
+                                                                           Qt.ItemDataRole.DisplayRole)
             self.right_tables[self.current_sheet_name].blockSignals(False)
 
             # next_value = self.left_table.item(row + 1, column).text().strip()
@@ -1893,10 +2009,12 @@ class ImportWizardDialog(QWidget):
             #     self.flash_fill_downward(target_table, row, column, current_value)
 
     def handle_right_cell_change(self, index):
-        if self.upb_sheet_name and self.upb_sheet_name in self.right_tables and self.sender() == self.right_tables[self.upb_sheet_name].model():
+        if self.upb_sheet_name and self.upb_sheet_name in self.right_tables and self.sender() == self.right_tables[
+            self.upb_sheet_name].model():
             self.right_table = self.right_tables[self.upb_sheet_name]
             self.left_table = self.left_tables[self.upb_sheet_name]
-        elif self.geochem_sheet_name and self.geochem_sheet_name in self.right_tables and self.sender() == self.right_tables[self.geochem_sheet_name].model():
+        elif self.geochem_sheet_name and self.geochem_sheet_name in self.right_tables and self.sender() == \
+                self.right_tables[self.geochem_sheet_name].model():
             self.right_table = self.right_tables[self.geochem_sheet_name]
             self.left_table = self.left_tables[self.geochem_sheet_name]
         else:
@@ -1904,7 +2022,8 @@ class ImportWizardDialog(QWidget):
         # Get the current value of the cell
         current_value = str(self.right_table.model().data(index, Qt.ItemDataRole.DisplayRole)).strip()
 
-        header_name = self.right_table.model().headerData(index.column(), Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
+        header_name = self.right_table.model().headerData(index.column(), Qt.Orientation.Horizontal,
+                                                          Qt.ItemDataRole.DisplayRole)
 
         candidates = [
             self.right_tables[name]
@@ -1958,6 +2077,8 @@ class ImportWizardDialog(QWidget):
         path, _ = dlg.getOpenFileName(self, "Select Excel File", "", "Excel Files (*.xlsx)")
         if path:
             logger_setup.get_logger().debug("Selected Excel File: " + path)
+            if self.quick_select_active:
+                self.stop_quick_select()
             self.selected_file_path = path
             self.label_file.setText(f"Selected File: {os.path.basename(path)}")
             file_size_bytes = os.path.getsize(path)
@@ -1977,7 +2098,8 @@ class ImportWizardDialog(QWidget):
                 load_workbook_start = time.time()
                 wb = load_workbook(path, data_only=True, rich_text=True)
                 # wb = load_workbook(path, data_only=True, keep_vba=False, read_only=True, rich_text=True, keep_links=False)
-                logger_setup.get_logger().info(f"Excel file {os.path.basename(path)} loaded in {(time.time() - load_workbook_start):.2f} seconds")
+                logger_setup.get_logger().info(
+                    f"Excel file {os.path.basename(path)} loaded in {(time.time() - load_workbook_start):.2f} seconds")
                 self.upb_combo_sheets.clear()
                 self.geochem_combo_sheets.clear()
                 self.sheets.clear()
@@ -2055,7 +2177,8 @@ class ImportWizardDialog(QWidget):
                         if reply != QMessageBox.StandardButton.Yes:
                             continue
                     logger_setup.get_logger().debug(f"Loading sheet: {sheet.title}")
-                    show_loading_dialog(f"Loading {sheet.title}", f"Loading sheet {sheet.title} with {row_count} rows...")
+                    show_loading_dialog(f"Loading {sheet.title}",
+                                        f"Loading sheet {sheet.title} with {row_count} rows...")
                     # Add a new tab for each sheet
                     self.sheet_mappings[sheet.title] = {}
                     self.static_mappings[sheet.title] = {}
@@ -2095,13 +2218,17 @@ class ImportWizardDialog(QWidget):
                     header = self.right_table.horizontalHeader()
                     header.sectionDoubleClicked.connect(self.handle_header_double_clicked)
 
+                    # Quick Select: a single click on a cell or header picks that column for the current analyte
+                    self.right_table.clicked.connect(self.on_quick_select_cell_clicked)
+                    header.sectionClicked.connect(self.on_quick_select_header_clicked)
+
                     if sheet.title == self.upb_combo_sheets.currentText() or sheet.title == self.geochem_combo_sheets.currentText():
                         # This is the U-Pb or geochemistry sheet, so sync it with the left table
                         # Make sure the left table has the same number of rows
                         self.create_left_table(sheet.title)
 
                     close_loading_dialog(f"Loading {sheet.title}",
-                                                             f"Loading sheet {sheet.title} with {row_count} rows...")
+                                         f"Loading sheet {sheet.title} with {row_count} rows...")
 
                 if self.upb_combo_sheets.currentIndex() > -1:
                     self.workbook_tabs.setCurrentIndex(self.upb_combo_sheets.currentIndex())
@@ -2116,7 +2243,7 @@ class ImportWizardDialog(QWidget):
                 logger_setup.get_logger().critical(f"Error reading the excel file")
                 logger_setup.get_logger().debug(f"Failed to read Excel file:\n{e}")
                 close_loading_dialog(f"Loading {sheet.title}",
-                                                          f"Loading sheet {sheet.title} with {row_count} rows...")
+                                     f"Loading sheet {sheet.title} with {row_count} rows...")
                 close_loading_dialog("Loading", f"Loading {os.path.basename(path)}...")
                 return
         self.activate_widgets()
@@ -2125,6 +2252,7 @@ class ImportWizardDialog(QWidget):
         if self.geochem_sheet_name is not None:
             self.activate_geochem_widgets()
         self.combo_sample_groupBox.expand_groupBox()
+        self.update_quick_select_buttons()
         self.resize_tables()
         self.mapping_loaded = False
         close_loading_dialog("Loading", f"Loading {os.path.basename(path)}...")
@@ -2198,12 +2326,13 @@ class ImportWizardDialog(QWidget):
             self.sync_left_table_rows()
             if self.current_mapping:
                 self.load_mapping(self.current_mapping)
-                
+
     def update_geochem_sheet(self):
         """
         Update the name of the sheet with geochemical data.
         """
         self.geochem_sheet_name = self.geochem_combo_sheets.currentText()
+        self.update_quick_select_buttons()
         if self.geochem_sheet_name in self.right_tables:
             self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[self.geochem_sheet_name]))
             self.update_current_right_table()
@@ -2224,7 +2353,8 @@ class ImportWizardDialog(QWidget):
             self.right_table = QTableView()
 
     def on_identify_rejected_changed(self):
-        if self.current_sheet_name in [self.upb_sheet_name, self.geochem_sheet_name] and self.current_sheet_name in self.right_tables:
+        if self.current_sheet_name in [self.upb_sheet_name,
+                                       self.geochem_sheet_name] and self.current_sheet_name in self.right_tables:
             if self.identify_rejected.isChecked():
                 if not self.right_tables[self.current_sheet_name].model().style_model():
                     self.identify_rejected.setChecked(False)
@@ -2238,7 +2368,11 @@ class ImportWizardDialog(QWidget):
         if not self.workbook_tabs.tabText(index):
             # No valid tab selected
             return
+        # Mappings are per sheet, so a Quick Select sequence cannot continue on a different sheet
+        if self.quick_select_active:
+            self.stop_quick_select('Quick Select stopped because the sheet changed.')
         self.update_current_right_table()
+        self.update_quick_select_buttons()
         if self.current_sheet_name in [self.upb_sheet_name, self.geochem_sheet_name]:
             if self.current_sheet_name in self.left_tables:
                 self.left_table = self.left_tables[self.current_sheet_name]
@@ -2313,14 +2447,16 @@ class ImportWizardDialog(QWidget):
 
         self.right_table.resizeColumnsToContents()
         close_loading_dialog('Loading', f'Displaying {sheet_name}...')
-        logger_setup.get_logger().info(f"Displayed sheet '{sheet_name}' in {(time.time() - display_start_time):.2f} seconds")
+        logger_setup.get_logger().info(
+            f"Displayed sheet '{sheet_name}' in {(time.time() - display_start_time):.2f} seconds")
 
     def sync_left_table_rows(self):
         """
         Make the left table have the same row count as the right table
         and add editable cells for Sample ID, Aliquot ID, Spot ID.
         """
-        if self.current_sheet_name in [self.upb_sheet_name, self.geochem_sheet_name] and self.current_sheet_name in self.right_tables:
+        if self.current_sheet_name in [self.upb_sheet_name,
+                                       self.geochem_sheet_name] and self.current_sheet_name in self.right_tables:
             analysis_text = "UPb Analysis Name" if self.current_sheet_name == self.upb_sheet_name else "Geochemical Analysis Name"
             left_table = self.left_tables[self.current_sheet_name]
             left_table.blockSignals(True)
@@ -2345,7 +2481,8 @@ class ImportWizardDialog(QWidget):
             model = find_tree_model(model, [])[0]
         elif isinstance(model, QSortFilterProxyModel):
             model = model.sourceModel()
-        if not isinstance(model, CheckableSqlTableModel | CheckableSqlQueryModel | CheckableSQLiteTableModel | CheckableTreeModel):
+        if not isinstance(model,
+                          CheckableSqlTableModel | CheckableSqlQueryModel | CheckableSQLiteTableModel | CheckableTreeModel):
             logger_setup.get_logger().debug(f"No valid model found for {field}.")
             return
         if "Reference Display" in field:
@@ -2541,7 +2678,6 @@ class ImportWizardDialog(QWidget):
                     new_added.append(index - shift)
                 self.original_columns[self.current_sheet_name]['added'] = new_added
 
-
         self.sheet_mappings[self.current_sheet_name] = adjusted_mappings
         # self.right_table.resizeRowsToContents()
         # Notify the user
@@ -2565,7 +2701,8 @@ class ImportWizardDialog(QWidget):
 
         logger_setup.get_logger().info(f'Disabling selected rows: {selected_rows}')
         for r in selected_rows:
-            self.right_table.model().setHeaderData(r, Qt.Orientation.Vertical, "disabled", Qt.ItemDataRole.DecorationRole)
+            self.right_table.model().setHeaderData(r, Qt.Orientation.Vertical, "disabled",
+                                                   Qt.ItemDataRole.DecorationRole)
         if self.current_sheet_name in [self.upb_sheet_name, self.geochem_sheet_name]:
             self.update_left_table_row_status()
 
@@ -2578,15 +2715,15 @@ class ImportWizardDialog(QWidget):
         if rejected:
             logger_setup.get_logger().info(f'Marking selected rows as rejected: {rows}')
             for r in rows:
-                self.right_table.model().setHeaderData(r, Qt.Orientation.Vertical, "rejected", Qt.ItemDataRole.DecorationRole)
+                self.right_table.model().setHeaderData(r, Qt.Orientation.Vertical, "rejected",
+                                                       Qt.ItemDataRole.DecorationRole)
         else:
             logger_setup.get_logger().info(f'Marking selected rows as accepted: {rows}')
             for r in rows:
-                self.right_table.model().setHeaderData(r, Qt.Orientation.Vertical, "accepted", Qt.ItemDataRole.DecorationRole)
+                self.right_table.model().setHeaderData(r, Qt.Orientation.Vertical, "accepted",
+                                                       Qt.ItemDataRole.DecorationRole)
         if self.current_sheet_name in [self.upb_sheet_name, self.geochem_sheet_name]:
             self.update_left_table_row_status()
-
-
 
     # ---------------------------
     #     Header Double Click
@@ -2596,50 +2733,382 @@ class ImportWizardDialog(QWidget):
         """
         Double-click on a right table header => open mapping dialog.
         """
-        value = self.right_table.model().headerData(logical_index, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
+        if self.quick_select_active:
+            # Header clicks are being used to pick Quick Select columns
+            return
+        value = self.right_table.model().headerData(logical_index, Qt.Orientation.Horizontal,
+                                                    Qt.ItemDataRole.DisplayRole)
         if not value:
             return
         logger_setup.get_logger().info(f'Double-click on header {value}')
-        original_header_text = str(logical_index)
-        curr_map = self.sheet_mappings[self.current_sheet_name].copy()
         dialog = ColumnMapDialog(logical_index, self.sheet_mappings[self.current_sheet_name], self)
         if dialog.exec():
-            new_field = dialog.get_selected_value()
-            if new_field == "None" or not new_field:
-                if logical_index in self.sheet_mappings[self.current_sheet_name]:
-                    if curr_map[logical_index] == "Grain Name" and self.current_sheet_name in [self.upb_sheet_name, self.geochem_sheet_name]:
-                        # Remove the Grain Name column from the left table if it exists
-                        left_headers = [self.left_table.horizontalHeaderItem(i).text() for i in
-                                        range(self.left_table.columnCount())]
-                        if "Grain Name" in left_headers:
-                            grain_col_index = left_headers.index("Grain Name")
-                            self.left_table.removeColumn(grain_col_index)
-                    elif (curr_map[logical_index] in ["Sample Name", "Aliquot Name", "Spot Name", "UPb Analysis Name", "Geochemical Analysis Name"]
-                        and self.current_sheet_name in [self.upb_sheet_name, self.geochem_sheet_name]):
-                        # If it’s Sample Name / Aliquot Name / Spot Name / Analysis Name, auto-clear left table
-                        self.update_left_table_on_header_change('', logical_index, curr_map[logical_index])
-                    del self.sheet_mappings[self.current_sheet_name][logical_index]
-                # Reset the text and background color
-                self.right_table.model().setHeaderData(logical_index, Qt.Orientation.Horizontal, str(logical_index), Qt.ItemDataRole.EditRole)
-                self.right_table.model().setHeaderData(logical_index, Qt.Orientation.Horizontal, self.transparent_brush, Qt.ItemDataRole.BackgroundRole)
-            else:
-                self.sheet_mappings[self.current_sheet_name][logical_index] = (new_field)
-                self.right_table.model().setHeaderData(logical_index, Qt.Orientation.Horizontal, f"{new_field}", Qt.ItemDataRole.EditRole)
-                self.right_table.model().setHeaderData(logical_index, Qt.Orientation.Horizontal, self.green_brush, Qt.ItemDataRole.BackgroundRole)
+            self.apply_column_mapping(logical_index, dialog.get_selected_value())
 
-                # If old field is Sample Name / Aliquot Name / Grain Name / Spot Name / Analysis Name, auto-clear left table
-                if (logical_index in curr_map and curr_map[logical_index] in
-                        ["Sample Name", "Aliquot Name", "Grain Name", "Spot Name", "UPb Analysis Name", "Geochemical Analysis Name"] and
-                        self.current_sheet_name in [self.upb_sheet_name, self.geochem_sheet_name]):
+    def apply_column_mapping(self, logical_index: int, new_field: str | None):
+        """
+        Maps a right table column to a database field, or clears the mapping if new_field is "None" or empty.
+        Updates the header text/colour, self.sheet_mappings, and the left table for name fields.
+        Shared by the column mapping dialog and Quick Select.
+
+        :param logical_index: Column index in the current right table.
+        :param new_field: Field name from the possible user input field dictionaries, or "None" to clear.
+        """
+        curr_map = self.sheet_mappings[self.current_sheet_name].copy()
+        if new_field == "None" or not new_field:
+            if logical_index in self.sheet_mappings[self.current_sheet_name]:
+                if curr_map[logical_index] == "Grain Name" and self.current_sheet_name in [self.upb_sheet_name,
+                                                                                           self.geochem_sheet_name]:
+                    # Remove the Grain Name column from the left table if it exists
+                    left_headers = [self.left_table.horizontalHeaderItem(i).text() for i in
+                                    range(self.left_table.columnCount())]
+                    if "Grain Name" in left_headers:
+                        grain_col_index = left_headers.index("Grain Name")
+                        self.left_table.removeColumn(grain_col_index)
+                elif (curr_map[logical_index] in ["Sample Name", "Aliquot Name", "Spot Name", "UPb Analysis Name",
+                                                  "Geochemical Analysis Name"]
+                      and self.current_sheet_name in [self.upb_sheet_name, self.geochem_sheet_name]):
+                    # If it’s Sample Name / Aliquot Name / Spot Name / Analysis Name, auto-clear left table
                     self.update_left_table_on_header_change('', logical_index, curr_map[logical_index])
-                # If new field is Sample Name / Aliquot Name / Grain Name / Spot Name / Analysis Name, auto-populate left table
-                if (new_field in ["Sample Name", "Aliquot Name", "Grain Name", "Spot Name", "UPb Analysis Name", "Geochemical Analysis Name"] and
-                        self.current_sheet_name in [self.upb_sheet_name, self.geochem_sheet_name]):
-                    self.update_left_table_on_header_change(new_field, logical_index)
-            logger_setup.get_logger().info(f'Header updated: {new_field}')
+                del self.sheet_mappings[self.current_sheet_name][logical_index]
+            # Reset the text and background color
+            self.right_table.model().setHeaderData(logical_index, Qt.Orientation.Horizontal, str(logical_index),
+                                                   Qt.ItemDataRole.EditRole)
+            self.right_table.model().setHeaderData(logical_index, Qt.Orientation.Horizontal, self.transparent_brush,
+                                                   Qt.ItemDataRole.BackgroundRole)
+        else:
+            self.sheet_mappings[self.current_sheet_name][logical_index] = (new_field)
+            self.right_table.model().setHeaderData(logical_index, Qt.Orientation.Horizontal, f"{new_field}",
+                                                   Qt.ItemDataRole.EditRole)
+            self.right_table.model().setHeaderData(logical_index, Qt.Orientation.Horizontal, self.green_brush,
+                                                   Qt.ItemDataRole.BackgroundRole)
+
+            # If old field is Sample Name / Aliquot Name / Grain Name / Spot Name / Analysis Name, auto-clear left table
+            if (logical_index in curr_map and curr_map[logical_index] in
+                    ["Sample Name", "Aliquot Name", "Grain Name", "Spot Name", "UPb Analysis Name",
+                     "Geochemical Analysis Name"] and
+                    self.current_sheet_name in [self.upb_sheet_name, self.geochem_sheet_name]):
+                self.update_left_table_on_header_change('', logical_index, curr_map[logical_index])
+            # If new field is Sample Name / Aliquot Name / Grain Name / Spot Name / Analysis Name, auto-populate left table
+            if (new_field in ["Sample Name", "Aliquot Name", "Grain Name", "Spot Name", "UPb Analysis Name",
+                              "Geochemical Analysis Name"] and
+                    self.current_sheet_name in [self.upb_sheet_name, self.geochem_sheet_name]):
+                self.update_left_table_on_header_change(new_field, logical_index)
+        logger_setup.get_logger().info(f'Header updated: {new_field}')
+
+    # ---------------------------
+    #       Quick Select
+    # ---------------------------
+
+    def update_quick_select_buttons(self):
+        """
+        Quick Select maps geochemical analytes, so only enable it while the geochemistry sheet is shown.
+        """
+        enabled = bool(self.geochem_sheet_name) and self.current_sheet_name == self.geochem_sheet_name \
+                  and self.current_sheet_name in self.right_tables
+        self.btn_quick_select_oxides.setEnabled(enabled)
+        self.btn_quick_select_ree.setEnabled(enabled)
+
+    def start_quick_select(self, name: str, sequence: list[tuple]):
+        """
+        Starts a Quick Select sequence. The user is prompted for each analyte in turn and clicking any cell or header
+        in a column maps that column to the analyte, then moves on to the next one.
+
+        :param name: Display name of the sequence, e.g. 'REE'.
+        :param sequence: List of steps; each step is a tuple of analyte abbreviations, the first being the default.
+        """
+        if not self.geochem_sheet_name or self.geochem_sheet_name not in self.right_tables:
+            QMessageBox.warning(self, "Quick Select", "Select a geochemical data sheet first.")
+            return
+        if self.quick_select_active:
+            self.stop_quick_select()
+        if self.current_sheet_name != self.geochem_sheet_name:
+            self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[self.geochem_sheet_name]))
+
+        # Only offer analytes that exist in GeoChemicalAnalytes, otherwise the import would fail later
+        available = self.geochem_fields.get('Geochemical Analytes')
+        steps = []
+        missing = []
+        for step in sequence:
+            if available:
+                valid = tuple(abbr for abbr in step if abbr in available)
+                missing.extend(abbr for abbr in step if abbr not in available)
+            else:
+                valid = step
+            if valid:
+                steps.append(valid)
+        if not available:
+            logger_setup.get_logger().warning('Quick Select: could not check analytes against GeoChemicalAnalytes')
+        if missing:
+            logger_setup.get_logger().warning(f'Quick Select {name}: analytes not in database, skipped: {missing}')
+        if not steps:
+            QMessageBox.warning(self, "Quick Select", f"None of the {name} analytes exist in the database.")
+            return
+
+        self.quick_select_name = name
+        self.quick_select_steps = steps
+        self.quick_select_step = 0
+        self.quick_select_history = []
+        self.quick_select_active = True
+        self.right_table.clearSelection()
+        for button in (self.btn_quick_select_back, self.btn_quick_select_skip, self.btn_quick_select_fill,
+                       self.btn_quick_select_stop):
+            button.setVisible(True)
+        self.quick_select_frame.show()
+        self.update_quick_select_prompt()
+        self.install_quick_select_cursor_filter()
+        logger_setup.get_logger().info(f'Quick Select {name} started with {len(steps)} analytes')
+
+    def update_quick_select_prompt(self, analyte: str | None = None):
+        """
+        Refreshes the Quick Select bar for the current step.
+
+        :param analyte: Analyte to pre-select in the alternatives combo box, if not the step's default.
+        """
+        total = len(self.quick_select_steps)
+        step = self.quick_select_step
+        options = self.quick_select_steps[step]
+
+        self.quick_select_combo.blockSignals(True)
+        self.quick_select_combo.clear()
+        self.quick_select_combo.addItems(options)
+        if analyte in options:
+            self.quick_select_combo.setCurrentText(analyte)
+        self.quick_select_combo.blockSignals(False)
+        # Only show the combo box when there is a choice to make (e.g. Fe2O3T vs FeOT)
+        self.quick_select_combo.setVisible(len(options) > 1)
+        self.update_quick_select_cursor_label()
+
+        if len(options) > 1:
+            target = 'the selected analyte'
+        else:
+            target = f'<b>{options[0]}</b>'
+        self.quick_select_label.setText(
+            f'Quick Select {self.quick_select_name} ({step + 1}/{total}): '
+            f'click a cell or header in the column for {target}')
+
+        self.btn_quick_select_back.setEnabled(bool(self.quick_select_history))
+        self.btn_quick_select_fill.setEnabled(
+            any(entry['column'] is not None for entry in self.quick_select_history))
+
+    def on_quick_select_cell_clicked(self, index: QModelIndex):
+        if not self.quick_select_active or self.sender() is not self.right_table or not index.isValid():
+            return
+        self.quick_select_assign(index.column())
+
+    def on_quick_select_header_clicked(self, logical_index: int):
+        if not self.quick_select_active or self.sender() is not self.right_table.horizontalHeader():
+            return
+        self.quick_select_assign(logical_index)
+
+    def quick_select_assign(self, column: int) -> bool:
+        """
+        Maps the clicked column to the current Quick Select analyte and moves on to the next step.
+
+        :param column: Column index in the current right table.
+        :return: True if the column was mapped.
+        """
+        if not self.quick_select_active or self.quick_select_step >= len(self.quick_select_steps):
+            return False
+        if column < 0 or self.right_table.isColumnHidden(column):
+            return False
+        # A double-click emits two clicks; never map the same column to two consecutive analytes
+        if self.quick_select_history and self.quick_select_history[-1]['column'] == column:
+            return False
+
+        analyte = self.quick_select_combo.currentText() or self.quick_select_steps[self.quick_select_step][0]
+        mappings = self.sheet_mappings[self.current_sheet_name]
+        previous_field = mappings.get(column)
+        # Each analyte can only be mapped once per sheet, so move it if it is already on another column
+        displaced_column = next((col for col, field in mappings.items() if field == analyte and col != column), None)
+        if displaced_column is not None:
+            self.apply_column_mapping(displaced_column, "None")
+        self.apply_column_mapping(column, analyte)
+
+        self.quick_select_history.append({'step': self.quick_select_step, 'analyte': analyte, 'column': column,
+                                          'previous_field': previous_field, 'displaced_column': displaced_column})
+        self.quick_select_scroll_to(column + 1)
+        self.quick_select_advance()
+        return True
+
+    def quick_select_skip(self):
+        """
+        Skips the current analyte (not present in the sheet).
+        """
+        if not self.quick_select_active:
+            return
+        self.quick_select_history.append({'step': self.quick_select_step,
+                                          'analyte': self.quick_select_combo.currentText(), 'column': None,
+                                          'previous_field': None, 'displaced_column': None})
+        self.quick_select_advance()
+
+    def quick_select_advance(self):
+        self.quick_select_step += 1
+        if self.quick_select_step >= len(self.quick_select_steps):
+            mapped = [entry['analyte'] for entry in self.quick_select_history if entry['column'] is not None]
+            skipped = [entry['analyte'] for entry in self.quick_select_history if entry['column'] is None]
+            message = f'Quick Select {self.quick_select_name} finished: mapped {len(mapped)}'
+            if skipped:
+                message += f', skipped {", ".join(skipped)}'
+            self.stop_quick_select(message + '.')
+        else:
+            self.update_quick_select_prompt()
+
+    def quick_select_back(self):
+        """
+        Undoes the previous step: restores the column's earlier mapping (and any column the analyte was moved from)
+        and prompts for that analyte again.
+        """
+        if not self.quick_select_active or not self.quick_select_history:
+            return
+        entry = self.quick_select_history.pop()
+        if entry['column'] is not None:
+            self.apply_column_mapping(entry['column'], entry['previous_field'] or "None")
+            if entry['displaced_column'] is not None:
+                self.apply_column_mapping(entry['displaced_column'], entry['analyte'])
+            self.quick_select_scroll_to(entry['column'])
+        self.quick_select_step = entry['step']
+        self.update_quick_select_prompt(entry['analyte'])
+
+    def quick_select_fill_rest(self):
+        """
+        Maps every remaining analyte to consecutive visible columns after the last column picked in this sequence.
+        """
+        if not self.quick_select_active:
+            return
+        last_column = next((entry['column'] for entry in reversed(self.quick_select_history)
+                            if entry['column'] is not None), None)
+        if last_column is None:
+            QMessageBox.information(self, "Quick Select",
+                                    "Pick at least one column first so the start position is known.")
+            return
+
+        column_count = self.right_table.model().columnCount()
+        columns = []
+        column = last_column + 1
+        for _ in range(self.quick_select_step, len(self.quick_select_steps)):
+            while column < column_count and self.right_table.isColumnHidden(column):
+                column += 1
+            if column >= column_count:
+                break
+            columns.append(column)
+            column += 1
+        if not columns:
+            QMessageBox.information(self, "Quick Select",
+                                    "There are no columns to the right of the last mapped column.")
+            return
+
+        remaining = [self.quick_select_steps[i][0] for i in
+                     range(self.quick_select_step, self.quick_select_step + len(columns))]
+        text = (f"Map {remaining[0]} to {remaining[-1]} ({len(columns)} analytes) to columns "
+                f"{columns[0]} to {columns[-1]}?")
+        if len(columns) < len(self.quick_select_steps) - self.quick_select_step:
+            text += "\n\nThere are not enough columns for every remaining analyte; the rest will stay unmapped."
+        mapped_fields = [self.sheet_mappings[self.current_sheet_name][c] for c in columns
+                         if c in self.sheet_mappings[self.current_sheet_name]]
+        if mapped_fields:
+            text += f"\n\nThis will replace existing mappings: {', '.join(mapped_fields)}"
+        text += "\n\nYou can undo each step with Back."
+        self.quick_select_cursor_label.hide()
+        if QMessageBox.question(self, "Fill Rest", text) != QMessageBox.StandardButton.Yes:
+            return
+
+        for column in columns:
+            if not self.quick_select_active or not self.quick_select_assign(column):
+                break
+
+    def quick_select_scroll_to(self, column: int):
+        """
+        Scrolls horizontally so the given column is visible, keeping the current vertical position.
+        """
+        model = self.right_table.model()
+        if model is None or column < 0 or column >= model.columnCount():
+            return
+        top_row = max(self.right_table.rowAt(0), 0)
+        self.right_table.scrollTo(model.index(top_row, column), QAbstractItemView.ScrollHint.EnsureVisible)
+
+    def stop_quick_select(self, message: str | None = None):
+        """
+        Ends the current Quick Select sequence, keeping any mappings already made.
+
+        :param message: Optional message to show briefly in the Quick Select bar before it hides.
+        """
+        if self.quick_select_active:
+            logger_setup.get_logger().info(message or f'Quick Select {self.quick_select_name} stopped')
+        self.quick_select_active = False
+        self.quick_select_steps = []
+        self.quick_select_step = 0
+        self.quick_select_history = []
+        self.remove_quick_select_cursor_filter()
+        if message:
+            self.quick_select_label.setText(message)
+            self.quick_select_combo.setVisible(False)
+            for button in (self.btn_quick_select_back, self.btn_quick_select_skip, self.btn_quick_select_fill,
+                           self.btn_quick_select_stop):
+                button.setVisible(False)
+            QTimer.singleShot(3000, self.hide_quick_select_frame)
+        else:
+            self.hide_quick_select_frame()
+
+    def hide_quick_select_frame(self):
+        if self.quick_select_active:
+            # A new sequence was started while the finished message was showing
+            return
+        self.quick_select_frame.hide()
+        for button in (self.btn_quick_select_back, self.btn_quick_select_skip, self.btn_quick_select_fill,
+                       self.btn_quick_select_stop):
+            button.setVisible(True)
+
+    def update_quick_select_cursor_label(self, *args):
+        """
+        Sets the cursor label to the analyte that the next click will map, e.g. "Select SiO2".
+        """
+        if not self.quick_select_active or self.quick_select_step >= len(self.quick_select_steps):
+            return
+        analyte = self.quick_select_combo.currentText() or self.quick_select_steps[self.quick_select_step][0]
+        self.quick_select_cursor_label.setText(f'Select {analyte}')
+        self.quick_select_cursor_label.adjustSize()
+
+    def install_quick_select_cursor_filter(self):
+        """
+        Watches mouse movement over the current right table's cells and header so the cursor label can follow it.
+        """
+        self.remove_quick_select_cursor_filter()
+        for widget in (self.right_table.viewport(), self.right_table.horizontalHeader()):
+            self.quick_select_filtered_widgets.append((widget, widget.hasMouseTracking()))
+            widget.setMouseTracking(True)  # needed for move events without a button held
+            widget.installEventFilter(self)
+            # Show straight away if the cursor is already over the table
+            if widget.rect().contains(widget.mapFromGlobal(QCursor.pos())):
+                self.move_quick_select_cursor_label()
+
+    def remove_quick_select_cursor_filter(self):
+        for widget, had_tracking in self.quick_select_filtered_widgets:
+            try:
+                widget.removeEventFilter(self)
+                widget.setMouseTracking(had_tracking)
+            except RuntimeError:
+                pass  # widget already deleted (e.g. a new file was loaded)
+        self.quick_select_filtered_widgets = []
+        self.quick_select_cursor_label.hide()
+
+    def move_quick_select_cursor_label(self):
+        self.quick_select_cursor_label.move(QCursor.pos() + QPoint(16, 16))
+        if not self.quick_select_cursor_label.isVisible():
+            self.quick_select_cursor_label.show()
+
+    def eventFilter(self, obj, event):
+        if self.quick_select_active and any(obj is widget for widget, _ in self.quick_select_filtered_widgets):
+            if event.type() in (QEvent.Type.MouseMove, QEvent.Type.Enter, QEvent.Type.HoverMove):
+                self.move_quick_select_cursor_label()
+            elif event.type() == QEvent.Type.Leave:
+                self.quick_select_cursor_label.hide()
+        return super().eventFilter(obj, event)
+
 
     def update_left_table_on_header_change(self, field, logical_index, left_header=None):
-        if self.current_sheet_name not in [self.upb_sheet_name, self.geochem_sheet_name] or self.current_sheet_name not in self.right_tables:
+        if self.current_sheet_name not in [self.upb_sheet_name,
+                                           self.geochem_sheet_name] or self.current_sheet_name not in self.right_tables:
             return
         sample_col = None
         aliquot_col = None
@@ -2657,7 +3126,8 @@ class ImportWizardDialog(QWidget):
                 spot_col = column
             elif self.left_table.horizontalHeaderItem(column).text() == "Grain Name":
                 grain_col = column
-            elif self.left_table.horizontalHeaderItem(column).text() in ["UPb Analysis Name", "Geochemical Analysis Name"]:
+            elif self.left_table.horizontalHeaderItem(column).text() in ["UPb Analysis Name",
+                                                                         "Geochemical Analysis Name"]:
                 analysis_col = column
             if self.left_table.horizontalHeaderItem(column).text() == left_header:
                 clear_col = column
@@ -2790,7 +3260,8 @@ class ImportWizardDialog(QWidget):
             if not items:
                 name, ok = QInputDialog.getText(self, "Save Mapping", "Enter a name for this mapping:")
             else:
-                dlg = CompleterInputDialog(self, "Save Mapping", "Enter or select a name for this mapping:", items_sorted,
+                dlg = CompleterInputDialog(self, "Save Mapping", "Enter or select a name for this mapping:",
+                                           items_sorted,
                                            True)
                 if dlg.exec() == QDialog.DialogCode.Accepted:
                     name = dlg.get_input()
@@ -2818,7 +3289,8 @@ class ImportWizardDialog(QWidget):
                         sheets[sheet] = {}
                     for k, v in column_mappings.items():
                         if v not in ["Reference Display", "ReferenceID", "Instrument Name", "InstrumentID",
-                                 "Lab Facility Name", "LabFacilityID", "UPb Analysis Method Name", "UPbAnalysisMethodID"]:
+                                     "Lab Facility Name", "LabFacilityID", "UPb Analysis Method Name",
+                                     "UPbAnalysisMethodID"]:
                             # Do not save the mappings for combo box added columns as these values rely on the database and can change
                             sheets[sheet][str(k)] = {"field": v}
             combos = {}
@@ -2830,7 +3302,7 @@ class ImportWizardDialog(QWidget):
             QMessageBox.information(self, "Saved", f"Mapping '{name}' saved successfully.")
             self.load_mapping(name)
 
-    def load_mapping(self, name: str=''):
+    def load_mapping(self, name: str = ''):
         logger_setup.get_logger().info("Loading Mapping")
         # Check if columns have been added or removed between loading the file and loading the first mapping
         viewing_right_table = self.right_table
@@ -2893,20 +3365,20 @@ class ImportWizardDialog(QWidget):
         for sheet, column_mappings in self.sheet_mappings.items():
             for col_idx, field_name in column_mappings.items():
                 if col_idx not in loaded.get("Sheets", {}).get(sheet, {}):
-                    if field_name in ["ReferenceID", "InstrumentID", "LabFacilityID", "UPbAnalysisMethodID", "GeoChemMethodID"]:
+                    if field_name in ["ReferenceID", "InstrumentID", "LabFacilityID", "UPbAnalysisMethodID",
+                                      "GeoChemMethodID"]:
                         # Preserve this mapping
                         if sheet not in combo_mappings:
                             combo_mappings[sheet] = {}
                         combo_mappings[sheet][col_idx] = field_name
                         # Save the name column mapping as well
-                        combo_mappings[sheet][col_idx-1] = self.sheet_mappings[sheet][col_idx-1]
+                        combo_mappings[sheet][col_idx - 1] = self.sheet_mappings[sheet][col_idx - 1]
         self.sheet_mappings.clear()
         for sheet in self.sheets:
             if sheet in combo_mappings:
                 self.sheet_mappings[sheet] = combo_mappings[sheet].copy()
             else:
                 self.sheet_mappings[sheet] = {}
-
 
         ## For the future, account for added and deleted columns when saving mappings
         # if "OriginalMappings" in loaded.keys():
@@ -2944,7 +3416,6 @@ class ImportWizardDialog(QWidget):
         #         else:
         #             return
 
-
         if "Sheets" and "Units/Formats" in loaded:
             loaded_sheets = loaded["Sheets"]
             loaded_combos = loaded["Units/Formats"]
@@ -2959,7 +3430,8 @@ class ImportWizardDialog(QWidget):
                     if idx != -1:
                         combo.setCurrentIndex(idx)
                         # Trigger the change event for any combos with this signal
-                        try: combo.closing.emit()
+                        try:
+                            combo.closing.emit()
                         except Exception as e:
                             continue
         else:
@@ -2974,30 +3446,38 @@ class ImportWizardDialog(QWidget):
             total_cols = self.right_table.model().columnCount()
             column_mappings = self.sheet_mappings[sheet]
             for col_idx in range(total_cols):
-                hdr_data = self.right_table.model().headerData(col_idx, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
+                hdr_data = self.right_table.model().headerData(col_idx, Qt.Orientation.Horizontal,
+                                                               Qt.ItemDataRole.DisplayRole)
                 if not hdr_data:
                     continue
                 if col_idx in column_mappings and (sheet not in combo_mappings or col_idx not in combo_mappings[sheet]):
                     # Overwrite any existing mapping that is not from a combo box added column
                     f_name = column_mappings[col_idx]
-                    self.right_table.model().setHeaderData(col_idx, Qt.Orientation.Horizontal, f"{f_name}", Qt.ItemDataRole.EditRole)
-                    self.right_table.model().setHeaderData(col_idx, Qt.Orientation.Horizontal, self.blue_brush, Qt.ItemDataRole.BackgroundRole)
+                    self.right_table.model().setHeaderData(col_idx, Qt.Orientation.Horizontal, f"{f_name}",
+                                                           Qt.ItemDataRole.EditRole)
+                    self.right_table.model().setHeaderData(col_idx, Qt.Orientation.Horizontal, self.blue_brush,
+                                                           Qt.ItemDataRole.BackgroundRole)
                     # If it’s Sample Name / Aliquot Name / Spot Name / Grain Name, auto-populate left table
-                    if (f_name in ["Sample Name", "Aliquot Name", "Spot Name", "Grain Name", "UPb Analysis Name", "Geochemical Analysis Name"]
+                    if (f_name in ["Sample Name", "Aliquot Name", "Spot Name", "Grain Name", "UPb Analysis Name",
+                                   "Geochemical Analysis Name"]
                             and sheet in [self.upb_sheet_name, self.geochem_sheet_name]):
                         self.left_table = self.left_tables[sheet]
                         self.update_left_table_on_header_change(f_name, col_idx)
                 else:
-                    if (self.right_table.model().headerData(col_idx, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
+                    if (self.right_table.model().headerData(col_idx, Qt.Orientation.Horizontal,
+                                                            Qt.ItemDataRole.DisplayRole)
                             not in ["Reference Display", "ReferenceID", "Instrument Name", "InstrumentID",
                                     "Lab Facility Name", "LabFacilityID", "UPb Analysis Method Name",
                                     "UPbAnalysisMethodID", "Geochemical Analysis Method Name", "GeoChemMethodID"]):
                         # Set text to column number and background to transparent
-                        self.right_table.model().setHeaderData(col_idx, Qt.Orientation.Horizontal, str(col_idx), Qt.ItemDataRole.EditRole)
-                        self.right_table.model().setHeaderData(col_idx, Qt.Orientation.Horizontal, self.transparent_brush, Qt.ItemDataRole.BackgroundRole)
+                        self.right_table.model().setHeaderData(col_idx, Qt.Orientation.Horizontal, str(col_idx),
+                                                               Qt.ItemDataRole.EditRole)
+                        self.right_table.model().setHeaderData(col_idx, Qt.Orientation.Horizontal,
+                                                               self.transparent_brush, Qt.ItemDataRole.BackgroundRole)
                     else:
                         # This is a combo box added column, preserve its mapping but set background to transparent so the user knows it is not saved
-                        self.right_table.model().setHeaderData(col_idx, Qt.Orientation.Horizontal, self.transparent_brush, Qt.ItemDataRole.BackgroundRole)
+                        self.right_table.model().setHeaderData(col_idx, Qt.Orientation.Horizontal,
+                                                               self.transparent_brush, Qt.ItemDataRole.BackgroundRole)
         self.update_mapping_list(name, configs)
         # self.right_table.resizeColumnsToContents()
         close_loading_dialog('Loading', f'Loading mapping: {name}...')
@@ -3043,7 +3523,8 @@ class ImportWizardDialog(QWidget):
                 continue
             for col in range(self.left_table.columnCount()):
                 cell = self.left_table.item(row, col)
-                if (cell is None or cell.text().strip() in ["", 'NULL']) and self.left_table.horizontalHeaderItem(col).text() != "Grain Name":
+                if (cell is None or cell.text().strip() in ["", 'NULL']) and self.left_table.horizontalHeaderItem(
+                        col).text() != "Grain Name":
                     empty_cells.append((row, col))
         return empty_cells
 
@@ -3056,7 +3537,8 @@ class ImportWizardDialog(QWidget):
         msg_box.setIcon(QMessageBox.Icon.Question)
         msg_box.setWindowTitle("Missing Values")
         data_type = "U-Pb" if sheet_name == self.upb_sheet_name else "Geochemical"
-        msg_box.setText(f"{missing_count} required cells in the left {data_type} table are empty. Would you like to use autogenerated default values?")
+        msg_box.setText(
+            f"{missing_count} required cells in the left {data_type} table are empty. Would you like to use autogenerated default values?")
         msg_box.setDetailedText(f"""
         Sample names cannot be missing. 
         Aliquot names will be set to their associated sample name if missing. 
@@ -3098,7 +3580,8 @@ class ImportWizardDialog(QWidget):
                 grain_col = column
             elif self.left_table.horizontalHeaderItem(column).text() == "Spot Name":
                 spot_col = column
-            elif self.left_table.horizontalHeaderItem(column).text() in ["UPb Analysis Name", "Geochemical Analysis Name"]:
+            elif self.left_table.horizontalHeaderItem(column).text() in ["UPb Analysis Name",
+                                                                         "Geochemical Analysis Name"]:
                 analysis_col = column
 
         # Initialize variables for tracking SampleID and counter
@@ -3138,15 +3621,17 @@ class ImportWizardDialog(QWidget):
 
             if sample_name in ["", 'NULL', None]:
                 sample_item.setBackground(self.red_brush)
-                logger_setup.get_logger().info(f"Sample Name empty in row {row}.") # Light red
-                QMessageBox.warning(self, "No Sample Name", f"Please enter a Sample Name in row {row+1} (red) or disable it before proceeding.")
+                logger_setup.get_logger().info(f"Sample Name empty in row {row}.")  # Light red
+                QMessageBox.warning(self, "No Sample Name",
+                                    f"Please enter a Sample Name in row {row + 1} (red) or disable it before proceeding.")
                 self.left_table.scrollToItem(sample_item)
                 self.left_table.blockSignals(False)
                 return False
             if aliquot_name in ["", 'NULL', None]:
                 # If Aliquot Name is missing, set equal to Sample Name value
                 self.left_table.setItem(row, aliquot_col, QTableWidgetItem(sample_name))
-                self.update_left_table_background(self.left_table.item(row, aliquot_col), self.purple_brush)  # Light purple
+                self.update_left_table_background(self.left_table.item(row, aliquot_col),
+                                                  self.purple_brush)  # Light purple
             if spot_name in ["", 'NULL', None] and analysis_name not in ["", 'NULL', None]:
                 # If the Spot Name is missing but the Analysis Name exists, set equal to Analysis Name
                 self.left_table.setItem(row, spot_col, QTableWidgetItem(analysis_name))
@@ -3155,7 +3640,9 @@ class ImportWizardDialog(QWidget):
                 # If the Analysis Name is missing but the Spot Name exists, set equal to Spot Name
                 self.left_table.setItem(row, analysis_col, QTableWidgetItem(spot_name))
                 self.update_left_table_background(self.left_table.item(row, analysis_col), self.purple_brush)
-            elif grain_name not in ["", 'NULL', None] and spot_name in ["", 'NULL', None] and analysis_name in ["", 'NULL', None]:
+            elif grain_name not in ["", 'NULL', None] and spot_name in ["", 'NULL', None] and analysis_name in ["",
+                                                                                                                'NULL',
+                                                                                                                None]:
                 # If the grain name exists but both spot name and analysis name are missing, set both to GrainName-counter
                 if grain_name != current_grain_name:
                     current_grain_name = grain_name
@@ -3165,7 +3652,8 @@ class ImportWizardDialog(QWidget):
                 self.left_table.setItem(row, analysis_col, QTableWidgetItem(f"{grain_name}-{spot_counter}"))
                 self.update_left_table_background(self.left_table.item(row, spot_col), self.purple_brush)
                 self.update_left_table_background(self.left_table.item(row, analysis_col), self.purple_brush)
-            elif grain_name in ["", 'NULL', None] and spot_name in ["", 'NULL', None] and analysis_name in ["", 'NULL', None]:
+            elif grain_name in ["", 'NULL', None] and spot_name in ["", 'NULL', None] and analysis_name in ["", 'NULL',
+                                                                                                            None]:
                 # If the grain column is defined but grain name, spot name, and analysis name are missing, set all three to AliquotName-counter
                 aliquot_name_item = self.left_table.item(row, aliquot_col)
                 if aliquot_name_item and aliquot_name_item.text().strip() not in ["", 'NULL', None]:
@@ -3185,7 +3673,8 @@ class ImportWizardDialog(QWidget):
             spot_name_item = self.left_table.item(row, spot_col)
             if spot_name_item and spot_name_item.text().strip() not in ["", 'NULL', None]:
                 spot_name = spot_name_item.text().strip()
-            if grain_item and self.left_table.item(row, grain_col).text() in ["", 'NULL', None] and spot_name not in ["", 'NULL', None]:
+            if grain_item and self.left_table.item(row, grain_col).text() in ["", 'NULL', None] and spot_name not in [
+                "", 'NULL', None]:
                 # If grain column is defined but Grain Name is still missing, set it equal to the spot name
                 self.left_table.setItem(row, grain_col, QTableWidgetItem(spot_name))
                 self.update_left_table_background(self.left_table.item(row, grain_col), self.purple_brush)
@@ -3552,7 +4041,8 @@ class ImportWizardDialog(QWidget):
                             'If these matches are not intended, rename with a unique name before importing.')
             message.exec()
         elif self.import_clicked:
-            logger_setup.get_logger().info("Import clicked, no conflicts between the left table and the database detected")
+            logger_setup.get_logger().info(
+                "Import clicked, no conflicts between the left table and the database detected")
         else:
             logger_setup.get_logger().info("No conflicts between the left table and the database detected")
             QMessageBox(QMessageBox.Icon.Information, f'No conflicts detected', f'No conflicts detected.')
@@ -3564,7 +4054,8 @@ class ImportWizardDialog(QWidget):
         :return:
         """
 
-        def check_item_gps(item_gps_dictionary: str , item_import_header: str, item_db_header: str, item: str, items: str):
+        def check_item_gps(item_gps_dictionary: str, item_import_header: str, item_db_header: str, item: str,
+                           items: str):
             logger_setup.get_logger().info(f"Checking for duplicate {items} with different GPS coordinates")
 
             for sheet, column_mappings in self.sheet_mappings.items():
@@ -3580,9 +4071,11 @@ class ImportWizardDialog(QWidget):
                 for column in gps_columns:
                     field_name = column_mappings[column]
                     if field_name in SQLUtils.gps_possible_user_input_fields[item_gps_dictionary]:
-                        gps_columns_db_equivalent.append(SQLUtils.gps_possible_user_input_fields[item_gps_dictionary][field_name][1])
+                        gps_columns_db_equivalent.append(
+                            SQLUtils.gps_possible_user_input_fields[item_gps_dictionary][field_name][1])
 
-                if item_import_header in column_mappings.values() and any(SQLUtils.gps_possible_user_input_fields[item_gps_dictionary].keys()):
+                if item_import_header in column_mappings.values() and any(
+                        SQLUtils.gps_possible_user_input_fields[item_gps_dictionary].keys()):
                     item_col = list(column_mappings.keys())[list(column_mappings.values()).index(item_import_header)]
                     # Look for duplicate names in the column
                     duplicate_items = {}
@@ -3603,24 +4096,29 @@ class ImportWizardDialog(QWidget):
                         # Now check the GPS coordinates for each duplicate item
                         for item_name, gps_values1 in duplicate_items.items():
                             for row in item_names[item_name]:
-                                gps_values2 = [self.right_tables[sheet].model().index(row, col).data() for col in gps_columns]
+                                gps_values2 = [self.right_tables[sheet].model().index(row, col).data() for col in
+                                               gps_columns]
                                 if set(gps_values1) != set(gps_values2):
                                     different_item_gps = True
                                     for col in gps_columns:
                                         index = self.right_tables[sheet].model().index(row, col)
-                                        self.right_tables[sheet].model().setData(index, self.red_brush, Qt.ItemDataRole.ForegroundRole)  # Light red
+                                        self.right_tables[sheet].model().setData(index, self.red_brush,
+                                                                                 Qt.ItemDataRole.ForegroundRole)  # Light red
                     if different_item_gps:
                         QMessageBox(QMessageBox.Icon.Warning, f'Conflicts Detected',
                                     f'Red cells in the right table indicate GPS coordinate conflicts for the same {item_import_header}.\n\n'
                                     'Resolve these red conflicts before importing')
-                        logger_setup.get_logger().info(f"{items} with conflicting GPS coordinates detected in the right table")
+                        logger_setup.get_logger().info(
+                            f"{items} with conflicting GPS coordinates detected in the right table")
                         # Set the current tab to the sheet with the conflict
                         self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[sheet]))
                         return False
-                    logger_setup.get_logger().info(f"No {items} with conflicting GPS coordinates detected in the right table")
+                    logger_setup.get_logger().info(
+                        f"No {items} with conflicting GPS coordinates detected in the right table")
 
                     # Now check if these items are in the database with different GPS coordinates
-                    logger_setup.get_logger().info(f"Checking for duplicate {items} with different GPS coordinates in the database")
+                    logger_setup.get_logger().info(
+                        f"Checking for duplicate {items} with different GPS coordinates in the database")
                     query = QSqlQuery()
                     item_query = f'SELECT {item}GPSLocationID FROM {items} WHERE {item_db_header} = :item_name COLLATE NOCASE'
                     gps_query = f'SELECT * FROM GPSLocations WHERE GPSLocationID = :gps_id'
@@ -3633,7 +4131,7 @@ class ImportWizardDialog(QWidget):
                             logger_setup.get_logger().debug(f"SQL query: {item_query}")
                             return False
                         if query.next():
-                            gps_id =query.value(0)
+                            gps_id = query.value(0)
                             query.prepare(gps_query)
                             query.bindValue(':gps_id', gps_id)
                             if not query.exec(gps_query):
@@ -3642,29 +4140,34 @@ class ImportWizardDialog(QWidget):
                                 logger_setup.get_logger().debug(f"SQL query: {gps_query}")
                                 return False
                             if query.next():
-                                db_gps_values = [query.value(i) for i in range(1, query.record().count()) if query.record().fieldName(i) in get_headers('GPSLocations')]
-                                gps_values_import = [self.right_tables[sheet].model().index(row, col).data() for col in gps_columns]
+                                db_gps_values = [query.value(i) for i in range(1, query.record().count()) if
+                                                 query.record().fieldName(i) in get_headers('GPSLocations')]
+                                gps_values_import = [self.right_tables[sheet].model().index(row, col).data() for col in
+                                                     gps_columns]
                                 for header in db_gps_column_headers:
                                     if header in gps_columns_db_equivalent:
                                         import_idx = gps_columns_db_equivalent.index(header)
-                                        db_value = db_gps_values[db_gps_column_headers.index(header)-1]
+                                        db_value = db_gps_values[db_gps_column_headers.index(header) - 1]
                                         import_value = gps_values_import[import_idx]
                                         if str(db_value) != str(import_value):
                                             different_item_gps = True
                                             for col in gps_columns:
                                                 index = self.right_tables[sheet].model().index(row, col)
-                                                self.right_tables[sheet].setData(index, self.red_brush, Qt.ItemDataRole.ForegroundRole)  # Light red
+                                                self.right_tables[sheet].setData(index, self.red_brush,
+                                                                                 Qt.ItemDataRole.ForegroundRole)  # Light red
                     if different_item_gps:
                         QMessageBox(QMessageBox.Icon.Warning, f'Conflicts Detected',
                                     f'Red cells in the right table indicate GPS coordinate conflicts for the same {item_import_header} with existing database entries.\n\n'
                                     'Resolve these red conflicts before importing')
-                        logger_setup.get_logger().info(f"{items} with conflicting GPS coordinates detected in the right table with existing database entries")
+                        logger_setup.get_logger().info(
+                            f"{items} with conflicting GPS coordinates detected in the right table with existing database entries")
                         # Set the current tab to the sheet with the conflict
                         self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[sheet]))
                         return False
 
                 logger_setup.get_logger().info("Checking for duplicate Columns with different GPS coordinates")
-                if 'Column Name' in column_mappings.values() and any(SQLUtils.gps_possible_user_input_fields['Column GPS'].keys()):
+                if 'Column Name' in column_mappings.values() and any(
+                        SQLUtils.gps_possible_user_input_fields['Column GPS'].keys()):
                     column_col = list(column_mappings.keys())[list(column_mappings.values()).index('Column Name')]
                     # Look for duplicate Column Names in the column
                     duplicate_columns = {}
@@ -3688,44 +4191,48 @@ class ImportWizardDialog(QWidget):
                                        if field in column_mappings.values()]
                         for column_name, gps_values1 in duplicate_columns.items():
                             for row in column_names[column_name]:
-                                gps_values2 = [self.right_tables[sheet].model().index(row, col).data() for col in gps_columns]
+                                gps_values2 = [self.right_tables[sheet].model().index(row, col).data() for col in
+                                               gps_columns]
                                 if set(gps_values1) != set(gps_values2):
                                     different_column_gps = True
                                     for col in gps_columns:
                                         index = self.right_tables[sheet].model().index(row, col)
-                                        self.right_tables[sheet].setData(index, self.red_brush, Qt.ItemDataRole.ForegroundRole)  # Light red
+                                        self.right_tables[sheet].setData(index, self.red_brush,
+                                                                         Qt.ItemDataRole.ForegroundRole)  # Light red
                     if different_column_gps:
                         QMessageBox(QMessageBox.Icon.Warning, f'Conflicts Detected',
                                     'Red cells in the right table indicate GPS coordinate conflicts for the same Column Name.\n\n'
                                     'Resolve these red conflicts before importing')
-                        logger_setup.get_logger().info("Columns with conflicting GPS coordinates detected in the right table")
+                        logger_setup.get_logger().info(
+                            "Columns with conflicting GPS coordinates detected in the right table")
                         # Set the current tab to the sheet with the conflict
                         self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[sheet]))
                         return False
-                logger_setup.get_logger().info("No Columns with conflicting GPS coordinates detected in the right table")
+                logger_setup.get_logger().info(
+                    "No Columns with conflicting GPS coordinates detected in the right table")
             return True
 
-        if not check_item_gps(item_gps_dictionary='Sample GPS', item_import_header='Sample Name', item_db_header='SampleName', item='Sample', items='Samples'):
+        if not check_item_gps(item_gps_dictionary='Sample GPS', item_import_header='Sample Name',
+                              item_db_header='SampleName', item='Sample', items='Samples'):
             return False
-        if not check_item_gps(item_gps_dictionary='Column GPS', item_import_header='Column Name', item_db_header='ColumnName', item='Column', items='Columns'):
+        if not check_item_gps(item_gps_dictionary='Column GPS', item_import_header='Column Name',
+                              item_db_header='ColumnName', item='Column', items='Columns'):
             return False
         return True
 
-
     def check_and_import(self) -> None:
-            """
-            Main method used when the import button is clicked. Used to first check the left table for empty values, prompt
-            the user for default values, checks then for conflicts in the database. If all checks are passed then the list
-            of rows to be imported is inserted into the database.
-            """
-            # First run the validation checks again
-            self.import_clicked = True
-            if not self.validate_data():
-                return
+        """
+        Main method used when the import button is clicked. Used to first check the left table for empty values, prompt
+        the user for default values, checks then for conflicts in the database. If all checks are passed then the list
+        of rows to be imported is inserted into the database.
+        """
+        # First run the validation checks again
+        self.import_clicked = True
+        if not self.validate_data():
+            return
 
-            # Proceed with import
-            self.import_to_db()
-
+        # Proceed with import
+        self.import_to_db()
 
     def check_for_conflicts(self, sheet_name):
         """Checks values of SampleName, AliquotName, and SpotName in the left table for import against the database.
@@ -3776,7 +4283,8 @@ class ImportWizardDialog(QWidget):
             aliquot_id = get_id_from_name('Aliquots', aliquot_name)
             if aliquot_id:
                 query = QSqlQuery()
-                query.prepare('SELECT SampleName FROM Aliquots JOIN Samples ON Aliquots.SampleID = Samples.SampleID WHERE AliquotID=:aliquot_id')
+                query.prepare(
+                    'SELECT SampleName FROM Aliquots JOIN Samples ON Aliquots.SampleID = Samples.SampleID WHERE AliquotID=:aliquot_id')
                 query.bindValue(':aliquot_id', aliquot_id)
                 if query.exec():
                     if query.next():
@@ -3787,7 +4295,8 @@ class ImportWizardDialog(QWidget):
             spot_id = get_id_from_name('Spots', spot_name)
             if spot_id:
                 query = QSqlQuery()
-                query.prepare('SELECT AliquotName FROM Spots JOIN Aliquots ON Spots.AliquotID = Aliquots.AliquotID WHERE SpotID=:spot_id')
+                query.prepare(
+                    'SELECT AliquotName FROM Spots JOIN Aliquots ON Spots.AliquotID = Aliquots.AliquotID WHERE SpotID=:spot_id')
                 query.bindValue(':spot_id', spot_id)
                 if query.exec():
                     if query.next():
@@ -3799,7 +4308,8 @@ class ImportWizardDialog(QWidget):
                 grain_id = get_id_from_name('Grains', grain_name)
                 if grain_id:
                     query = QSqlQuery()
-                    query.prepare('SELECT SpotName FROM Grains JOIN Spots ON Grains.GrainID = Spots.GrainID WHERE GrainID=:grain_id')
+                    query.prepare(
+                        'SELECT SpotName FROM Grains JOIN Spots ON Grains.GrainID = Spots.GrainID WHERE GrainID=:grain_id')
                     query.bindValue(':grain_id', grain_id)
                     if query.exec():
                         if query.next():
@@ -3814,9 +4324,11 @@ class ImportWizardDialog(QWidget):
             if analysis_id:
                 query = QSqlQuery()
                 if sheet_name == self.upb_sheet_name:
-                    query.prepare('SELECT SpotName FROM UPbAnalyses JOIN Spots ON UPbAnalyses.SpotID = Spots.SpotID WHERE UPbAnalysisID=:analysis_id')
+                    query.prepare(
+                        'SELECT SpotName FROM UPbAnalyses JOIN Spots ON UPbAnalyses.SpotID = Spots.SpotID WHERE UPbAnalysisID=:analysis_id')
                 elif sheet_name == self.geochem_sheet_name:
-                    query.prepare('SELECT SpotName FROM GeoChemicalAnalyses JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID WHERE GeoChemAnalysisID=:analysis_id')
+                    query.prepare(
+                        'SELECT SpotName FROM GeoChemicalAnalyses JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID WHERE GeoChemAnalysisID=:analysis_id')
                 query.bindValue(':analysis_id', analysis_id)
                 if query.exec():
                     if query.next():
@@ -3903,7 +4415,8 @@ class ImportWizardDialog(QWidget):
         all_sample_info.extend(sample_gps_info)
         for sheet, column_mapping in self.sheet_mappings.items():
             if any(field in column_mapping.values() for field in all_sample_info):
-                if "Sample Name" not in column_mapping.values() and sheet not in [self.upb_sheet_name, self.geochem_sheet_name]:
+                if "Sample Name" not in column_mapping.values() and sheet not in [self.upb_sheet_name,
+                                                                                  self.geochem_sheet_name]:
                     sample_mapped = False
                     break
         # if not sample_mapped:
@@ -3951,7 +4464,8 @@ class ImportWizardDialog(QWidget):
         aliquot_info.remove('Aliquot Name')
         for sheet, column_mapping in self.sheet_mappings.items():
             if any(field in column_mapping.values() for field in aliquot_info):
-                if "Aliquot Name" not in column_mapping.values() and sheet not in [self.upb_sheet_name, self.geochem_sheet_name]:
+                if "Aliquot Name" not in column_mapping.values() and sheet not in [self.upb_sheet_name,
+                                                                                   self.geochem_sheet_name]:
                     aliquot_mapped = False
                     break
         # if not aliquot_mapped:
@@ -3966,7 +4480,8 @@ class ImportWizardDialog(QWidget):
         spot_info.remove('Spot Name')
         for sheet, column_mapping in self.sheet_mappings.items():
             if any(field in column_mapping.values() for field in spot_info):
-                if "Spot Name" not in column_mapping.values() and sheet not in [self.upb_sheet_name, self.geochem_sheet_name]:
+                if "Spot Name" not in column_mapping.values() and sheet not in [self.upb_sheet_name,
+                                                                                self.geochem_sheet_name]:
                     spot_mapped = False
                     break
         # if not spot_mapped:
@@ -4075,11 +4590,17 @@ class ImportWizardDialog(QWidget):
 
         new_analysis = True
 
-        analysis_dict = {'Samples': set(), 'Aliquots': set(), 'Spots': set(), 'UPbAnalyses': set(), 'GeoChemicalAnalyses': set(), 'Grains': set()}
-        import_dict = {'Samples': set(), 'Aliquots': set(), 'Spots': set(), 'UPbAnalyses': set(), 'GeoChemicalAnalyses': set(), 'Grains': set()}
-        new_dict = {'Samples': set(), 'Aliquots': set(), 'Spots': set(), 'UPbAnalyses': set(), 'GeoChemicalAnalyses': set(), 'Grains': set()}
-        left_cols = {'Sample Name': '', 'Aliquot Name': '', 'Spot Name': '', 'UPb Analysis Name': '', 'Geochemical Analysis Name': '', 'Grain Name': ''}
-        name_headers = {'Sample Name': 'Samples', 'Aliquot Name': 'Aliquots', 'Spot Name': 'Spots', 'UPb Analysis Name': 'UPbAnalyses', 'Geochemical Analysis Name': 'GeoChemicalAnalyses', 'Grain Name': 'Grains'}
+        analysis_dict = {'Samples': set(), 'Aliquots': set(), 'Spots': set(), 'UPbAnalyses': set(),
+                         'GeoChemicalAnalyses': set(), 'Grains': set()}
+        import_dict = {'Samples': set(), 'Aliquots': set(), 'Spots': set(), 'UPbAnalyses': set(),
+                       'GeoChemicalAnalyses': set(), 'Grains': set()}
+        new_dict = {'Samples': set(), 'Aliquots': set(), 'Spots': set(), 'UPbAnalyses': set(),
+                    'GeoChemicalAnalyses': set(), 'Grains': set()}
+        left_cols = {'Sample Name': '', 'Aliquot Name': '', 'Spot Name': '', 'UPb Analysis Name': '',
+                     'Geochemical Analysis Name': '', 'Grain Name': ''}
+        name_headers = {'Sample Name': 'Samples', 'Aliquot Name': 'Aliquots', 'Spot Name': 'Spots',
+                        'UPb Analysis Name': 'UPbAnalyses', 'Geochemical Analysis Name': 'GeoChemicalAnalyses',
+                        'Grain Name': 'Grains'}
         count_dict = {'Samples': 0, 'Aliquots': 0, 'Grains': 0, 'Spots': 0, 'UPbAnalyses': 0, 'GeoChemicalAnalyses': 0}
 
         for sheet in [self.upb_sheet_name, self.geochem_sheet_name]:
@@ -4109,7 +4630,7 @@ class ImportWizardDialog(QWidget):
             if self.right_table != self.right_tables[sheet]:
                 logger_setup.get_logger().critical(f"Sheet {sheet} does not match the current right table")
                 return False
-            right_cols = {'Sample Name': '', 'Aliquot Name': '', 'Spot Name': '', 'UPb Analysis Name': '', 
+            right_cols = {'Sample Name': '', 'Aliquot Name': '', 'Spot Name': '', 'UPb Analysis Name': '',
                           'Geochemical Analysis Name': '', 'Grain Name': ''}
             disabled_rows = self.right_tables[sheet].model().rows_for_status('disabled')
             for index, column_header in column_mappings.items():
@@ -4124,7 +4645,8 @@ class ImportWizardDialog(QWidget):
                     continue
                 for name_header, right_col in right_cols.items():
                     if right_col:
-                        item_name = self.right_table.model().index(row_idx, int(right_col)).data(Qt.ItemDataRole.DisplayRole)
+                        item_name = self.right_table.model().index(row_idx, int(right_col)).data(
+                            Qt.ItemDataRole.DisplayRole)
                         if item_name not in ['NULL', '', None]:
                             table = name_headers[name_header]
                             import_items = import_dict[table]
@@ -4145,7 +4667,8 @@ class ImportWizardDialog(QWidget):
                                 count_dict[table] = item_count + 1
                                 item_col = right_cols[name_header]
                                 right_idx = self.right_table.model().index(row_idx, int(item_col))
-                                self.right_table.model().setData(right_idx, self.red_brush, Qt.ItemDataRole.BackgroundRole)
+                                self.right_table.model().setData(right_idx, self.red_brush,
+                                                                 Qt.ItemDataRole.BackgroundRole)
 
             # Stop for each sheet with issues
             if not new_analysis:
@@ -4157,7 +4680,6 @@ class ImportWizardDialog(QWidget):
                 logger_setup.get_logger().error(msg_text)
 
         return new_analysis
-
 
     def check_static_table_fields(self):
         """
@@ -4175,7 +4697,8 @@ class ImportWizardDialog(QWidget):
                          'UPb Spot Size Unit': 'DistanceUnits', 'UPb Ratio Error Format': 'ErrorFormats',
                          'UPb Rejected': 'UPbAnalyses', 'UPb Concordance Format': 'ConcordanceFormats',
                          'UPb Age Error Format': 'ErrorFormats', 'UPb Age Unit': 'AgeUnits',
-                         'Geochemical Analysis Unit': 'AnalyticalUnits', 'Geochemical Analysis Error Format': 'ErrorFormats',
+                         'Geochemical Analysis Unit': 'AnalyticalUnits',
+                         'Geochemical Analysis Error Format': 'ErrorFormats',
                          'Geochemical Rejected': 'GeoChemicalAnalyses'}
 
         query = QSqlQuery()
@@ -4312,9 +4835,9 @@ class ImportWizardDialog(QWidget):
                                     if name_column == field:
                                         name_description_columns[table]['name'] = column
                                 elif 'Description' in field:
-                                        description_column = fields[field][1]
-                                        if description_column == field:
-                                            name_description_columns[table]['description'] = column
+                                    description_column = fields[field][1]
+                                    if description_column == field:
+                                        name_description_columns[table]['description'] = column
 
             for table, names_descriptions in name_description_columns.items():
                 if not names_descriptions['name'] or not names_descriptions['description']:
@@ -4335,10 +4858,12 @@ class ImportWizardDialog(QWidget):
                     if row_idx in disabled_rows:
                         continue
                     item_name = self.right_tables[sheet].model().index(row_idx, name_column).data().strip()
-                    item_description = self.right_tables[sheet].model().index(row_idx, description_column).data().strip()
+                    item_description = self.right_tables[sheet].model().index(row_idx,
+                                                                              description_column).data().strip()
                     if item_name and item_name not in ['NULL', None]:
                         query = QSqlQuery()
-                        query.prepare(f'SELECT "{description_header}" FROM "{table}" WHERE "{name_header}"=:item_name COLLATE NOCASE')
+                        query.prepare(
+                            f'SELECT "{description_header}" FROM "{table}" WHERE "{name_header}"=:item_name COLLATE NOCASE')
                         query.bindValue(':item_name', item_name)
                         if query.exec():
                             if query.next():
@@ -4347,9 +4872,11 @@ class ImportWizardDialog(QWidget):
                                     # Highlight the conflicting name and description fields in red
                                     conflicts = True
                                     name_idx = self.right_tables[sheet].model().index(row_idx, name_column)
-                                    self.right_tables[sheet].model().setData(name_idx, self.red_brush, Qt.ItemDataRole.BackgroundRole)
+                                    self.right_tables[sheet].model().setData(name_idx, self.red_brush,
+                                                                             Qt.ItemDataRole.BackgroundRole)
                                     column_idx = self.right_tables[sheet].model().index(row_idx, description_column)
-                                    self.right_tables[sheet].model().setData(column_idx, self.red_brush, Qt.ItemDataRole.BackgroundRole)
+                                    self.right_tables[sheet].model().setData(column_idx, self.red_brush,
+                                                                             Qt.ItemDataRole.BackgroundRole)
 
             # Stop for each sheet with conflicts
             if conflicts:
@@ -4498,11 +5025,12 @@ class ImportWizardDialog(QWidget):
                     grain_col = column
                 elif self.left_tables[analysis_sheet].horizontalHeaderItem(column).text() == analysis_header:
                     analysis_col = column
-    
+
             row_count = self.right_tables[analysis_sheet].model().rowCount()
             import_count = row_count - len(disabled_rows)
-            imported_names = {'Samples': [], 'Aliquots': [], 'Spots': [], 'Grains': [], 'UPbAnalyses': [], 'GeoChemicalAnalyses': []}
-    
+            imported_names = {'Samples': [], 'Aliquots': [], 'Spots': [], 'Grains': [], 'UPbAnalyses': [],
+                              'GeoChemicalAnalyses': []}
+
             # Create a modal progress dialog
             progress_dialog = QProgressDialog(
                 "Importing items...", "Cancel", 0, import_count, self
@@ -4521,30 +5049,30 @@ class ImportWizardDialog(QWidget):
                     if progress_dialog.wasCanceled():
                         rollback_savepoint('before_analysis_import')
                         return False
-    
+
                     # Build a record dict with every key initialized to None
                     fields = SQLUtils.upb_possible_user_input_fields if analysis_sheet == self.upb_sheet_name else self.geochem_fields
                     record = {field: None for field in fields}
-    
+
                     # Populate the left-table items (sample_id, aliquot_id, spot_id)
                     sample_id_item = self.left_tables[analysis_sheet].item(row_idx, sample_col)
                     aliquot_id_item = self.left_tables[analysis_sheet].item(row_idx, aliquot_col)
                     spot_id_item = self.left_tables[analysis_sheet].item(row_idx, spot_col)
                     grain_id_item = self.left_tables[analysis_sheet].item(row_idx, grain_col) if grain_col else None
                     analysis_item = self.left_tables[analysis_sheet].item(row_idx, analysis_col)
-    
+
                     record["Sample Name"] = sample_id_item.text().strip() if sample_id_item else None
                     record["Aliquot Name"] = aliquot_id_item.text().strip() if aliquot_id_item else None
                     record["Spot Name"] = spot_id_item.text().strip() if spot_id_item else None
                     record["Grain Name"] = grain_id_item.text().strip() if grain_id_item else None
                     record[analysis_header] = analysis_item.text().strip() if analysis_item else None
-    
+
                     # Find matching SampleID or create new
                     if record["Sample Name"]:
                         logger_setup.get_logger().info(f"Sample Name: {record['Sample Name']}")
                         sample_query = QSqlQuery()
                         if not sample_query.prepare(
-                            'SELECT SampleID FROM Samples WHERE SampleName=:name COLLATE NOCASE'):
+                                'SELECT SampleID FROM Samples WHERE SampleName=:name COLLATE NOCASE'):
                             logger_setup.get_logger().critical(f"Error importing Sample {record['Sample Name']}")
                             logger_setup.get_logger().debug(f"Failed to prepare query to find sample")
                             logger_setup.get_logger().debug(f"Error: {sample_query.lastError().text()}")
@@ -4562,7 +5090,8 @@ class ImportWizardDialog(QWidget):
                         sample_id = None
                         if sample_query.next():
                             sample_id = sample_query.value(0)
-                        if sample_id and (self.conflict_mode != 'overwrite' or record["Sample Name"] in imported_names['Samples']):
+                        if sample_id and (self.conflict_mode != 'overwrite' or record["Sample Name"] in imported_names[
+                            'Samples']):
                             # Found matching samplename in database
                             # Any overwrites have already happened, so use the ID
                             record["SampleID"] = sample_id
@@ -4590,7 +5119,7 @@ class ImportWizardDialog(QWidget):
                                 return False
                             create_sample.bindValue(":name", record["Sample Name"])
                             if not create_sample.exec():
-                            # if not create_sample.exec() and 'UNIQUE constraint failed' not in create_sample.lastError().text():
+                                # if not create_sample.exec() and 'UNIQUE constraint failed' not in create_sample.lastError().text():
                                 logger_setup.get_logger().critical(f"Error importing Sample {record['Sample Name']}")
                                 logger_setup.get_logger().debug(f"Failed to execute query to create sample")
                                 logger_setup.get_logger().debug(f"Error: {create_sample.lastError().text()}")
@@ -4605,13 +5134,13 @@ class ImportWizardDialog(QWidget):
                             imported_names_list.append(record["Sample Name"])
                             imported_names['Samples'] = imported_names_list
                             logger_setup.get_logger().info(f"Imported Sample: {record['Sample Name']}")
-    
+
                     # Find matching Aliquot Name or create new
                     if record["Aliquot Name"] and record["SampleID"]:
                         logger_setup.get_logger().info(f"Aliquot Name: {record['Aliquot Name']}")
                         aliquot_query = QSqlQuery()
                         if not aliquot_query.prepare(
-                            'SELECT AliquotID, ParentAliquotID, AliquotParentRow, SampleID FROM Aliquots WHERE AliquotName=:name COLLATE NOCASE'):
+                                'SELECT AliquotID, ParentAliquotID, AliquotParentRow, SampleID FROM Aliquots WHERE AliquotName=:name COLLATE NOCASE'):
                             logger_setup.get_logger().critical(f"Error importing Aliquot {record['Aliquot Name']}")
                             logger_setup.get_logger().debug(f"Failed to prepare query to find aliquot")
                             logger_setup.get_logger().debug(f"Error: {aliquot_query.lastError().text()}")
@@ -4630,7 +5159,8 @@ class ImportWizardDialog(QWidget):
                         aliquot_id = None
                         if aliquot_query.next():
                             aliquot_id = aliquot_query.value(0)
-                        if aliquot_id and (self.conflict_mode != 'overwrite' or record["Aliquot Name"] in imported_names[
+                        if aliquot_id and (
+                                self.conflict_mode != 'overwrite' or record["Aliquot Name"] in imported_names[
                             'Aliquots']):
                             # Found matching samplename in database
                             # Any overwrites have already happened, so use the ID
@@ -4653,7 +5183,8 @@ class ImportWizardDialog(QWidget):
                                     f'Aliquot {record["Aliquot Name"]} exists but is already associated with a different Sample.\nAliquot names must be unique.')
                                 # Highlight the cell in the left table
                                 self.left_table.item(row_idx, aliquot_col).setBackground(self.red_brush)  # Light red
-                                self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[analysis_sheet]))
+                                self.workbook_tabs.setCurrentIndex(
+                                    self.workbook_tabs.indexOf(self.right_tables[analysis_sheet]))
                                 # scroll the left table to the row
                                 self.left_table.scrollToItem(self.left_table.item(row_idx, aliquot_col))
                                 rollback_savepoint('before_analysis_import')
@@ -4685,7 +5216,7 @@ class ImportWizardDialog(QWidget):
                                 record["AliquotParentRow"] = 0
                             create_aliquot = QSqlQuery()
                             if not create_aliquot.prepare(
-                                'INSERT INTO Aliquots (AliquotName, AliquotParentRow, SampleID) VALUES (:name, :parent_row, :sample_id)'):
+                                    'INSERT INTO Aliquots (AliquotName, AliquotParentRow, SampleID) VALUES (:name, :parent_row, :sample_id)'):
                                 logger_setup.get_logger().critical(f"Error importing Aliquot {record['Aliquot Name']}")
                                 logger_setup.get_logger().debug(f"Failed to prepare query to create aliquot")
                                 logger_setup.get_logger().debug(f"Error: {create_aliquot.lastError().text()}")
@@ -4696,7 +5227,7 @@ class ImportWizardDialog(QWidget):
                             create_aliquot.bindValue(':parent_row', record["AliquotParentRow"])
                             create_aliquot.bindValue(':sample_id', record["SampleID"])
                             if not create_aliquot.exec():
-                            # if not create_aliquot.exec() and 'UNIQUE constraint failed' not in create_aliquot.lastError().text():
+                                # if not create_aliquot.exec() and 'UNIQUE constraint failed' not in create_aliquot.lastError().text():
                                 logger_setup.get_logger().critical(f"Error importing Aliquot {record['Aliquot Name']}")
                                 logger_setup.get_logger().debug(f"Failed to create aliquot {record['Aliquot Name']}")
                                 logger_setup.get_logger().debug(f"Error: {create_aliquot.lastError().text()}")
@@ -4710,14 +5241,13 @@ class ImportWizardDialog(QWidget):
                             imported_names_list.append(record["Aliquot Name"])
                             imported_names['Aliquots'] = imported_names_list
                             logger_setup.get_logger().info(f"Imported Aliquot: {record['Aliquot Name']}")
-    
-    
+
                     # Find matching SpotID or create new
                     if record["Spot Name"] and record["AliquotID"]:
                         logger_setup.get_logger().info(f"Spot Name: {record['Spot Name']}")
                         spot_query = QSqlQuery()
                         if not spot_query.prepare(
-                            'SELECT SpotID, AliquotID FROM Spots WHERE SpotName=:name COLLATE NOCASE'):
+                                'SELECT SpotID, AliquotID FROM Spots WHERE SpotName=:name COLLATE NOCASE'):
                             logger_setup.get_logger().critical(f"Error importing Spot {record['Spot Name']}")
                             logger_setup.get_logger().debug(f"Failed to prepare query to find spot")
                             logger_setup.get_logger().debug(f"Error: {spot_query.lastError().text()}")
@@ -4760,7 +5290,8 @@ class ImportWizardDialog(QWidget):
                                     f'Spot {record["Spot Name"]} exists but is already associated with a different Aliquot.\nSpot names must be unique.')
                                 # Highlight the cell in the left table
                                 self.left_table.item(row_idx, spot_col).setBackground(self.red_brush)  # Light red
-                                self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[analysis_sheet]))
+                                self.workbook_tabs.setCurrentIndex(
+                                    self.workbook_tabs.indexOf(self.right_tables[analysis_sheet]))
                                 # scroll the left table to the row
                                 self.left_table.scrollToItem(self.left_table.item(row_idx, spot_col))
                                 rollback_savepoint('before_analysis_import')
@@ -4772,7 +5303,7 @@ class ImportWizardDialog(QWidget):
                             # no matching spot name in database, will create new one.
                             create_spot = QSqlQuery()
                             if not create_spot.prepare(
-                                'INSERT INTO Spots (SpotName, AliquotID) VALUES (:name, :aliquot_id)'):
+                                    'INSERT INTO Spots (SpotName, AliquotID) VALUES (:name, :aliquot_id)'):
                                 logger_setup.get_logger().critical(f"Error importing Spot {record['Spot Name']}")
                                 logger_setup.get_logger().debug(f"Failed to prepare query to create spot")
                                 logger_setup.get_logger().debug(f"Error: {create_spot.lastError().text()}")
@@ -4782,7 +5313,7 @@ class ImportWizardDialog(QWidget):
                             create_spot.bindValue(':name', record["Spot Name"])
                             create_spot.bindValue(':aliquot_id', record["AliquotID"])
                             if not create_spot.exec():
-                            # if not create_spot.exec() and 'UNIQUE constraint failed' not in create_spot.lastError().text():
+                                # if not create_spot.exec() and 'UNIQUE constraint failed' not in create_spot.lastError().text():
                                 logger_setup.get_logger().critical(f"Error importing {record['Spot Name']}")
                                 logger_setup.get_logger().debug(f"Failed to execute query to create spot")
                                 logger_setup.get_logger().debug(f"Error: {create_spot.lastError().text()}")
@@ -4796,8 +5327,7 @@ class ImportWizardDialog(QWidget):
                             imported_names_list.append(record["Spot Name"])
                             imported_names['Spots'] = imported_names_list
                             logger_setup.get_logger().info(f"Imported Spot: {record['Spot Name']}")
-    
-    
+
                     # Find matching GrainID or create new
                     if record["Grain Name"] and record["SpotID"]:
                         logger_setup.get_logger().info(f"Grain Name: {record['Grain Name']}")
@@ -4840,7 +5370,8 @@ class ImportWizardDialog(QWidget):
                         if grain_id:
                             # Check that existing grain has spots from the same aliquot
                             spot_grain_query = QSqlQuery()
-                            if not spot_grain_query.prepare('SELECT SpotID, AliquotID FROM Spots WHERE GrainID=:grainID'):
+                            if not spot_grain_query.prepare(
+                                    'SELECT SpotID, AliquotID FROM Spots WHERE GrainID=:grainID'):
                                 logger_setup.get_logger().critical(f"Error importing Grain {record['Grain Name']}")
                                 logger_setup.get_logger().debug(f"Failed to prepare query to find Grain")
                                 logger_setup.get_logger().debug(f"Error: {spot_grain_query.lastError().text()}")
@@ -4876,7 +5407,8 @@ class ImportWizardDialog(QWidget):
                             if not insert_query.prepare(insert_sql):
                                 logger_setup.get_logger().critical(
                                     f"Error importing Grain {record['Grain Name']}")
-                                logger_setup.get_logger().debug(f"Failed to prepare data for grain {record['Grain Name']}")
+                                logger_setup.get_logger().debug(
+                                    f"Failed to prepare data for grain {record['Grain Name']}")
                                 logger_setup.get_logger().debug(f"Error: {insert_query.lastError().text()}")
                                 logger_setup.get_logger().debug(f"SQL query: {insert_query.executedQuery()}")
                                 rollback_savepoint('before_analysis_import')
@@ -4886,7 +5418,8 @@ class ImportWizardDialog(QWidget):
                                 # if not insert_query.exec() and 'UNIQUE constraint failed' not in insert_query.lastError().text():
                                 logger_setup.get_logger().critical(
                                     f"Error importing Grain {record['Grain Name']}")
-                                logger_setup.get_logger().debug(f"Failed to insert data for grain {record['Grain Name']}")
+                                logger_setup.get_logger().debug(
+                                    f"Failed to insert data for grain {record['Grain Name']}")
                                 logger_setup.get_logger().debug(f"Error: {insert_query.lastError().text()}")
                                 logger_setup.get_logger().debug(f"SQL query: {insert_query.executedQuery()}")
                                 logger_setup.get_logger().debug(f"Values: {insert_query.boundValues()}")
@@ -4899,7 +5432,8 @@ class ImportWizardDialog(QWidget):
                             if not update_query.prepare(update_sql):
                                 logger_setup.get_logger().critical(
                                     f"Error importing Grain {record['Grain Name']}")
-                                logger_setup.get_logger().debug(f"Failed to prepare data for spot {record['Spot Name']}")
+                                logger_setup.get_logger().debug(
+                                    f"Failed to prepare data for spot {record['Spot Name']}")
                                 logger_setup.get_logger().debug(f"Error: {insert_query.lastError().text()}")
                                 logger_setup.get_logger().debug(f"SQL query: {insert_query.executedQuery()}")
                                 rollback_savepoint('before_analysis_import')
@@ -4909,7 +5443,8 @@ class ImportWizardDialog(QWidget):
                             if not update_query.exec():
                                 logger_setup.get_logger().critical(
                                     f"Error importing Grain {record['Grain Name']}")
-                                logger_setup.get_logger().debug(f"Failed to insert grain data for spot {record['Spot Name']}")
+                                logger_setup.get_logger().debug(
+                                    f"Failed to insert grain data for spot {record['Spot Name']}")
                                 logger_setup.get_logger().debug(f"Error: {insert_query.lastError().text()}")
                                 logger_setup.get_logger().debug(f"SQL query: {insert_query.executedQuery()}")
                                 logger_setup.get_logger().debug(f"Values: {insert_query.boundValues()}")
@@ -4920,14 +5455,15 @@ class ImportWizardDialog(QWidget):
                             imported_names_list.append(record["Grain Name"])
                             imported_names['Grains'] = imported_names_list
                             logger_setup.get_logger().info(f"Imported Grain: {record['Grain Name']}")
-    
+
                     # Find matching AnalysisID or create new
                     if record[analysis_header] and record["SpotID"]:
                         logger_setup.get_logger().info(f"{analysis_header}: {record[analysis_header]}")
                         analysis_query = QSqlQuery()
                         if not analysis_query.prepare(
-                            f'SELECT {analysis_id_header}, SpotID FROM {analysis_table} WHERE {analysis_name_header}=:name COLLATE NOCASE'):
-                            logger_setup.get_logger().critical(f"Error importing {analysis_table} {record[analysis_header]}")
+                                f'SELECT {analysis_id_header}, SpotID FROM {analysis_table} WHERE {analysis_name_header}=:name COLLATE NOCASE'):
+                            logger_setup.get_logger().critical(
+                                f"Error importing {analysis_table} {record[analysis_header]}")
                             logger_setup.get_logger().debug(f"Failed to prepare query to find {analysis_table}")
                             logger_setup.get_logger().debug(f"Error: {analysis_query.lastError().text()}")
                             logger_setup.get_logger().debug(f"SQL query: {analysis_query.lastQuery()}")
@@ -4954,7 +5490,7 @@ class ImportWizardDialog(QWidget):
                             logger_setup.get_logger().info(f"Existing {analysis_table}: {record[analysis_header]}")
                         elif self.conflict_mode == 'overwrite' and analysis_id:
                             # Delete the existing item first and then create a new one
-                            if not delete_data(analysis_table [analysis_id], enable_message=False):
+                            if not delete_data(analysis_table[analysis_id], enable_message=False):
                                 logger_setup.get_logger().critical(
                                     f'Could not overwrite existing {analysis_table} in the database')
                                 logger_setup.get_logger().debug(
@@ -4969,7 +5505,8 @@ class ImportWizardDialog(QWidget):
                                     f'{analysis_table} {record[analysis_header]} exists but is already associated with a different Spot.\nAnalysis names must be unique.')
                                 # Highlight the cell in the left table
                                 self.left_table.item(row_idx, analysis_col).setBackground(self.red_brush)  # Light red
-                                self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[analysis_sheet]))
+                                self.workbook_tabs.setCurrentIndex(
+                                    self.workbook_tabs.indexOf(self.right_tables[analysis_sheet]))
                                 # scroll the left table to the row
                                 self.left_table.scrollToItem(self.left_table.item(row_idx, analysis_col))
                                 rollback_savepoint('before_analysis_import')
@@ -4983,8 +5520,10 @@ class ImportWizardDialog(QWidget):
                             insert_sql = f'INSERT INTO {analysis_table} ({analysis_name_header}, SpotID) VALUES (:name, :spot_id)'
                             insert_query = QSqlQuery()
                             if not insert_query.prepare(insert_sql):
-                                logger_setup.get_logger().critical(f"Error importing {analysis_table} {record[analysis_header]}")
-                                logger_setup.get_logger().debug(f"Failed to prepare data for spot {record['Spot Name']}")
+                                logger_setup.get_logger().critical(
+                                    f"Error importing {analysis_table} {record[analysis_header]}")
+                                logger_setup.get_logger().debug(
+                                    f"Failed to prepare data for spot {record['Spot Name']}")
                                 logger_setup.get_logger().debug(f"Error: {insert_query.lastError().text()}")
                                 logger_setup.get_logger().debug(f"SQL query: {insert_query.executedQuery()}")
                                 rollback_savepoint('before_analysis_import')
@@ -4992,24 +5531,26 @@ class ImportWizardDialog(QWidget):
                             insert_query.bindValue(':name', record[analysis_header])
                             insert_query.bindValue(':spot_id', record["SpotID"])
                             if not insert_query.exec():
-                            # if not insert_query.exec() and 'UNIQUE constraint failed' not in insert_query.lastError().text():
-                                logger_setup.get_logger().critical(f"Error importing {analysis_table} {record[analysis_header]}")
-                                logger_setup.get_logger().debug(f"Failed to insert UPb data for spot {record['Spot Name']}")
+                                # if not insert_query.exec() and 'UNIQUE constraint failed' not in insert_query.lastError().text():
+                                logger_setup.get_logger().critical(
+                                    f"Error importing {analysis_table} {record[analysis_header]}")
+                                logger_setup.get_logger().debug(
+                                    f"Failed to insert UPb data for spot {record['Spot Name']}")
                                 logger_setup.get_logger().debug(f"Error: {insert_query.lastError().text()}")
                                 logger_setup.get_logger().debug(f"SQL query: {insert_query.executedQuery()}")
                                 logger_setup.get_logger().debug(f"Values: {insert_query.boundValues()}")
                                 rollback_savepoint('before_analysis_import')
                                 return False
-    
+
                             record[analysis_id_header] = insert_query.lastInsertId()
                             self.analysis_imports[analysis_id_header].append(record[analysis_id_header])
                             imported_names_list = imported_names[analysis_table]
                             imported_names_list.append(record[analysis_header])
                             imported_names[analysis_table] = imported_names_list
                             logger_setup.get_logger().info(f"Imported analysis_table: {record[analysis_header]}")
-    
+
                             inserted_count += 1
-    
+
             except Exception as e:
                 logger_setup.get_logger().debug(f"Error: {e}")
                 rollback_savepoint('before_analysis_import')
@@ -5031,6 +5572,14 @@ class ImportWizardDialog(QWidget):
         """
 
         from Functions.Widget_classes import get_columns
+
+        def name_column_header(tbl):
+            """Return the name column header for tbl, or None if the table has no name column
+            (e.g. GeoChemicalAnalysisValues, SampleAges, GPSLocations)."""
+            name_index = get_name_column(tbl)
+            if name_index is None:
+                return None
+            return get_headers(tbl)[name_index]
 
         combo_values = {
             'GPSElevUnitID': self.elevation_unit_combobox.itemData(
@@ -5074,7 +5623,8 @@ class ImportWizardDialog(QWidget):
             'SampleGPSLocations': ['GPSElevUnitID'],
             'SampleAges': ['DirectAgeErrorFormatID', 'DirectAgeUnitID'],
             'Columns': ['TotalHeightDepthUnitID'],
-            'UPbAnalyses': ['UPbAgeUnitID', 'UPbAgeErrorFormatID', 'UPbRatioErrorFormatID', 'UPbSpotSizeUnitID', 'UPbConcordanceFormatID'],
+            'UPbAnalyses': ['UPbAgeUnitID', 'UPbAgeErrorFormatID', 'UPbRatioErrorFormatID', 'UPbSpotSizeUnitID',
+                            'UPbConcordanceFormatID'],
             'GeoChemAnalyses': ['GeoChemAnalyteErrorFormatID', 'GeoChemSpotSizeUnitID']
         }
 
@@ -5153,9 +5703,8 @@ class ImportWizardDialog(QWidget):
                         self.item_ids[table][self.geochem_sheet_name][column][id_header] = {}
                         break
 
-
         import_progress_dialog = QProgressDialog(
-            "Importing data...", "Cancel", 0, len(self.item_ids.keys())+1, self
+            "Importing data...", "Cancel", 0, len(self.item_ids.keys()) + 1, self
         )
         import_progress_dialog.setMinimumDuration(0)
         create_savepoint('before_import_items')
@@ -5193,8 +5742,9 @@ class ImportWizardDialog(QWidget):
                 return False
             while query.next():
                 foreign_keys[query.value(3)] = {'foreign_table': query.value(2), 'foreign_column': query.value(4)}
-            if table not in ['SampleAges', 'References', 'SampleGPSLocations', 'ColumnGPSLocations', 'GeoChemicalAnalysisValues']:
-                name_header = get_headers(table)[get_name_column(table)]
+            if table not in ['SampleAges', 'References', 'SampleGPSLocations', 'ColumnGPSLocations',
+                             'GeoChemicalAnalysisValues']:
+                name_header = name_column_header(table)
             elif table == 'References' and search_dictionary(self.item_ids[table], get_headers(db_table)[0]):
                 # ID column is mapped, so make sure that ReferenceDisplay is too
                 if search_dictionary(self.item_ids[table], 'ReferenceDisplay'):
@@ -5213,20 +5763,37 @@ class ImportWizardDialog(QWidget):
                         if item_header == name_header:
                             name_columns.append(column)
                 else:
-                    parent_table = None
-                    if self.item_parent_dict[table]:
-                        # For tables with no name column, we need to find the parent name column
-                        parent_table = self.item_parent_dict[table]
-                    if not parent_table:
-                        name_columns = []
-                    parent_name_header = get_headers(parent_table)[get_name_column(parent_table)]
-                    for column, item_header in self.item_ids[parent_table][sheet].items():
-                        item_header = list(item_header.keys())[0]
-                        if item_header == parent_name_header:
-                            name_columns.append(column)
+                    # For tables with no name column, use the name column of a parent table mapped in this sheet.
+                    # item_parent_dict values may be a single table name or a list of possible parent tables
+                    # (e.g. when several sheets are imported at once and each sheet holds a different parent).
+                    parent_tables = self.item_parent_dict.get(table)
+                    if not parent_tables:
+                        parent_tables = []
+                    elif isinstance(parent_tables, str):
+                        parent_tables = [parent_tables]
+                    checked_parent_headers = []
+                    for parent_table in parent_tables:
+                        if parent_table not in self.item_ids or sheet not in self.item_ids[parent_table]:
+                            # This parent is not mapped in this sheet
+                            continue
+                        parent_name_header = name_column_header(parent_table)
+                        if not parent_name_header:
+                            # This parent has no name column of its own, so it cannot identify the items
+                            continue
+                        checked_parent_headers.append(f'{parent_table}.{parent_name_header}')
+                        for column, item_header in self.item_ids[parent_table][sheet].items():
+                            item_header = list(item_header.keys())[0]
+                            if item_header == parent_name_header:
+                                name_columns.append(column)
+                        if name_columns:
+                            # Use the first parent that has a name column in this sheet so the same rows
+                            # are not gathered twice under different parents
+                            break
                     if not name_columns:
                         logger_setup.get_logger().critical(f"Unknown mapping for table {table} items")
-                        logger_setup.get_logger().debug(f"Could not find name header {name_header} or  parent column {parent_name_header} in sheet {sheet}")
+                        logger_setup.get_logger().debug(
+                            f"Could not find a parent name column for {table} in sheet {sheet}. "
+                            f"Possible parents: {parent_tables}; checked: {checked_parent_headers or 'none mapped in this sheet'}")
                         rollback_savepoint('before_import_items')
                         import_progress_dialog.close()
                         return False
@@ -5247,13 +5814,15 @@ class ImportWizardDialog(QWidget):
                         continue
                     for name_column in name_columns:
                         item_name = self.right_tables[sheet].model().index(row, name_column).data()
-                        logger_setup.get_logger().info(f'Gathering data for {table} item "{item_name}" from sheet {sheet}, row {row}')
+                        logger_setup.get_logger().info(
+                            f'Gathering data for {table} item "{item_name}" from sheet {sheet}, row {row}')
                         item_id = None
                         if item_name in ['NULL', '', None]:
                             continue
                         if item_name not in item_data[table][name_header]:
                             item_data[table][name_header][item_name] = {}
-                        if sheet in [self.upb_sheet_name, self.geochem_sheet_name] and self.hidden_mappings and search_dictionary(
+                        if sheet in [self.upb_sheet_name,
+                                     self.geochem_sheet_name] and self.hidden_mappings and search_dictionary(
                                 self.item_ids[table][sheet], get_headers(db_table)[0]):
                             # This table has an ID column added to an analysis sheet via the hidden mappings, so get the ID directly
                             for column, header in self.item_ids[table][sheet].items():
@@ -5270,7 +5839,9 @@ class ImportWizardDialog(QWidget):
                         else:
                             if table in table_combos:
                                 for item_header in table_combos[table]:
-                                    item_data[table][name_header][item_name][item_header.replace('UPb', '').replace('GeoChem', '')] = combo_values[item_header]
+                                    item_data[table][name_header][item_name][
+                                        item_header.replace('UPb', '').replace('GeoChem', '')] = combo_values[
+                                        item_header]
                             for column, item_header in self.item_ids[table][sheet].items():
                                 item_header = list(item_header.keys())[0]
                                 if (item_header not in item_data[table][name_header][item_name] or
@@ -5293,22 +5864,27 @@ class ImportWizardDialog(QWidget):
                                         else:
                                             if foreign_table == 'GPSLocations':
                                                 if table == 'Samples':
-                                                    item = self.item_ids['SampleGPSLocations'][sheet][column][item_input]
+                                                    item = self.item_ids['SampleGPSLocations'][sheet][column][
+                                                        item_input]
                                                 elif table == 'Columns':
-                                                    item = self.item_ids['ColumnGPSLocations'][sheet][column][item_input]
+                                                    item = self.item_ids['ColumnGPSLocations'][sheet][column][
+                                                        item_input]
                                             else:
                                                 item = self.item_ids[foreign_table][sheet][column][item_input]
                                     item_data[table][name_header][item_name][item_header] = item
                             for item_header in foreign_keys:
-                                if item_header not in item_data[table][name_header][item_name] or item_data[table][name_header][item_name][item_header] in ['NULL', '', None]:
+                                if item_header not in item_data[table][name_header][item_name] or \
+                                        item_data[table][name_header][item_name][item_header] in ['NULL', '', None]:
                                     foreign_table = foreign_keys[item_header]['foreign_table']
-                                    foreign_query, foreign_virtual, foreign_stored, foreign_columns = get_columns(foreign_table)
+                                    foreign_query, foreign_virtual, foreign_stored, foreign_columns = get_columns(
+                                        foreign_table)
                                     # Get a list of all columns except the ID column. This list already excludes calculated and automatically set columns
                                     foreign_query_columns = [col.replace('"', '') for col in foreign_columns if
-                                                     f'"{get_headers(foreign_table)[0]}"' not in col and
-                                                     'Created' not in col and 'Modified' not in col and 'Parent' not in col and 'Converted' not in col]
-                                    if get_headers(foreign_table)[get_name_column(foreign_table)] in foreign_query_columns:
-                                        foreign_name_header = get_headers(foreign_table)[get_name_column(foreign_table)]
+                                                             f'"{get_headers(foreign_table)[0]}"' not in col and
+                                                             'Created' not in col and 'Modified' not in col and 'Parent' not in col and 'Converted' not in col]
+                                    foreign_table_name_header = name_column_header(foreign_table)
+                                    if foreign_table_name_header and foreign_table_name_header in foreign_query_columns:
+                                        foreign_name_header = foreign_table_name_header
                                         foreign_name_item = None
                                     elif (foreign_table == 'References' and 'References' in self.item_ids and
                                           search_dictionary(self.item_ids[foreign_table][sheet], 'ReferenceDisplay')):
@@ -5328,21 +5904,27 @@ class ImportWizardDialog(QWidget):
                                     else:
                                         search_table = foreign_table
                                     if search_table in self.item_ids:
+                                        # Reset for every foreign key so a value from a previous key/column is never reused
+                                        column_data = 'NULL'
                                         if sheet in self.item_ids[search_table]:
                                             for column, header in self.item_ids[search_table][sheet].items():
                                                 header = list(header.keys())[0]
+                                                column_lookup = self.item_ids[search_table][sheet][column][header]
                                                 if foreign_name_item:
-                                                    column_data = self.item_ids[search_table][sheet][column][header][foreign_name_item]
-                                                    break
-                                                elif header == foreign_name_header:
-                                                    foreign_name_item = self.right_tables[sheet].model().index(row, column).data()
-                                                    if foreign_name_item in self.item_ids[foreign_table][sheet][column][header]:
-                                                        column_data = self.item_ids[foreign_table][sheet][column][header][foreign_name_item]
+                                                    # Foreign table items are keyed by the same (parent) name as this item.
+                                                    # Check every column rather than assuming the first one holds the key.
+                                                    if foreign_name_item in column_lookup:
+                                                        column_data = column_lookup[foreign_name_item]
                                                         break
-                                                    else:
-                                                        column_data = 'NULL'
-                                        else:
-                                            column_data = 'NULL'
+                                                elif header == foreign_name_header:
+                                                    row_name = self.right_tables[sheet].model().index(row, column).data()
+                                                    if row_name in column_lookup:
+                                                        column_data = column_lookup[row_name]
+                                                        break
+                                            if column_data == 'NULL' and foreign_name_item:
+                                                logger_setup.get_logger().warning(
+                                                    f'No {search_table} entry found for {table} "{item_name}" in sheet {sheet}; '
+                                                    f'{item_header} will be left empty')
                                     elif item_header in combo_values:
                                         # This is a static value for all rows
                                         column_data = combo_values[item_header]
@@ -5357,7 +5939,7 @@ class ImportWizardDialog(QWidget):
                                         item_data[table][name_header][item_name]['Rejected'] = 0
                                 else:
                                     if (item_data[table][name_header][item_name]['Rejected'] == 'Rejected'
-                                        or item_data[table][name_header][item_name]['Rejected'] == 1):
+                                            or item_data[table][name_header][item_name]['Rejected'] == 1):
                                         item_data[table][name_header][item_name]['Rejected'] = 1
                                     elif (item_data[table][name_header][item_name]['Rejected'] == 'Accepted'
                                           or item_data[table][name_header][item_name]['Rejected'] == 0):
@@ -5367,7 +5949,8 @@ class ImportWizardDialog(QWidget):
                 continue
 
             item_progress_dialog = QProgressDialog(
-                f"Importing {len(item_data[table][name_header].keys())} {table}...", "Cancel", 0, len(item_data[table][name_header].keys()),
+                f"Importing {len(item_data[table][name_header].keys())} {table}...", "Cancel", 0,
+                len(item_data[table][name_header].keys()),
                 self
             )
             item_progress_dialog.setMinimumDuration(0)
@@ -5416,13 +5999,15 @@ class ImportWizardDialog(QWidget):
                 if 'GPSLocations' in table:
                     gps_format_id = self.determine_gps_format(input_values)
                     if not gps_format_id:
-                        logger_setup.get_logger().error(f'Could not determine GPS format for {table} entry "{item_name}"')
+                        logger_setup.get_logger().error(
+                            f'Could not determine GPS format for {table} entry "{item_name}"')
                         rollback_savepoint('before_import_items')
                         item_progress_dialog.close()
                         import_progress_dialog.close()
                         return False
                     input_values['GPSFormatID'] = gps_format_id
-                if get_headers(db_table)[get_name_column(db_table)] in query_columns:
+                db_name_header = name_column_header(db_table)
+                if db_name_header and db_name_header in query_columns:
                     name = item_name
                 else:
                     name = None
@@ -5438,7 +6023,7 @@ class ImportWizardDialog(QWidget):
                     continue
                 else:
                     if name:
-                        search_query = f'SELECT {get_headers(db_table)[0]} FROM "{db_table}" WHERE {get_headers(db_table)[get_name_column(db_table)]}=:name COLLATE NOCASE'
+                        search_query = f'SELECT {get_headers(db_table)[0]} FROM "{db_table}" WHERE "{db_name_header}"=:name COLLATE NOCASE'
                         if not query.prepare(search_query):
                             logger_setup.get_logger().critical(f'Error importing {table} entry')
                             logger_setup.get_logger().debug(f'Failed to prepare query to find existing item')
@@ -5524,7 +6109,8 @@ class ImportWizardDialog(QWidget):
                         continue
                     else:
                         if self.conflict_mode == 'skip' and not (get_headers(table)[0] in self.analysis_imports and
-                                                                 item_id in self.analysis_imports[get_headers(table)[0]]):
+                                                                 item_id in self.analysis_imports[
+                                                                     get_headers(table)[0]]):
                             logger_setup.get_logger().info(f'Skipping duplicate {table} "{name}"')
                             for sheet in self.item_ids[table]:
                                 for column, header in self.item_ids[table][sheet].items():
@@ -5536,14 +6122,18 @@ class ImportWizardDialog(QWidget):
                             self.skipped_import_ids[db_table].append(item_id)
                             continue
                         elif self.conflict_mode == 'overwrite' and not (get_headers(table)[0] in self.analysis_imports
-                                                                        and item_id in self.analysis_imports[get_headers(table)[0]]):
-                            if table not in ['Samples', 'Aliquots', 'Grains', 'Spots', 'UPbAnalyses', 'GeoChemicalAnalyses']:
+                                                                        and item_id in self.analysis_imports[
+                                                                            get_headers(table)[0]]):
+                            if table not in ['Samples', 'Aliquots', 'Grains', 'Spots', 'UPbAnalyses',
+                                             'GeoChemicalAnalyses']:
                                 # not already handled in import_analysis_to_db method above
                                 logger_setup.get_logger().info(f'Overwriting existing {table} "{name}"')
                                 # Delete the existing item and re-insert it
                                 if not delete_data(table, [item_id], enable_message=False):
-                                    logger_setup.get_logger().critical(f'Could not overwrite existing {table} in the database')
-                                    logger_setup.get_logger().debug(f'Failed to delete values from {table} for ID {item_id}')
+                                    logger_setup.get_logger().critical(
+                                        f'Could not overwrite existing {table} in the database')
+                                    logger_setup.get_logger().debug(
+                                        f'Failed to delete values from {table} for ID {item_id}')
                                     rollback_savepoint('before_import_items')
                                     item_progress_dialog.close()
                                     import_progress_dialog.close()
@@ -5599,24 +6189,25 @@ class ImportWizardDialog(QWidget):
                             update_values = {}
                             for column in query_columns:
                                 if (table in SQLUtils.unit_format_affected and
-                                    column in SQLUtils.unit_format_affected[table]):
+                                        column in SQLUtils.unit_format_affected[table]):
                                     if existing_values[column] != input_values[column]:
                                         if not any(input_values[affected_column] != 'NULL' for affected_column in
-                                               SQLUtils.unit_format_affected[table][column]):
+                                                   SQLUtils.unit_format_affected[table][column]):
                                             # All input values are NULL, so do not add this unit/format to the update values
                                             if db_table not in self.skipped_import_ids:
                                                 self.skipped_import_ids[db_table] = []
                                             self.skipped_import_ids[db_table].append(item_id)
                                             continue
                                         elif any(existing_values[affected_column] != 'NULL' for affected_column in
-                                               SQLUtils.unit_format_affected[table][column]):
+                                                 SQLUtils.unit_format_affected[table][column]):
                                             # Relevant data in both existing and input values in different units/formats
                                             if column in foreign_keys:
                                                 unit_format_table = foreign_keys[column]['foreign_table']
-                                                existing_name = get_name_from_id(unit_format_table, existing_values[column])
+                                                existing_name = get_name_from_id(unit_format_table,
+                                                                                 existing_values[column])
                                                 input_name = get_name_from_id(unit_format_table, input_values[column])
                                                 logger_setup.get_logger().error(
-                                                    f'{name_header} already has values with {column.replace('ID','')} = {existing_name}, but importing values with {column.replace('ID','')} = {input_name}\n\nImport conflict mode "add to" requires that additional data be in the same format as existing data')
+                                                    f'{name_header} already has values with {column.replace('ID', '')} = {existing_name}, but importing values with {column.replace('ID', '')} = {input_name}\n\nImport conflict mode "add to" requires that additional data be in the same format as existing data')
                                                 rollback_savepoint('before_import_items')
                                                 item_progress_dialog.close()
                                                 import_progress_dialog.close()
@@ -5662,8 +6253,10 @@ class ImportWizardDialog(QWidget):
                                     else:
                                         query.bindValue(f'{column_placeholder}', QVariant())
                                 if not query.exec():
-                                    logger_setup.get_logger().critical(f'Could not update existing {table} in the database')
-                                    logger_setup.get_logger().debug(f'Failed to update values in {table} for ID {item_id}')
+                                    logger_setup.get_logger().critical(
+                                        f'Could not update existing {table} in the database')
+                                    logger_setup.get_logger().debug(
+                                        f'Failed to update values in {table} for ID {item_id}')
                                     logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                                     logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                                     logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
@@ -5687,7 +6280,8 @@ class ImportWizardDialog(QWidget):
                         root_query = f'SELECT {get_headers(db_table)[2]} FROM "{db_table}" WHERE {get_headers(db_table)[1]} IS NULL ORDER BY {get_headers(db_table)[2]} DESC LIMIT 1'
                         if not query.prepare(root_query):
                             logger_setup.get_logger().critical(f'Error importing {table} "{item_name}"')
-                            logger_setup.get_logger().debug(f'Failed to prepare query to find maximum parent row for root')
+                            logger_setup.get_logger().debug(
+                                f'Failed to prepare query to find maximum parent row for root')
                             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                             logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                             rollback_savepoint('before_import_items')
@@ -5712,9 +6306,11 @@ class ImportWizardDialog(QWidget):
                         input_values[get_headers(db_table)[2]] = parent_row
                     if db_table in SQLUtils.trigger_tables:
                         if 'GPSFormatID' in input_values:
-                            error, header = validate_insert(db_table, list(input_values.keys()), list(input_values.values()), input_values['GPSFormatID'])
+                            error, header = validate_insert(db_table, list(input_values.keys()),
+                                                            list(input_values.values()), input_values['GPSFormatID'])
                         else:
-                            error, header = validate_insert(db_table, list(input_values.keys()), list(input_values.values()), None)
+                            error, header = validate_insert(db_table, list(input_values.keys()),
+                                                            list(input_values.values()), None)
                         if error:
                             logger_setup.get_logger().error(f'Error inserting new {db_table} for {name}: {error}')
                             logger_setup.get_logger().debug(f'Error validating data to insert for table {table}')
@@ -5722,8 +6318,10 @@ class ImportWizardDialog(QWidget):
                             item_progress_dialog.close()
                             import_progress_dialog.close()
                             return False
-                    if db_table in ['Samples', 'Aliquots', 'Grains', 'Spots', 'UPbAnalyses', 'GeoChemicalAnalyses'] and not analysis_data:
-                        logger_setup.get_logger().error(f'Error inserting new Sample. New samples cannot be imported without analysis data')
+                    if db_table in ['Samples', 'Aliquots', 'Grains', 'Spots', 'UPbAnalyses',
+                                    'GeoChemicalAnalyses'] and not analysis_data:
+                        logger_setup.get_logger().error(
+                            f'Error inserting new Sample. New samples cannot be imported without analysis data')
                     insert_query = f'INSERT INTO "{db_table}" ('
                     for column, value in input_values.items():
                         insert_query += f'"{column}", '
@@ -5749,7 +6347,7 @@ class ImportWizardDialog(QWidget):
                         column = f':{column.replace('/', '').replace('*', '').replace(' ', '_')}'
                         query.bindValue(column, value)
                     if not query.exec():
-                    # if not query.exec() and 'UNIQUE constraint failed' not in query.lastError().text():
+                        # if not query.exec() and 'UNIQUE constraint failed' not in query.lastError().text():
                         logger_setup.get_logger().critical(f'Error importing {table} "{item_name}"')
                         logger_setup.get_logger().debug(f'Failed to insert values into {table}')
                         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
@@ -5778,8 +6376,6 @@ class ImportWizardDialog(QWidget):
 
         release_savepoint('before_import_items')
         return True
-
-
 
     def import_many_to_many_to_db(self, many_tables):
         """
@@ -5835,67 +6431,92 @@ class ImportWizardDialog(QWidget):
                                     continue
                                 else:
                                     for table2_name_column in table2_name_columns:
-                                        table2_name = self.right_tables[sheet].model().index(row, table2_name_column).data()
+                                        table2_name = self.right_tables[sheet].model().index(row,
+                                                                                             table2_name_column).data()
                                         if table1_name in ['NULL', '', None] or table2_name in ['NULL', '', None]:
                                             continue
                                         for column2, header2 in self.item_ids[table2][sheet].items():
-                                                header2_name = list(header2.keys())[0]
-                                                if table2_name in self.item_ids[table2][sheet][column2][header2_name]:
-                                                    table2_id = self.item_ids[table2][sheet][column2][header2_name][table2_name]
-                                                    if not table2_id:
-                                                        logger_setup.get_logger().critical(f'Could not link {table2} "{table2_name}" in sheet {sheet} with data from other sheets')
+                                            header2_name = list(header2.keys())[0]
+                                            if table2_name in self.item_ids[table2][sheet][column2][header2_name]:
+                                                table2_id = self.item_ids[table2][sheet][column2][header2_name][
+                                                    table2_name]
+                                                if not table2_id:
+                                                    logger_setup.get_logger().critical(
+                                                        f'Could not link {table2} "{table2_name}" in sheet {sheet} with data from other sheets')
+                                                    continue
+                                                else:
+                                                    if table1_id in self.skipped_import_ids.get(table1,
+                                                                                                []) or table2_id in self.skipped_import_ids.get(
+                                                            table2, []):
+                                                        # One of the items was skipped due to conflict resolution, so skip this relationship
                                                         continue
-                                                    else:
-                                                        if table1_id in self.skipped_import_ids.get(table1, []) or table2_id in self.skipped_import_ids.get(table2, []):
-                                                            # One of the items was skipped due to conflict resolution, so skip this relationship
-                                                            continue
-                                                        # Check if this relationship already exists in the database
-                                                        query = QSqlQuery()
-                                                        table1_id_field = get_headers(table1)[0]
-                                                        table2_id_field = get_headers(table2)[0]
-                                                        if not query.prepare(f'SELECT {table1_id_field} FROM {table} WHERE {table1_id_field} = :table1_id AND {table2_id_field} = :table2_id'):
-                                                            logger_setup.get_logger().critical(f'Error linking {table1} "{table1_name}" and {table2} "{table2_name}"')
-                                                            logger_setup.get_logger().debug(f'Failed to prepare query to find existing relationship')
-                                                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                                                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                                                            rollback_savepoint('before_import_many_to_many')
-                                                            return False
-                                                        query.bindValue(':table1_id', table1_id)
-                                                        query.bindValue(':table2_id', table2_id)
-                                                        if not query.exec():
-                                                            logger_setup.get_logger().critical(f'Error linking {table1} "{table1_name}" and {table2} "{table2_name}"')
-                                                            logger_setup.get_logger().debug(f'Failed to query the {table} values')
-                                                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                                                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                                                            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
-                                                            rollback_savepoint('before_import_many_to_many')
-                                                            return False
-                                                        if query.next():
-                                                            # The relationship already exists, so skip it
-                                                            continue
-                                                        # Insert the new relationship
-                                                        if not query.prepare(f'INSERT INTO {table} ({table1_id_field}, {table2_id_field}) VALUES (:table1_id, :table2_id)'):
-                                                            logger_setup.get_logger().critical(f'Error linking {table1} "{table1_name}" and {table2} "{table2_name}"')
-                                                            logger_setup.get_logger().debug(f'Failed to prepare query to insert new relationship')
-                                                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                                                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                                                            rollback_savepoint('before_import_many_to_many')
-                                                            return False
-                                                        query.bindValue(':table1_id', table1_id)
-                                                        query.bindValue(':table2_id', table2_id)
-                                                        if not query.exec():
+                                                    # Check if this relationship already exists in the database
+                                                    query = QSqlQuery()
+                                                    table1_id_field = get_headers(table1)[0]
+                                                    table2_id_field = get_headers(table2)[0]
+                                                    if not query.prepare(
+                                                            f'SELECT {table1_id_field} FROM {table} WHERE {table1_id_field} = :table1_id AND {table2_id_field} = :table2_id'):
+                                                        logger_setup.get_logger().critical(
+                                                            f'Error linking {table1} "{table1_name}" and {table2} "{table2_name}"')
+                                                        logger_setup.get_logger().debug(
+                                                            f'Failed to prepare query to find existing relationship')
+                                                        logger_setup.get_logger().debug(
+                                                            f'Error: {query.lastError().text()}')
+                                                        logger_setup.get_logger().debug(
+                                                            f'SQL query: {query.lastQuery()}')
+                                                        rollback_savepoint('before_import_many_to_many')
+                                                        return False
+                                                    query.bindValue(':table1_id', table1_id)
+                                                    query.bindValue(':table2_id', table2_id)
+                                                    if not query.exec():
+                                                        logger_setup.get_logger().critical(
+                                                            f'Error linking {table1} "{table1_name}" and {table2} "{table2_name}"')
+                                                        logger_setup.get_logger().debug(
+                                                            f'Failed to query the {table} values')
+                                                        logger_setup.get_logger().debug(
+                                                            f'Error: {query.lastError().text()}')
+                                                        logger_setup.get_logger().debug(
+                                                            f'SQL query: {query.lastQuery()}')
+                                                        logger_setup.get_logger().debug(
+                                                            f'Bound values: {query.boundValues()}')
+                                                        rollback_savepoint('before_import_many_to_many')
+                                                        return False
+                                                    if query.next():
+                                                        # The relationship already exists, so skip it
+                                                        continue
+                                                    # Insert the new relationship
+                                                    if not query.prepare(
+                                                            f'INSERT INTO {table} ({table1_id_field}, {table2_id_field}) VALUES (:table1_id, :table2_id)'):
+                                                        logger_setup.get_logger().critical(
+                                                            f'Error linking {table1} "{table1_name}" and {table2} "{table2_name}"')
+                                                        logger_setup.get_logger().debug(
+                                                            f'Failed to prepare query to insert new relationship')
+                                                        logger_setup.get_logger().debug(
+                                                            f'Error: {query.lastError().text()}')
+                                                        logger_setup.get_logger().debug(
+                                                            f'SQL query: {query.lastQuery()}')
+                                                        rollback_savepoint('before_import_many_to_many')
+                                                        return False
+                                                    query.bindValue(':table1_id', table1_id)
+                                                    query.bindValue(':table2_id', table2_id)
+                                                    if not query.exec():
                                                         # if not query.exec() and 'UNIQUE constraint failed' not in query.lastError().text():
-                                                            logger_setup.get_logger().critical(f'Error linking {table1} "{table1_name}" and {table2} "{table2_name}"')
-                                                            logger_setup.get_logger().debug(f'Failed to insert values into {table}')
-                                                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                                                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                                                            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
-                                                            rollback_savepoint('before_import_many_to_many')
-                                                            return False
-                                                        logger_setup.get_logger().info(f'Linked {table1} "{table1_name}" (ID {table1_id}) with {table2} "{table2_name}" (ID {table2_id})')
+                                                        logger_setup.get_logger().critical(
+                                                            f'Error linking {table1} "{table1_name}" and {table2} "{table2_name}"')
+                                                        logger_setup.get_logger().debug(
+                                                            f'Failed to insert values into {table}')
+                                                        logger_setup.get_logger().debug(
+                                                            f'Error: {query.lastError().text()}')
+                                                        logger_setup.get_logger().debug(
+                                                            f'SQL query: {query.lastQuery()}')
+                                                        logger_setup.get_logger().debug(
+                                                            f'Bound values: {query.boundValues()}')
+                                                        rollback_savepoint('before_import_many_to_many')
+                                                        return False
+                                                    logger_setup.get_logger().info(
+                                                        f'Linked {table1} "{table1_name}" (ID {table1_id}) with {table2} "{table2_name}" (ID {table2_id})')
         release_savepoint('before_import_many_to_many')
         return True
-
 
     def find_name_header(self, table: str, sheet: str):
         """
@@ -5924,25 +6545,25 @@ class ImportWizardDialog(QWidget):
                 if item_header == name_header:
                     name_columns.append(column)
         else:
-            parent_table = None
-            if self.item_parent_dict[table]:
-                # For tables with no name column, we need to find the parent name column
-                parent_table = self.item_parent_dict[table]
-            if not parent_table:
-                name_columns = []
-            parent_name_header = get_headers(parent_table)[get_name_column(parent_table)]
-            for column, item_header in self.item_ids[parent_table][sheet].items():
-                item_header = list(item_header.keys())[0]
-                if item_header == parent_name_header:
-                    name_header = parent_name_header
-                    name_columns.append(column)
+            parent_tables = self.item_parent_dict.get(table) or []
+            if isinstance(parent_tables, str):
+                parent_tables = [parent_tables]
+            for parent_table in parent_tables:
+                if parent_table not in self.item_ids or sheet not in self.item_ids[parent_table]:
+                    continue
+                parent_name_header = get_headers(parent_table)[get_name_column(parent_table)]
+                for column, item_header in self.item_ids[parent_table][sheet].items():
+                    if list(item_header.keys())[0] == parent_name_header:
+                        name_header = parent_name_header
+                        name_columns.append(column)
+                if name_columns:
+                    break
             if not name_header or not name_columns:
                 logger_setup.get_logger().critical(f"Unknown mapping for table {table} items")
                 logger_setup.get_logger().debug(
-                    f"Could not find name header {name_header} or  parent column {parent_name_header} in sheet {sheet}")
+                    f"Could not find a parent name column for {table} in sheet {sheet} (parents: {parent_tables})")
                 return None, None
         return name_header, name_columns
-
 
     def determine_gps_format(self, import_row):
         """
@@ -5991,7 +6612,7 @@ class ImportWizardDialog(QWidget):
                 return None
         for format_id in range(0, len(SQLUtils.gps_formats)):
             if SQLUtils.gps_formats[format_id][1] == gps_format_name:
-                return format_id+1  # +1 because GPSFormatID starts at 1
+                return format_id + 1  # +1 because GPSFormatID starts at 1
         return None
 
     def close(self):
