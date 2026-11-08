@@ -121,6 +121,52 @@ def detect_import_format(wb) -> tuple[str | None, dict[str, str]]:
     return None, {}
 
 
+def read_field_headings(wb, label: str, max_rows: int) -> dict[str, list[str]]:
+    """
+    Returns {sheet title: headings} for each sheet with a row whose first cell is label within the first max_rows rows.
+    Trailing blank headings are dropped.
+    """
+    headings = {}
+    for ws in wb.worksheets:
+        for row in ws.iter_rows(max_row=max_rows, values_only=True):
+            if row and row[0] is not None and str(row[0]).strip() == label:
+                values = ['' if v is None else str(v).strip() for v in row]
+                while values and not values[-1]:
+                    values.pop()
+                headings[ws.title.strip()] = values
+                break
+    return headings
+
+
+def detect_import_format(wb) -> tuple[str | None, dict[str, str]]:
+    """
+    Compares the heading row of each sheet in wb against the template shipped for each format in
+    SQLUtils.import_formats. Every template sheet must have a matching sheet.
+    :param wb: openpyxl workbook selected by the user
+    :return: matched format name and {workbook sheet: template sheet}, or (None, {}) if no format matches
+    """
+    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    for name, fmt in SQLUtils.import_formats.items():
+        template_path = os.path.join(base_path, fmt['template'])
+        if not os.path.exists(template_path):
+            logger_setup.get_logger().warning(f'Import format template not found: {template_path}')
+            continue
+        template = load_workbook(template_path, read_only=True)
+        reference = read_field_headings(template, fmt['header_label'], fmt['header_rows'])
+        template.close()
+        user = read_field_headings(wb, fmt['header_label'], fmt['header_rows'])
+        matched = {}
+        for template_sheet in fmt['sheets']:
+            for user_sheet, headings in user.items():
+                if user_sheet not in matched and headings == reference.get(template_sheet):
+                    matched[user_sheet] = template_sheet
+                    break
+        if len(matched) == len(fmt['sheets']):
+            logger_setup.get_logger().info(f'Detected import format {name}: {matched}')
+            return name, matched
+    return None, {}
+
+
 class ColumnMapDialog(QDialog):
     """
     Class to load a helper dialog to assist the user in selecting pre-defined values of columns to a known database column.
@@ -3635,6 +3681,51 @@ class ImportWizardDialog(QWidget):
                 self.sheet_mappings[sheet][col] = field
                 model.setHeaderData(col, Qt.Orientation.Horizontal, field, Qt.ItemDataRole.EditRole)
                 model.setHeaderData(col, Qt.Orientation.Horizontal, self.loaded_mapping_brush, Qt.ItemDataRole.BackgroundRole)
+                if field in ["Sample Name", "Aliquot Name", "Spot Name", "Grain Name", "UPb Analysis Name"] and sheet == self.upb_sheet_name:
+                    self.update_left_table_on_header_change(field, col)
+            self.disable_selected_rows(header_rows)
+        for key, text in fmt['units_formats'].items():
+            index = self.static_combos[key].findText(text)
+            if index != -1:
+                self.static_combos[key].setCurrentIndex(index)
+        self.right_table = viewing_right_table
+        self.current_sheet_name = viewing_sheet
+        logger_setup.get_logger().info(f"Import format {name} applied")
+        QMessageBox.information(self, "Import Format Applied",
+                                f"{name} selections applied.\n\n"
+                                f"Review the mapped (blue) columns and units/formats before validating. "
+                                f"Template header rows {header_rows[0] + 1}-{header_rows[-1] + 1} are disabled.")
+
+    def apply_import_format(self, name: str, matched_sheets: dict[str, str]):
+        """
+        Prefills column mappings, the left table, and units/formats from a predefined format in
+        SQLUtils.import_formats. Template header rows are disabled so they are not imported.
+        :param name: key of SQLUtils.import_formats
+        :param matched_sheets: {workbook sheet: template sheet} from detect_import_format
+        """
+        logger_setup.get_logger().info(f"Applying import format {name}")
+        fmt = SQLUtils.import_formats[name]
+        viewing_right_table = self.right_table
+        viewing_sheet = self.current_sheet_name
+        header_rows = list(range(fmt['header_rows']))
+        for sheet, template_sheet in matched_sheets.items():
+            if sheet not in self.right_tables:
+                # sheet was skipped when loading
+                continue
+            self.right_table = self.right_tables[sheet]
+            self.current_sheet_name = sheet
+            model = self.right_table.model()
+            field_row = next((r for r in header_rows if model.data(model.index(r, 0)) == fmt['header_label']), None)
+            if field_row is None:
+                continue
+            headings = {model.data(model.index(field_row, c)): c for c in range(model.columnCount())}
+            for heading, field in fmt['sheets'][template_sheet].items():
+                col = headings.get(heading)
+                if col is None:
+                    continue
+                self.sheet_mappings[sheet][col] = field
+                model.setHeaderData(col, Qt.Orientation.Horizontal, field, Qt.ItemDataRole.EditRole)
+                model.setHeaderData(col, Qt.Orientation.Horizontal, self.blue_brush, Qt.ItemDataRole.BackgroundRole)
                 if field in ["Sample Name", "Aliquot Name", "Spot Name", "Grain Name", "UPb Analysis Name"] and sheet == self.upb_sheet_name:
                     self.update_left_table_on_header_change(field, col)
             self.disable_selected_rows(header_rows)

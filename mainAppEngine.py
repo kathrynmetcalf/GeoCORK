@@ -13,7 +13,7 @@ from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from ui.Settings import reset_to_default_settings, populate_app_defaults, check_missing_settings, default_settings
 # signal.signal(signal.SIGINT, signal.SIG_DFL)
-
+from PyQt6 import QtWebEngineWidgets
 
 if __name__ == "__main__":
     #force app to always load in light mode
