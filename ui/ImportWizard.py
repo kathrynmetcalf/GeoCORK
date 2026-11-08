@@ -28,6 +28,7 @@ from Functions.Check_triggers import validate_insert, validate_update
 from Functions.Database_manager import update_database
 from Functions.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
 from Functions.Settings_manager import SettingsManager
+from Settings import get_importer_brushes
 from ui.EditView import EditView
 
 settings = SettingsManager().settings
@@ -1045,15 +1046,16 @@ class ImportWizardDialog(QWidget):
         self.rejected_icon = qtawesome.icon('fa5s.minus-circle', color='red', scale_factor=1.0)
         self.accepted_icon = qtawesome.icon('fa5s.check', color='green', scale_factor=1.0)
 
-        # Colors and brushes
-        self.gray_brush = QBrush(QColor("#A0A0A0"))  # Gray
-        self.green_brush = QBrush(QColor("#C0FFB8"))  # Light Green
-        self.blue_brush = QBrush(QColor("#B8CFFF"))  # Light blue
-        self.black_brush = QBrush(QColor("#000000"))  # Black
-        self.transparent_brush = QBrush(Qt.GlobalColor.transparent)  # Transparent
-        self.purple_brush = QBrush(QColor("#D4B8FF"))  # Light purple
-        self.red_brush = QBrush(QColor('#FFB8B8'))  # Light red
-        self.yellow_brush = QBrush(QColor("#FFFAB8"))  # Light yellow
+        # Colors and brushes, pulls from dynamic settings
+        importer_brushes = get_importer_brushes()
+        self.disabled_text_brush = importer_brushes['disabled_text']
+        self.mapped_brush = importer_brushes['mapped']
+        self.loaded_mapping_brush = importer_brushes['loaded_mapping']
+        self.text_brush = importer_brushes['text']
+        self.transparent_brush = QBrush(Qt.GlobalColor.transparent)
+        self.autofilled_brush = importer_brushes['autofilled']
+        self.conflict_brush = importer_brushes['conflict']
+        self.existing_brush = importer_brushes['existing']
 
         # Sample IDs added or updated during import
         self.sample_ids = []
@@ -1790,10 +1792,8 @@ class ImportWizardDialog(QWidget):
 
         # Set the column header
         header_text = f"{selected_field}"
-        self.right_table.model().setHeaderData(column_index, Qt.Orientation.Horizontal, header_text,
-                                               Qt.ItemDataRole.EditRole)
-        self.right_table.model().setHeaderData(column_index, Qt.Orientation.Horizontal, self.green_brush,
-                                               Qt.ItemDataRole.BackgroundRole)  # Green background for new column
+        self.right_table.model().setHeaderData(column_index, Qt.Orientation.Horizontal, header_text, Qt.ItemDataRole.EditRole)
+        self.right_table.model().setHeaderData(column_index, Qt.Orientation.Horizontal, self.mapped_brush, Qt.ItemDataRole.BackgroundRole)  # Green background for new column
 
         # Update the mappings for the current sheet
         # Shift existing mappings to the right, starting with the largest index
@@ -2650,7 +2650,7 @@ class ImportWizardDialog(QWidget):
             logger_setup.get_logger().info(f"Updating left table row status for {self.current_sheet_name}")
             # get the default style text color
             if not self.style().standardPalette():
-                text_brush = self.black_brush  # Default to black
+                text_brush = self.text_brush  # Default to black
             else:
                 text_brush = self.style().standardPalette().brush(QPalette.ColorRole.Text)
 
@@ -2658,7 +2658,7 @@ class ImportWizardDialog(QWidget):
             for row in range(self.right_table.model().rowCount()):
                 status = self.right_table.model().return_row_status(row)
                 if status == 'disabled':
-                    brush = self.gray_brush  # Gray
+                    brush = self.disabled_text_brush  # Gray
                 else:
                     brush = text_brush  # Default text color
                 for c in range(self.left_table.columnCount()):
@@ -3516,7 +3516,7 @@ class ImportWizardDialog(QWidget):
                     f_name = column_mappings[col_idx]
                     self.right_table.model().setHeaderData(col_idx, Qt.Orientation.Horizontal, f"{f_name}",
                                                            Qt.ItemDataRole.EditRole)
-                    self.right_table.model().setHeaderData(col_idx, Qt.Orientation.Horizontal, self.blue_brush,
+                    self.right_table.model().setHeaderData(col_idx, Qt.Orientation.Horizontal, self.loaded_mapping_brush,
                                                            Qt.ItemDataRole.BackgroundRole)
                     # If it’s Sample Name / Aliquot Name / Spot Name / Grain Name, auto-populate left table
                     if (f_name in ["Sample Name", "Aliquot Name", "Spot Name", "Grain Name", "UPb Analysis Name",
@@ -3579,7 +3579,7 @@ class ImportWizardDialog(QWidget):
                     continue
                 self.sheet_mappings[sheet][col] = field
                 model.setHeaderData(col, Qt.Orientation.Horizontal, field, Qt.ItemDataRole.EditRole)
-                model.setHeaderData(col, Qt.Orientation.Horizontal, self.blue_brush, Qt.ItemDataRole.BackgroundRole)
+                model.setHeaderData(col, Qt.Orientation.Horizontal, self.loaded_mapping_brush, Qt.ItemDataRole.BackgroundRole)
                 if field in ["Sample Name", "Aliquot Name", "Spot Name", "Grain Name", "UPb Analysis Name"] and sheet == self.upb_sheet_name:
                     self.update_left_table_on_header_change(field, col)
             self.disable_selected_rows(header_rows)
@@ -3783,7 +3783,8 @@ class ImportWizardDialog(QWidget):
                 "", 'NULL', None]:
                 # If grain column is defined but Grain Name is still missing, set it equal to the spot name
                 self.left_table.setItem(row, grain_col, QTableWidgetItem(spot_name))
-                self.update_left_table_background(self.left_table.item(row, grain_col), self.purple_brush)
+                self.left_table.blockSignals(True)
+                self.update_left_table_background(self.left_table.item(row, grain_col), self.autofilled_brush)
 
         self.left_table.blockSignals(False)
         # self.left_table.resizeColumnsToContents()
@@ -3897,26 +3898,26 @@ class ImportWizardDialog(QWidget):
                 aliquot_item = self.left_table.item(row, aliquot_col)
                 aliquot_name = aliquot_item.text().strip()
                 if aliquot_name in aliquot_duplicates:
-                    self.update_left_table_background(aliquot_item, self.red_brush)  # Light red
+                    self.update_left_table_background(aliquot_item, self.conflict_brush)
                 else:
                     aliquot_item.setBackground(self.transparent_brush)  # Reset to default
                 spot_item = self.left_table.item(row, spot_col)
                 spot_name = spot_item.text().strip()
                 if spot_name in spot_duplicates:
-                    self.update_left_table_background(spot_item, self.red_brush)  # Light red
+                    self.update_left_table_background(spot_item, self.conflict_brush)
                 else:
                     spot_item.setBackground(self.transparent_brush)  # Reset to default
                 if grain_col:
                     grain_item = self.left_table.item(row, grain_col)
                     grain_name = grain_item.text().strip()
                     if grain_name in grain_duplicates:
-                        self.update_left_table_background(grain_item, self.red_brush)  # Light red
+                        self.update_left_table_background(grain_item, self.conflict_brush)
                     else:
                         grain_item.setBackground(self.transparent_brush)  # Reset to default
                 analysis_item = self.left_table.item(row, analysis_col)
                 analysis_name = analysis_item.text().strip()
                 if analysis_name in analysis_duplicates:
-                    self.update_left_table_background(analysis_item, self.red_brush)  # Light red
+                    self.update_left_table_background(analysis_item, self.conflict_brush)
                 else:
                     analysis_item.setBackground(self.transparent_brush)  # Reset to default
 
@@ -4000,7 +4001,7 @@ class ImportWizardDialog(QWidget):
             if sample_match:
                 item = self.left_table.item(row, sample_col)
                 if item:
-                    item.setBackground(self.yellow_brush)  # Light yellow
+                    item.setBackground(self.existing_brush)
             else:
                 item = self.left_table.item(row, sample_col)
                 if item:
@@ -4008,7 +4009,7 @@ class ImportWizardDialog(QWidget):
                         item.setBackground(self.transparent_brush)  # Reset to default
                     else:
                         # Trying to import a sample without any analysis data
-                        item.setBackground(self.red_brush)
+                        item.setBackground(self.conflict_brush)
 
             # Check if any has already been identified as a conflict
             if aliquot_name in aliquots_different_sample:
@@ -4029,10 +4030,10 @@ class ImportWizardDialog(QWidget):
                 item = self.left_table.item(row, aliquot_col)
                 if item:
                     if aliquot_name in aliquots_different_sample:
-                        item.setBackground(self.red_brush)  # Light red
+                        item.setBackground(self.conflict_brush)
                         conflicts = True
                     else:
-                        item.setBackground(self.yellow_brush)  # Light yellow
+                        item.setBackground(self.existing_brush)
             else:
                 item = self.left_table.item(row, aliquot_col)
                 if item:
@@ -4057,10 +4058,10 @@ class ImportWizardDialog(QWidget):
                 item = self.left_table.item(row, spot_col)
                 if item:
                     if spot_name in spots_different_aliquots:
-                        item.setBackground(self.red_brush)  # Light red
+                        item.setBackground(self.conflict_brush)
                         conflicts = True
                     else:
-                        item.setBackground(self.yellow_brush)  # Light yellow
+                        item.setBackground(self.existing_brush)
             else:
                 item = self.left_table.item(row, spot_col)
                 if item:
@@ -4086,10 +4087,10 @@ class ImportWizardDialog(QWidget):
                     item = self.left_table.item(row, grain_col)
                     if item:
                         if grain_name in grains_different_spots:
-                            item.setBackground(self.red_brush)  # Light red
+                            item.setBackground(self.conflict_brush)
                             conflicts = True
                         else:
-                            item.setBackground(self.yellow_brush)  # Light yellow
+                            item.setBackground(self.existing_brush)
                 else:
                     item = self.left_table.item(row, grain_col)
                     if item:
@@ -4114,10 +4115,10 @@ class ImportWizardDialog(QWidget):
                 item = self.left_table.item(row, analysis_col)
                 if item:
                     if analysis_name in analyses_different_spots:
-                        item.setBackground(self.red_brush)  # Light red
+                        item.setBackground(self.conflict_brush)
                         conflicts = True
                     else:
-                        item.setBackground(self.yellow_brush)  # Light yellow
+                        item.setBackground(self.existing_brush)
             else:
                 item = self.left_table.item(row, analysis_col)
                 if item:
@@ -4208,8 +4209,7 @@ class ImportWizardDialog(QWidget):
                                     different_item_gps = True
                                     for col in gps_columns:
                                         index = self.right_tables[sheet].model().index(row, col)
-                                        self.right_tables[sheet].model().setData(index, self.red_brush,
-                                                                                 Qt.ItemDataRole.ForegroundRole)  # Light red
+                                        self.right_tables[sheet].model().setData(index, self.conflict_brush, Qt.ItemDataRole.ForegroundRole)
                     if different_item_gps:
                         QMessageBox(QMessageBox.Icon.Warning, f'Conflicts Detected',
                                     f'Red cells in the right table indicate GPS coordinate conflicts for the same {item_import_header}.\n\n'
@@ -4259,8 +4259,7 @@ class ImportWizardDialog(QWidget):
                                             different_item_gps = True
                                             for col in gps_columns:
                                                 index = self.right_tables[sheet].model().index(row, col)
-                                                self.right_tables[sheet].setData(index, self.red_brush,
-                                                                                 Qt.ItemDataRole.ForegroundRole)  # Light red
+                                                self.right_tables[sheet].setData(index, self.conflict_brush, Qt.ItemDataRole.ForegroundRole)
                     if different_item_gps:
                         QMessageBox(QMessageBox.Icon.Warning, f'Conflicts Detected',
                                     f'Red cells in the right table indicate GPS coordinate conflicts for the same {item_import_header} with existing database entries.\n\n'
@@ -4303,8 +4302,7 @@ class ImportWizardDialog(QWidget):
                                     different_column_gps = True
                                     for col in gps_columns:
                                         index = self.right_tables[sheet].model().index(row, col)
-                                        self.right_tables[sheet].setData(index, self.red_brush,
-                                                                         Qt.ItemDataRole.ForegroundRole)  # Light red
+                                        self.right_tables[sheet].setData(index, self.conflict_brush, Qt.ItemDataRole.ForegroundRole)
                     if different_column_gps:
                         QMessageBox(QMessageBox.Icon.Warning, f'Conflicts Detected',
                                     'Red cells in the right table indicate GPS coordinate conflicts for the same Column Name.\n\n'
@@ -4397,8 +4395,8 @@ class ImportWizardDialog(QWidget):
                         existing_sample_name = query.value(0)
                         if existing_sample_name.lower() != sample_name.lower():
                             existing_aliquots.add(aliquot_name)
-                            self.left_table.item(row_idx, aliquot_col).setBackground(self.red_brush)  # Light red
-            spot_id = get_id_from_name('Spots', spot_name)
+                            self.left_table.item(row_idx, aliquot_col).setBackground(self.conflict_brush)
+            spot_id = self.find_matching_id('Spots', 'SpotName', spot_name)
             if spot_id:
                 query = QSqlQuery()
                 query.prepare(
@@ -4409,7 +4407,7 @@ class ImportWizardDialog(QWidget):
                         existing_aliquot_name = query.value(0)
                         if existing_aliquot_name.lower() != aliquot_name.lower():
                             existing_spots.add(spot_name)
-                            self.left_table.item(row_idx, spot_col).setBackground(self.red_brush)  # Light red
+                            self.left_table.item(row_idx, spot_col).setBackground(self.conflict_brush)
             if grain_name:
                 grain_id = get_id_from_name('Grains', grain_name)
                 if grain_id:
@@ -4441,7 +4439,7 @@ class ImportWizardDialog(QWidget):
                         existing_spot_name = query.value(0)
                         if existing_spot_name.lower() != spot_name.lower():
                             existing_analyses.add(analysis_name)
-                            self.left_table.item(row_idx, analysis_col).setBackground(self.red_brush)  # Light red
+                            self.left_table.item(row_idx, analysis_col).setBackground(self.conflict_brush)
         if existing_aliquots or existing_spots or existing_grains or existing_analyses:
             msg = f"Items highlighted in red exist in the database with other parent data:\n"
             msg += "Please resolve these conflicts before importing."
@@ -4773,8 +4771,7 @@ class ImportWizardDialog(QWidget):
                                 count_dict[table] = item_count + 1
                                 item_col = right_cols[name_header]
                                 right_idx = self.right_table.model().index(row_idx, int(item_col))
-                                self.right_table.model().setData(right_idx, self.red_brush,
-                                                                 Qt.ItemDataRole.BackgroundRole)
+                                self.right_table.model().setData(right_idx, self.conflict_brush, Qt.ItemDataRole.BackgroundRole)
 
             # Stop for each sheet with issues
             if not new_analysis:
@@ -4978,11 +4975,9 @@ class ImportWizardDialog(QWidget):
                                     # Highlight the conflicting name and description fields in red
                                     conflicts = True
                                     name_idx = self.right_tables[sheet].model().index(row_idx, name_column)
-                                    self.right_tables[sheet].model().setData(name_idx, self.red_brush,
-                                                                             Qt.ItemDataRole.BackgroundRole)
+                                    self.right_tables[sheet].model().setData(name_idx, self.conflict_brush, Qt.ItemDataRole.BackgroundRole)
                                     column_idx = self.right_tables[sheet].model().index(row_idx, description_column)
-                                    self.right_tables[sheet].model().setData(column_idx, self.red_brush,
-                                                                             Qt.ItemDataRole.BackgroundRole)
+                                    self.right_tables[sheet].model().setData(column_idx, self.conflict_brush, Qt.ItemDataRole.BackgroundRole)
 
             # Stop for each sheet with conflicts
             if conflicts:
