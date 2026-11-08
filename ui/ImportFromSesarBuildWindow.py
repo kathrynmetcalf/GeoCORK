@@ -106,6 +106,30 @@ _DEFAULT_BG_BRUSH   = QBrush()                # default/reset brush
 _DEFAULT_FG_COLOR   = QColor(0, 0, 0)         # standard black
 
 
+def _visible_ancestor(widget: Optional[QWidget]) -> Optional[QWidget]:
+    """
+    Nearest widget in the parentWidget() chain that is actually on screen.
+
+    SesarImportWindow is an invisible coordinator. Anything parented to it
+    (PreviewWindow, message boxes) gets a HIDDEN owner window, so the window
+    manager stacks it below the still-visible modal ImportFromSesar dialog —
+    the preview only became usable once ImportFromSesar was closed. Parenting
+    to the visible ancestor puts the new window on top of it instead.
+    """
+    walker = widget
+    while walker is not None:
+        if walker.isVisible():
+            return walker
+        walker = walker.parentWidget()
+    return widget
+
+
+def _bring_to_front(window: QWidget) -> None:
+    """Raise + focus a top-level window (show() alone doesn't guarantee focus)."""
+    window.raise_()
+    window.activateWindow()
+
+
 def _is_column_locked(col_name: str) -> bool:
     """True if a column should never be editable (identifiers, computed codes)."""
     if col_name in _LOCKED_COLUMNS:
@@ -1291,7 +1315,9 @@ class SesarImportWindow(QDialog):
         self.setWindowTitle("SESAR → GeoCORK Importer")
         self.setMinimumWidth(560)
         self.resize(600, 230)
-        self.setModal(True)
+        # Not modal: this coordinator is never shown, and a modal hidden
+        # window only confuses focus. Real windows are parented to _host.
+        self._host: Optional[QWidget] = _visible_ancestor(parent)
 
         self._raw_data:         Optional[dict]            = raw_data
         self._raw_data_list:    Optional[list]            = raw_data_list
@@ -1316,6 +1342,7 @@ class SesarImportWindow(QDialog):
         get_sesar_logger().info("Transform phase starting — showing LoadingDialog")
 
         if self._loading_dlg is not None:
+            _bring_to_front(self._loading_dlg)
             # Reuse the already-visible dialog (e.g. the download progress
             # dialog passed in from ImportFromSesar). Just update its message
             # so the user sees a seamless transition rather than a flicker.
@@ -1331,7 +1358,7 @@ class SesarImportWindow(QDialog):
             self._loading_dlg = LoadingDialog(
                 "Loading",
                 "Transforming SESAR data…",
-                self,
+                self._host or self,
                 min_display_ms=400,
             )
         self._transform_worker = TransformWorker(
@@ -1368,8 +1395,11 @@ class SesarImportWindow(QDialog):
             staging,
             raw_data=self._raw_data,
             raw_data_list=self._raw_data_list,
-            parent=self,
+            # Parent to the visible ImportFromSesar dialog, not this hidden
+            # coordinator, so the preview stacks above it and takes focus.
+            parent=self._host or self,
         )
+        self._preview_win.setWindowModality(Qt.WindowModality.ApplicationModal)
         self._preview_win.import_requested.connect(self._on_import_requested)
 
         # Wire Back button to on_cancelled so ImportFromSesar re-shows itself.
@@ -1391,12 +1421,16 @@ class SesarImportWindow(QDialog):
         #         show() already happened, this doesn't re-show anything —
         #         it just blocks until the user accepts or rejects.
         self._preview_win.show()
+        _bring_to_front(self._preview_win)
         QApplication.processEvents()
 
         if self._loading_dlg:
             self._loading_dlg.close()
             self._loading_dlg = None
 
+        # Closing the loading dialog can hand focus back to its parent;
+        # re-assert the preview as the active window before blocking.
+        _bring_to_front(self._preview_win)
         self._preview_win.exec()
 
     def _on_transform_error(self, msg: str) -> None:
@@ -1405,7 +1439,7 @@ class SesarImportWindow(QDialog):
             self._loading_dlg.close()
             self._loading_dlg = None
         QMessageBox.critical(
-            self, "Transform Error",
+            self._host or self, "Transform Error",
             f"Failed to process SESAR JSON:\n\n{msg}"
         )
 
@@ -1426,8 +1460,9 @@ class SesarImportWindow(QDialog):
         if self._loading_dlg:
             self._loading_dlg.close()
 
+        # Sit on top of the (modal) preview window while writing.
         self._loading_dlg = LoadingDialog(
-            "Importing", "Importing into GeoCORK…", self
+            "Importing", "Importing into GeoCORK…", self._preview_win or self._host or self
         )
 
         try:
@@ -1457,8 +1492,10 @@ class SesarImportWindow(QDialog):
 
         msg = (f"✓ Import successful!\n\n"
                f"Sample(s) added to: {Path(out_db).name}")
-        QMessageBox.information(self, "Import Complete", msg)
+        QMessageBox.information(self._host or self, "Import Complete", msg)
         self.accept()
+        if self._host is not None:
+            _bring_to_front(self._host)
 
     def _on_import_error(self, msg: str) -> None:
         get_sesar_logger().error(
@@ -1472,6 +1509,6 @@ class SesarImportWindow(QDialog):
             self._preview_win.btn_back_Action.setEnabled(True)
 
         QMessageBox.critical(
-            self, "Import Error",
+            self._preview_win or self._host or self, "Import Error",
             f"Import failed - database was not modified.\n\n{msg}"
-        ) 
+        )

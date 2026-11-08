@@ -610,7 +610,9 @@ class SampleSearchWidget(QWidget):
         get_sesar_logger().info(
             f"Handing {len(raw_data_list)} sample(s) to SesarImportWindow")
         dlg = self._download_dlg if self._download_dlg.isVisible() else None
-        SesarImportWindow(
+        # Keep a reference so the coordinator outlives this slot regardless
+        # of Qt parent ownership.
+        self._import_window = SesarImportWindow(
             raw_data_list=raw_data_list,
             parent=self.window(),
             on_cancelled=self._on_cancelled_callback,
@@ -677,6 +679,8 @@ class ImportFromSesar(QDialog):
     def _on_preview_cancelled(self):
         """Called by SesarImportWindow when the user pressed Back."""
         self.show()
+        self.raise_()
+        self.activateWindow()
 
     def _open_export(self):
         from ui.SesarExportWindow import SesarExportWindow
