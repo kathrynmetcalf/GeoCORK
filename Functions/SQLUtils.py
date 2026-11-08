@@ -1494,6 +1494,7 @@ geochemical_analytes = [
     ('Manganese isotope Mn54', 'Mn54', 'manganese isotope Mn54', 'isotope'),
     ('Manganese carbonate', 'MnCO3', 'manganese carbonate', 'compound'),
     ('Manganese oxide', 'MnO', 'manganese oxide', 'oxide'),
+    ('Molybdenum', 'Mo', 'molybdenum', 'element'),
     ('Nitrogen', 'N', 'nitrogen', 'element'),
     ('Percent nitrogen in the a defect site of diamonds', 'N(A)', 'percent nitrogen in the a defect site of diamonds', 'other'),
     ('Percent nitrogen in the b defect site of diamonds', 'N(B)', 'percent nitrogen in the b defect site of diamonds', 'other'),
