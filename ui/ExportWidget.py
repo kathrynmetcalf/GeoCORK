@@ -117,7 +117,10 @@ class ExportWidget(QWidget):
 
         self.max_rows_to_display = 1000
 
-        self.sample_count = 0
+        self.sample_count = None
+        """Number of samples last loaded into samplesincluded_comboBox. Starts as None (not 0) so the combo box is
+        always populated on the first showEvent, even for an empty database; otherwise it keeps its default
+        QStandardItemModel, which has no return_checked_ids()."""
 
         self.use_converted_label: QLabel
         # Make the existing label text bold
