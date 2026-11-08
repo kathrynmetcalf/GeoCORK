@@ -1,6 +1,7 @@
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QLabel
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
+from matplotlib.colors import to_hex
 from matplotlib.figure import Figure
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
@@ -12,6 +13,24 @@ from Functions.Plot_types import PLOT_TYPES
 from Functions.Settings_manager import SettingsManager
 
 settings = SettingsManager().settings
+
+LEGEND_MODES = ['Side panel', 'In plot', 'Hidden']
+
+
+def handle_color(handle) -> str:
+    """Display colour of a legend handle (Line2D, PathCollection, Patch, PolyCollection)."""
+    for getter in ('get_color', 'get_facecolor', 'get_edgecolor'):
+        if hasattr(handle, getter):
+            color = getattr(handle, getter)()
+            if hasattr(color, 'ndim') and color.ndim == 2:
+                color = color[0] if len(color) else None
+            if color is None or (isinstance(color, str) and color == 'none'):
+                continue
+            try:
+                return to_hex(color, keep_alpha=False)
+            except ValueError:
+                continue
+    return '#808080'
 
 
 class PlotDialog(QtW.QDialog):
@@ -47,9 +66,15 @@ class PlotDialog(QtW.QDialog):
         self.data_form = QtW.QFormLayout(self.data_box)
         self.plot_form = QtW.QFormLayout(self.plot_box)
 
+        self.legend_comboBox = QtW.QComboBox()
+        self.legend_comboBox.addItems(LEGEND_MODES)
+        self.legend_comboBox.setCurrentText(settings.value('plot_dialog_legend', 'Side panel'))
+        legend_row = QtW.QFormLayout()
+        legend_row.addRow('Legend', self.legend_comboBox)
         side = QtW.QVBoxLayout()
         side.addWidget(QLabel('Choose plot type:'))
         side.addWidget(self.plot_comboBox)
+        side.addLayout(legend_row)
         side.addWidget(self.data_box)
         side.addWidget(self.plot_box)
         side.addStretch()
@@ -64,7 +89,9 @@ class PlotDialog(QtW.QDialog):
         self.status_label = QtW.QLabel()
         self.status_label.setWordWrap(True)
 
-        self.detritalpy_label = QLabel('Geochronology plots created using <a href="https://github.com/grsharman/detritalPy">detritalPy</a>')
+        self.detritalpy_label = QLabel(
+            'Geochronology plots created using <a href="https://github.com/grsharman/detritalPy">detritalPy</a><br/>' +
+            'Geochemistry plots created using <a href="https://github.com/morganjwilliams/pyrolite">pyrolite</a>')
         self.detritalpy_label.setTextFormat(Qt.TextFormat.RichText)
         self.detritalpy_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
         self.detritalpy_label.setOpenExternalLinks(True)
@@ -78,10 +105,16 @@ class PlotDialog(QtW.QDialog):
         footer_widget = QtW.QWidget()
         footer_widget.setLayout(footer)
 
-
+        self.legend_list = QtW.QListWidget()
+        self.legend_list.setMaximumWidth(220)
+        self.legend_list.setSelectionMode(QtW.QAbstractItemView.SelectionMode.NoSelection)
+        self.legend_list.setTextElideMode(QtC.Qt.TextElideMode.ElideMiddle)
+        canvas_row = QtW.QHBoxLayout()
+        canvas_row.addWidget(self.canvas, 1)
+        canvas_row.addWidget(self.legend_list)
         plot_area = QtW.QVBoxLayout()
         plot_area.addWidget(NavigationToolbar2QT(self.canvas, self))
-        plot_area.addWidget(self.canvas, 1)
+        plot_area.addLayout(canvas_row, 1)
         plot_area.addWidget(footer_widget)
 
         layout = QtW.QHBoxLayout(self)
@@ -91,6 +124,7 @@ class PlotDialog(QtW.QDialog):
         self.timer = QtC.QTimer(self, singleShot=True, interval=250)
         self.timer.timeout.connect(self.redraw)
         self.plot_comboBox.currentIndexChanged.connect(self.plot_changed)
+        self.legend_comboBox.currentTextChanged.connect(self.legend_changed)
         last = settings.value('plot_dialog_plot', 'Kernel density estimate (KDE)')
         index = self.plot_comboBox.findText(f'    {last}')
         self.plot_comboBox.setCurrentIndex(index if index >= 0 else 1)
@@ -132,7 +166,6 @@ class PlotDialog(QtW.QDialog):
                 widget.toggled.connect(lambda v, k=(owner, option.name): self.set_value(k, v))
             elif option.kind == 'choice':
                 widget = QtW.QComboBox()
-                widget.setMinimumWidth(100)
                 widget.addItems(option.choices)
                 widget.setCurrentText(str(value))
                 widget.currentTextChanged.connect(lambda v, k=(owner, option.name): self.set_value(k, v))
@@ -147,6 +180,29 @@ class PlotDialog(QtW.QDialog):
                 widget.editingFinished.connect(lambda w=widget, k=(owner, option.name): self.set_value(k, w.text()))
             widget.setToolTip(option.tooltip)
             form.addRow(option.label, widget)
+
+    def legend_changed(self, mode: str):
+        settings.setValue('plot_dialog_legend', mode)
+        self.timer.start()
+
+    def apply_legend(self):
+        """Move legend entries from all axes into the side panel, keep them in the plot, or hide them."""
+        mode = self.legend_comboBox.currentText()
+        entries = {}
+        for ax in self.figure.axes:
+            for handle, label in zip(*ax.get_legend_handles_labels()):
+                if not label.startswith('_'):
+                    entries.setdefault(label, handle)
+            if mode != 'In plot' and ax.get_legend():
+                ax.get_legend().remove()
+        self.legend_list.clear()
+        for label, handle in entries.items():
+            swatch = QtG.QPixmap(14, 14)
+            swatch.fill(QtG.QColor(handle_color(handle)))
+            item = QtW.QListWidgetItem(QtG.QIcon(swatch), label)
+            item.setToolTip(label)
+            self.legend_list.addItem(item)
+        self.legend_list.setVisible(mode == 'Side panel' and bool(entries))
 
     def set_value(self, key: tuple, value):
         self.values[key] = value
@@ -171,8 +227,8 @@ class PlotDialog(QtW.QDialog):
                 logger_setup.get_logger().exception(f'Error drawing {self.plot.name}')
                 self.figure.clear()
                 message = f'Could not draw {self.plot.name}: {error}'
+        self.apply_legend()
         if not self.figure.axes:
             self.figure.text(0.5, 0.5, message, ha='center', va='center', color='0.4', wrap=True)
         self.status_label.setText(message)
         self.canvas.draw_idle()
-
