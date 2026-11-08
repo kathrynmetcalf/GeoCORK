@@ -267,7 +267,9 @@ def validate_update(table: str, columns: list, values: list, where: str):
                     return f'{age_list[index].replace(f'"', '')} missing units', header
             error, header = check_update_pairs(all_records, age_error_list[index], 'AgeErrorFormatID')
             if error:
-                if error != 'AgeErrorFormatID missing AgeError':
+                # An error format with no error value in this column is fine (the import wizard sets the
+                # error format globally, so it is present even for age error columns that were not mapped)
+                if error != f'AgeErrorFormatID missing {age_error_list[index].replace(f'"', '')}':
                     return "Age error given without error format", header
         error, header = check_update_concordance(all_records)
         if error:
@@ -929,33 +931,45 @@ def check_insert_concordance(pairs: list, concordance_format_id: int):
     #         return '206Pb/238Uv207Pb/206Pb and 207Pb/238Uv207Pb/235U concordance values should be NULL in MinSegDisc format', 'Concordance_206Pb/238Uv207Pb/206Pb'
     return None, None
 
-def check_update_concordance(pairs: list):
-    concordance_format_model = QtS.QSqlTableModel()
-    concordance_format_model.setTable('ConcordanceFormats')
-    concordance_format_model.select()
-    while concordance_format_model.canFetchMore():
-        concordance_format_model.fetchMore()
-    new_68v76_concordance = ''
-    new_68v75_concordance = ''
-    old_68v76_concordances = []
-    old_68v75_concordances = []
-    new_concordance_format_id = ''
-    old_concordance_format_ids = []
-    for pair in pairs:
-        if pair[0] == 'Concordance_206Pb/238Uv207Pb/206Pb':
-            new_68v76_concordance = pair[1]
-            old_68v76_concordances = pair[2]
-        elif pair[0] == 'Concordance_207Pb/238Uv207Pb/235U':
-            new_68v75_concordance = pair[1]
-            old_68v75_concordances = pair[2]
-        if pair[0] == 'ConcordanceFormatID':
-            new_concordance_format_id = pair[1]
-            old_concordance_format_ids = pair[2]
-    if new_68v76_concordance != '' or new_68v75_concordance != '':
-        if ((new_68v76_concordance != 'NULL' or (new_68v76_concordance == '' and 'NULL' not in old_68v76_concordances))
-                or (new_68v75_concordance != 'NULL' or (new_68v75_concordance == '' and 'NULL' not in old_68v75_concordances))
-                and not (new_concordance_format_id or (new_concordance_format_id == '' and 'NULL' not in old_concordance_format_ids))):
-            return 'Concordance format ID missing', 'ConcordanceFormatID'
+def check_update_concordance(all_records: list):
+    """
+    Check that concordance/discordance values will not be left without a concordance format after the update.
+    A concordance format with no concordance values is allowed (the import wizard sets the format globally from a
+    combo box, so it is present even when no concordance columns were mapped).
+    Columns not being updated have a new value of '' and are checked against their old values.
+    :param list all_records: list of lists [column_name, new_value, old_values] for each column in the table
+    :return: error message and header, or None, None
+    """
+    concordance_columns = ['Concordance_206Pb/238Uv207Pb/206Pb', 'Concordance_206Pb/238Uv207Pb/235U']
+    new_concordances = {}
+    old_concordances = {}
+    new_format_id = ''
+    old_format_ids = []
+    for record in all_records:
+        if record[0] in concordance_columns:
+            new_concordances[record[0]] = str(record[1])
+            old_concordances[record[0]] = [str(value) for value in record[2]]
+        elif record[0] == 'ConcordanceFormatID':
+            new_format_id = str(record[1])
+            old_format_ids = [str(value) for value in record[2]]
+    if new_format_id == '' and all(value == '' for value in new_concordances.values()):
+        # Nothing concordance related is changing
+        return None, None
+
+    def has_concordance(column):
+        new_value = new_concordances.get(column, '')
+        if new_value == '':
+            # Not being updated, so use the existing values
+            return any(value != 'NULL' for value in old_concordances.get(column, []))
+        return new_value != 'NULL'
+
+    concordance_given = any(has_concordance(column) for column in concordance_columns)
+    if new_format_id == '':
+        format_missing = 'NULL' in old_format_ids
+    else:
+        format_missing = new_format_id == 'NULL'
+    if concordance_given and format_missing:
+        return 'Concordance/discordance given without type', 'ConcordanceFormatID'
     return None, None
 
 def check_dependencies(table: str, record_id_header: str, record_ids: list, record_names: list):
