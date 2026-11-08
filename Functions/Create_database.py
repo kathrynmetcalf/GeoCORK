@@ -4006,6 +4006,29 @@ def populate_geochemical_analytes(database=None) -> bool:
 
 
 
+def populate_gps_formats(database=None) -> bool:
+    """
+    Populate the GPSFormats table with the default formats. Add text for code to run later for conversions. Uses the default
+    database connection if no database is provided.
+    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :return: True for success, False for failure
+    """
+
+    if database is None:
+        query = QtS.QSqlQuery()
+    else:
+        query = QtS.QSqlQuery(database)
+    gps_formats = SQLUtils.gps_formats
+    for gps_format in gps_formats:
+        sql = f'''INSERT INTO GPSFormats(GPSFormatName, GPSFormatAbbreviation, GPSFormatDescription)
+                    VALUES("{gps_format[0]}","{gps_format[1]}","{gps_format[2]}")'''
+        if not query.exec(sql):
+            if 'UNIQUE constraint failed' not in query.lastError().text():
+                logger_setup.get_logger().critical('Error populating GPSFormats')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                return False
+    return True
 
 def populate_gps_conversions(database=None) -> bool:
     """
