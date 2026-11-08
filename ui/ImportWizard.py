@@ -723,8 +723,8 @@ class ImportWizardDialog(QWidget):
         self.left_table.setColumnCount(4)
         self.left_table.setHorizontalHeaderLabels(["Sample Name", "Aliquot Name", "Spot Name", "UPb Analysis Name"])
 
-        # Right table for the actual Excel data
         self.right_tables = {}
+        """Right table for the actual Excel data"""
         self.workbook_tabs = QTabWidget()
         self.right_table = QTableView()
         self.workbook_tabs.addTab(self.right_table, None)
@@ -1906,7 +1906,13 @@ class ImportWizardDialog(QWidget):
 
         header_name = self.right_table.model().headerData(index.column(), Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
 
-        if self.right_table in [self.right_tables[self.upb_sheet_name], self.right_tables[self.geochem_sheet_name]]:
+        candidates = [
+            self.right_tables[name]
+            for name in (self.upb_sheet_name, self.geochem_sheet_name)
+            if name is not None and name in self.right_tables
+        ]
+        # solves an issue where if upb or geochem sheet names are not inputted or selected by the user this will still work
+        if any(self.right_table is t for t in candidates):
             for l_column in range(self.left_table.columnCount()):
                 l_header_name = self.left_table.horizontalHeaderItem(l_column).text().strip()
                 if l_header_name == header_name:
