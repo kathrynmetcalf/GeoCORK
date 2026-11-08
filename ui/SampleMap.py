@@ -120,13 +120,14 @@ class SampleMapWindow(QtW.QMainWindow):
     open_samples_requested = QtC.pyqtSignal(list)
     """Emitted with selected SampleIDs; connect in GeoCORKMain to open_tab"""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, startup_sample_ids: list[int] = None):
         super().__init__(parent)
         logger_setup.get_logger().info('Starting SampleMapWindow')
         self.setWindowTitle('Sample Map')
         self.resize(1200, 800)
         self.samples: dict[int, dict] = {}
         self.selected_ids: list[int] = []
+        self.startup_sample_ids = []
         self.page_ready = False
 
         self.view = QWebEngineView(self)
@@ -149,6 +150,8 @@ class SampleMapWindow(QtW.QMainWindow):
 
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         self.view.load(QtC.QUrl.fromLocalFile(os.path.join(base_path, 'SampleMap.html')))
+        if startup_sample_ids:
+            self.select_samples(startup_sample_ids)
 
     def js(self, function: str, *args):
         if self.page_ready:
@@ -212,7 +215,28 @@ class SampleMapWindow(QtW.QMainWindow):
         self.page_ready = True
         self.set_basemap(self.basemap_comboBox.currentText())
         self.refresh()
-        self.js('fitTo', [])
+        if self.startup_sample_ids:
+            self.select_samples(self.startup_sample_ids)
+            self.startup_sample_ids = []
+        else:
+            self.js('fitTo', [])
+
+    def select_samples(self, sample_ids: list):
+        """Select and zoom to SampleIDs from elsewhere in GeoCORK. Safe to call before the page has loaded and on an
+        already-open window; IDs are coerced to int to match the SampleID keys in self.samples."""
+        sample_ids = [int(sample_id) for sample_id in sample_ids]
+        if not self.page_ready:
+            self.startup_sample_ids = sample_ids  # applied in on_page_ready once samples are loaded
+            return
+        self.set_selected(sample_ids, push=True)
+        dropped = set(sample_ids) - set(self.selected_ids)
+        if dropped:
+            logger_setup.get_logger().info(f'SampleIDs {sorted(dropped)} not mapped: no GPS location or location '
+                                              f'could not be resolved to decimal degrees')
+        self.js('fitTo', self.selected_ids)
+        self.show()
+        self.raise_()
+        self.activateWindow()
 
     def set_basemap(self, name: str):
         settings.setValue('map_basemap', name)

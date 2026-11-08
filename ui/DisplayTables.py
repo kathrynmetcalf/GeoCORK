@@ -470,8 +470,7 @@ class DisplayTables(QtW.QWidget):
                 elif action == view_upb_analyses_action:
                     self.main_window.open_tab(parent_ids, 'Samples', 'UPbAnalyses')
                 elif action == view_sample_map:
-                    self.sample_map = SampleMapWindow(self)
-                    self.sample_map.open_samples_requested.connect(lambda ids: self.main_window.open_tab(parent_ids, 'Samples', 'Aliquots'))
+                    self.sample_map = SampleMapWindow(self, startup_sample_ids=parent_ids)
                     self.sample_map.show()
                 else:
                     self.table_context_menu(action)
