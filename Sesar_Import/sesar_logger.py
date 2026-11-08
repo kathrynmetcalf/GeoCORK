@@ -54,6 +54,7 @@ Timing helper:
 import logging
 import logging.handlers
 import os
+import threading
 import time
 import traceback
 from contextlib import contextmanager
@@ -104,6 +105,11 @@ _logger: Optional[logging.Logger] = None
 _queue_listener: Optional[logging.handlers.QueueListener] = None
 _log_file_path: Optional[str] = None  # Kept around so callers can surface it
 
+# Guards setup/teardown. TransformWorker (a QThread) can be the first caller
+# of get_sesar_logger(), so two threads could otherwise race through setup and
+# attach two QueueHandlers / start two listeners (duplicate lines, two files).
+_lock = threading.RLock()
+
 
 # ---------------------------------------------------------------------------
 # Setup / teardown
@@ -123,9 +129,16 @@ def setup_sesar_logger() -> logging.Logger:
     """
     global _logger, _queue_listener, _log_file_path
 
-    # Already set up — return the existing logger unchanged.
-    if _logger is not None:
-        return _logger
+    with _lock:
+        # Already set up — return the existing logger unchanged.
+        if _logger is not None:
+            return _logger
+        return _setup_locked()
+
+
+def _setup_locked() -> logging.Logger:
+    """Body of setup_sesar_logger(); caller must hold _lock."""
+    global _logger, _queue_listener, _log_file_path
 
     # --- Resolve the log file path -----------------------------------------
     # Uses the same AppDataLocation root that GeoCORK's main logger uses, so
@@ -139,16 +152,30 @@ def setup_sesar_logger() -> logging.Logger:
     # Timestamp formatted identically to logger_setup.py so filenames sort
     # chronologically when both loggers' outputs sit in adjacent folders.
     timestamp = datetime.now().strftime("%Y-%m-%d %H.%M.%S")
-    _log_file_path = os.path.join(log_dir, f"sesar_import_{timestamp}.log")
+    log_file_path = os.path.join(log_dir, f"sesar_import_{timestamp}.log")
 
     # --- Build the logger --------------------------------------------------
-    _logger = logging.getLogger(_LOGGER_NAME)
-    _logger.setLevel(_DEFAULT_LEVEL)
+    # Use a local until setup fully succeeds. Assigning the module global
+    # first meant that if FileHandler() raised, _logger stayed non-None with
+    # a QueueHandler nobody drains, so every later record vanished silently.
+    logger = logging.getLogger(_LOGGER_NAME)
+    logger.setLevel(_DEFAULT_LEVEL)
+
+    # getLogger() returns the same instance for the life of the process. If
+    # handlers are already attached (module imported under two names via the
+    # sys.path inserts, a reload, or a half-finished earlier setup) remove
+    # them so records aren't written twice.
+    for old in list(logger.handlers):
+        try:
+            old.close()
+        except Exception:
+            pass
+        logger.removeHandler(old)
 
     # Prevent messages from bubbling up to the root logger. Without this, if
     # the GeoCORK logger (or any other code) ever adds a handler to the root,
     # every SESAR record would be duplicated there too.
-    _logger.propagate = False
+    logger.propagate = False
 
     # --- Async queue + listener -------------------------------------------
     # Same pattern as logger_setup.py: the logger itself just drops records
@@ -158,14 +185,13 @@ def setup_sesar_logger() -> logging.Logger:
     log_queue: Queue = Queue()
     queue_handler = logging.handlers.QueueHandler(log_queue)
     queue_handler.setLevel(_DEFAULT_LEVEL)
-    _logger.addHandler(queue_handler)
 
     formatter = logging.Formatter(_LOG_FORMAT)
 
     # File handler: where everything actually goes. Appends so re-opening
     # the same session logger doesn't truncate earlier records (though in
     # practice the singleton guard above prevents that from happening).
-    file_handler = logging.FileHandler(_log_file_path, mode="a", encoding="utf-8")
+    file_handler = logging.FileHandler(log_file_path, mode="a", encoding="utf-8")
     file_handler.setLevel(_DEFAULT_LEVEL)
     file_handler.setFormatter(formatter)
 
@@ -177,8 +203,14 @@ def setup_sesar_logger() -> logging.Logger:
         console_handler.setFormatter(formatter)
         handlers.append(console_handler)
 
-    _queue_listener = logging.handlers.QueueListener(log_queue, *handlers)
-    _queue_listener.start()
+    listener = logging.handlers.QueueListener(log_queue, *handlers)
+    listener.start()
+
+    # Everything succeeded — attach the queue handler and publish globals.
+    logger.addHandler(queue_handler)
+    _logger = logger
+    _queue_listener = listener
+    _log_file_path = log_file_path
 
     # Kick things off with a session-start marker so a fresh log file always
     # has a clear "this is where things began" line at the top.
@@ -197,9 +229,10 @@ def get_sesar_logger() -> logging.Logger:
     get_sesar_logger` without worrying about import order — the logger won't
     actually touch the filesystem until someone logs their first message.
     """
-    if _logger is None:
+    logger = _logger  # read once; another thread may clear it
+    if logger is None:
         return setup_sesar_logger()
-    return _logger
+    return logger
 
 
 def stop_sesar_logger() -> None:
@@ -217,6 +250,12 @@ def stop_sesar_logger() -> None:
       - Removes all handlers from the logger instance
       - Clears module-level singletons so the next session starts fresh
     """
+    with _lock:
+        _stop_locked()
+
+
+def _stop_locked() -> None:
+    """Body of stop_sesar_logger(); caller must hold _lock."""
     global _queue_listener, _logger, _log_file_path
 
     # No-op if nothing is set up (e.g. called twice, or called before any

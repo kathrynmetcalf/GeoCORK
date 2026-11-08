@@ -157,7 +157,10 @@ _STAGING_PREFERRED_COLUMN_ORDER: list[str] = [
     "SD: Purpose",
     "SD: Size",
     "SD: Size unit",
-    # Group 2 — registrants (old sd2)
+    "SD: Parent IGSN",
+    "SD: External sample ID",
+    # Group 2 — owner / registrants (old sd2)
+    "SD: Owner",
     "SD: Original registrant name",
     "SD: Current registrant name",
     # Group 3 — collection event (old sd3)
@@ -168,12 +171,14 @@ _STAGING_PREFERRED_COLUMN_ORDER: list[str] = [
     "SD: Collection date (end)",
     "SD: Collection time (end)",
     "SD: Collection date precision",
+    "SD: Location method",
     # Group 4 — archive (old sd4)
     "SD: Current archive",
     "SD: Current archive contact",
     "SD: Original archive contact",
     "SD: Original archive",
     "SD: Is archived",
+    "SD: Storage location",
     # GPS / location
     "GPSLatDeg", "GPSLonDeg", "GPSElev", "GPSElevUnit",
     "GPSUTMZone", "GPSUTME", "GPSUTMN",
@@ -187,6 +192,7 @@ _STAGING_PREFERRED_COLUMN_ORDER: list[str] = [
     "SamplingMethodName", "SamplingMethodDescription",
     "SampleContextName", "SampleContextDescription",
     "AgeName", "AgeDescription", "AgeMin", "AgeMax", "AgeUnit",
+    "YoungestDirectAge", "OldestDirectAge", "SampleAgeDescription",
     "UnitName", "UnitDescription",
     # References live at the far right — usually long strings
     "ReferenceCitation", "ReferenceTitle", "ReferenceDOI", "ReferenceURL",
@@ -443,8 +449,11 @@ def _build_staging_table(
         # value is equivalent to editing the SESAR sample_type line of the
         # final concatenated description (avoids having two places where the
         # user could accidentally change the same underlying field).
+        # "SESAR object type" (new API) — "SESAR sample_type" kept for any
+        # staging dicts produced by the pre-API transformer.
+        header_labels = ("SESAR object type", "SESAR sample_type")
         header_entry = next(
-            (e for e in sd_entries if e.get("Label") == "SESAR sample_type"),
+            (e for e in sd_entries if e.get("Label") in header_labels),
             None
         )
         if header_entry is not None:
@@ -455,8 +464,9 @@ def _build_staging_table(
                 # Remove the duplicate "SD: SESAR sample_type" cell that the
                 # loop above would have produced — we've promoted that value
                 # to the group header, so showing it twice would just confuse.
-                sources.pop("SD: SESAR sample_type", None)
-                row.pop("SD: SESAR sample_type", None)
+                for lbl in header_labels:
+                    sources.pop(f"SD: {lbl}", None)
+                    row.pop(f"SD: {lbl}", None)
 
         # GPS (single row per sample, looked up by _SampleGPSKey)
         gps_key = primary_by_nk[nk].get("_SampleGPSKey")
@@ -1464,4 +1474,4 @@ class SesarImportWindow(QDialog):
         QMessageBox.critical(
             self, "Import Error",
             f"Import failed - database was not modified.\n\n{msg}"
-        )
+        ) 

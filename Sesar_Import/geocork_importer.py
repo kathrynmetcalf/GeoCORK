@@ -598,6 +598,11 @@ def import_staging_inplace(staging: dict, db_path: str) -> None:
         for i, sa in enumerate(staging.get("SampleAges", [])):
             oldest_age_id   = age_cache.get(sa.get("_OldestAgeName"))
             youngest_age_id = age_cache.get(sa.get("_YoungestAgeName"))
+            # New API carries numeric_age_unit (e.g. "million years (Ma)");
+            # the transformer reduces it to an abbreviation ("Ma") which we
+            # resolve against AgeUnits (abbreviation first, then name).
+            age_unit_id = sa.get("DirectAgeUnitID") or _q_resolve_unit_id(
+                sa.get("_DirectAgeUnitAbbrev"), "AgeUnits", "AgeUnitAbbreviation", "AgeUnitID")
             q = QSqlQuery()
             q.prepare("""
                 INSERT INTO SampleAges
@@ -610,7 +615,7 @@ def import_staging_inplace(staging: dict, db_path: str) -> None:
                 sa.get("DirectAge"), sa.get("DirectAgeError"),
                 sa.get("DirectAgeErrorFormatID"),
                 sa.get("OldestDirectAge"), sa.get("YoungestDirectAge"),
-                sa.get("DirectAgeUnitID"),
+                age_unit_id,
                 oldest_age_id, youngest_age_id, sa.get("SampleAgeDescription"),
             ):
                 q.addBindValue(v)

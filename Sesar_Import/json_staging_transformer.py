@@ -15,6 +15,27 @@ Entry points:
     build_raw_sesar_table(raw_data)
         Flattens a raw SESAR dict into (field_name, value) pairs for the
         preview UI's left pane. Display-only — not part of the import path.
+
+Input formats:
+    New REST API (api.geosamples.org/api/samples/{igsn}/) returns a FLAT
+    sample dict. The legacy app.geosamples.org endpoint wrapped it as
+    {"sample": {...}}. `sesar_sample_fields()` accepts either, and every field
+    lookup below tries the new name first, then the legacy name
+    (see docs.geosamples.org → Field crosswalk old > new):
+        sample_type            -> object_type
+        description            -> sample_description
+        material               -> general_material_type
+        classification (tree)  -> material_types (list of labels)
+        collection_method(_descr) -> sampling_method(_detail)
+        collection_*_date/precision -> sampling_*_date / sampling_date_precision
+        collector              -> collectors (list of objects)
+        geological_age / unit  -> geologic_age_verbatim / geologic_unit
+        age_min / age_max      -> numeric_age_min / numeric_age_max (+ numeric_age_unit)
+        platform_* fields      -> platform {label, description, ...}
+        launch_type_name / launch_platform_name / launch_id
+                               -> launch_platform {label, launch_type} / launch_label
+        navigation_type        -> location_method
+        external_urls          -> related_resources
 """
 
 import json
@@ -66,6 +87,109 @@ def append_kv(lines: List[str], label: str, value: Any) -> None:
         lines.append(f"{label}: {value}")
 
 
+def sesar_sample_fields(data: Any) -> Dict[str, Any]:
+    """
+    Return the flat field dict for one sample, whatever the envelope:
+      new API detail      -> the dict itself
+      legacy v1 response  -> data["sample"]
+      {"data": {...}}     -> data["data"]
+    """
+    if not isinstance(data, dict):
+        return {}
+    for key in ("sample", "data"):
+        inner = data.get(key)
+        if isinstance(inner, dict):
+            return inner
+    return data
+
+
+def first_filled(s: Dict[str, Any], *keys: str) -> Any:
+    """First non-empty value among `keys` (new API name first, legacy after)."""
+    for k in keys:
+        v = s.get(k)
+        if is_filled(v):
+            return v
+    return None
+
+
+def _collector_text(c: Any) -> str:
+    """Render one new-API collector object (individual/institution/description)."""
+    if not isinstance(c, dict):
+        return to_text(c)
+    parts: List[str] = []
+    ind = c.get("individual") or {}
+    if isinstance(ind, dict):
+        name = ind.get("label") or " ".join(
+            x for x in (ind.get("fname"), ind.get("lname")) if x)
+        if name:
+            parts.append(name)
+    inst = c.get("institution") or {}
+    if isinstance(inst, dict) and inst.get("label"):
+        parts.append(inst["label"])
+    # Some responses may flatten to {"label": ...} or {"name": ...}
+    for k in ("label", "name", "agent"):
+        if not parts and c.get(k):
+            parts.append(to_text(c[k]))
+    if c.get("description"):
+        parts.append(f"({c['description']})")
+    return " ".join(parts)
+
+
+def to_text(value: Any) -> str:
+    """
+    Flatten API values to a display/DB string.
+      list            -> "a; b; c"
+      object w/ label -> its label (archives, platforms, initiatives)
+      collector obj   -> "First Last Institution (description)"
+    """
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "Yes" if value else "No"
+    if isinstance(value, (list, tuple)):
+        return "; ".join(t for t in (to_text(v) for v in value) if t)
+    if isinstance(value, dict):
+        if "individual" in value or "institution" in value:
+            return _collector_text(value)
+        for k in ("label", "name", "title", "igsn"):
+            if value.get(k):
+                return str(value[k])
+        return json.dumps(value, separators=(",", ":"))
+    return str(value)
+
+
+def as_label_list(value: Any) -> List[str]:
+    """
+    Normalize list-ish fields (material_types, other_names) to [str].
+    Accepts a list (of strings or {label}), or a ';' / ',' separated string.
+    """
+    if not is_filled(value):
+        return []
+    if isinstance(value, (list, tuple)):
+        out = [to_text(v).strip() for v in value]
+    elif isinstance(value, str):
+        sep = ";" if ";" in value else ","
+        out = [p.strip() for p in value.split(sep)]
+    else:
+        out = [to_text(value).strip()]
+    return [x for x in out if x]
+
+
+def age_unit_abbreviation(unit: Any) -> Optional[str]:
+    """
+    SESAR NumericAgeUnitEnum -> GeoCORK AgeUnits abbreviation guess.
+    'million years (Ma)' -> 'Ma'; 'Before Present, 1950 (BP)' -> 'BP'.
+    The importer resolves it against AgeUnits (abbreviation, then name) and
+    leaves the unit NULL with a logged warning if there is no match.
+    """
+    if not is_filled(unit):
+        return None
+    text = str(unit).strip()
+    if "(" in text and text.endswith(")"):
+        return text[text.rfind("(") + 1:-1].strip() or text
+    return text
+
+
 # ===========================================================================
 # SampleDescription field list
 #
@@ -95,43 +219,52 @@ def append_kv(lines: List[str], label: str, value: Any) -> None:
 # ===========================================================================
 
 # Field definitions in sd1 -> sd4 order. Each tuple is:
-#   (source_key_in_sesar_dict, display_label, group_num)
+#   (source_keys, display_label, group_num)
+# source_keys are tried in order — new REST API name first, then the legacy
+# v1 name — so the same table serves both payload shapes. Labels are kept
+# identical to the pre-API version where the concept is unchanged so the
+# preview columns and the synthesized DB text stay stable.
+#
 # group_num matches the old "instance" number so the importer can insert a
 # blank line between groups when rebuilding the concatenated TEXT column.
 #
 # Size/size_unit are special-cased at runtime: they only appear if the sample
 # is NOT a core (core samples put Size in the Columns table instead, per the
 # original diagram). See build_sample_description_fields below.
-_SD_FIELD_DEFS: List[Tuple[str, str, int]] = [
+SD_OBJECT_TYPE_LABEL = "SESAR object type"
+_SD_FIELD_DEFS: List[Tuple[Tuple[str, ...], str, int]] = [
     # Group 1 - base description
-    ("sample_type",                          "SESAR sample_type",         1),
-    ("description",                          "Description",               1),
-    # Note: the original sd1 builder fell back to "sample_other_names" if
-    # "other_names" was empty. We preserve that fallback below with a small
-    # synthesized entry rather than listing both keys here.
-    ("other_names",                          "Other names",               1),
-    ("comment",                              "Comment",                   1),
-    ("classification_comment",               "Classification comment",    1),
-    ("purpose",                              "Purpose",                   1),
-    ("size",                                 "Size",                      1),  # skipped if is_core
-    ("size_unit",                            "Size unit",                 1),  # skipped if is_core
-    # Group 2 - registrants
-    ("original_registrant_name",             "Original registrant name",  2),
-    ("current_registrant_name",              "Current registrant name",   2),
+    (("object_type", "sample_type"),                 SD_OBJECT_TYPE_LABEL,        1),
+    (("sample_description", "description"),          "Description",               1),
+    (("other_names", "sample_other_names"),          "Other names",               1),
+    (("comment",),                                   "Comment",                   1),  # legacy only
+    (("classification_comment",),                    "Classification comment",    1),  # legacy only
+    (("purpose",),                                   "Purpose",                   1),
+    (("size",),                                      "Size",                      1),  # skipped if is_core
+    (("size_unit",),                                 "Size unit",                 1),  # skipped if is_core
+    (("parent_sample", "parent_igsn"),               "Parent IGSN",               1),
+    (("external_sample_id",),                        "External sample ID",        1),
+    # Group 2 - ownership / registrants
+    (("owner_display",),                             "Owner",                     2),
+    (("original_registrant_name",),                  "Original registrant name",  2),  # legacy only
+    (("current_registrant_name",),                   "Current registrant name",   2),  # legacy only
     # Group 3 - collection event
-    ("collector",                            "Collector/Chief Scientist", 3),
-    ("collector_chief_scientist_address",    "Collector address",         3),
-    ("collection_start_date",                "Collection date",           3),
-    ("collection_time",                      "Collection time",           3),
-    ("collection_end_date",                  "Collection date (end)",     3),
-    ("collection_time_end",                  "Collection time (end)",     3),
-    ("collection_date_precision",            "Collection date precision", 3),
-    # Group 4 - archive
-    ("current_archive",                      "Current archive",           4),
-    ("current_archive_contact",              "Current archive contact",   4),
-    ("original_archive_contact",             "Original archive contact",  4),
-    ("original_archive",                     "Original archive",          4),
-    ("is_archived",                          "Is archived",               4),
+    (("collectors", "collector"),                    "Collector/Chief Scientist", 3),
+    (("collector_chief_scientist_address",),         "Collector address",         3),  # legacy only
+    (("sampling_start_date", "collection_start_date"), "Collection date",         3),
+    (("collection_time",),                           "Collection time",           3),  # legacy only
+    (("sampling_end_date", "collection_end_date"),   "Collection date (end)",     3),
+    (("collection_time_end",),                       "Collection time (end)",     3),  # legacy only
+    (("sampling_date_precision", "collection_date_precision"),
+                                                     "Collection date precision", 3),
+    (("location_method", "navigation_type"),         "Location method",           3),
+    # Group 4 - archive / storage
+    (("current_archive",),                           "Current archive",           4),
+    (("current_archive_contact",),                   "Current archive contact",   4),
+    (("original_archive_contact",),                  "Original archive contact",  4),
+    (("original_archive",),                          "Original archive",          4),
+    (("is_archived",),                               "Is archived",               4),  # legacy only
+    (("storage_location",),                          "Storage location",          4),
 ]
 
 # Core-only fields to skip — Size/size_unit go to the Columns table for cores
@@ -152,37 +285,28 @@ def build_sample_description_fields(
         {
             "_SampleNaturalKey": nk,      # links to the Samples row via IGSN/name
             "Label":  "Purpose",          # human-readable label (no "SD:" prefix)
-            "Value":  "Age dating",       # the raw SESAR value as a string
+            "Value":  "Age dating",       # the SESAR value flattened to a string
             "Group":  1,                  # 1-4, matches old sd1-sd4 grouping
             "Order":  5,                  # stable ordering index across groups
         }
 
     Only fields with non-empty SESAR values are included — if the user blanks
     out a cell in the preview, the importer will skip it too (that's how
-    "clear to drop" works end-to-end).
-
-    The special "other_names" fallback preserved from the old sd1 builder:
-      if `other_names` is empty, fall back to `sample_other_names`.
+    "clear to drop" works end-to-end). Lists (other_names, collectors) and
+    objects (archives) are flattened with to_text().
     """
     entries: List[Dict[str, Any]] = []
-    for order_idx, (source_key, label, group) in enumerate(_SD_FIELD_DEFS):
-        # Skip Size/size_unit on core samples - they go to the Columns table.
-        if is_core and source_key in _SD_FIELDS_SKIPPED_WHEN_CORE:
+    for order_idx, (source_keys, label, group) in enumerate(_SD_FIELD_DEFS):
+        if is_core and source_keys[0] in _SD_FIELDS_SKIPPED_WHEN_CORE:
             continue
-
-        # Resolve the value, with the one historical fallback for other_names.
-        if source_key == "other_names":
-            value = s.get("other_names") or s.get("sample_other_names")
-        else:
-            value = s.get(source_key)
-
-        if not is_filled(value):
+        value = first_filled(s, *source_keys)
+        text = to_text(value).strip() if is_filled(value) else ""
+        if not text:
             continue
-
         entries.append({
             "_SampleNaturalKey": sample_nk,
             "Label":             label,
-            "Value":             str(value),
+            "Value":             text,
             "Group":             group,
             "Order":             order_idx,
         })
@@ -199,9 +323,7 @@ def build_sample_description_fields(
 # ===========================================================================
 def build_reference_description(url_entry: Dict[str, Any], is_doi: bool) -> str:
     lines: List[str] = []
-    url_val = url_entry.get("url", "")
-    url_type = url_entry.get("url_type", "")
-    url_desc = url_entry.get("description", "")
+    url_val, url_type, url_desc = _resource_parts(url_entry)
 
     # Non-DOI URL prepended per diagram filter path
     if is_filled(url_val) and not is_doi:
@@ -218,6 +340,15 @@ def build_reference_description(url_entry: Dict[str, Any], is_doi: bool) -> str:
         append_kv(lines, f"Related URL type {i}", url_entry.get(f"related_url_type{suffix}"))
 
     return "\n".join(lines).strip()
+
+
+def _resource_parts(entry: Dict[str, Any]) -> Tuple[str, str, str]:
+    """(url, type, description) from a legacy external_url or new related_resource."""
+    url_val = first_filled(entry, "url", "link", "uri", "resource_url", "doi") or ""
+    url_type = first_filled(entry, "url_type", "resource_type", "type",
+                            "relation_type", "mime_type") or ""
+    url_desc = first_filled(entry, "description", "label", "title", "name") or ""
+    return str(url_val), to_text(url_type), str(url_desc)
 
 
 # ===========================================================================
@@ -290,14 +421,14 @@ def split_sampling_method_hierarchy(method_str: str) -> List[str]:
 # ===========================================================================
 
 def transform_sesar_to_geocork_staging_format(data: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
-    s = data.get("sample", {})
+    s = sesar_sample_fields(data)
     get_sesar_logger().log(
         logging.DEBUG,
         f"transform_sesar_to_geocork_staging_format called "
         f"[igsn={s.get('igsn') or s.get('name') or '<unknown>'}]"
     )
-    sample_type = (s.get("sample_type") or "").lower()
-    is_core = "core" in sample_type
+    object_type = to_text(first_filled(s, "object_type", "sample_type")).lower()
+    is_core = "core" in object_type
     sample_nk = s.get("igsn") or s.get("name")
 
     # =========================================================
@@ -487,8 +618,8 @@ def transform_sesar_to_geocork_staging_format(data: Dict[str, Any]) -> Dict[str,
 
     # Geographic block: Country > State/Province > County > City (largest to smallest)
     prev_geo: Optional[str] = None
-    for field in ["country", "province", "county", "city"]:
-        val = s.get(field)
+    for field in ["continent", "country", "province", "county", "city"]:
+        val = to_text(s.get(field)) if is_filled(s.get(field)) else None
         if is_filled(val):
             # Append "co." suffix to county values to distinguish from city names
             if field == "county":
@@ -519,9 +650,9 @@ def transform_sesar_to_geocork_staging_format(data: Dict[str, Any]) -> Dict[str,
     sampling_methods_rows: List[Dict[str, Any]] = []
     samples_sampling_methods_rows: List[Dict[str, Any]] = []
 
-    method_str = s.get("collection_method")
+    method_str = to_text(first_filled(s, "sampling_method", "collection_method"))
     method_parts = split_sampling_method_hierarchy(method_str) if is_filled(method_str) else []
-    method_descr = s.get("collection_method_descr")
+    method_descr = first_filled(s, "sampling_method_detail", "collection_method_descr")
 
     if method_parts:
         prev_method: Optional[str] = None
@@ -551,18 +682,32 @@ def transform_sesar_to_geocork_staging_format(data: Dict[str, Any]) -> Dict[str,
     rocktypes_rows: List[Dict[str, Any]] = []
     samples_rocktypes_rows: List[Dict[str, Any]] = []
 
+    # New API: material_types is a list of vocabulary leaf labels (may use
+    # '>' for hierarchy). Legacy: classification was a nested dict tree.
     classification = s.get("classification")
-    field_name = s.get("field_name")
+    material_types = as_label_list(s.get("material_types"))
+    field_name = to_text(first_filled(s, "field_name", "material_name_verbatim"))
 
     rock_type_pairs: List[Tuple[str, Optional[str]]] = []
+    leaf_names: List[str] = []   # every leaf gets a Samples_RockTypes bridge row
     if is_filled(classification) and isinstance(classification, dict):
         rock_type_pairs = flatten_classification_tree(classification)
+        if rock_type_pairs:
+            leaf_names.append(rock_type_pairs[-1][0])
+    for mt in material_types:
+        parts = [p.strip() for p in mt.split(">") if p.strip()]
+        prev: Optional[str] = None
+        for part in parts:
+            rock_type_pairs.append((part, prev))
+            prev = part
+        if prev:
+            leaf_names.append(prev)
 
     # If description uses '>' notation it encodes a classification sub-hierarchy
     # (e.g. "Metamorphic>Foliated>Schistose>Schist"). Parse it and append any
     # nodes not already in the tree as children of the current deepest node.
-    description_val = s.get("description") or ""
-    if ">" in description_val:
+    description_val = to_text(first_filled(s, "sample_description", "description"))
+    if ">" in description_val and "\n" not in description_val and len(description_val) < 200:
         desc_parts = [p.strip() for p in description_val.split(">") if p.strip()]
         existing_names = {name for name, _ in rock_type_pairs}
         prev_desc: Optional[str] = rock_type_pairs[-1][0] if rock_type_pairs else None
@@ -571,14 +716,18 @@ def transform_sesar_to_geocork_staging_format(data: Dict[str, Any]) -> Dict[str,
                 rock_type_pairs.append((part, prev_desc))
                 existing_names.add(part)
             prev_desc = part
+        if prev_desc:
+            leaf_names = [n for n in leaf_names if n not in desc_parts] + [prev_desc]
 
-    # field_name appended as leaf under deepest classification node
+    # field_name (informal name) appended as leaf under deepest material node
     if is_filled(field_name):
         deepest_parent = rock_type_pairs[-1][0] if rock_type_pairs else None
         rock_type_pairs.append((field_name, deepest_parent))
+        if deepest_parent in leaf_names:
+            leaf_names.remove(deepest_parent)
+        leaf_names.append(field_name)
 
     seen_rt: set = set()
-    leaf_rt_name: Optional[str] = None
     for rt_name, rt_parent in rock_type_pairs:
         if rt_name not in seen_rt:
             seen_rt.add(rt_name)
@@ -590,14 +739,13 @@ def transform_sesar_to_geocork_staging_format(data: Dict[str, Any]) -> Dict[str,
                 "RockTypeDescription": None,
                 "_ParentRockTypeName": rt_parent,
             })
-            leaf_rt_name = rt_name
 
-    if is_filled(leaf_rt_name):
+    for leaf in dict.fromkeys(leaf_names):   # ordered de-dup
         samples_rocktypes_rows.append({
             "SampleID": None,
             "RockTypeID": None,
             "_SampleNaturalKey": sample_nk,
-            "_RockTypeName": leaf_rt_name,
+            "_RockTypeName": leaf,
         })
 
     # =========================================================
@@ -637,7 +785,7 @@ def transform_sesar_to_geocork_staging_format(data: Dict[str, Any]) -> Dict[str,
         })
 
     # Instance 1: Material
-    material = s.get("material")
+    material = to_text(first_filled(s, "general_material_type", "material"))
     if is_filled(material):
         add_sample_context(material, None, 1)
 
@@ -648,15 +796,25 @@ def transform_sesar_to_geocork_staging_format(data: Dict[str, Any]) -> Dict[str,
 
     # Instance 3: Field program/cruise as root; all platform/launch fields
     # appended into the SampleContextDescription of this instance
-    cruise = s.get("cruise_field_prgrm") or s.get("field_program")
+    cruise = to_text(first_filled(s, "cruise_field_prgrm", "field_program"))
     if is_filled(cruise):
+        # New API nests platform / launch_platform as objects.
+        platform = s.get("platform") if isinstance(s.get("platform"), dict) else {}
+        launch = s.get("launch_platform") if isinstance(s.get("launch_platform"), dict) else {}
         ctx3_desc_parts: List[str] = []
-        append_kv(ctx3_desc_parts, "Platform type", s.get("platform_type"))
-        append_kv(ctx3_desc_parts, "Platform name", s.get("platform_name"))
-        append_kv(ctx3_desc_parts, "Platform description", s.get("platform_description"))
-        append_kv(ctx3_desc_parts, "Launch type", s.get("launch_type_name"))
-        append_kv(ctx3_desc_parts, "Launch platform name", s.get("launch_platform_name"))
-        append_kv(ctx3_desc_parts, "Launch ID", s.get("launch_id"))
+        append_kv(ctx3_desc_parts, "Platform type",
+                  to_text(first_filled(platform, "platform_type_name", "platform_type"))
+                  or s.get("platform_type"))
+        append_kv(ctx3_desc_parts, "Platform name",
+                  platform.get("label") or (s.get("platform") if isinstance(s.get("platform"), str) else None)
+                  or s.get("platform_name"))
+        append_kv(ctx3_desc_parts, "Platform description",
+                  platform.get("description") or s.get("platform_description"))
+        append_kv(ctx3_desc_parts, "Launch type",
+                  to_text(launch.get("launch_type")) or s.get("launch_type_name"))
+        append_kv(ctx3_desc_parts, "Launch platform name",
+                  launch.get("label") or s.get("launch_platform_name"))
+        append_kv(ctx3_desc_parts, "Launch ID", first_filled(s, "launch_label", "launch_id"))
         ctx3_desc = "\n".join(ctx3_desc_parts) or None
         add_sample_context(cruise, ctx3_desc, 3)
 
@@ -671,7 +829,8 @@ def transform_sesar_to_geocork_staging_format(data: Dict[str, Any]) -> Dict[str,
     references_rows: List[Dict[str, Any]] = []
     samples_references_rows: List[Dict[str, Any]] = []
 
-    raw_urls = s.get("external_urls")
+    raw_urls = s.get("related_resources") if is_filled(s.get("related_resources")) \
+        else s.get("external_urls")
     url_entries: List[Dict[str, Any]] = []
     if isinstance(raw_urls, dict):
         inner = raw_urls.get("external_url")
@@ -685,9 +844,7 @@ def transform_sesar_to_geocork_staging_format(data: Dict[str, Any]) -> Dict[str,
     for url_entry in url_entries:
         if not isinstance(url_entry, dict):
             continue
-        url_val = url_entry.get("url", "")
-        url_type = url_entry.get("url_type", "")
-        url_desc = url_entry.get("description", "")
+        url_val, url_type, url_desc = _resource_parts(url_entry)
         is_doi = "doi" in str(url_type).lower() or "doi" in str(url_val).lower()
 
         ref_row = {
@@ -716,8 +873,10 @@ def transform_sesar_to_geocork_staging_format(data: Dict[str, Any]) -> Dict[str,
     sample_ages_rows: List[Dict[str, Any]] = []
     samples_sample_ages_rows: List[Dict[str, Any]] = []
 
-    age_min = safe_float(s.get("age_min"))
-    age_max = safe_float(s.get("age_max"))
+    age_min = safe_float(first_filled(s, "numeric_age_min", "age_min"))
+    age_max = safe_float(first_filled(s, "numeric_age_max", "age_max"))
+    age_unit_abbrev = age_unit_abbreviation(first_filled(s, "numeric_age_unit", "age_unit"))
+    age_desc = first_filled(s, "age_description")
 
     if age_min is not None or age_max is not None:
         sample_ages_rows.append({
@@ -727,10 +886,11 @@ def transform_sesar_to_geocork_staging_format(data: Dict[str, Any]) -> Dict[str,
             "DirectAgeErrorFormatID": None,
             "OldestDirectAge": age_max,
             "YoungestDirectAge": age_min,
-            "DirectAgeUnitID": None,
+            "DirectAgeUnitID": None,   # resolved via _DirectAgeUnitAbbrev
             "OldestAgeID": None,   # resolved via _OldestAgeName
             "YoungestAgeID": None, # resolved via _YoungestAgeName
-            "SampleAgeDescription": None,
+            "SampleAgeDescription": age_desc,
+            "_DirectAgeUnitAbbrev": age_unit_abbrev,
         })
         samples_sample_ages_rows.append({
             "SampleID": None,
@@ -744,7 +904,7 @@ def transform_sesar_to_geocork_staging_format(data: Dict[str, Any]) -> Dict[str,
     # Diagram: Geological age -> AgeName
     # =========================================================
     ages_rows: List[Dict[str, Any]] = []
-    geological_age_str = s.get("geological_age")
+    geological_age_str = to_text(first_filled(s, "geologic_age_verbatim", "geological_age"))
     if is_filled(geological_age_str):
         ages_rows.append({
             "AgeID": None,
@@ -765,7 +925,7 @@ def transform_sesar_to_geocork_staging_format(data: Dict[str, Any]) -> Dict[str,
     units_rows: List[Dict[str, Any]] = []
     samples_units_rows: List[Dict[str, Any]] = []
 
-    geological_unit = s.get("geological_unit")
+    geological_unit = to_text(first_filled(s, "geologic_unit", "geological_unit"))
     if is_filled(geological_unit):
         units_rows.append({
             "UnitID": None,
@@ -805,7 +965,10 @@ def transform_sesar_to_geocork_staging_format(data: Dict[str, Any]) -> Dict[str,
 
     # =========================================================
     # SESAR Drop - intentionally not mapped per diagram:
-    #   release_date, navigation_type
+    #   release_date / publish_date, registration_date, last_update_date,
+    #   sample_id, can_edit, can_deactivate, metadata_store_status,
+    #   batch_history_id, initiative, latitude_end/longitude_end
+    #   (navigation_type is now location_method -> SampleDescription)
     # =========================================================
 
     # =========================================================
@@ -933,15 +1096,22 @@ def build_raw_sesar_table(raw_data: dict) -> list[tuple[str, str]]:
     """
     # Fields excluded from the preview table -- internal SESAR metadata that
     # adds noise without informing the user's import decision.
-    _DISPLAY_SKIP: set = {"qrcode_img_src", "parents", "siblings", "sesar_code"}
+    _DISPLAY_SKIP: set = {"qrcode_img_src", "parents", "siblings", "sesar_code",
+                          "sample_id", "can_edit", "can_deactivate", "batch_history_id",
+                          "metadata_store_status", "team_id", "platform_id",
+                          "launch_platform_id", "cruise_field_prgrm_id"}
 
-    sample = raw_data.get("sample") or raw_data.get("data") or {}
+    sample = sesar_sample_fields(raw_data)
     pairs: list[tuple[str, str]] = []
     for key, val in sample.items():
         if key in _DISPLAY_SKIP:
             continue
         if val is None or val == "" or val == [] or val == {}:
             display = "\u2014"
+        elif isinstance(val, dict) and any(val.get(k) for k in ("label", "name")):
+            display = to_text(val)          # archives, platforms, initiative
+        elif isinstance(val, list) and all(isinstance(v, (str, int, float)) for v in val):
+            display = "; ".join(str(v) for v in val)
         elif isinstance(val, (dict, list)):
             display = json.dumps(val, separators=(",", ":"))
         else:
