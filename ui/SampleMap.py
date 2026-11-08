@@ -19,6 +19,7 @@ import Functions.SQLUtils as SQLUtils
 import Functions.Text_manipulations as TxM
 import logger_setup
 from Functions.Settings_manager import SettingsManager
+from ui.PlotDialog import PlotDialog
 from ui.SampleInformation import SampleInformation
 from ui.SampleMapDialogs import SAMPLE_TAG_TABLES, MapAddSampleDialog, BulkTagDialog
 
@@ -110,6 +111,11 @@ class MapBridge(QtC.QObject):
     def locationPicked(self, lat: float, lon: float):
         self.location_picked.emit(lat, lon)
 
+    @QtC.pyqtSlot(str)
+    def openUrl(self, url: str):
+        if url.startswith(('https://', 'http://')):
+            QtG.QDesktopServices.openUrl(QtC.QUrl(url))
+
 
 class SampleMapWindow(QtW.QMainWindow):
     """
@@ -129,6 +135,7 @@ class SampleMapWindow(QtW.QMainWindow):
         self.selected_ids: list[int] = []
         self.startup_sample_ids = []
         self.page_ready = False
+        self.plot_dialog: PlotDialog | None = None
 
         self.view = QWebEngineView(self)
         # A file:// page needs both: remote for tiles/CDN, file for sibling resources (remote alone disables file)
@@ -177,7 +184,9 @@ class SampleMapWindow(QtW.QMainWindow):
         bar.addAction('Zoom to all', lambda: self.js('fitTo', []))
         bar.addAction('Zoom to selection', lambda: self.js('fitTo', self.selected_ids))
         bar.addAction('Clear selection', lambda: self.set_selected([], push=True))
-        bar.addAction('Refresh', self.refresh)
+        bar.addAction('Refresh', self.refresh_all)
+        bar.addSeparator()
+        bar.addAction('Plots...', self.show_plots)
         bar.addSeparator()
         bar.addAction('ArcGIS API key...', self.set_api_key)
 
@@ -231,7 +240,7 @@ class SampleMapWindow(QtW.QMainWindow):
         self.set_selected(sample_ids, push=True)
         dropped = set(sample_ids) - set(self.selected_ids)
         if dropped:
-            logger_setup.get_logger().info(f'SampleIDs {sorted(dropped)} not mapped: no GPS location or location '
+            logger_setup.get_logger().warning(f'SampleIDs {sorted(dropped)} not mapped: no GPS location or location '
                                               f'could not be resolved to decimal degrees')
         self.js('fitTo', self.selected_ids)
         self.show()
@@ -282,7 +291,10 @@ class SampleMapWindow(QtW.QMainWindow):
         self.statusBar().showMessage(message)
 
     def set_selected(self, sample_ids: list, push: bool = False):
-        self.selected_ids = [sample_id for sample_id in sample_ids if sample_id in self.samples]
+        selected_ids = [sample_id for sample_id in sample_ids if sample_id in self.samples]
+        if self.plot_dialog and selected_ids != self.selected_ids:
+            self.plot_dialog.set_samples(selected_ids)
+        self.selected_ids = selected_ids
         if push:
             self.js('setSelection', self.selected_ids)
         self.model.removeRows(0, self.model.rowCount())
@@ -299,13 +311,26 @@ class SampleMapWindow(QtW.QMainWindow):
         for button in self.selection_buttons:
             button.setEnabled(bool(self.selected_ids))
 
+    def refresh_all(self):
+        """Reload map samples and discard cached plot data."""
+        self.refresh()
+        if self.plot_dialog:
+            self.plot_dialog.reload()
+
+    def show_plots(self):
+        if self.plot_dialog is None:
+            self.plot_dialog = PlotDialog(self)
+        self.plot_dialog.set_samples(self.selected_ids)
+        self.plot_dialog.show()
+        self.plot_dialog.raise_()
+
     def edit_information(self):
         SampleInformation(self, list(self.selected_ids)).exec()
-        self.refresh()
+        self.refresh_all()
 
     def edit_tags(self):
         if BulkTagDialog(self, self.selected_ids).exec() == QtW.QDialog.DialogCode.Accepted:
-            self.refresh()
+            self.refresh_all()
 
     def add_sample_at(self, lat: float, lon: float):
         dialog = MapAddSampleDialog(self, lat, lon)

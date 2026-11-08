@@ -8,6 +8,7 @@
 <style>
   html, body, #map { margin: 0; height: 100%; }
   .leaflet-tooltip { font: 12px/1.35 sans-serif; min-width: 250px; max-width: 250px; white-space: normal; }
+  .leaflet-popup-content { font: 12px/1.35 sans-serif; width: 250px !important; margin: 8px 10px; }
 </style>
 </head>
 <body>
@@ -29,7 +30,7 @@
             }],
         openmap: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png',
             {maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'}],
-        macrostrat: ['https://macrostrat.org/api/v2/maps/burwell/emphasized/{z}/{x}/{y}/tile.png',
+        macrostrat: ['https://tiles.macrostrat.org/carto/{z}/{x}/{y}.png',
             {maxNativeZoom: 19, maxZoom: 19, attribution: '<a href="https://macrostrat.org/">Macrostrat</a>'}]
     };
     // ArcGIS Static Basemap Tiles service (API key), 512 px tiles
@@ -41,8 +42,10 @@ const map = L.map('map', {preferCanvas: true, worldCopyJump: true}).setView([20,
 const renderer = L.canvas({padding: 0.5});
 const markers = {};
 let selected = new Set(), mode = 'pan', baseLayer = null, bridge = null, shape = null, path = [], pickMarker = null;
+let basemapName = '';
 
 function setBasemap(name, key) {
+  basemapName = name;
   if (baseLayer) map.removeLayer(baseLayer);
   if (key) {
     baseLayer = L.tileLayer(STATIC_URL + STYLES[name] + '/static/tile/{z}/{y}/{x}?token=' + encodeURIComponent(key),
@@ -151,8 +154,50 @@ map.on('mouseup', e => {
   refreshStyles(); notify();
 });
 
+// Macrostrat geologic map query, formatted like the sample tooltips
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const link = (url, text) => `<a href="#" onclick="bridge && bridge.openUrl(${esc(JSON.stringify(url))}); return false;">${text}</a>`;
+
+function macrostratHtml(unit) {
+  const lines = [unit.name ? `<b>${esc(unit.name)}</b>` : '<b>Unnamed map unit</b>'];
+  // lithology
+  if (unit.lith) lines.push(`<b>Lithology:</b> ${esc(unit.lith)}`);
+
+  if (unit.descrip) lines.push(`<b>Description:</b> ${esc(unit.descrip)}`);
+
+  const from = unit.b_int, to = unit.t_int;
+  if (from) {
+    let age = esc(from.int_name);
+    if (to && to.int_name !== from.int_name) age += ` to ${esc(to.int_name)}`;
+    age += ` (${from.b_age} - ${to ? to.t_age : from.t_age} Ma)`;
+    lines.push(`<b>Age:</b> ${age}`);
+  }
+
+  const ref = unit.ref;
+  if (ref) {
+    let text = esc(ref.name || '') + (ref.ref_year ? ` (${esc(ref.ref_year)})` : '') + (ref.ref_source ? `, ${esc(ref.ref_source)}` : '');
+    lines.push(`<b>Reference:</b> ${ref.url ? link(ref.url, text) : text}`);
+  }
+
+  return lines.join('<br>');
+}
+
+function queryMacrostrat(latlng) {
+  const lng = L.Util.wrapNum(latlng.lng, [-180, 180], true).toFixed(5);
+  const popup = L.popup().setLatLng(latlng).setContent('Querying Macrostrat...').openOn(map);
+  fetch(`https://macrostrat.org/api/v2/mobile/map_query_v2?lng=${lng}&lat=${latlng.lat.toFixed(5)}&z=${Math.round(map.getZoom())}`)
+    .then(r => r.json())
+    .then(data => {
+      const unit = data.success && data.success.data && data.success.data.mapData && data.success.data.mapData[0];
+      popup.setContent((unit ? macrostratHtml(unit) : 'No mapped geology at this location')
+        + `<br><i>${link('https://macrostrat.org/', 'Macrostrat')} geological map data</i>`);
+    })
+    .catch(err => popup.setContent(`Macrostrat query failed: ${esc(err.message)}`));
+}
+
 map.on('click', e => {
   if (mode === 'pan' && selected.size && !e.originalEvent.shiftKey) { selected.clear(); refreshStyles(); notify(); }
+  if (mode === 'pan' && basemapName === 'macrostrat') queryMacrostrat(e.latlng);
   if (mode !== 'pick') return;
   clearPick();
   pickMarker = L.marker(e.latlng).addTo(map);
