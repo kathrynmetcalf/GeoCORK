@@ -4833,8 +4833,12 @@ class ImportWizardDialog(QWidget):
                     unique_values = set()
                     for row in range(self.right_tables[sheet].model().rowCount()):
                         if row not in disabled_rows:
-                            value = self.right_tables[sheet].model().index(row, column).data().strip()
-                            if value:
+                            value = self.right_tables[sheet].model().index(row, column).data()
+                            # Blank/NULL cells (e.g. rows with no GPS data) have no static value to match
+                            if value is None:
+                                continue
+                            value = str(value).strip()
+                            if value and value != 'NULL':
                                 unique_values.add(value)
                     if unique_values:
                         # Try to match each unique value to an existing value in the database
@@ -5954,14 +5958,14 @@ class ImportWizardDialog(QWidget):
                                     else:
                                         item_input = self.right_tables[sheet].model().index(row, column).data()
                                         if item_header == 'Rejected':
-                                            item = self.static_mappings[sheet][column][item_input]
+                                            item = self.lookup_static_mapping(sheet, column, item_input)
                                         else:
                                             item = item_input
                                     if item_header in foreign_keys:
                                         # This column is a foreign key
                                         foreign_table = foreign_keys[item_header]['foreign_table']
                                         if foreign_table in SQLUtils.static_tables:
-                                            item = self.static_mappings[sheet][column][item_input]
+                                            item = self.lookup_static_mapping(sheet, column, item_input)
                                         else:
                                             if foreign_table == 'GPSLocations':
                                                 if table == 'Samples':
@@ -6098,10 +6102,20 @@ class ImportWizardDialog(QWidget):
                         # This is a blank entry with no data, so skip it
                         continue
                 if 'GPSLocations' in table:
+                    # Rows with no GPS data at all (e.g. blank Lat/Long) should not create a GPSLocations entry.
+                    # Leave the item ID as None so the parent Sample/Column gets a NULL GPSLocationID.
+                    # Unit/direction/format columns are foreign keys (filled from combo boxes or static
+                    # mappings), so they don't count as data.
+                    has_gps_data = any(value not in ['NULL', '', None]
+                                       for header, value in input_values.items()
+                                       if header not in foreign_keys and 'ID' not in header)
+                    if not has_gps_data:
+                        logger_setup.get_logger().info(f'No GPS data for {table} entry "{item_name}", skipping')
+                        continue
                     gps_format_id = self.determine_gps_format(input_values)
                     if not gps_format_id:
-                        logger_setup.get_logger().error(
-                            f'Could not determine GPS format for {table} entry "{item_name}"')
+                        logger_setup.get_logger().error(f'Could not determine GPS format for {table} entry "{item_name}". '
+                                                        f'Check that latitude/longitude (or UTM) values are present for this entry')
                         rollback_savepoint('before_import_items')
                         item_progress_dialog.close()
                         import_progress_dialog.close()
@@ -6665,6 +6679,47 @@ class ImportWizardDialog(QWidget):
                     f"Could not find a parent name column for {table} in sheet {sheet} (parents: {parent_tables})")
                 return None, None
         return name_header, name_columns
+
+
+    def find_matching_id(self, table, field_name, value) -> int :
+        """
+
+        :param table: table in the database to query from
+        :param field_name: field in the table to search for
+        :param value: value to find within the field
+        :return: a table's primary key that matches value if found, otherwise none
+        :rtype int
+        """
+        query = QSqlQuery()
+        id_field = f'{table.strip('s')}ID'
+        query.prepare(f'SELECT {id_field} FROM {table} WHERE {field_name}=:value COLLATE NOCASE')
+        query.bindValue(':value', value)
+        if query.exec():
+            if query.next():
+                return query.value(0)
+        return None
+
+    def lookup_static_mapping(self, sheet, column, item_input):
+        """
+        Safely look up the database ID for a static-table value (units, directions, formats, Rejected).
+        Blank/NULL cells return 'NULL' instead of raising a KeyError, since check_static_table_fields
+        never adds blank values to self.static_mappings.
+        :param sheet: sheet name
+        :param column: column index in the sheet
+        :param item_input: raw cell value
+        :return: mapped ID, or 'NULL' if the cell is blank or unmapped
+        """
+        if item_input is None:
+            return 'NULL'
+        key = str(item_input).strip()
+        if key in ['', 'NULL']:
+            return 'NULL'
+        column_map = self.static_mappings.get(sheet, {}).get(column, {})
+        if key in column_map:
+            value = column_map[key]
+        else:
+            value = column_map.get(item_input)
+        return 'NULL' if value is None else value
 
     def determine_gps_format(self, import_row):
         """
