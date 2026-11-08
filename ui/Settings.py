@@ -16,6 +16,7 @@ from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.Widget_classes import get_headers, show_loading_dialog, close_loading_dialog, populate_combo_box
 from ui.SelectColumns import SelectColumns
+from Sesar_Import.sesar_settings_tab import SesarSettingsTab
 
 # ----------------------------------------------------------------------------------------------------------------------
 # Color settings
@@ -716,6 +717,12 @@ class SettingsDialog(QtW.QDialog):
         self.select_columns = SelectColumns()
         self.column_verticalLayout.addWidget(self.select_columns)
 
+        # SESAR API connection (environment, SESAR code, JWT access/refresh tokens).
+        # Built in code so Settings.ui doesn't change. Tokens live in the OS keyring;
+        # deliberately not part of settings_list so Restore Defaults leaves them alone.
+        self.sesar_tab = SesarSettingsTab(self, settings=settings)
+        self.settings_tabWidget.addTab(self.sesar_tab, 'SESAR')
+
         double_comma_double_regex = QRegularExpression(r"^-?\d+(\.\d+)?,-?\d+(\.\d+)?$")
         double_comma_double_validator = QRegularExpressionValidator(double_comma_double_regex)
         self.cutoff_age_lineEdit.setValidator(double_comma_double_validator)
@@ -1108,6 +1115,9 @@ class SettingsDialog(QtW.QDialog):
             logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
 
         self.select_columns.save_list_states()
+
+        # SESAR connection settings + tokens
+        self.sesar_tab.save()
 
         # Style sheet related values
         self.combobox_height_scalar_spinbox: QDoubleSpinBox
