@@ -28,7 +28,7 @@ from Functions.Check_triggers import validate_insert, validate_update
 from Functions.Database_manager import update_database
 from Functions.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
 from Functions.Settings_manager import SettingsManager
-from ui.Settings import get_importer_brushes
+from ui.settings.SettingsCore import get_importer_brushes
 from ui.EditView import EditView
 
 settings = SettingsManager().settings
@@ -1104,7 +1104,11 @@ class ImportWizardDialog(QWidget):
         # Dictionary of items imported during the current import session
         self.imports = {'SampleID': [], 'AliquotID': [], 'SpotID': [], 'UPbAnalysisID': [], 'GeoChemAnalysisID': [],
                         'GrainID': []}
+        # IDs of existing items that were not modified (identical values, or skipped duplicates). Used for import counts.
         self.skipped_import_ids = {}
+        # IDs of existing items skipped only because the user chose to skip duplicates. Their many-to-many links are
+        # not added. Items skipped because they were identical are still linked.
+        self.conflict_skipped_ids = {}
 
         # Mapping of tag IDs to columns and rows in import sheets. This is built when the tags are imported.
         self.tag_ids = {}
@@ -1534,24 +1538,18 @@ class ImportWizardDialog(QWidget):
             self.btn_import.setDisabled(True)
             return False
 
-        if self.upb_sheet_name in self.right_tables:
-            if not self.validate_ids(self.upb_sheet_name):
+        # The U-Pb and geochemistry sheets may be the same sheet, so validate by data type, not only by sheet
+        for analysis_sheet, data_type in [(self.upb_sheet_name, 'U-Pb'), (self.geochem_sheet_name, 'Geochemical')]:
+            if analysis_sheet not in self.right_tables:
+                continue
+            self.ensure_left_analysis_columns(analysis_sheet)
+            if not self.validate_ids(analysis_sheet, data_type):
                 self.btn_import.setDisabled(True)
                 return False
-            if not self.check_duplicates_in_left_table(self.upb_sheet_name):
+            if not self.check_duplicates_in_left_table(analysis_sheet, data_type):
                 self.btn_import.setDisabled(True)
                 return False
-            if not self.check_for_conflicts(self.upb_sheet_name):
-                self.btn_import.setDisabled(True)
-                return False
-        if self.geochem_sheet_name in self.right_tables:
-            if not self.validate_ids(self.geochem_sheet_name):
-                self.btn_import.setDisabled(True)
-                return False
-            if not self.check_duplicates_in_left_table(self.geochem_sheet_name):
-                self.btn_import.setDisabled(True)
-                return False
-            if not self.check_for_conflicts(self.geochem_sheet_name):
+            if not self.check_for_conflicts(analysis_sheet, data_type):
                 self.btn_import.setDisabled(True)
                 return False
 
@@ -1578,7 +1576,7 @@ class ImportWizardDialog(QWidget):
         self.btn_import.setDisabled(False)
         return True
 
-    def validate_ids(self, sheet_name):
+    def validate_ids(self, sheet_name, data_type=None):
         """
         Validate Analysis Name, Sample Name, Aliquot Name, (Grain Name) and Spot Name in the left_table against the database.
         Flag rows that have matching entries in the database.
@@ -1590,22 +1588,22 @@ class ImportWizardDialog(QWidget):
             logger_setup.get_logger().critical("Tried to validate a non-data sheet")
             logger_setup.get_logger().debug(f"Sheet {sheet_name} is not designated as an analysis data sheet")
         logger_setup.get_logger().info("Validating IDs in the left table")
+        data_type = self.resolve_data_type(sheet_name, data_type)
         self.left_table = self.left_tables[sheet_name]
 
         # Step 1: Check for empty cells in the left table
-        empty_cells = self.check_empty_cells_in_left_table(sheet_name)
+        empty_cells = self.check_empty_cells_in_left_table(sheet_name, data_type)
 
         if empty_cells:
             self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[sheet_name]))
 
             # Step 2: Show dialog to ask if the user wants to use default values
-            use_defaults = self.ask_to_use_default_values(empty_cells, sheet_name)
+            use_defaults = self.ask_to_use_default_values(empty_cells, sheet_name, data_type)
 
             if use_defaults:
                 # Step 3: Fill empty cells with default values
-                if self.fill_empty_cells_with_defaults(empty_cells, sheet_name):
+                if self.fill_empty_cells_with_defaults(empty_cells, sheet_name, data_type):
                     # Optional: Give user a chance to review and adjust the values
-                    data_type = 'U-Pb' if sheet_name == self.upb_sheet_name else 'Geochemical'
                     QMessageBox.information(self, "Review",
                                             f"Purple cells in the left {data_type} table have been filled with default values. Please review before clicking import again.")
                     logger_setup.get_logger().info(f"Empty {data_type} cells have been filled with default values")
@@ -2461,6 +2459,8 @@ class ImportWizardDialog(QWidget):
         Update the name of the sheet with U-Pb data.
         """
         self.upb_sheet_name = self.upb_combo_sheets.currentText()
+        for sheet in list(self.left_tables.keys()):
+            self.ensure_left_analysis_columns(sheet)
         if self.upb_sheet_name in self.right_tables:
             self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[self.upb_sheet_name]))
             self.update_current_right_table()
@@ -2473,6 +2473,8 @@ class ImportWizardDialog(QWidget):
         Update the name of the sheet with geochemical data.
         """
         self.geochem_sheet_name = self.geochem_combo_sheets.currentText()
+        for sheet in list(self.left_tables.keys()):
+            self.ensure_left_analysis_columns(sheet)
         self.update_quick_select_buttons()
         if self.geochem_sheet_name in self.right_tables:
             self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[self.geochem_sheet_name]))
@@ -2538,15 +2540,85 @@ class ImportWizardDialog(QWidget):
         else:
             self.left_widget.hide()
 
+    # ---------------------------
+    #   Analysis sheet helpers
+    # ---------------------------
+    ANALYSIS_NAME_HEADERS = ("UPb Analysis Name", "Geochemical Analysis Name")
+
+    def get_analysis_types(self, sheet_name):
+        """
+        Data types designated to a sheet, in import order. A single sheet can hold both U-Pb and geochemical data.
+        :param sheet_name: workbook sheet name
+        :return: list containing 'U-Pb' and/or 'Geochemical'
+        """
+        types = []
+        if sheet_name and sheet_name == self.upb_sheet_name:
+            types.append('U-Pb')
+        if sheet_name and sheet_name == self.geochem_sheet_name:
+            types.append('Geochemical')
+        return types
+
+    def resolve_data_type(self, sheet_name, data_type=None):
+        """Return data_type if given, otherwise the first data type designated to the sheet (or None)."""
+        if data_type:
+            return data_type
+        types = self.get_analysis_types(sheet_name)
+        return types[0] if types else None
+
+    @staticmethod
+    def analysis_header_for(data_type):
+        return "UPb Analysis Name" if data_type == 'U-Pb' else "Geochemical Analysis Name"
+
+    def left_headers_for_sheet(self, sheet_name):
+        """Default left table headers: one analysis name column per data type designated to the sheet."""
+        return (["Sample Name", "Aliquot Name", "Spot Name"] +
+                [self.analysis_header_for(t) for t in self.get_analysis_types(sheet_name)])
+
+    def ensure_left_analysis_columns(self, sheet_name):
+        """
+        Make the left table for sheet_name have exactly one analysis name column for each data type designated to the
+        sheet. Newly added columns are filled from the right table if that analysis name is already mapped.
+        """
+        left_table = self.left_tables.get(sheet_name)
+        if left_table is None:
+            return
+        wanted = [self.analysis_header_for(t) for t in self.get_analysis_types(sheet_name)]
+        left_table.blockSignals(True)
+        # Remove analysis columns that no longer apply to this sheet
+        for col in reversed(range(left_table.columnCount())):
+            item = left_table.horizontalHeaderItem(col)
+            if item and item.text() in self.ANALYSIS_NAME_HEADERS and item.text() not in wanted:
+                left_table.removeColumn(col)
+        existing = [left_table.horizontalHeaderItem(c).text() for c in range(left_table.columnCount())
+                    if left_table.horizontalHeaderItem(c)]
+        for header in wanted:
+            if header in existing:
+                continue
+            col = left_table.columnCount()
+            left_table.insertColumn(col)
+            left_table.setHorizontalHeaderItem(col, QTableWidgetItem(header))
+            # Populate from the right table if this analysis name is already mapped
+            if sheet_name in self.right_tables:
+                model = self.right_tables[sheet_name].model()
+                for right_col, field in self.sheet_mappings.get(sheet_name, {}).items():
+                    if field != header:
+                        continue
+                    for r in range(min(model.rowCount(), left_table.rowCount())):
+                        cell_data = model.data(model.index(r, right_col), Qt.ItemDataRole.DisplayRole)
+                        if cell_data:
+                            left_table.setItem(r, col, QTableWidgetItem(str(cell_data).strip()))
+                    break
+        left_table.blockSignals(False)
+
     def create_left_table(self, sheet_name):
         if sheet_name in self.left_tables:
             logger_setup.get_logger().info(f'Left table already exists for {sheet_name}')
             return
         self.left_table = QTableWidget()
         self.left_tables[sheet_name] = self.left_table
-        self.left_table.setColumnCount(4)
-        analysis_text = "UPb Analysis Name" if sheet_name == self.upb_sheet_name else "Geochemical Analysis Name"
-        self.left_table.setHorizontalHeaderLabels(["Sample Name", "Aliquot Name", "Spot Name", analysis_text])
+        left_headers = self.left_headers_for_sheet(sheet_name)
+        self.left_table.setColumnCount(len(left_headers))
+        self.left_table.setHorizontalHeaderLabels(left_headers)
         self.left_table.setRowCount(self.right_table.model().rowCount())
         try:
             self.left_layout.addWidget(self.left_table)
@@ -2598,16 +2670,20 @@ class ImportWizardDialog(QWidget):
         """
         if self.current_sheet_name in [self.upb_sheet_name,
                                        self.geochem_sheet_name] and self.current_sheet_name in self.right_tables:
-            analysis_text = "UPb Analysis Name" if self.current_sheet_name == self.upb_sheet_name else "Geochemical Analysis Name"
+            if self.current_sheet_name not in self.left_tables:
+                return
             left_table = self.left_tables[self.current_sheet_name]
             left_table.blockSignals(True)
             right_table = self.right_tables[self.current_sheet_name]
             row_count = right_table.model().rowCount()
             left_table.setRowCount(row_count)
             if not self.sheet_mappings[self.current_sheet_name]:
-                left_table.setColumnCount(4)
-                left_table.setHorizontalHeaderLabels(["Sample Name", "Aliquot Name", "Spot Name", analysis_text])
+                left_headers = self.left_headers_for_sheet(self.current_sheet_name)
+                left_table.setColumnCount(len(left_headers))
+                left_table.setHorizontalHeaderLabels(left_headers)
             left_table.blockSignals(False)
+            # Sheet designations may have changed (e.g. the same sheet picked for U-Pb and geochemistry)
+            self.ensure_left_analysis_columns(self.current_sheet_name)
             left_table.resizeColumnsToContents()
 
     def set_all_rows(self, field, combobox):
@@ -3276,9 +3352,11 @@ class ImportWizardDialog(QWidget):
         aliquot_col = None
         spot_col = None
         grain_col = None
-        analysis_col = None
+        analysis_cols = {}
         clear_col = None
         logger_setup.get_logger().info(f'Updating left table after header change: {field}')
+        # Make sure the analysis name column(s) match the data type(s) designated to this sheet
+        self.ensure_left_analysis_columns(self.current_sheet_name)
         for column in range(self.left_table.columnCount()):
             if self.left_table.horizontalHeaderItem(column).text() == "Sample Name":
                 sample_col = column
@@ -3288,9 +3366,9 @@ class ImportWizardDialog(QWidget):
                 spot_col = column
             elif self.left_table.horizontalHeaderItem(column).text() == "Grain Name":
                 grain_col = column
-            elif self.left_table.horizontalHeaderItem(column).text() in ["UPb Analysis Name",
-                                                                         "Geochemical Analysis Name"]:
-                analysis_col = column
+            elif self.left_table.horizontalHeaderItem(column).text() in self.ANALYSIS_NAME_HEADERS:
+                # A sheet with both U-Pb and geochemical data has one column for each analysis name
+                analysis_cols[self.left_table.horizontalHeaderItem(column).text()] = column
             if self.left_table.horizontalHeaderItem(column).text() == left_header:
                 clear_col = column
 
@@ -3327,7 +3405,6 @@ class ImportWizardDialog(QWidget):
                 self.left_table.insertColumn(2)
                 self.left_table.setHorizontalHeaderItem(2, QTableWidgetItem("Grain Name"))
                 spot_col = 3  # Spot ID is now at index 3
-                analysis_col = 4  # Analysis Name is now at index 4
             for r in range(self.right_tables[self.current_sheet_name].model().rowCount()):
                 index = self.right_tables[self.current_sheet_name].model().index(r, logical_index)
                 cell_data = self.right_tables[self.current_sheet_name].model().data(index, Qt.ItemDataRole.DisplayRole)
@@ -3351,7 +3428,13 @@ class ImportWizardDialog(QWidget):
                 self.left_table.blockSignals(True)
                 self.left_table.setItem(r, spot_col, QTableWidgetItem(spot_id_value))  # Spot ID
                 self.left_table.blockSignals(False)
-        elif field in ["UPb Analysis Name", "Geochemical Analysis Name"]:
+        elif field in self.ANALYSIS_NAME_HEADERS:
+            analysis_col = analysis_cols.get(field)
+            if analysis_col is None:
+                data_type = 'U-Pb' if field == "UPb Analysis Name" else 'Geochemical'
+                logger_setup.get_logger().warning(f'{field} mapped on {self.current_sheet_name}, which is not '
+                                                  f'designated as the {data_type} data sheet')
+                return
             for r in range(self.right_tables[self.current_sheet_name].model().rowCount()):
                 index = self.right_tables[self.current_sheet_name].model().index(r, logical_index)
                 cell_data = self.right_tables[self.current_sheet_name].model().data(index, Qt.ItemDataRole.DisplayRole)
@@ -3681,7 +3764,10 @@ class ImportWizardDialog(QWidget):
                 self.sheet_mappings[sheet][col] = field
                 model.setHeaderData(col, Qt.Orientation.Horizontal, field, Qt.ItemDataRole.EditRole)
                 model.setHeaderData(col, Qt.Orientation.Horizontal, self.loaded_mapping_brush, Qt.ItemDataRole.BackgroundRole)
-                if field in ["Sample Name", "Aliquot Name", "Spot Name", "Grain Name", "UPb Analysis Name"] and sheet == self.upb_sheet_name:
+                if (field in ["Sample Name", "Aliquot Name", "Spot Name", "Grain Name", "UPb Analysis Name",
+                              "Geochemical Analysis Name"]
+                        and sheet in [self.upb_sheet_name, self.geochem_sheet_name] and sheet in self.left_tables):
+                    self.left_table = self.left_tables[sheet]
                     self.update_left_table_on_header_change(field, col)
             self.disable_selected_rows(header_rows)
         for key, text in fmt['units_formats'].items():
@@ -3726,7 +3812,10 @@ class ImportWizardDialog(QWidget):
                 self.sheet_mappings[sheet][col] = field
                 model.setHeaderData(col, Qt.Orientation.Horizontal, field, Qt.ItemDataRole.EditRole)
                 model.setHeaderData(col, Qt.Orientation.Horizontal, self.blue_brush, Qt.ItemDataRole.BackgroundRole)
-                if field in ["Sample Name", "Aliquot Name", "Spot Name", "Grain Name", "UPb Analysis Name"] and sheet == self.upb_sheet_name:
+                if (field in ["Sample Name", "Aliquot Name", "Spot Name", "Grain Name", "UPb Analysis Name",
+                              "Geochemical Analysis Name"]
+                        and sheet in [self.upb_sheet_name, self.geochem_sheet_name] and sheet in self.left_tables):
+                    self.left_table = self.left_tables[sheet]
                     self.update_left_table_on_header_change(field, col)
             self.disable_selected_rows(header_rows)
         for key, text in fmt['units_formats'].items():
@@ -3757,9 +3846,10 @@ class ImportWizardDialog(QWidget):
             recent_mappings.insert(0, mapping_name)
         settings.setValue("recent_mappings", recent_mappings)
 
-    def check_empty_cells_in_left_table(self, sheet_name):
+    def check_empty_cells_in_left_table(self, sheet_name, data_type=None):
         """
         Check for empty cells in the left table, excluding the "Grain Name" column which is optional.
+        On a sheet with both U-Pb and geochemical data, only the analysis name column for data_type is checked.
         :return:
         List of tuples (row, col) for empty cells.
         """
@@ -3768,19 +3858,25 @@ class ImportWizardDialog(QWidget):
                 sheet_name not in [self.upb_sheet_name, self.geochem_sheet_name]):
             return empty_cells
         logger_setup.get_logger().info("Checking empty cells in left table")
+        own_analysis_header = self.analysis_header_for(self.resolve_data_type(sheet_name, data_type))
         disabled_rows = self.right_tables[sheet_name].model().rows_for_status('disabled')
         self.left_table = self.left_tables[sheet_name]
         for row in range(self.left_table.rowCount()):
             if row in disabled_rows:
                 continue
             for col in range(self.left_table.columnCount()):
+                header = self.left_table.horizontalHeaderItem(col).text()
+                if header == "Grain Name":
+                    continue
+                if header in self.ANALYSIS_NAME_HEADERS and header != own_analysis_header:
+                    # The other data type's analysis name is checked in its own pass
+                    continue
                 cell = self.left_table.item(row, col)
-                if (cell is None or cell.text().strip() in ["", 'NULL']) and self.left_table.horizontalHeaderItem(
-                        col).text() != "Grain Name":
+                if cell is None or cell.text().strip() in ["", 'NULL']:
                     empty_cells.append((row, col))
         return empty_cells
 
-    def ask_to_use_default_values(self, empty_cells, sheet_name):
+    def ask_to_use_default_values(self, empty_cells, sheet_name, data_type=None):
         """
         Prompt the user to confirm whether to use autogenerated default values for empty cells.
         """
@@ -3788,7 +3884,7 @@ class ImportWizardDialog(QWidget):
         msg_box = QMessageBox()
         msg_box.setIcon(QMessageBox.Icon.Question)
         msg_box.setWindowTitle("Missing Values")
-        data_type = "U-Pb" if sheet_name == self.upb_sheet_name else "Geochemical"
+        data_type = self.resolve_data_type(sheet_name, data_type)
         msg_box.setText(
             f"{missing_count} required cells in the left {data_type} table are empty. Would you like to use autogenerated default values?")
         msg_box.setDetailedText(f"""
@@ -3803,7 +3899,7 @@ class ImportWizardDialog(QWidget):
         else:
             return False
 
-    def fill_empty_cells_with_defaults(self, empty_cells: list, sheet: str):
+    def fill_empty_cells_with_defaults(self, empty_cells: list, sheet: str, data_type: str | None = None):
         """
         Method to fill the left table with default values.
         Sample names cannot be missing.
@@ -3813,9 +3909,11 @@ class ImportWizardDialog(QWidget):
         Spot names and Analysis names will be set based on Grain names or Aliquot names with a counter if both are missing.
         :param empty_cells: list of empty items
         :param sheet: sheet name
+        :param data_type: 'U-Pb' or 'Geochemical'; selects the analysis name column on a sheet with both
         """
         if sheet not in [self.upb_sheet_name, self.geochem_sheet_name]:
             return True
+        own_analysis_header = self.analysis_header_for(self.resolve_data_type(sheet, data_type))
         self.left_table = self.left_tables[sheet]
         self.left_table.blockSignals(True)
         sample_col = None
@@ -3832,8 +3930,7 @@ class ImportWizardDialog(QWidget):
                 grain_col = column
             elif self.left_table.horizontalHeaderItem(column).text() == "Spot Name":
                 spot_col = column
-            elif self.left_table.horizontalHeaderItem(column).text() in ["UPb Analysis Name",
-                                                                         "Geochemical Analysis Name"]:
+            elif self.left_table.horizontalHeaderItem(column).text() == own_analysis_header:
                 analysis_col = column
 
         # Initialize variables for tracking SampleID and counter
@@ -3937,7 +4034,7 @@ class ImportWizardDialog(QWidget):
         self.update_left_table_row_status()
         return True
 
-    def check_duplicates_in_left_table(self, sheet_name):
+    def check_duplicates_in_left_table(self, sheet_name, data_type=None):
         """
         Check for duplicates in the left table for Sample Name, Aliquot Name, Spot Name, Grain Name, and Analysis Name.
         First, check within the data to be imported, then check against the values in the database.
@@ -3955,6 +4052,8 @@ class ImportWizardDialog(QWidget):
         spot_col = None
         grain_col = None
         analysis_col = None
+        data_type = self.resolve_data_type(sheet_name, data_type)
+        own_analysis_header = self.analysis_header_for(data_type)
         disabled_rows = self.right_tables[sheet_name].model().rows_for_status('disabled')
         self.left_table = self.left_tables[sheet_name]
 
@@ -3967,7 +4066,7 @@ class ImportWizardDialog(QWidget):
                 spot_col = column
             elif self.left_table.horizontalHeaderItem(column).text() == "Grain Name":
                 grain_col = column
-            elif "Analysis Name" in self.left_table.horizontalHeaderItem(column).text():
+            elif self.left_table.horizontalHeaderItem(column).text() == own_analysis_header:
                 analysis_col = column
         for row in range(self.left_table.rowCount()):
             if row in disabled_rows:
@@ -4099,11 +4198,11 @@ class ImportWizardDialog(QWidget):
 
         # Find Analyses and Spots where AnalysisName matches in the database.
         analysis_query = QSqlQuery()
-        if sheet_name == self.upb_sheet_name:
+        if data_type == 'U-Pb':
             analysis_query.prepare(
                 "SELECT UPbAnalysisID, SpotID FROM UPbAnalyses WHERE UPbAnalysisName = :analysis_name COLLATE NOCASE"
             )
-        elif sheet_name == self.geochem_sheet_name:
+        else:
             analysis_query.prepare(
                 "SELECT GeoChemAnalysisID, SpotID FROM GeoChemicalAnalyses WHERE GeoChemAnalysisName = :analysis_name COLLATE NOCASE"
             )
@@ -4487,7 +4586,7 @@ class ImportWizardDialog(QWidget):
         # Proceed with import
         self.import_to_db()
 
-    def check_for_conflicts(self, sheet_name):
+    def check_for_conflicts(self, sheet_name, data_type=None):
         """Checks values of SampleName, AliquotName, and SpotName in the left table for import against the database.
          Ensures no values are attempted to be inserted that could raise Unique Constraint Errors by the database.
          If values are found, the list of rows to be imported gets amended with primary IDs from inside the database."""
@@ -4502,7 +4601,10 @@ class ImportWizardDialog(QWidget):
         spot_col = None
         grain_col = None
         analysis_col = None
+        data_type = self.resolve_data_type(sheet_name, data_type)
+        own_analysis_header = self.analysis_header_for(data_type)
         disabled_rows = self.right_tables[sheet_name].model().rows_for_status('disabled')
+        self.left_table = self.left_tables[sheet_name]
         for column in range(self.left_table.columnCount()):
             if self.left_table.horizontalHeaderItem(column).text() == "Sample Name":
                 sample_col = column
@@ -4512,7 +4614,7 @@ class ImportWizardDialog(QWidget):
                 spot_col = column
             elif self.left_table.horizontalHeaderItem(column).text() == "Grain Name":
                 grain_col = column
-            elif "Analysis Name" in self.left_table.horizontalHeaderItem(column).text():
+            elif self.left_table.horizontalHeaderItem(column).text() == own_analysis_header:
                 analysis_col = column
 
         existing_aliquots = set()
@@ -4570,16 +4672,16 @@ class ImportWizardDialog(QWidget):
                             if existing_spot_name.lower() != spot_name.lower():
                                 existing_grains.add(grain_name)
                                 self.left_table.item(row_idx, grain_col).setBackground(self.conflict_brush)  # Light red
-            if sheet_name == self.upb_sheet_name:
+            if data_type == 'U-Pb':
                 analysis_id = get_id_from_name('UPbAnalyses', analysis_name)
             else:
                 analysis_id = get_id_from_name('GeoChemicalAnalyses', analysis_name)
             if analysis_id:
                 query = QSqlQuery()
-                if sheet_name == self.upb_sheet_name:
+                if data_type == 'U-Pb':
                     query.prepare(
                         'SELECT SpotName FROM UPbAnalyses JOIN Spots ON UPbAnalyses.SpotID = Spots.SpotID WHERE UPbAnalysisID=:analysis_id')
-                elif sheet_name == self.geochem_sheet_name:
+                else:
                     query.prepare(
                         'SELECT SpotName FROM GeoChemicalAnalyses JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID WHERE GeoChemAnalysisID=:analysis_id')
                 query.bindValue(':analysis_id', analysis_id)
@@ -4601,8 +4703,7 @@ class ImportWizardDialog(QWidget):
             return False
 
         if existing_analyses:
-            data_type = "U-Pb" if sheet_name == self.upb_sheet_name else "Geochemical"
-            msg = f"{len(existing_analyses)}/{self.left_table.rowCount()} existing {data_type} analyses found for spots being imported."
+            msg =f"{len(existing_analyses)}/{self.left_table.rowCount()} existing {data_type} analyses found for spots being imported."
             msg_box = QMessageBox()
             msg_box.setWindowTitle("Existing Values")
             msg_box.setText(msg)
@@ -5194,6 +5295,9 @@ class ImportWizardDialog(QWidget):
         # We don't need to import the static table values, and their IDs are already mapped in self.static_mappings.
 
         create_savepoint('before_import')
+        # Start each import with fresh skip records so IDs from a previous import in this session don't carry over
+        self.skipped_import_ids = {}
+        self.conflict_skipped_ids = {}
 
         if analysis_data:
             # Ensure the chain from Sample -> Aliquot -> Spot -> Analysis is imported correctly
@@ -5267,14 +5371,19 @@ class ImportWizardDialog(QWidget):
             return True
         self.sample_ids = []
         create_savepoint('before_analysis_import')
-        for analysis_sheet in [self.upb_sheet_name, self.geochem_sheet_name]:
-            if not analysis_sheet:
+        # Names imported in this run, shared across passes so that a Sample/Aliquot/Spot created by the U-Pb pass is
+        # reused (not overwritten) by the geochemical pass, including when both are on the same sheet
+        imported_names = {'Samples': [], 'Aliquots': [], 'Spots': [], 'Grains': [], 'UPbAnalyses': [],
+                          'GeoChemicalAnalyses': []}
+        # The U-Pb and geochemistry sheets may be the same sheet, so loop by data type, not only by sheet
+        for analysis_sheet, data_type in [(self.upb_sheet_name, 'U-Pb'), (self.geochem_sheet_name, 'Geochemical')]:
+            if not analysis_sheet or analysis_sheet not in self.right_tables:
                 continue
             self.right_table = self.right_tables[analysis_sheet]
             self.left_table = self.left_tables[analysis_sheet]
             self.current_sheet_name = analysis_sheet
-            analysis_header = "UPb Analysis Name" if analysis_sheet == self.upb_sheet_name else "Geochemical Analysis Name"
-            analysis_table = "UPbAnalyses" if analysis_sheet == self.upb_sheet_name else "GeoChemicalAnalyses"
+            analysis_header = self.analysis_header_for(data_type)
+            analysis_table = "UPbAnalyses" if data_type == 'U-Pb' else "GeoChemicalAnalyses"
             analysis_id_header = get_headers(analysis_table)[0]
             analysis_name_header = get_headers(analysis_table)[get_name_column(analysis_table)]
             sample_col = None
@@ -5297,8 +5406,9 @@ class ImportWizardDialog(QWidget):
 
             row_count = self.right_tables[analysis_sheet].model().rowCount()
             import_count = row_count - len(disabled_rows)
-            imported_names = {'Samples': [], 'Aliquots': [], 'Spots': [], 'Grains': [], 'UPbAnalyses': [],
-                              'GeoChemicalAnalyses': []}
+            if analysis_col is None:
+                logger_setup.get_logger().warning(f'No {analysis_header} column in the left table for {analysis_sheet}')
+                continue
 
             # Create a modal progress dialog
             progress_dialog = QProgressDialog(
@@ -5320,7 +5430,7 @@ class ImportWizardDialog(QWidget):
                         return False
 
                     # Build a record dict with every key initialized to None
-                    fields = SQLUtils.upb_possible_user_input_fields if analysis_sheet == self.upb_sheet_name else self.geochem_fields
+                    fields = SQLUtils.upb_possible_user_input_fields if data_type == 'U-Pb' else self.geochem_fields
                     record = {field: None for field in fields}
 
                     # Populate the left-table items (sample_id, aliquot_id, spot_id)
@@ -6402,6 +6512,7 @@ class ImportWizardDialog(QWidget):
                             if db_table not in self.skipped_import_ids:
                                 self.skipped_import_ids[db_table] = []
                             self.skipped_import_ids[db_table].append(item_id)
+                            self.conflict_skipped_ids.setdefault(db_table, []).append(item_id)
                             continue
                         elif self.conflict_mode == 'overwrite' and not (get_headers(table)[0] in self.analysis_imports
                                                                         and item_id in self.analysis_imports[
@@ -7040,10 +7151,12 @@ class ImportWizardDialog(QWidget):
                                                         f'Could not link {table2} "{table2_name}" in sheet {sheet} with data from other sheets')
                                                     continue
                                                 else:
-                                                    if table1_id in self.skipped_import_ids.get(table1,
-                                                                                                []) or table2_id in self.skipped_import_ids.get(
-                                                            table2, []):
-                                                        # One of the items was skipped due to conflict resolution, so skip this relationship
+                                                    if (table1_id in self.conflict_skipped_ids.get(table1, []) or
+                                                            table2_id in self.conflict_skipped_ids.get(table2, [])):
+                                                        # One of the items was skipped because the user chose to skip
+                                                        # duplicates, so leave its relationships unchanged. Items that
+                                                        # were only skipped for being identical (e.g. Samples already
+                                                        # created by the analysis import) are still linked.
                                                         continue
                                                     # Check if this relationship already exists in the database
                                                     query = QSqlQuery()

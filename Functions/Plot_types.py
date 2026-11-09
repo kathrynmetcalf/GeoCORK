@@ -507,3 +507,58 @@ class REEPlot(NormalizedPlot):
 
     def plot_group(self, ax, frame, color, opts, **kwargs):
         frame.pyroplot.REE(ax=ax, index=opts['index'], color=color, **kwargs)
+
+
+# ---------------------------------------------------------------- age v epsilon Hf
+
+LAMBDA_176LU = 1.867e-11  # Söderlund et al. (2004), 1/yr
+CHUR_HF, CHUR_LU = 0.282785, 0.0336  # 176Hf/177Hf, 176Lu/177Hf; Bouvier et al. (2008)
+DM_HF, DM_LU = 0.28325, 0.0384  # Griffin et al. (2000)
+
+
+def epsilon_hf_dm(t_ma: np.ndarray) -> np.ndarray:
+    """Depleted-mantle epsilon Hf at t (Ma) relative to CHUR."""
+    growth = np.expm1(LAMBDA_176LU * t_ma * 1e6)
+    return ((DM_HF - DM_LU * growth) / (CHUR_HF - CHUR_LU * growth) - 1) * 1e4
+
+
+@register_plot
+class AgeEpsilonHf(PlotType):
+    name = 'Age v εHf'
+    category = 'U-Pb'
+    data = 'upb_hf'
+    options = [
+        GROUPING,
+        Option('error_bars', 'Error bars', 'choice', '2σ', ['2σ', '1σ', 'None']),
+        Option('dm_line', 'Depleted mantle and CHUR', 'bool', True,
+               tooltip='DM: Griffin et al. (2000); CHUR: Bouvier et al. (2008); λ176Lu: Söderlund et al. (2004)'),
+    ]
+
+    def draw(self, fig, df, opts):
+        data = df.dropna(subset=['Age', 'EHf'])
+        if data.empty:
+            return (f'{len(df)} εHf values, none paired with a U-Pb age '
+                    '(try "Spot, then grain" or relax the U-Pb filters)' if len(df) else 'No εHf values for the selected samples')
+        ax = fig.add_subplot()
+        scale = {'2σ': 2, '1σ': 1}.get(opts['error_bars'])
+        for i, (label, group) in enumerate(groups(data, opts)):
+            color = f'C{i % 10}'
+            if scale:
+                ax.errorbar(group['Age'], group['EHf'], xerr=group['Age1s'] * scale, yerr=group['EHf1s'] * scale,
+                            fmt='none', ecolor=color, elinewidth=0.6, alpha=0.6, zorder=2)
+            ax.scatter(group['Age'], group['EHf'], s=20, color=color, edgecolor='k', lw=0.3, zorder=3,
+                       label=f'{label} (n={len(group)})')
+        right = max(ax.get_xlim()[1], 100)
+        if opts['dm_line']:
+            t = np.linspace(0, right, 300)
+            ax.plot(t, epsilon_hf_dm(t), color='0.25', lw=1, label='Depleted mantle')
+            ax.axhline(0, color='0.5', lw=0.8, ls='--', label='CHUR')
+        ax.set_xlim(0, right)
+        ax.set_xlabel('Age (Ma)')
+        ax.set_ylabel('εHf')
+        ax.spines[['top', 'right']].set_visible(False)
+        ax.legend(loc='best', fontsize='small', frameon=False)
+        message = f'{len(data)} of {len(df)} εHf values paired with a U-Pb age'
+        if (data['PairedBy'] == 'Grain').any():
+            message += f' ({int((data["PairedBy"] == "Grain").sum())} by grain)'
+        return message

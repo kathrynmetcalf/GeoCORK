@@ -156,12 +156,13 @@ class UPbData(DataProvider):
     def fetch(self, sample_ids: list[int]) -> pd.DataFrame:
         if not sample_ids:
             return pd.DataFrame()
-        columns = ([SQLUtils.qsample_id, SQLUtils.qsample_name, SQLUtils.qupb_id, SQLUtils.qupb_analysis_name,
+        columns = ([SQLUtils.qsample_id, SQLUtils.qsample_name, SQLUtils.qspot_id, SQLUtils.qgrain_id,
+                    SQLUtils.qupb_id, SQLUtils.qupb_analysis_name,
                     SQLUtils.qupb_rejected, SQLUtils.qupb_error_corr_68v76, SQLUtils.qupb_error_corr_68v75]
                    + [column for pair in AGE_COLUMNS.values() for column in pair]
                    + [column for pair in RATIO_PAIRS.values() for ratio in pair for column in ratio]
                    + CONCORDANCE_COLUMNS)
-        sql = (f'SELECT {", ".join(columns)}\nFROM UPbAnalyses\n{SQLUtils.upb_spot_join}\n'
+        sql = (f'SELECT {", ".join(columns)}\nFROM UPbAnalyses\n{SQLUtils.upb_spot_join}\n{SQLUtils.spot_grain_join}\n'
                f'{SQLUtils.spot_aliquot_join}\n{SQLUtils.aliquot_sample_join}\n'
                f'WHERE Samples.SampleID IN ({", ".join(str(int(i)) for i in sample_ids)})')
         return query_frame(sql)
@@ -270,4 +271,74 @@ class GeoChemData(DataProvider):
                 out = out.drop(columns=['GeoChemAnalysisID', 'GeoChemAnalysisName']).groupby(
                     ['SampleID', 'SampleName'], as_index=False).mean()
         out.attrs['excluded_values'] = excluded
+        return out
+
+
+# ---------------------------------------------------------------- U-Pb age paired with epsilon Hf
+
+HF_ANALYTES = ['E_Hf', 'E_Hf(T)']
+"""GeoChemAnalyteAbbreviation values read as stored (not calculated from 176Hf/177Hf)"""
+
+
+@register_provider
+class UPbHfData(DataProvider):
+    """
+    Stored epsilon Hf values (GeoChemicalAnalysisValues, any unit) paired with the U-Pb age of the same spot, or
+    optionally of the same grain. prepare() returns one row per Hf value with Age/Age1s (Ma, 1σ) and EHf/EHf1s (1σ).
+    U-Pb filters (age column, rejected, discordance) are the same as for the U-Pb plots.
+    """
+    key = 'upb_hf'
+    label = 'U-Pb age + εHf'
+    options = UPbData.options + [
+        Option('hf_analyte', 'εHf analyte', 'choice', 'E_Hf', HF_ANALYTES),
+        Option('match', 'Pair age by', 'choice', 'Spot', ['Spot', 'Spot, then grain'],
+               tooltip='Spot: U-Pb analysis on the same spot. Spot, then grain: otherwise any U-Pb analysis on the same grain.'),
+    ]
+
+    def fetch(self, sample_ids: list[int]) -> dict:
+        if not sample_ids:
+            return {'upb': pd.DataFrame(), 'hf': pd.DataFrame()}
+        columns = [SQLUtils.qsample_id, SQLUtils.qsample_name, SQLUtils.qspot_id, SQLUtils.qgrain_id,
+                   SQLUtils.qgeochem_id, SQLUtils.qgeochem_analysis_name, SQLUtils.qgeochem_rejected,
+                   SQLUtils.qgeochem_analyte_abbreviation, SQLUtils.qgeochem_analyte_value,
+                   SQLUtils.qgeochem_analyte_error, SQLUtils.qgeochem_analyte_error_format]
+        analytes = ', '.join(f"'{a}'" for a in HF_ANALYTES)
+        sql = (f'SELECT {", ".join(columns)}\nFROM GeoChemicalAnalyses\n{SQLUtils.geochem_spot_join}\n'
+               f'{SQLUtils.spot_grain_join}\n{SQLUtils.spot_aliquot_join}\n{SQLUtils.aliquot_sample_join}\n'
+               f'{SQLUtils.geochem_analyte_value_join}\n{GEOCHEM_ANALYTE_JOIN}\n{SQLUtils.geochem_analyte_error_format_join}\n'
+               f'WHERE Samples.SampleID IN ({", ".join(str(int(i)) for i in sample_ids)}) '
+               f'AND GeoChemicalAnalytes.GeoChemAnalyteAbbreviation IN ({analytes})')
+        return {'upb': DATA_PROVIDERS['upb'].fetch(sample_ids), 'hf': query_frame(sql)}
+
+    def load(self, sample_ids: list[int], opts: dict) -> pd.DataFrame:
+        key = tuple(sorted(sample_ids))
+        if key not in self._cache:
+            self._cache = {key: self.fetch(list(key))}
+        return self.prepare({name: df.copy() for name, df in self._cache[key].items()}, opts)
+
+    def prepare(self, frames: dict, opts: dict) -> pd.DataFrame:
+        hf = frames['hf']
+        if hf.empty:
+            return hf
+        hf = hf[hf['GeoChemAnalyteAbbreviation'] == opts.get('hf_analyte', 'E_Hf')]
+        if opts.get('exclude_rejected', True):
+            hf = hf[hf['Rejected'] != 'Rejected']
+        value = pd.to_numeric(hf['GeoChemAnalyteValue'], errors='coerce')
+        error_1s = [error_to_1s_relative(pd.Series([e]), pd.Series([v]), f or '1σ abs').iloc[0] * abs(v)
+                    for e, v, f in zip(hf['GeoChemAnalyteError'], value, hf['GeoChemAnalyteErrorFormatAbbreviation'])]
+        hf = hf.assign(EHf=value, EHf1s=error_1s).dropna(subset=['EHf'])
+
+        upb = DATA_PROVIDERS['upb'].prepare(frames['upb'], opts) if not frames['upb'].empty else frames['upb']
+        upb = upb.dropna(subset=['Age']) if not upb.empty else upb
+        if upb.empty:
+            return hf.assign(Age=np.nan, Age1s=np.nan, PairedBy='')
+        by_spot = upb.groupby('SpotID')[['Age', 'Age1s']].mean()
+        out = hf.join(by_spot, on='SpotID')
+        out['PairedBy'] = np.where(out['Age'].notna(), 'Spot', '')
+        if opts.get('match') == 'Spot, then grain':
+            by_grain = upb.dropna(subset=['GrainID']).groupby('GrainID')[['Age', 'Age1s']].mean()
+            grain = out[['GrainID']].join(by_grain, on='GrainID')
+            fill = out['Age'].isna() & grain['Age'].notna()
+            out.loc[fill, ['Age', 'Age1s']] = grain.loc[fill, ['Age', 'Age1s']].to_numpy()
+            out.loc[fill, 'PairedBy'] = 'Grain'
         return out

@@ -29,7 +29,7 @@ from ui.DisplayTables import DisplayTables
 from ui.ExportWidget import ExportWidget
 from ui.Filters import Filters
 from ui.SampleInformation import SampleInformation
-from ui.Settings import SettingsDialog, default_settings
+from ui.settings.Settings import SettingsDialog
 from ui.ViewDataTab import ViewDataTab
 from PyQt6 import QtWebEngineWidgets
 

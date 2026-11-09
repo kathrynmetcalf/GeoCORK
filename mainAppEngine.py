@@ -11,7 +11,7 @@ from Functions.Widget_classes import TooltipFilter
 from ui.LandingUI import LandingPage
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
-from ui.Settings import reset_to_default_settings, populate_app_defaults, check_missing_settings, default_settings
+from ui.settings.SettingsCore import reset_to_default_settings, populate_app_defaults, check_missing_settings, default_settings
 # signal.signal(signal.SIGINT, signal.SIG_DFL)
 from PyQt6 import QtWebEngineWidgets
 

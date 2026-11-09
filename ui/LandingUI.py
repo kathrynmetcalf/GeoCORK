@@ -24,7 +24,7 @@ settings = SettingsManager().settings
 from Functions.Text_manipulations import shrink_home, expand_home
 from Functions.Widget_classes import show_loading_dialog, close_loading_dialog
 from ui.MergeDatabaseUI import MergeDatabaseDialog
-from ui.Settings import update_stylesheet
+from ui.settings.SettingsCore import update_stylesheet
 
 
 LOGO_BOX = QSize(500, 100)
@@ -218,7 +218,7 @@ class LandingPage(QWidget):
             if not update_database():
                 logger_setup.get_logger().critical('Error updating and displaying database')
                 return
-            from ui.Settings import SettingsDialog
+            from ui.settings.Settings import SettingsDialog
             settings_dialog = SettingsDialog()
             settings_dialog.settings_tabWidget.setCurrentIndex(2)
             # Set the current tab to the About Database tab
@@ -482,7 +482,7 @@ class LandingPage(QWidget):
         from Functions.Settings_manager import SettingsManager
         settings = SettingsManager().settings
         settings.setValue('default_settings', 'true')
-        from ui.Settings import reset_to_default_settings
+        from ui.settings.SettingsCore import reset_to_default_settings
         reset_to_default_settings()
         msg = QMessageBox(QMessageBox.Icon.Information, 'Restored', 'Default settings restored')
         msg.exec()

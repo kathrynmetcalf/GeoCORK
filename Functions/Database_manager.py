@@ -192,8 +192,8 @@ def update_database(database=None) -> bool:
         return False
 
     # Make sure the view column settings do not have any leftover old column names
-    from ui import Settings
-    if not Settings.update_column_settings():
+    from ui.settings import SettingsCore
+    if not SettingsCore.update_column_settings():
         logger_setup.get_logger().critical(f"Error updating database settings")
         loading_manager.close_loading_dialog('Loading', 'Updating database... \n(GeoCORK may be slower for large databases)')
         return False
