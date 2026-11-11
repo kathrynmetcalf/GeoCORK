@@ -22,7 +22,7 @@ from Functions import SQLUtils
 from Functions import Savepoint_manager
 from Functions.Database_manager import update_database
 from Functions.Settings_manager import SettingsManager
-from SampleMap import SampleMapWindow
+from ui.SampleMap import SampleMapWindow
 
 settings = SettingsManager().settings
 from Functions.Database_views import ViewQuery

@@ -16,7 +16,7 @@ from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.Widget_classes import (TreeModel, TreeContextMenu, expand_collapse, save_expanded_state,
                                       restore_expanded_state, show_loading_dialog, close_loading_dialog,
-                                      get_headers, get_name_column, description_column, set_table, ReadableProxyModel,
+                                      get_headers, get_name_column, get_description_column, set_table, ReadableProxyModel,
                                       get_id_from_name, TreeSortFilterProxyModel, get_name_from_id, SQLiteTableModel
                                       )
 

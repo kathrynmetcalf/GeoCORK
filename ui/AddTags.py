@@ -14,7 +14,7 @@ from Functions.Database_manager import update_database
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
-from Functions.Widget_classes import set_table, get_headers, get_name_column, description_column, ReadableProxyModel, \
+from Functions.Widget_classes import set_table, get_headers, get_name_column, get_description_column, ReadableProxyModel, \
     close_loading_dialog
 
 
@@ -67,7 +67,7 @@ class AddTags(QtW.QDialog):
         set_table(self.model, self.table)
         self.columns = get_headers(self.table)
         self.name_header = self.columns[get_name_column(self.table)]
-        self.description_header = self.columns[description_column(self.table)]
+        self.description_header = self.columns[get_description_column(self.table)]
         while self.model.canFetchMore():
             self.model.fetchMore()
         self.filter_proxy_model.setSourceModel(self.model)

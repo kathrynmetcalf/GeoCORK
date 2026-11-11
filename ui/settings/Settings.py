@@ -9,7 +9,7 @@ from PyQt6.QtCore import QPoint, QSize, Qt
 
 import logger_setup
 
-from LoadingDialog_manager import LoadingDialogManager
+from Functions.LoadingDialog_manager import LoadingDialogManager
 
 from ui.settings.SettingsCore import settings, reset_to_default_settings
 from ui.settings.UnitsFormatsTab import UnitsFormatsTab

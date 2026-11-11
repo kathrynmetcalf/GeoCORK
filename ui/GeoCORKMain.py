@@ -20,7 +20,7 @@ from Functions.BackupDatabase import BackupThread
 from Functions.Database_manager import update_database, turn_on_foreign_keys
 from Functions.Savepoint_manager import SavepointManager
 from Functions.Settings_manager import SettingsManager
-from SampleMap import SampleMapWindow
+from ui.SampleMap import SampleMapWindow
 
 settings = SettingsManager().settings
 from Functions.Text_manipulations import shrink_home, expand_home
@@ -31,6 +31,7 @@ from ui.Filters import Filters
 from ui.SampleInformation import SampleInformation
 from ui.settings.Settings import SettingsDialog
 from ui.ViewDataTab import ViewDataTab
+from ui.settings.SettingsCore import default_settings
 from PyQt6 import QtWebEngineWidgets
 
 
@@ -112,7 +113,7 @@ class GeoCORK(QtW.QMainWindow):
         # if not update_database():
         #     logger_setup.get_logger().critical('Error updating and displaying database')
         #     self.close()
-        # default_settings()
+        default_settings()
 
         self.tabWidget: PartiallyCloseableTabWidget
         self.tabWidget.set_permanent_tabs(['Data Tables', 'Filters', 'Export'])

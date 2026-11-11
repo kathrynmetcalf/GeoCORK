@@ -6,7 +6,7 @@ from PyQt6.QtGui import QFont, QFontDatabase
 from ui.SelectColumns import SelectColumns
 from ui.settings.SettingsCore import (settings, update_setting, update_stylesheet)
 from ui.settings.UnitsFormatsTab import fixed_height
-from LoadingDialog_manager import LoadingDialogManager
+from Functions.LoadingDialog_manager import LoadingDialogManager
 
 class TableDisplaysTab(QtW.QWidget):
     """

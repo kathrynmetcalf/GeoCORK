@@ -2008,7 +2008,7 @@ def get_name_column(table: str) -> int | None:
     else:
         return None
 
-def description_column(table: str) -> int | None:
+def get_description_column(table: str) -> int | None:
     """
     Returns the index of the column header containing 'Description'.
     :param table: Name of the SQL database table or view
@@ -2020,6 +2020,21 @@ def description_column(table: str) -> int | None:
         headers = get_headers(get_view_from_table(table))
     for header in headers:
         if 'Description' in header:
+            return headers.index(header)
+    return None
+
+def get_abbreviation_column(table: str) -> int | None:
+    """
+    Returns the index of the column header containing 'Abbreviation'.
+    :param table: Name of the SQL database table or view
+    :return: Returns the column number starting from 0
+    """
+    if 'View' in table:
+        headers = get_headers(table)
+    else:
+        headers = get_headers(get_view_from_table(table))
+    for header in headers:
+        if 'Abbreviation' in header:
             return headers.index(header)
     return None
 
@@ -2235,6 +2250,32 @@ def get_id_from_name(table: str, name: str) -> int:
     query.bindValue(":name", str(name))
     if not query.exec():
         logger_setup.get_logger().critical(f"Failed to get ID for {name} in {table}")
+        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        logger_setup.get_logger().debug(f"Bound values: {query.boundValues()}")
+        return None
+    query.next()
+    return query.value(0)
+
+def get_id_from_abbreviation(table: str, abbreviation: str) -> int:
+    """
+    Returns the primary id for a given abbreviation record in a table. Queries the database and returns the first column which
+    should always be the id column. Gathers the abbreviation column from the table headers.
+    :param table: Name of the table to query (e.g. ErrorFormats)
+    :param abbreviation: Abbreviation to retrieve the ID from (e.g. 1s%, 2sabs, etc.)
+    :return: ID (e.g. RockTypeID)
+    """
+    query = QtS.QSqlQuery()
+    headers = get_headers(table)
+    logger_setup.get_logger().info(f'Getting ID for {abbreviation} in {table}')
+    sql_query = f'SELECT {headers[0]} FROM "{table}" WHERE {headers[get_abbreviation_column(table)]}=:name COLLATE NOCASE'
+    # logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+    if not query.prepare(sql_query):
+        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+    query.bindValue(":name", str(abbreviation))
+    if not query.exec():
+        logger_setup.get_logger().critical(f"Failed to get ID for {abbreviation} in {table}")
         logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
         logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
         logger_setup.get_logger().debug(f"Bound values: {query.boundValues()}")
