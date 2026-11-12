@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import QVBoxLayout, QScrollArea, QSizePolicy, QWidget, QLis
 
 from Functions import SQLUtils
 import logger_setup
-from DataViewerWidget import DataViewerWidget
+from ui.DataViewerWidget import DataViewerWidget
 from Functions.Widget_classes import show_loading_dialog, close_loading_dialog
 from ui.filters.FilterHelpers import process_group
 from ui.filters.FilterGroupBox import FilterGroupBox

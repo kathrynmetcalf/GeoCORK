@@ -6,9 +6,9 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QLineEdit, QListWidget, QLayout, QSizePolicy, QListWidgetItem, QPushButton, QMessageBox)
 
 import logger_setup
-from DataViewerWidget import DataViewerWidget
+from ui.DataViewerWidget import DataViewerWidget
 from Functions.Widget_classes import show_loading_dialog
-from filters.SaveFilterDialog import SaveFilterDialog
+from ui.filters.SaveFilterDialog import SaveFilterDialog
 
 VIEWABLE_LABELS = {
         'Samples': 'Samples',
@@ -68,7 +68,7 @@ class FiltersTab(QWidget):
         self.root_layout.addLayout(self.right_column_layout)
 
         # Query builder goes beside the list (imported here, as before) - in right column
-        from filters.FilterQueryBuilder import FilterQueryBuilder
+        from ui.filters.FilterQueryBuilder import FilterQueryBuilder
         self.querybuilder = FilterQueryBuilder(self)
         self.right_column_layout.addWidget(self.querybuilder)
 

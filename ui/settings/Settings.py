@@ -9,8 +9,6 @@ from PyQt6.QtCore import QPoint, QSize, Qt
 
 import logger_setup
 
-from Functions.LoadingDialog_manager import LoadingDialogManager
-
 from ui.settings.SettingsCore import settings, reset_to_default_settings
 from ui.settings.UnitsFormatsTab import UnitsFormatsTab
 from ui.settings.TableDisplaysTab import TableDisplaysTab
@@ -110,8 +108,9 @@ class SettingsDialog(QtW.QDialog):
         Updates the settings to current values within each tab. Updates the database with new values of the About table.
         """
         # No longer using default settings
+        from Functions.Widget_classes import show_loading_dialog, close_loading_dialog
         logger_setup.get_logger().info('Updating settings')
-        LoadingDialogManager.show_loading_dialog('Updating', 'Updating settings...')
+        show_loading_dialog('Updating', 'Updating settings...')
         settings.setValue('default_settings', 'false')
 
         if not self.units_formats_tab.save():
@@ -121,7 +120,7 @@ class SettingsDialog(QtW.QDialog):
         self.ui_tab.save(stylesheet_updated)
 
         self.populate_fields()
-        LoadingDialogManager.close_loading_dialog('Updating', 'Updating settings...')
+        close_loading_dialog('Updating', 'Updating settings...')
         logger_setup.get_logger().info('Updated settings successfully')
         self.updated = True
 
@@ -136,12 +135,13 @@ class SettingsDialog(QtW.QDialog):
         """
         Restores the default settings for the application. This is called when the user clicks the Restore Defaults
         """
-        LoadingDialogManager.show_loading_dialog('Restoring Default Settings', 'Currently updating settings...')
+        from Functions.Widget_classes import show_loading_dialog, close_loading_dialog
+        show_loading_dialog('Restoring Default Settings', 'Currently updating settings...')
         logger_setup.get_logger().info('Restoring default settings')
         settings.setValue('default_settings', 'true')
         reset_to_default_settings()
         self.populate_fields()
-        LoadingDialogManager.close_loading_dialog('Restoring Default Settings', 'Currently updating settings...')
+        close_loading_dialog('Restoring Default Settings', 'Currently updating settings...')
 
     def close(self):
         self.saveWindowState()
