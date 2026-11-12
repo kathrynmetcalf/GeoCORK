@@ -5,9 +5,9 @@ import sys
 import time
 
 import qtawesome
-from PyQt6 import QtCore, QtWidgets
-from PyQt6.QtCore import Qt, QAbstractTableModel, QSize
-from PyQt6.QtGui import QDesktopServices, QShowEvent
+from PyQt6 import QtCore
+from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtSql import QSqlDatabase, QSqlQueryModel, QSqlQuery, QSqlTableModel
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QTableView,
@@ -20,19 +20,17 @@ from openpyxl import Workbook
 
 import logger_setup
 from Functions.Database_manager import update_database
-from Functions import ExportDatabase, Settings_manager
+from Functions import ExportDatabase
 from Functions import SQLUtils
 from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
 from Functions.Database_views import ViewQuery
 from Functions.Widget_classes import (ReadableProxyModel, SQLiteTableModel, find_parent_items, show_loading_dialog,
-                                      close_loading_dialog, columns_as_list, get_total_records, populate_combo_box,
-                                      find_current_sub_items)
+                                      close_loading_dialog, columns_as_list, get_total_records, populate_combo_box)
 from Functions.Settings_manager import SettingsManager
 
 settings = SettingsManager().settings
 from Functions.Widget_classes import CheckableComboBox
-from ui import Filters
-from ui.DisplayTablesSimplified import DisplayTablesSimplified
+from filters import FiltersTab
 from ui.FlowLayout import FlowLayout
 
 

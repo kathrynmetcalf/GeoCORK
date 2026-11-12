@@ -27,7 +27,7 @@ from Functions.Text_manipulations import shrink_home, expand_home
 from Functions.Widget_classes import PartiallyCloseableTabWidget, get_name_from_id, close_loading_dialog, show_loading_dialog
 from ui.DisplayTables import DisplayTables
 from ui.ExportWidget import ExportWidget
-from ui.Filters import Filters
+from ui.filters.FiltersTab import FiltersTab
 from ui.SampleInformation import SampleInformation
 from ui.settings.Settings import SettingsDialog
 from ui.ViewDataTab import ViewDataTab
@@ -118,7 +118,7 @@ class GeoCORK(QtW.QMainWindow):
         self.tabWidget: PartiallyCloseableTabWidget
         self.tabWidget.set_permanent_tabs(['Data Tables', 'Filters', 'Export'])
         self.tabWidget.addTab(DisplayTables(self), 'Data Tables')
-        self.tabWidget.addTab(Filters(self), 'Filters')
+        self.tabWidget.addTab(FiltersTab(self), 'Filters')
         self.tabWidget.addTab(ExportWidget(self), 'Export')
 
         self.tabWidget.setCurrentIndex(0)

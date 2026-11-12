@@ -3,8 +3,8 @@ import re
 import sys
 import time
 import webbrowser
-
 import qtawesome
+
 from PyQt6.QtCore import QPoint, QSize, QTimer, Qt, QRegularExpression, QModelIndex, QStringListModel
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import (QWidget, QComboBox, QPushButton, QMessageBox, QCompleter, QLineEdit, QStackedWidget,
@@ -46,9 +46,11 @@ class DataViewerWidget(QWidget):
         """
         start_time = time.time()
         super().__init__(parent=None)
-        from ui.Filters import QueryBuilder
+
+        from ui.filters.FiltersTab import FiltersTab
         from ui.ExportWidget import ExportWidget
-        if isinstance(parent_class, QueryBuilder):
+
+        if isinstance(parent_class, FiltersTab):
             self.query_builder = parent_class
             self.filtered_sample_ids = None
         elif isinstance(parent_class, ExportWidget):
@@ -184,7 +186,7 @@ class DataViewerWidget(QWidget):
         new_table = self.dbTable_comboBox.currentText()
         # show_loading_dialog('Loading', f'Loading {new_table}...')
         if self.query_builder:
-            filtered_ids = self.query_builder.get_filtered_ids(new_table)
+            filtered_ids = self.query_builder.querybuilder.get_filtered_ids(new_table)
         else:
             if new_table == 'Samples':
                 filtered_ids = self.filtered_sample_ids
