@@ -10,7 +10,7 @@ from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import (QWidget, QComboBox, QPushButton, QMessageBox, QCompleter, QLineEdit, QStackedWidget,
                              QTableWidgetItem, QAbstractItemView, QAbstractScrollArea, QHeaderView, QInputDialog,
                              QTableView, QMenu, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QSpacerItem, QSizePolicy,
-                             QVBoxLayout)
+                             QVBoxLayout, QSplitter)
 from PyQt6.QtGui import QAction
 from PyQt6.uic import loadUi
 
@@ -161,7 +161,14 @@ class DataViewerWidget(QWidget):
         logger_setup.get_logger().info(f'Displayed filtered view in {end_time - start_time} seconds')
 
     def build_ui(self):
-        self.root_layout = QGridLayout(self)
+        self.root_layout = QHBoxLayout(self)
+        self.setLayout(self.root_layout)
+
+        self.left_widget = QWidget(parent=self)
+        self.left_widget.setLayout(QVBoxLayout())
+
+        self.right_widget = QWidget(parent=self)
+        self.right_widget.setLayout(QVBoxLayout())
 
         # ---- Row 0, col 0: left header bar ----
         self.filtered_data_selector_groupbox = QGroupBox(self)
@@ -204,7 +211,7 @@ class DataViewerWidget(QWidget):
 
         self.filtered_data_selector_groupbox.layout().addWidget(bottomleft_placeholder)
 
-        self.root_layout.addWidget(self.filtered_data_selector_groupbox, 0, 0)
+        self.left_widget.layout().addWidget(self.filtered_data_selector_groupbox)
 
         # ---- Row 0, col 1: right header bar ----
         self.related_data_selector_groupbox = QGroupBox(self)
@@ -248,11 +255,12 @@ class DataViewerWidget(QWidget):
         bottomright_placeholder.layout().addWidget(self.related_edit_pushButton)
 
         self.related_refresh_pushButton = QPushButton(parent=self.related_data_selector_groupbox)
+        self.related_refresh_pushButton.setFixedWidth(25)
         bottomright_placeholder.layout().addWidget(self.related_refresh_pushButton)
 
         self.related_data_selector_groupbox.layout().addWidget(bottomright_placeholder)
 
-        self.root_layout.addWidget(self.related_data_selector_groupbox, 0, 1)
+        self.right_widget.layout().addWidget(self.related_data_selector_groupbox)
 
         # ---- Row 1, col 0: left stacked widget (table / tree) ----
         self.db_stackedWidget = QStackedWidget(self)
@@ -275,7 +283,7 @@ class DataViewerWidget(QWidget):
         self.db_stackedWidget.addWidget(self.db_tree)
 
         self.db_stackedWidget.setCurrentIndex(0)
-        self.root_layout.addWidget(self.db_stackedWidget, 1, 0)
+        self.left_widget.layout().addWidget(self.db_stackedWidget)
 
         # ---- Row 1, col 1: right stacked widget (table / tree) ----
         self.db_stackedWidget_2 = QStackedWidget(self)
@@ -295,15 +303,15 @@ class DataViewerWidget(QWidget):
         self.db_stackedWidget_2.addWidget(self.db_tree_2)
 
         self.db_stackedWidget_2.setCurrentIndex(1)
-        self.root_layout.addWidget(self.db_stackedWidget_2, 1, 1)
+        self.right_widget.layout().addWidget(self.db_stackedWidget_2)
 
         # ---- Row 2: notes ----
         self.label_4 = QLabel("Note: Contains filtered subset from filters", self)
-        self.root_layout.addWidget(self.label_4, 2, 0)
+        self.right_widget.layout().addWidget(self.label_4)
 
         self.label_3 = QLabel("Note: Displays all related data based on selected left value(s), filters do not apply",
                               self)
-        self.root_layout.addWidget(self.label_3, 2, 1)
+        self.right_widget.layout().addWidget(self.label_3)
 
         # ---- Row 3, col 0: left paging bar ----
         self.horizontalLayout_3 = QHBoxLayout()
@@ -329,7 +337,7 @@ class DataViewerWidget(QWidget):
         self.verticalLayout_4.addWidget(self.goto_line_edit)
         self.horizontalLayout_3.addLayout(self.verticalLayout_4)
 
-        self.root_layout.addLayout(self.horizontalLayout_3, 3, 0)
+        self.left_widget.layout().addLayout(self.horizontalLayout_3)
 
         # ---- Row 3, col 1: right paging bar ----
         self.horizontalLayout_4 = QHBoxLayout()
@@ -355,7 +363,13 @@ class DataViewerWidget(QWidget):
         self.verticalLayout_5.addWidget(self.goto_line_edit_2)
         self.horizontalLayout_4.addLayout(self.verticalLayout_5)
 
-        self.root_layout.addLayout(self.horizontalLayout_4, 3, 1)
+        self.right_widget.layout().addLayout(self.horizontalLayout_4)
+
+        self.splitter = QSplitter(Qt.Orientation.Horizontal, self)
+        self.splitter.addWidget(self.left_widget)
+        self.splitter.addWidget(self.right_widget)
+
+        self.root_layout.addWidget(self.splitter)
 
     # creates ids_to_show string in format (id1, id2, id3, ...)
     # ids_to_show is a filtered list of ids to show in the table
