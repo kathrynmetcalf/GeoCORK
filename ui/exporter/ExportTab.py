@@ -34,9 +34,9 @@ from ui.filters import FiltersTab
 from ui.FlowLayout import FlowLayout
 
 
-class ExportWidget(QWidget):
+class ExportTab(QWidget):
     """
-    ExportWidget is the main widget for exporting data from the database. The exporter allows users to select columns
+    ExportTab is the main widget for exporting data from the database. The exporter allows users to select columns
     to export, apply filters, and save the data to various formats such as CSV, Excel, or Database.
     """
 

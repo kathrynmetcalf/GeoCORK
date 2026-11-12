@@ -9,7 +9,8 @@ from PyQt6.QtCore import QPoint, QSize, QTimer, Qt, QRegularExpression, QModelIn
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import (QWidget, QComboBox, QPushButton, QMessageBox, QCompleter, QLineEdit, QStackedWidget,
                              QTableWidgetItem, QAbstractItemView, QAbstractScrollArea, QHeaderView, QInputDialog,
-                             QTableView, QMenu)
+                             QTableView, QMenu, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QSpacerItem, QSizePolicy,
+                             QVBoxLayout)
 from PyQt6.QtGui import QAction
 from PyQt6.uic import loadUi
 
@@ -22,7 +23,7 @@ from Functions.Widget_classes import (
     SQLiteTableModel, TreeSortFilterProxyModel, TreeModel, WordWrapDelegate, get_name_column,
     ReadableProxyModel, get_id_from_name, get_record_row, columns_as_list, get_view_from_table, find_current_sub_items,
     show_loading_dialog, close_loading_dialog, TrackExpandedTreeView, TreeContextMenu, expand_collapse,
-    scroll_to_record)
+    scroll_to_record, FrozenTableView)
 from Functions.Widget_classes import get_headers
 from ui.SampleInformation import SampleInformation
 from Functions.Settings_manager import SettingsManager
@@ -48,12 +49,12 @@ class DataViewerWidget(QWidget):
         super().__init__(parent=None)
 
         from ui.filters.FiltersTab import FiltersTab
-        from ui.ExportWidget import ExportWidget
+        from ui.exporter.ExportTab import ExportTab
 
         if isinstance(parent_class, FiltersTab):
             self.query_builder = parent_class
             self.filtered_sample_ids = None
-        elif isinstance(parent_class, ExportWidget):
+        elif isinstance(parent_class, ExportTab):
             self.query_builder = None
             self.filtered_sample_ids = ids_to_show
 
@@ -77,16 +78,17 @@ class DataViewerWidget(QWidget):
             pass
 
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-        sources_ui_file = os.path.join(base_path, "DataViewerWidget.ui")
-        loadUi(sources_ui_file, self)
+        # sources_ui_file = os.path.join(base_path, "DataViewerWidget.ui")
+        # loadUi(sources_ui_file, self)
+        self.build_ui()
 
         self.loadWindowState()
 
         # Display and connect the refresh buttons
-        self.refresh_pushButton.setIcon(qtawesome.icon('fa6s.rotate-right', color='green', scale_factor=1.0))
-        self.refresh_pushButton.clicked.connect(self.data_table_switcher)
-        self.refresh_pushButton_2.setIcon(qtawesome.icon('fa6s.rotate-right', color='green', scale_factor=1.0))
-        self.refresh_pushButton_2.clicked.connect(self.data_filter_table_switcher)
+        self.filtered_refresh_pushButton.setIcon(qtawesome.icon('fa6s.rotate-right', color='green', scale_factor=1.0))
+        self.filtered_refresh_pushButton.clicked.connect(self.data_table_switcher)
+        self.related_refresh_pushButton.setIcon(qtawesome.icon('fa6s.rotate-right', color='green', scale_factor=1.0))
+        self.related_refresh_pushButton.clicked.connect(self.data_filter_table_switcher)
 
         # Remove Samples from user-viewable tables
         items = SQLUtils.user_viewable_tables.copy()
@@ -102,16 +104,16 @@ class DataViewerWidget(QWidget):
         items.append('UPbReferences')
         items.append('UPbAgeInterpretations')
         items.sort()
-        self.dbTable_comboBox_2.addItems(items)
-        self.dbTable_comboBox_2.setCurrentText(self.data_filtered_table)
+        self.related_data_combobox.addItems(items)
+        self.related_data_combobox.setCurrentText(self.data_filtered_table)
 
-        self.dbTable_comboBox.addItems(['Samples', 'Aliquots', 'Grains', 'Spots', 'UPbAnalyses'])
-        self.dbTable_comboBox.setCurrentText(self.data_table)
+        self.filtered_data_hierarchy_combobox.addItems(['Samples', 'Aliquots', 'Grains', 'Spots', 'UPbAnalyses'])
+        self.filtered_data_hierarchy_combobox.setCurrentText(self.data_table)
 
-        self.dbTable_comboBox.currentTextChanged.connect(self.data_table_switcher)
+        self.filtered_data_hierarchy_combobox.currentTextChanged.connect(self.data_table_switcher)
 
         # Display filtered table for the first time
-        self.dbTable_comboBox_2.currentTextChanged.connect(self.data_filter_table_switcher)
+        self.related_data_combobox.currentTextChanged.connect(self.data_filter_table_switcher)
 
         self.dbTable_tableView_2.doubleClicked.connect(self.open_doi_link)
         # Pagination variables
@@ -127,7 +129,7 @@ class DataViewerWidget(QWidget):
         self.show_per_page_comboBox_2.setCurrentText(str(self.rows_per_page))
         self.current_page_2 = 0
         self.rows_per_page_2 = self.rows_per_page
-        self.total_records_2 = self.get_total_records_2(self.dbTable_comboBox_2)
+        self.total_records_2 = self.get_total_records_2(self.related_data_combobox)
         self.show_per_page_comboBox_2.currentTextChanged.connect(self.change_rows_per_page_2)
 
         self.goto_line_edit.returnPressed.connect(self.go_to_record_1)
@@ -141,10 +143,10 @@ class DataViewerWidget(QWidget):
 
         self.dbTable_treeView_2.customContextMenuRequested.connect(self.show_context_menu_2)
 
-        self.edit_pushButton.clicked.connect(
-            lambda: self.edit_popup(self.dbTable_treeView, self.dbTable_comboBox))
+        self.filtered_edit_pushButton.clicked.connect(
+            lambda: self.edit_popup(self.dbTable_treeView, self.filtered_data_hierarchy_combobox))
 
-        self.search_lineEdit.returnPressed.connect(lambda: self.search(self.search_lineEdit, self.data_table_proxy_model))
+        self.filtered_search_lineEdit.returnPressed.connect(lambda: self.search(self.filtered_search_lineEdit, self.data_table_proxy_model))
 
         self.selectionTimer = QTimer()
         self.selectionTimer.setSingleShot(True)
@@ -157,6 +159,203 @@ class DataViewerWidget(QWidget):
         end_time = time.time()
         close_loading_dialog('Loading', f'Loading {len(ids_to_show)} {self.data_table}...')
         logger_setup.get_logger().info(f'Displayed filtered view in {end_time - start_time} seconds')
+
+    def build_ui(self):
+        self.root_layout = QGridLayout(self)
+
+        # ---- Row 0, col 0: left header bar ----
+        self.filtered_data_selector_groupbox = QGroupBox(self)
+        self.filtered_data_selector_groupbox.setLayout(QVBoxLayout())
+        self.filtered_data_selector_groupbox.layout().setSpacing(0)
+        self.filtered_data_selector_groupbox.setContentsMargins(11, 5, 5, 11) # default is 11
+        self.filtered_data_selector_groupbox.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed))
+        self.filtered_data_selector_groupbox.setTitle("View Filtered High-Level Sample, Aliquot, Grain, Spot, UPb Data or Geochem Data")
+        self.filtered_data_selector_groupbox.setFixedHeight(125)
+
+        # ----------
+        # label for selecting filtered data in the hierarchy (e.g., samples, aliquots, grains, spots, UPb, Geochem)
+        topleft_placeholder = QWidget(parent=self.filtered_data_selector_groupbox)
+        topleft_placeholder.setLayout(QHBoxLayout())
+        topleft_placeholder.layout().setContentsMargins(0, 0, 0, 0)
+        topleft_placeholder.layout().addWidget(QLabel("Search Filtered Data View: ", self.filtered_data_selector_groupbox))
+
+        self.filtered_search_lineEdit = QLineEdit(self.filtered_data_selector_groupbox)
+        self.filtered_search_lineEdit.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed))
+        self.filtered_search_lineEdit.setPlaceholderText("search this page")
+        topleft_placeholder.layout().addWidget(self.filtered_search_lineEdit)
+
+        self.filtered_data_selector_groupbox.layout().addWidget(topleft_placeholder)
+        # -----------
+
+        bottomleft_placeholder = QWidget(parent=self.filtered_data_selector_groupbox)
+        bottomleft_placeholder.setLayout(QHBoxLayout())
+        bottomleft_placeholder.layout().setContentsMargins(0, 0, 0, 0)
+        self.filtered_data_hierarchy_combobox = QComboBox(self.filtered_data_selector_groupbox)
+        self.filtered_data_hierarchy_combobox.setToolTip("Switch between various metadata levels to view")
+        bottomleft_placeholder.layout().addWidget(self.filtered_data_hierarchy_combobox)
+
+        self.filtered_edit_pushButton = QPushButton("Edit Table", self.filtered_data_selector_groupbox)
+        self.filtered_edit_pushButton.setToolTip("Opens an edit dialog to modify the given items seen")
+        bottomleft_placeholder.layout().addWidget(self.filtered_edit_pushButton)
+
+        self.filtered_refresh_pushButton = QPushButton(self.filtered_data_selector_groupbox)
+        self.filtered_refresh_pushButton.setFixedWidth(25)
+        bottomleft_placeholder.layout().addWidget(self.filtered_refresh_pushButton)
+
+        self.filtered_data_selector_groupbox.layout().addWidget(bottomleft_placeholder)
+
+        self.root_layout.addWidget(self.filtered_data_selector_groupbox, 0, 0)
+
+        # ---- Row 0, col 1: right header bar ----
+        self.related_data_selector_groupbox = QGroupBox(self)
+        self.related_data_selector_groupbox.setLayout(QVBoxLayout())
+        self.related_data_selector_groupbox.layout().setSpacing(0)
+        self.related_data_selector_groupbox.setContentsMargins(11, 5, 5, 11)  # default is 11
+        self.related_data_selector_groupbox.setSizePolicy(
+            QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed))
+        self.related_data_selector_groupbox.setTitle(
+            "View Related Metadata Based On High-Level Selection(s)")
+        self.related_data_selector_groupbox.setFixedHeight(125)
+
+        # ----------
+        # label for selecting related data in the database based on selection
+        topright_placeholder = QWidget(parent=self.related_data_selector_groupbox)
+        topright_placeholder.setLayout(QHBoxLayout())
+        topright_placeholder.layout().setContentsMargins(0, 0, 0, 0)
+        topright_placeholder.layout().addWidget(QLabel("Search Related Data View: ", self.related_data_selector_groupbox))
+
+        self.related_search_lineEdit = QLineEdit(self.related_data_selector_groupbox)
+        self.related_search_lineEdit.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed))
+        self.related_search_lineEdit.setPlaceholderText("search this page")
+        topright_placeholder.layout().addWidget(self.related_search_lineEdit)
+
+        self.related_data_selector_groupbox.layout().addWidget(topright_placeholder)
+        # -----------
+
+        bottomright_placeholder = QWidget(parent=self.related_data_selector_groupbox)
+        bottomright_placeholder.setLayout(QHBoxLayout())
+        bottomright_placeholder.layout().setContentsMargins(0, 0, 0, 0)
+        self.related_data_combobox = QComboBox(parent=self.related_data_selector_groupbox)
+        self.related_data_combobox.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.related_data_combobox.setToolTip(
+            "Switch between various tables to see the related metadata associated with the left table"
+        )
+        self.related_data_combobox.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        bottomright_placeholder.layout().addWidget(self.related_data_combobox)
+
+        self.related_edit_pushButton = QPushButton("Edit Table", parent=self.related_data_selector_groupbox)
+        self.related_edit_pushButton.setToolTip("Opens an edit dialog for the given table")
+        bottomright_placeholder.layout().addWidget(self.related_edit_pushButton)
+
+        self.related_refresh_pushButton = QPushButton(parent=self.related_data_selector_groupbox)
+        bottomright_placeholder.layout().addWidget(self.related_refresh_pushButton)
+
+        self.related_data_selector_groupbox.layout().addWidget(bottomright_placeholder)
+
+        self.root_layout.addWidget(self.related_data_selector_groupbox, 0, 1)
+
+        # ---- Row 1, col 0: left stacked widget (table / tree) ----
+        self.db_stackedWidget = QStackedWidget(self)
+        self.db_stackedWidget.setLineWidth(1)
+
+        self.db_table = QWidget()
+        vlayout = QVBoxLayout(self.db_table)
+        vlayout.setContentsMargins(0, 11, 0, 0)
+        self.dbTable_tableView = FrozenTableView(self.db_table)
+        vlayout.addWidget(self.dbTable_tableView)
+
+        self.db_stackedWidget.addWidget(self.db_table)
+
+        self.db_tree = QWidget()
+        vlayout = QVBoxLayout(self.db_tree)
+        vlayout.setContentsMargins(0, 11, 0, 0)
+        self.dbTable_treeView = TrackExpandedTreeView(self.db_tree)
+        vlayout.addWidget(self.dbTable_treeView)
+
+        self.db_stackedWidget.addWidget(self.db_tree)
+
+        self.db_stackedWidget.setCurrentIndex(0)
+        self.root_layout.addWidget(self.db_stackedWidget, 1, 0)
+
+        # ---- Row 1, col 1: right stacked widget (table / tree) ----
+        self.db_stackedWidget_2 = QStackedWidget(self)
+
+        self.db_tableView_2 = QWidget()
+        self.verticalLayout = QVBoxLayout(self.db_tableView_2)
+        self.verticalLayout.setContentsMargins(0, self.verticalLayout.contentsMargins().top(), 0, 0)
+        self.dbTable_tableView_2 = QTableView(self.db_tableView_2)
+        self.verticalLayout.addWidget(self.dbTable_tableView_2)
+        self.db_stackedWidget_2.addWidget(self.db_tableView_2)
+
+        self.db_tree_2 = QWidget()
+        self.verticalLayout_3 = QVBoxLayout(self.db_tree_2)
+        self.verticalLayout_3.setContentsMargins(0, self.verticalLayout_3.contentsMargins().top(), 0, 0)
+        self.dbTable_treeView_2 = TrackExpandedTreeView(self.db_tree_2)
+        self.verticalLayout_3.addWidget(self.dbTable_treeView_2)
+        self.db_stackedWidget_2.addWidget(self.db_tree_2)
+
+        self.db_stackedWidget_2.setCurrentIndex(1)
+        self.root_layout.addWidget(self.db_stackedWidget_2, 1, 1)
+
+        # ---- Row 2: notes ----
+        self.label_4 = QLabel("Note: Contains filtered subset from filters", self)
+        self.root_layout.addWidget(self.label_4, 2, 0)
+
+        self.label_3 = QLabel("Note: Displays all related data based on selected left value(s), filters do not apply",
+                              self)
+        self.root_layout.addWidget(self.label_3, 2, 1)
+
+        # ---- Row 3, col 0: left paging bar ----
+        self.horizontalLayout_3 = QHBoxLayout()
+
+        self.prev_button = QPushButton("Back", self)
+        self.horizontalLayout_3.addWidget(self.prev_button)
+
+        self.next_button = QPushButton("Next", self)
+        self.horizontalLayout_3.addWidget(self.next_button)
+
+        self.show_per_page_label = QLabel("Show per page:", self)
+        self.horizontalLayout_3.addWidget(self.show_per_page_label)
+
+        self.show_per_page_comboBox = QComboBox(self)
+        self.horizontalLayout_3.addWidget(self.show_per_page_comboBox)
+
+        self.verticalLayout_4 = QVBoxLayout()
+        self.page_info_label = QLabel("TextLabel", self)
+        self.verticalLayout_4.addWidget(self.page_info_label)
+
+        self.goto_line_edit = QLineEdit(self)
+        self.goto_line_edit.setPlaceholderText("Go to record name")
+        self.verticalLayout_4.addWidget(self.goto_line_edit)
+        self.horizontalLayout_3.addLayout(self.verticalLayout_4)
+
+        self.root_layout.addLayout(self.horizontalLayout_3, 3, 0)
+
+        # ---- Row 3, col 1: right paging bar ----
+        self.horizontalLayout_4 = QHBoxLayout()
+
+        self.prev_button_2 = QPushButton("Back", self)
+        self.horizontalLayout_4.addWidget(self.prev_button_2)
+
+        self.next_button_2 = QPushButton("Next", self)
+        self.horizontalLayout_4.addWidget(self.next_button_2)
+
+        self.show_per_page_label_2 = QLabel("Show per page:", self)
+        self.horizontalLayout_4.addWidget(self.show_per_page_label_2)
+
+        self.show_per_page_comboBox_2 = QComboBox(self)
+        self.horizontalLayout_4.addWidget(self.show_per_page_comboBox_2)
+
+        self.verticalLayout_5 = QVBoxLayout()
+        self.page_info_label_2 = QLabel("TextLabel", self)
+        self.verticalLayout_5.addWidget(self.page_info_label_2)
+
+        self.goto_line_edit_2 = QLineEdit(self)
+        self.goto_line_edit_2.setPlaceholderText("Go to record name")
+        self.verticalLayout_5.addWidget(self.goto_line_edit_2)
+        self.horizontalLayout_4.addLayout(self.verticalLayout_5)
+
+        self.root_layout.addLayout(self.horizontalLayout_4, 3, 1)
 
     # creates ids_to_show string in format (id1, id2, id3, ...)
     # ids_to_show is a filtered list of ids to show in the table
@@ -183,7 +382,7 @@ class DataViewerWidget(QWidget):
         if self.data_table == 'Aliquots':
             self.dbTable_treeView.collapseAll()
             # save_expanded_state(self.data_table, self.dbTable_treeView)
-        new_table = self.dbTable_comboBox.currentText()
+        new_table = self.filtered_data_hierarchy_combobox.currentText()
         # show_loading_dialog('Loading', f'Loading {new_table}...')
         if self.query_builder:
             filtered_ids = self.query_builder.querybuilder.get_filtered_ids(new_table)
@@ -217,7 +416,7 @@ class DataViewerWidget(QWidget):
         if filtered_ids is None:
             logger_setup.get_logger().error(
                 f'No matching {new_table} for given filter(s)')
-            self.dbTable_comboBox.setCurrentText(self.data_table)
+            self.filtered_data_hierarchy_combobox.setCurrentText(self.data_table)
             # close_loading_dialog('Loading', f'Loading {new_table}...')
             return
         else:
@@ -243,7 +442,7 @@ class DataViewerWidget(QWidget):
         if self.data_filtered_table in SQLUtils.user_viewable_trees:
             self.dbTable_treeView_2.collapseAll()
             # save_expanded_state(self.data_filtered_table, self.dbTable_treeView_2)
-        table = self.dbTable_comboBox_2.currentText()
+        table = self.related_data_combobox.currentText()
         if table in SQLUtils.as_table_dict:
             table = SQLUtils.as_table_dict[table]
         if table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees:
@@ -425,7 +624,7 @@ class DataViewerWidget(QWidget):
             close_loading_dialog('Loading', msg)
             return
 
-        self.edit_pushButton.setText(f"Edit {self.data_table}")
+        self.filtered_edit_pushButton.setText(f"Edit {self.data_table}")
 
         # Select all rows by default
         if self.data_table == 'Aliquots':
@@ -452,7 +651,7 @@ class DataViewerWidget(QWidget):
         Displays the selected table
         :return:
         """
-        show_loading_dialog('Loading', f'Displaying filtered {self.dbTable_comboBox_2.currentText()}...')
+        show_loading_dialog('Loading', f'Displaying filtered {self.related_data_combobox.currentText()}...')
         if self.data_table == 'Aliquots':
             data_filter_view = self.dbTable_treeView
         else:
@@ -460,22 +659,22 @@ class DataViewerWidget(QWidget):
 
         if ((self.current_selection == data_filter_view.selectionModel().selectedIndexes()) and
             (not data_filter_view.selectionModel().hasSelection())):
-            close_loading_dialog('Loading', f'Displaying filtered {self.dbTable_comboBox_2.currentText()}...')
+            close_loading_dialog('Loading', f'Displaying filtered {self.related_data_combobox.currentText()}...')
             return
         elif not data_filter_view.selectionModel().hasSelection():
-            close_loading_dialog('Loading', f'Displaying filtered {self.dbTable_comboBox_2.currentText()}...')
+            close_loading_dialog('Loading', f'Displaying filtered {self.related_data_combobox.currentText()}...')
             return
         else:
             self.current_selection = data_filter_view.selectionModel().selectedIndexes()
         self.data_filtered_table_model = None
         self.data_filtered_table_proxy_model = None
 
-        self.edit_pushButton_2.setText(f"Edit {self.dbTable_comboBox_2.currentText()}")
-        self.data_filtered_table = TxM.remove_spaces(self.dbTable_comboBox_2.currentText())
+        self.related_edit_pushButton.setText(f"Edit {self.related_data_combobox.currentText()}")
+        self.data_filtered_table = TxM.remove_spaces(self.related_data_combobox.currentText())
         if self.data_filtered_table == 'Ages':
-            self.edit_pushButton_2.hide()
+            self.related_edit_pushButton.hide()
         else:
-            self.edit_pushButton_2.show()
+            self.related_edit_pushButton.show()
         show_cols = ['*']
         if self.data_filtered_table == "References" or "References" in self.data_filtered_table:
             show_cols = settings.value('reference_view_columns')
@@ -565,10 +764,10 @@ class DataViewerWidget(QWidget):
                 case 'UPbAnalyses':
                     table_condition = f"WHERE UPbAnalyses.UPbAnalysisID {sql_selected_data_filter_ids}"
             close_loading_dialog('Loading',
-                                                      f'Displaying filtered {self.dbTable_comboBox_2.currentText()}...')
+                                                      f'Displaying filtered {self.related_data_combobox.currentText()}...')
         else:
             close_loading_dialog('Loading',
-                                                      f'Displaying filtered {self.dbTable_comboBox_2.currentText()}...')
+                                                      f'Displaying filtered {self.related_data_combobox.currentText()}...')
             return
 
         sql += table_condition
@@ -592,11 +791,11 @@ class DataViewerWidget(QWidget):
         # Update the id_condition attribute
 
         try:
-            self.search_lineEdit_2.editingFinsihed.disconnect()
+            self.related_search_lineEdit.editingFinsihed.disconnect()
         except:
             pass
         try:
-            self.edit_pushButton_2.clicked.disconnect()
+            self.related_edit_pushButton.clicked.disconnect()
         except:
             pass
 
@@ -645,17 +844,17 @@ class DataViewerWidget(QWidget):
                 self.dbTable_treeView_2.model().update_visible_columns()
             self.page_info_label_2.setText(f'{self.total_records_2} {self.data_filtered_table}')
 
-            self.search_lineEdit_2.returnPressed.connect(
-                lambda: self.search(self.search_lineEdit_2, tree_proxy_model, self.dbTable_treeView_2))
+            self.related_search_lineEdit.returnPressed.connect(
+                lambda: self.search(self.related_search_lineEdit, tree_proxy_model, self.dbTable_treeView_2))
 
-            self.edit_pushButton_2.clicked.connect(
-                lambda: self.edit_popup(self.dbTable_treeView_2, self.dbTable_comboBox_2))
+            self.related_edit_pushButton.clicked.connect(
+                lambda: self.edit_popup(self.dbTable_treeView_2, self.related_data_combobox))
             logger_setup.get_logger().info(
                 f'Sucessfully displayed {self.data_filtered_table} with selection-based filter')
 
         elif self.data_filtered_table in SQLUtils.user_viewable_tables:
             self.set_go_to_completer(self.goto_line_edit_2, get_headers(self.data_filtered_table)[get_name_column(self.data_filtered_table)], self.data_filtered_table)
-            self.total_records_2 = self.get_total_records_2(self.dbTable_comboBox_2)
+            self.total_records_2 = self.get_total_records_2(self.related_data_combobox)
             offset = self.current_page_2 * self.rows_per_page_2
             if self.data_filtered_table == 'Columns' or self.data_filtered_table == 'References':
                 show_cols = settings.value(SQLUtils.view_setting_dict[get_view_from_table(self.data_filtered_table)])
@@ -700,10 +899,10 @@ class DataViewerWidget(QWidget):
             self.dbTable_tableView_2.setSizeAdjustPolicy(
                 QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
 
-            self.search_lineEdit_2.returnPressed.connect(
-                lambda: self.search(self.search_lineEdit_2, self.data_filtered_table_proxy_model))
-            self.edit_pushButton_2.clicked.connect(
-                lambda: self.edit_popup(self.dbTable_treeView_2, self.dbTable_comboBox_2))
+            self.related_search_lineEdit.returnPressed.connect(
+                lambda: self.search(self.related_search_lineEdit, self.data_filtered_table_proxy_model))
+            self.related_edit_pushButton.clicked.connect(
+                lambda: self.edit_popup(self.dbTable_treeView_2, self.related_data_combobox))
 
             # Update page info label
             start_record = offset + 1
@@ -714,7 +913,7 @@ class DataViewerWidget(QWidget):
             logger_setup.get_logger().info(f'Sucessfully displayed {self.data_filtered_table} with selection-based filter')
 
 
-        close_loading_dialog('Loading', f'Displaying filtered {self.dbTable_comboBox_2.currentText()}...')
+        close_loading_dialog('Loading', f'Displaying filtered {self.related_data_combobox.currentText()}...')
 
     def show_context_menu_2(self, pos):
         """
@@ -747,7 +946,7 @@ class DataViewerWidget(QWidget):
         :return:
         """
         if action.text() == 'Edit':
-            self.edit_popup(self.dbTable_treeView_2, self.dbTable_comboBox_2)
+            self.edit_popup(self.dbTable_treeView_2, self.related_data_combobox)
         elif 'Expand' in action.text() or 'Collapse' in action.text():
             expand_collapse(self.dbTable_treeView_2, action)
 
@@ -758,7 +957,7 @@ class DataViewerWidget(QWidget):
         :return:
         """
         if action.text() == 'Edit':
-            self.edit_popup(self.dbTable_treeView_2, self.dbTable_comboBox_2)
+            self.edit_popup(self.dbTable_treeView_2, self.related_data_combobox)
 
     def edit_popup(self, dbTable_treeView, dbTable_comboBox):
         dbTable_comboBox: QComboBox
@@ -852,8 +1051,7 @@ class DataViewerWidget(QWidget):
             self.display_data_table()
             self.display_table_with_data_filter()
 
-            self.edit_pushButton: QPushButton
-            self.edit_pushButton.clearMask()
+            self.filtered_edit_pushButton.clearMask()
 
     def edit_samples_popup(self, table_name):
         if table_name != 'Samples':
@@ -940,13 +1138,12 @@ class DataViewerWidget(QWidget):
         if isinstance(db_view.model(), TreeSortFilterProxyModel):
             db_view.model().update_visible_columns()
 
-    def search(self, search_lineEdit, proxy_model, dbTable_treeView=None):
+    def search(self, search_lineEdit: QLineEdit, proxy_model, dbTable_treeView=None):
         """
         Search the current table for the text in the search box
         Check if the case-sensitive box is checked or not
         :return:
         """
-        search_lineEdit: QLineEdit
         search_expression = QRegularExpression(search_lineEdit.text(),
                                                    options=QRegularExpression.PatternOption.CaseInsensitiveOption)
         proxy_model.setFilterRegularExpression(search_expression)
@@ -1009,11 +1206,11 @@ class DataViewerWidget(QWidget):
             record_name = self.goto_line_edit.text()
             if record_name == "":
                 return
-            record_id = get_id_from_name(self.dbTable_comboBox.currentText(), record_name)
+            record_id = get_id_from_name(self.filtered_data_hierarchy_combobox.currentText(), record_name)
             if not record_id:
                 logger_setup.get_logger().error(f'Could not find record name: {record_name}')
                 return
-            row = get_record_row(self.dbTable_comboBox.currentText(), record_id, self.data_ids_to_show)
+            row = get_record_row(self.filtered_data_hierarchy_combobox.currentText(), record_id, self.data_ids_to_show)
 
             if row != -1:
                 new_page = row // self.rows_per_page_1
@@ -1047,7 +1244,7 @@ class DataViewerWidget(QWidget):
             if not record_id:
                 logger_setup.get_logger().error(f'Could not find record name: {record_name}')
                 return
-            table = TxM.remove_spaces(self.dbTable_comboBox_2.currentText())
+            table = TxM.remove_spaces(self.related_data_combobox.currentText())
             if table in SQLUtils.as_table_dict:
                 table = SQLUtils.as_table_dict[table]
             row = get_record_row(table, record_id, self.data_filtered_ids_to_show)

@@ -26,13 +26,12 @@ settings = SettingsManager().settings
 from Functions.Text_manipulations import shrink_home, expand_home
 from Functions.Widget_classes import PartiallyCloseableTabWidget, get_name_from_id, close_loading_dialog, show_loading_dialog
 from ui.DisplayTables import DisplayTables
-from ui.ExportWidget import ExportWidget
+from exporter.ExportTab import ExportTab
 from ui.filters.FiltersTab import FiltersTab
 from ui.SampleInformation import SampleInformation
 from ui.settings.Settings import SettingsDialog
 from ui.ViewDataTab import ViewDataTab
 from ui.settings.SettingsCore import default_settings
-from PyQt6 import QtWebEngineWidgets
 
 
 # import Select_Database as sd  # Eventually get database file from initial dialog
@@ -119,7 +118,7 @@ class GeoCORK(QtW.QMainWindow):
         self.tabWidget.set_permanent_tabs(['Data Tables', 'Filters', 'Export'])
         self.tabWidget.addTab(DisplayTables(self), 'Data Tables')
         self.tabWidget.addTab(FiltersTab(self), 'Filters')
-        self.tabWidget.addTab(ExportWidget(self), 'Export')
+        self.tabWidget.addTab(ExportTab(self), 'Export')
 
         self.tabWidget.setCurrentIndex(0)
         self.tabWidget.tabCloseRequested.connect(self.close_tab)
