@@ -2,7 +2,6 @@ import os
 import sys
 import time
 
-# import pandas as pd
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
@@ -21,7 +20,7 @@ from Functions.Widget_classes import (
     get_id_from_name, get_name_column
 )
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
-from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
+from Functions.Check_triggers import update_modified_timestamp
 from Functions.Settings_manager import SettingsManager
 from ui.EditView import EditView
 

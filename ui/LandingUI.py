@@ -11,7 +11,7 @@ from PyQt6.QtGui import QPixmap, QAction, QDesktopServices, QGuiApplication, QPa
 from PyQt6.QtSql import QSqlDatabase
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QFileDialog, QPushButton, QMessageBox, QMainWindow, \
-    QListWidget, QListWidgetItem, QApplication, QLabel, QSplitter, QWidget, QVBoxLayout, QHBoxLayout
+    QListWidget, QListWidgetItem, QApplication, QLabel, QWidget, QVBoxLayout, QHBoxLayout
 import logger_setup
 from Functions import Savepoint_manager
 from Functions.Database_manager import update_database, turn_on_foreign_keys

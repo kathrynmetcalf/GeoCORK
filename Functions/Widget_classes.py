@@ -5,11 +5,9 @@ import typing
 from collections import namedtuple
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
-from multiprocessing.process import parent_process
 
 import pandas as pd
 import numpy as np
-import openpyxl
 import qtawesome
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
@@ -17,7 +15,7 @@ from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import QAbstractTableModel, Qt, QModelIndex, QSortFilterProxyModel, QObject, QSettings, \
     QEvent, QStringListModel
-from PyQt6.QtGui import QTextOption, QAction, QFont, QBrush, QColor
+from PyQt6.QtGui import QAction, QFont, QBrush, QColor
 from PyQt6.QtSql import QSqlTableModel, QSqlQueryModel, QSqlQuery, QSqlDatabase
 from PyQt6.QtWidgets import QGroupBox, QProgressDialog, QToolTip, QApplication
 
@@ -29,33 +27,10 @@ from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Database_views import ViewQuery
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
+from util.widgets.delegates import WordWrapDelegate
+
 settings = SettingsManager().settings
 
-
-# ---------------------------
-#    Delegate Classes
-# ---------------------------
-
-class FontDelegate(QtW.QStyledItemDelegate):
-    """
-    Custom delegate to display text with a custom font.
-    """
-    def initStyleOption(self, option, index):
-        """Initializes the options of the delegate"""
-        super().initStyleOption(option, index)
-        font = index.data(QtC.Qt.ItemDataRole.FontRole)
-        if font:
-            option.font = font
-
-class WordWrapDelegate(QtW.QStyledItemDelegate):
-    """
-    Custom delegate to enable word wrap in QTableView.
-    """
-    def initStyleOption(self, option, index):
-        """Initializes the options of the delegate"""
-        super().initStyleOption(option, index)
-        option.textElideMode = Qt.TextElideMode.ElideNone  # Do not cut text
-        option.wrapMode = QTextOption.WrapMode.WordWrap  # Allow word wrap
 
 class TooltipFilter(QObject):
     """

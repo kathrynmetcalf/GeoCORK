@@ -1,13 +1,11 @@
-import PyQt6
 from PyQt6 import QtWidgets as QtW
 from PyQt6.QtWidgets import QApplication
-from PyQt6.QtCore import QPoint, QSize, Qt, QEventLoop
-from PyQt6.uic import loadUi
+from PyQt6.QtCore import QPoint, QSize, QEventLoop
 import ui.GPSFields
 import logger_setup
 from Functions.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
 from Functions.Settings_manager import SettingsManager
-from Functions.Widget_classes import close_loading_dialog, show_loading_dialog
+from Functions.Widget_classes import close_loading_dialog
 settings = SettingsManager().settings
 
 

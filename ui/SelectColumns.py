@@ -15,7 +15,7 @@ from ui.settings import SettingsCore
 
 settings = SettingsManager().settings
 from Functions.Widget_classes import (
-    ColumnListProxyModel, ColumnItemModel, get_name_column, get_table_from_view, ReorderListView
+    ColumnListProxyModel, ColumnItemModel, get_name_column, ReorderListView
 )
 
 

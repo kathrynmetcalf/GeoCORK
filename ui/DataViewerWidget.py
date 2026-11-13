@@ -1,6 +1,4 @@
-import os
 import re
-import sys
 import time
 import webbrowser
 import qtawesome
@@ -9,10 +7,9 @@ from PyQt6.QtCore import QPoint, QSize, QTimer, Qt, QRegularExpression, QModelIn
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import (QWidget, QComboBox, QPushButton, QMessageBox, QCompleter, QLineEdit, QStackedWidget,
                              QTableWidgetItem, QAbstractItemView, QAbstractScrollArea, QHeaderView, QInputDialog,
-                             QTableView, QMenu, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QSpacerItem, QSizePolicy,
+                             QTableView, QMenu, QGroupBox, QHBoxLayout, QLabel, QSizePolicy,
                              QVBoxLayout, QSplitter)
 from PyQt6.QtGui import QAction
-from PyQt6.uic import loadUi
 
 import Functions.Text_manipulations as TxM
 import logger_setup
@@ -20,7 +17,7 @@ from Functions.Database_manager import update_database
 from Functions import SQLUtils
 from Functions.Database_views import ViewQuery
 from Functions.Widget_classes import (
-    SQLiteTableModel, TreeSortFilterProxyModel, TreeModel, WordWrapDelegate, get_name_column,
+    SQLiteTableModel, TreeSortFilterProxyModel, TreeModel, get_name_column,
     ReadableProxyModel, get_id_from_name, get_record_row, columns_as_list, get_view_from_table, find_current_sub_items,
     show_loading_dialog, close_loading_dialog, TrackExpandedTreeView, TreeContextMenu, expand_collapse,
     scroll_to_record, FrozenTableView)
@@ -28,6 +25,7 @@ from Functions.Widget_classes import get_headers
 from ui.SampleInformation import SampleInformation
 from Functions.Settings_manager import SettingsManager
 from ui.settings import SettingsCore
+from util.widgets.delegates import WordWrapDelegate
 
 settings = SettingsManager().settings
 from ui.EditTable import EditTable

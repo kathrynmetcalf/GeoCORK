@@ -1,6 +1,4 @@
 from PyQt6 import QtWidgets as QtW
-from PyQt6 import QtCore as QtC
-from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 
 from Functions.Widget_classes import (get_name_from_id, get_headers, get_name_column, get_id_from_name,

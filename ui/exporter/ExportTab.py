@@ -30,8 +30,7 @@ from Functions.Settings_manager import SettingsManager
 
 settings = SettingsManager().settings
 from Functions.Widget_classes import CheckableComboBox
-from ui.filters import FiltersTab
-from ui.FlowLayout import FlowLayout
+from util.layouts.FlowLayout import FlowLayout
 
 
 class ExportTab(QWidget):
