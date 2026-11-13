@@ -167,7 +167,7 @@
   <customwidget>
    <class>PartiallyCloseableTabWidget</class>
    <extends>QTabWidget</extends>
-   <header>Functions/Widget_classes.h</header>
+   <header>util/widgets/tabs/PartiallyCloseableTabWidget.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

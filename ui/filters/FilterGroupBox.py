@@ -6,7 +6,7 @@ from PyQt6.QtGui import QFontMetrics
 from PyQt6.QtWidgets import QGroupBox, QSizePolicy, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QInputDialog
 
 from ui.filters.RuleWidget import RuleWidget
-from ui.widgets.FocusWheelComboBox import FocusWheelComboBox
+from util.widgets.FocusWheelComboBox import FocusWheelComboBox
 
 class FilterGroupBox(QGroupBox):
     """
