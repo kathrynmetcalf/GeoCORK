@@ -4,7 +4,7 @@ import sys
 import platform
 import traceback
 
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QMenuBar
 
 import logger_setup
 from Functions.Widget_classes import TooltipFilter

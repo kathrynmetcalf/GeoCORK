@@ -10,14 +10,10 @@ from PyQt6.QtCore import QEvent, QEventLoop, Qt, QPoint, QSize, QTimer, QUrl
 from PyQt6.QtGui import QPixmap, QAction, QDesktopServices, QGuiApplication, QPainter, QPalette
 from PyQt6.QtSql import QSqlDatabase
 from PyQt6.QtSvg import QSvgRenderer
-from PyQt6.QtWidgets import QFileDialog, QPushButton, QMessageBox, QWidget, \
-    QListWidget, QListWidgetItem, QApplication, QLabel, QSplitter
-from PyQt6.uic import loadUi
-from PyQt6.uic.Compiler.qtproxies import QtGui
-
+from PyQt6.QtWidgets import QFileDialog, QPushButton, QMessageBox, QMainWindow, \
+    QListWidget, QListWidgetItem, QApplication, QLabel, QSplitter, QWidget, QVBoxLayout, QHBoxLayout
 import logger_setup
 from Functions import Savepoint_manager
-from Functions.BackupDatabase import RestoreThread
 from Functions.Database_manager import update_database, turn_on_foreign_keys
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
@@ -34,7 +30,7 @@ THEME_EVENTS = (QEvent.Type.PaletteChange, QEvent.Type.ApplicationPaletteChange,
 """Widget events that may mean the light/dark appearance changed (stylesheet swap, palette swap, OS theme)."""
 
 
-class LandingPage(QWidget):
+class LandingPage(QMainWindow):
     def __init__(self, start_filepath=None):
         super().__init__()
         logger_setup.get_logger().info("Starting Landing Page...")
@@ -43,56 +39,88 @@ class LandingPage(QWidget):
         self.base_path = base_path
         self._applied_theme = None  # (is_dark, device_pixel_ratio, text_color) last applied
         self._logo_cache = {}  # (is_dark, device_pixel_ratio) -> QPixmap
-        sources_ui_file =os.path.join(base_path,  "LandingPage.ui")
-        loadUi(sources_ui_file, self)
+
         self.setWindowTitle('GeoCORK')
         update_stylesheet()
 
         self.db = None
 
-        self.loadWindowState()
+        self.central_widget = QWidget()
+        self.central_widget.setLayout(QVBoxLayout())
+        self.setCentralWidget(self.central_widget)
 
-        self.newdatabase_button = QPushButton('New Database')
-        self.newdatabase_button.setObjectName("newdatabase_button")
-        self.opendatabase_button = QPushButton('Open Database')
-        self.opendatabase_button.setObjectName("opendatabase_button")
-        self.mergedatabase_button = QPushButton('Merge Database')
-        self.mergedatabase_button.setObjectName("mergedatabase_button")
-        self.defaultsetting_button = QPushButton('Restore Default Settings')
-        self.defaultsetting_button.setObjectName("defaultsetting_button")
-        self.button_splitter = QSplitter()
-        self.button_splitter.setOrientation(Qt.Orientation.Vertical)
+        self.logo = QLabel()
+        self.central_widget.layout().addWidget(self.logo, alignment=Qt.AlignmentFlag.AlignHCenter)
 
-        self.verticalLayout.insertWidget(1, self.defaultsetting_button)
-        self.verticalLayout.insertWidget(1, self.button_splitter)
-        self.verticalLayout.insertWidget(1, self.mergedatabase_button)
-        self.verticalLayout.insertWidget(1, self.opendatabase_button)
-        self.verticalLayout.insertWidget(1, self.newdatabase_button)
+        self.center_widget = QWidget()
+        self.center_widget.setLayout(QHBoxLayout())
 
-        self.newdatabase_button.clicked.connect(self.new_database_dialog)
-        self.opendatabase_button.clicked.connect(self.showFileDialog)
-        self.mergedatabase_button.clicked.connect(self.show_merge_db)
-        self.defaultsetting_button.clicked.connect(self.restore_settings)
-
-        self.github_button: QPushButton
-        self.github_button.setIconSize(QSize(35,35))
-        self.github_button.clicked.connect(self.open_github)
-        self.selected_files = None
-
-        self.citation = LinkLabel(text = f'Metcalf, K., & Burges, J. 2026. kathrynmetcalf/GeoCORK: GeoCORK {settings.value('default_geocork_version')}. Zenodo. https://doi.org/10.5281/zenodo.15833658',
-                                  url = 'https://doi.org/10.5281/zenodo.15833658')
-        self.citation.setObjectName("citation")
-        self.horizontalLayout_4.insertWidget(0, self.citation)
-
+        # list widget for recent databases
         self.listWidget = UnselectableListWidget()
         self.listWidget.setObjectName("listWidget")
         self.listWidget.setMinimumSize(QtCore.QSize(400, 500))
         self.listWidget.setMaximumSize(QtCore.QSize(400, 1000))
         self.listWidget.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
         self.listWidget.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+
         self.listWidget.customContextMenuRequested.connect(self.recents_context_menu)
-        self.horizontalLayout_2.insertWidget(0, self.listWidget)
         self.listWidget.itemDoubleClicked.connect(self.clicked_file)
+
+        self.center_widget.layout().addWidget(self.listWidget)
+
+        # buttons for new, open, merge, restore default settings
+        buttons_widget = QWidget()
+        buttons_widget.setLayout(QVBoxLayout())
+        buttons_widget.layout().addStretch(1)
+
+        self.newdatabase_button = QPushButton('New Database')
+        self.newdatabase_button.setObjectName("newdatabase_button")
+        buttons_widget.layout().addWidget(self.newdatabase_button)
+        self.newdatabase_button.clicked.connect(self.new_database_dialog)
+
+        self.opendatabase_button = QPushButton('Open Database')
+        self.opendatabase_button.setObjectName("opendatabase_button")
+        buttons_widget.layout().addWidget(self.opendatabase_button)
+        self.opendatabase_button.clicked.connect(self.showFileDialog)
+
+        self.mergedatabase_button = QPushButton('Merge Database')
+        self.mergedatabase_button.setObjectName("mergedatabase_button")
+        buttons_widget.layout().addWidget(self.mergedatabase_button)
+        self.mergedatabase_button.clicked.connect(self.show_merge_db)
+
+        buttons_widget.layout().addStretch(1)  # Add stretch to push the Restore Default Settings button to the bottom
+
+        self.defaultsetting_button = QPushButton('Restore Default Settings')
+        self.defaultsetting_button.setObjectName("defaultsetting_button")
+        buttons_widget.layout().addWidget(self.defaultsetting_button)
+        self.defaultsetting_button.clicked.connect(self.restore_settings)
+        buttons_widget.layout().addStretch(1)
+
+        self.center_widget.layout().addWidget(buttons_widget)
+
+        self.central_widget.layout().addWidget(self.center_widget)
+
+        bottom_info = QWidget()
+        bottom_info.setLayout(QHBoxLayout())
+
+        self.citation = LinkLabel(text = f'Metcalf, K., & Burges, J. 2026. kathrynmetcalf/GeoCORK: GeoCORK {settings.value('default_geocork_version')}. Zenodo. https://doi.org/10.5281/zenodo.15833658',
+                                  url = 'https://doi.org/10.5281/zenodo.15833658')
+        self.citation.setObjectName("citation")
+        self.citation.setToolTip("Double-click to open the GeoCORK publication citation")
+        bottom_info.layout().addWidget(self.citation)
+
+        self.github_button = QPushButton()
+        self.github_button.setObjectName("github_button")
+        self.github_button.setFixedSize(QSize(35, 35))
+        self.github_button.setIconSize(QSize(35, 35))
+        self.github_button.setStyleSheet("QPushButton { border: none; background: none; }")
+        self.github_button.setToolTip("Double-click to open the GeoCORK GitHub repository")
+        self.github_button.clicked.connect(self.open_github)
+        bottom_info.layout().addWidget(self.github_button)
+
+        self.selected_files = None
+
+        self.central_widget.layout().addWidget(bottom_info)
 
         self.list_recents = settings.value("ui/LandingPage/recentlist", defaultValue=[], type=list)
 
@@ -106,6 +134,7 @@ class LandingPage(QWidget):
             style_hints.colorSchemeChanged.connect(lambda _scheme: self.queue_theme_update())
 
         self.show()
+        self.loadWindowState()
 
         if start_filepath:
             self.selected_files = start_filepath
@@ -173,7 +202,7 @@ class LandingPage(QWidget):
 
         pixmap = self.get_logo_pixmap(is_dark, dpr)
         if pixmap is not None and not pixmap.isNull():
-            self.label.setPixmap(pixmap)
+            self.logo.setPixmap(pixmap)
 
         # Match the GitHub icon to the stylesheet's text colour
         self.github_button.setIcon(qtawesome.icon('fa6b.github', color=text_color, scale_factor=1.0))
