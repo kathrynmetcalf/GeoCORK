@@ -34,6 +34,8 @@ class LandingPage(QMainWindow):
     def __init__(self, start_filepath=None):
         super().__init__()
         logger_setup.get_logger().info("Starting Landing Page...")
+        from ui.menus.StaticMenuGuard import install_static_menus
+        install_static_menus(self)
 
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         self.base_path = base_path

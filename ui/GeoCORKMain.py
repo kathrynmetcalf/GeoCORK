@@ -41,6 +41,8 @@ class GeoCORK(QtW.QMainWindow):
     def __init__(self, landingpage):
         super().__init__()
         logger_setup.get_logger().info("Starting the main window")
+        from ui.menus.StaticMenuGuard import install_static_menus
+        install_static_menus(self)
 
         blank_schema_file = "Reference/GeoCORK_v1-0.db"
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
