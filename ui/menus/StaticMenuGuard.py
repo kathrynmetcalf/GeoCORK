@@ -51,7 +51,7 @@ class StaticMenuGuard(QObject):
             self.menu_bar.addAction(action)
 
 
-def install_static_menus(window: QMainWindow) -> QMenu:
+def install_static_menus(window: QMainWindow, leading_menus: list[QMenu] | None = None) -> QMenu:
     """
     Add the static Help menu (Help Contents, Current Window Help, Report an Issue, About GeoCORK) to a window's
     menu bar. Calling it again on the same window returns the existing menu.
@@ -87,12 +87,14 @@ def install_static_menus(window: QMainWindow) -> QMenu:
     about_action.setMenuRole(QAction.MenuRole.AboutRole)
 
     menu_bar = window.menuBar()
-    menu_bar.addMenu(help_menu)
-    guard = StaticMenuGuard(menu_bar, [help_menu])
+    leading_menus = list(leading_menus or [])
+    for menu in leading_menus:
+        menu_bar.addMenu(menu)  # File first
+    menu_bar.addMenu(help_menu)  # Help last
+
+    guard = StaticMenuGuard(menu_bar, leading_menus + [help_menu])
     menu_bar.installEventFilter(guard)
 
-    # Keep Python references alive for the life of the window
     window.static_help_menu = help_menu
     window.static_menu_guard = guard
-    logger_setup.get_logger().info(f'Installed static Help menu on {window.objectName() or type(window).__name__}')
     return help_menu

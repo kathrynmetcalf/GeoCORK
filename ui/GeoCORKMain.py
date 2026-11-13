@@ -21,6 +21,7 @@ from Functions.Database_manager import update_database, turn_on_foreign_keys
 from Functions.Savepoint_manager import SavepointManager
 from Functions.Settings_manager import SettingsManager
 from ui.SampleMap import SampleMapWindow
+from ui.menus.StaticMenuGuard import install_static_menus
 
 settings = SettingsManager().settings
 from Functions.Text_manipulations import shrink_home, expand_home
@@ -42,17 +43,9 @@ class GeoCORK(QtW.QMainWindow):
     def __init__(self, landingpage):
         super().__init__()
         logger_setup.get_logger().info("Starting the main window")
-        from ui.menus.StaticMenuGuard import install_static_menus
-        install_static_menus(self)
 
-        blank_schema_file = "Reference/GeoCORK_v1-0.db"
-        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-        base_path = os.path.normpath(base_path)
-        sources_ui_file = fr'{os.path.join(base_path, "GeoCORKMain.ui")}'
-        sources_ui_file = os.path.normpath(sources_ui_file)
-        self.loadWindowState()
-        loadUi(sources_ui_file, self)
         self.setObjectName('GeoCORKMain')
+        blank_schema_file = "Reference/GeoCORK_v1-0.db"
 
         self.landingpage = landingpage
         self.db = QSqlDatabase()
@@ -60,34 +53,13 @@ class GeoCORK(QtW.QMainWindow):
         self.update_window_title()
         self.recent_files = settings.value("ui/LandingPage/recentlist", defaultValue=[], type=list)
         self.recent_files = self.recent_files[0:5]
-        menu_bar = self.menuBar()
-        file_menu = menu_bar.addMenu('File')
-        actionNew = QtG.QAction('New', self)
-        actionNew.setShortcut(QtG.QKeySequence('Ctrl+N'))
-        actionOpen = QtG.QAction('Open', self)
-        actionOpen.setShortcut(QtG.QKeySequence('Ctrl+O'))
-        self.menuRecent = QMenu('Recent', self)
-        self.update_recent_files_menu()
-        actionImport = QtG.QAction('Import', self)
-        actionImport.setShortcut(QtG.QKeySequence('Ctrl+I'))
-        actionSettings = QtG.QAction('Settings', self)
-        actionSettings.setShortcut(QtG.QKeySequence('Ctrl+,'))
-        actionSettings.setMenuRole(QtG.QAction.MenuRole.PreferencesRole)
-        actionCreateBackup = QtG.QAction('Create Backup', self)
-        actionRestoreBackup = QtG.QAction('Restore Backup', self)
-        actionExport = QtG.QAction('Export', self)
-        actionExport.setShortcut(QtG.QKeySequence('Ctrl+E'))
-        actionQuit = QtG.QAction('Quit', self)
-        actionQuit.setShortcut(QtG.QKeySequence('Ctrl+Q'))
-        file_menu.addActions([actionNew, actionOpen, actionImport])
-        file_menu.addSeparator()
-        file_menu.addMenu(self.menuRecent)
-        file_menu.addSeparator()
-        file_menu.addAction(actionSettings)
-        file_menu.addSeparator()
-        file_menu.addActions([actionCreateBackup, actionRestoreBackup, actionExport])
-        file_menu.addSeparator()
-        file_menu.addAction(actionQuit)
+
+        self.build_ui()
+        self.loadWindowState()
+
+        from ui.menus.StaticMenuGuard import install_static_menus
+        file_menu = self.build_file_menu()
+        install_static_menus(self, leading_menus=[file_menu])
 
         settings.setValue('db_file', self.db_file)
         logger_setup.get_logger().info(f"Setting database file to: {self.db_file}")
@@ -117,7 +89,18 @@ class GeoCORK(QtW.QMainWindow):
         #     self.close()
         default_settings()
 
-        self.tabWidget: PartiallyCloseableTabWidget
+        close_loading_dialog('Opening',
+                                              f'Opening {self.db_name}... \n(GeoCORK may be slower for large databases)')
+        self.showMaximized()
+        self.show()
+
+    def build_ui(self):
+        self.centralwidget = QtW.QWidget(self)
+        self.centralwidget.setLayout(QtW.QVBoxLayout())
+        self.setCentralWidget(self.centralwidget)
+
+        self.tabWidget = PartiallyCloseableTabWidget(self)
+        self.centralwidget.layout().addWidget(self.tabWidget)
         self.tabWidget.set_permanent_tabs(['Data Tables', 'Filters', 'Export'])
         self.tabWidget.addTab(DisplayTables(self), 'Data Tables')
         self.tabWidget.addTab(FiltersTab(self), 'Filters')
@@ -127,19 +110,46 @@ class GeoCORK(QtW.QMainWindow):
         self.tabWidget.tabCloseRequested.connect(self.close_tab)
         self.tabWidget.currentChanged.connect(self.on_tab_changed)
 
-        actionOpen.triggered.connect(self.landingpage.showFileDialog)
-        actionCreateBackup.triggered.connect(self.create_backup)
-        actionRestoreBackup.triggered.connect(self.restore_backup)
-        actionImport.triggered.connect(self.show_import_wizard_dialog)
-        actionSettings.triggered.connect(self.show_settings_dialog)
-        actionExport.triggered.connect(self.switch_to_export_tab)
-        actionQuit.triggered.connect(self.close)
-        actionNew.triggered.connect(self.new_database)
 
-        close_loading_dialog('Opening',
-                                              f'Opening {self.db_name}... \n(GeoCORK may be slower for large databases)')
-        self.showMaximized()
-        self.show()
+    def build_file_menu(self) -> QMenu:
+        """Build the File menu. Actions are created once and never change; only the Recent submenu's contents change."""
+        file_menu = QMenu('File', self)
+        file_menu.setObjectName('static_FileMenu_Menu_File')
+
+        def make_action(text, object_name, slot, shortcut=None, menu_role=None):
+            action = QtG.QAction(text, self)
+            action.setObjectName(object_name)
+            if shortcut:
+                action.setShortcut(QtG.QKeySequence(shortcut))
+            if menu_role is not None:
+                action.setMenuRole(menu_role)
+            action.triggered.connect(slot)
+            return action
+
+        actionNew = make_action('New', 'static_New_Action_File', self.new_database, 'Ctrl+N')
+        actionOpen = make_action('Open', 'static_Open_Action_File', self.landingpage.showFileDialog, 'Ctrl+O')
+        actionImport = make_action('Import', 'static_Import_Action_File', self.show_import_wizard_dialog, 'Ctrl+I')
+        actionSettings = make_action('Settings', 'static_Settings_Action_File', self.show_settings_dialog,
+                                     'Ctrl+,', QtG.QAction.MenuRole.PreferencesRole)
+        actionCreateBackup = make_action('Create Backup', 'static_CreateBackup_Action_File', self.create_backup)
+        actionRestoreBackup = make_action('Restore Backup', 'static_RestoreBackup_Action_File', self.restore_backup)
+        actionExport = make_action('Export', 'static_Export_Action_File', self.switch_to_export_tab, 'Ctrl+E')
+        actionQuit = make_action('Quit', 'static_Quit_Action_File', self.close, 'Ctrl+Q')
+
+        self.menuRecent = QMenu('Recent', self)
+        self.menuRecent.setObjectName('static_RecentMenu_Menu_Recent')
+        self.update_recent_files_menu()
+
+        file_menu.addActions([actionNew, actionOpen, actionImport])
+        file_menu.addSeparator()
+        file_menu.addMenu(self.menuRecent)
+        file_menu.addSeparator()
+        file_menu.addAction(actionSettings)
+        file_menu.addSeparator()
+        file_menu.addActions([actionCreateBackup, actionRestoreBackup, actionExport])
+        file_menu.addSeparator()
+        file_menu.addAction(actionQuit)
+        return file_menu
 
     def cancel_open(self, title, message):
         close_loading_dialog(title, message)
