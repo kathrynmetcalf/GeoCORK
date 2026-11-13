@@ -27,6 +27,7 @@ from Functions.Savepoint_manager import create_savepoint, release_savepoint, rol
 from Functions.Settings_manager import SettingsManager
 from ui.SampleChainEdit import SampleChainEdit
 from ui.AddDataItem import AddDataItem
+from ui.settings import SettingsCore
 
 settings = SettingsManager().settings
 from Functions.Database_views import ViewQuery
@@ -259,7 +260,7 @@ class EditView(QtW.QDialog):
 
         # Pagination variables
         self.show_per_page_comboBox: QtW.QComboBox
-        self.show_per_page_comboBox.addItems(['10', '25', '50', '100', '250', '500', '1000'])
+        self.show_per_page_comboBox.addItems(SettingsCore.SHOW_PER_PAGE_VALUES)
         self.current_page = 0
         self.rows_per_page = settings.value('show_per_page')
         self.show_per_page_comboBox.setCurrentText(str(self.rows_per_page))
@@ -476,6 +477,7 @@ class EditView(QtW.QDialog):
                 self.show_per_page_comboBox.setCurrentText(str(self.rows_per_page))
                 return
         self.rows_per_page = int(self.show_per_page_comboBox.currentText())
+        settings.setValue('show_per_page', self.rows_per_page)
         self.current_page = 0
         self.limit = f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'
         self.create_model()

@@ -13,6 +13,8 @@ import logger_setup
 from Functions.Database_manager import update_database
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
+from ui.settings import SettingsCore
+
 settings = SettingsManager().settings
 from Functions.Widget_classes import (get_headers,
                                       ReadableProxyModel, get_name_column, get_total_records, EditableSqlQueryModel,
@@ -44,7 +46,7 @@ class EditTable(QtW.QDialog):
 
         # Pagination variables
         self.show_per_page_comboBox: QtW.QComboBox
-        self.show_per_page_comboBox.addItems(['10', '25', '50', '100', '250', '500', '1000'])
+        self.show_per_page_comboBox.addItems(SettingsCore.SHOW_PER_PAGE_VALUES)
         self.current_page = 0
         self.rows_per_page = settings.value('show_per_page')
         self.show_per_page_comboBox.setCurrentText(str(self.rows_per_page))
@@ -84,6 +86,7 @@ class EditTable(QtW.QDialog):
         Slot to change the number of rows displayed per page
         """
         self.rows_per_page = int(self.show_per_page_comboBox.currentText())
+        settings.setValue('show_per_page', self.rows_per_page)
         self.current_page = 0
         self.create_model()
 

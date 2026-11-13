@@ -23,6 +23,7 @@ from Functions import Savepoint_manager
 from Functions.Database_manager import update_database
 from Functions.Settings_manager import SettingsManager
 from ui.SampleMap import SampleMapWindow
+from ui.settings import SettingsCore
 
 settings = SettingsManager().settings
 from Functions.Database_views import ViewQuery
@@ -83,7 +84,7 @@ class DisplayTables(QtW.QWidget):
 
         # Pagination variables
         self.show_per_page_comboBox: QtW.QComboBox
-        self.show_per_page_comboBox.addItems(['10', '25', '50', '100', '250', '500', '1000'])
+        self.show_per_page_comboBox.addItems(SettingsCore.SHOW_PER_PAGE_VALUES)
         self.current_page: int = 0
         self.rows_per_page: int = settings.value('show_per_page')
         self.show_per_page_comboBox.setCurrentText(str(self.rows_per_page))
@@ -559,6 +560,7 @@ class DisplayTables(QtW.QWidget):
         """
         self.rows_per_page = int(self.show_per_page_comboBox.currentText())
         self.current_page = 0
+        settings.setValue('show_per_page', self.rows_per_page)
         self.display_table()
 
     def next_page(self):

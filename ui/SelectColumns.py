@@ -11,6 +11,8 @@ from PyQt6.uic import loadUi
 import logger_setup
 from Functions import SQLUtils
 from Functions.Settings_manager import SettingsManager
+from ui.settings import SettingsCore
+
 settings = SettingsManager().settings
 from Functions.Widget_classes import (
     ColumnListProxyModel, ColumnItemModel, get_name_column, get_table_from_view, ReorderListView
@@ -34,7 +36,7 @@ class SelectColumns(QWidget):
         self.hidden_must_haves = ['SampleID', 'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'SpotID',
                                   'UPbAnalysisID', 'GeoChemAnalysisID']
 
-        self.show_per_page_comboBox.addItems(['10', '25', '50', '100', '250', '500', '1000'])
+        self.show_per_page_comboBox.addItems(SettingsCore.SHOW_PER_PAGE_VALUES)
         self.show_per_page_comboBox.setCurrentText(str(settings.value('show_per_page')))
         if settings.value('show_items_missing_data') == 'true':
             self.show_missing_checkBox.setCheckState(QtCore.Qt.CheckState.Checked)

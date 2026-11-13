@@ -11,6 +11,8 @@ import logger_setup
 from Functions.Database_manager import update_database
 from Functions.Database_views import ViewQuery
 from Functions.Settings_manager import SettingsManager
+from ui.settings import SettingsCore
+
 settings = SettingsManager().settings
 from Functions.Widget_classes import (SQLiteTableModel, ReadableProxyModel, TreeModel,
                                       TreeContextMenu, expand_collapse, get_name_column, get_headers,
@@ -103,7 +105,7 @@ class ViewDataTab(QtW.QWidget):
 
         if self.table != 'Aliquots':
             # Pagination variables
-            self.show_per_page_comboBox.addItems(['10', '25', '50', '100', '250', '500', '1000'])
+            self.show_per_page_comboBox.addItems(SettingsCore.SHOW_PER_PAGE_VALUES)
             self.current_page = 0
             self.rows_per_page = settings.value('show_per_page')
             self.show_per_page_comboBox.setCurrentText(str(self.rows_per_page))
@@ -142,6 +144,7 @@ class ViewDataTab(QtW.QWidget):
         """
         self.rows_per_page = int(self.show_per_page_comboBox.currentText())
         self.current_page = 0
+        settings.setValue('show_per_page', self.rows_per_page)
         self.limit = f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'
         self.display_table()
 

@@ -56,6 +56,7 @@ DEFAULT_IMPORTER_COLORS = {
 }
 """Default Import Wizard colors for each mode."""
 
+SHOW_PER_PAGE_VALUES = ['10', '25', '50', '100', '250', '500', '1000']
 
 def theme_color_key(mode: str, role: str) -> str:
     """Setting key for an application theme color, e.g. theme_dark_text_color"""
@@ -335,7 +336,6 @@ def default_settings():
                     'default_display_tooltips': 'true',
                     'default_show_items_missing_data': 'true',
                     'default_display_analyses': ['UPbAnalyses', 'GeoChemicalAnalyses'],
-                    # Color settings
                     'default_color_theme_mode': 'System',
                     'default_custom_theme_colors': 'false'}
     for mode in COLOR_MODES:

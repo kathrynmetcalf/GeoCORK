@@ -26,7 +26,7 @@ settings = SettingsManager().settings
 from Functions.Text_manipulations import shrink_home, expand_home
 from Functions.Widget_classes import PartiallyCloseableTabWidget, get_name_from_id, close_loading_dialog, show_loading_dialog
 from ui.DisplayTables import DisplayTables
-from exporter.ExportTab import ExportTab
+from ui.exporter.ExportTab import ExportTab
 from ui.filters.FiltersTab import FiltersTab
 from ui.SampleInformation import SampleInformation
 from ui.settings.Settings import SettingsDialog

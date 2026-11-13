@@ -27,6 +27,8 @@ from Functions.Widget_classes import (
 from Functions.Widget_classes import get_headers
 from ui.SampleInformation import SampleInformation
 from Functions.Settings_manager import SettingsManager
+from ui.settings import SettingsCore
+
 settings = SettingsManager().settings
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
@@ -115,14 +117,14 @@ class DataViewerWidget(QWidget):
         self.dbTable_tableView_2.doubleClicked.connect(self.open_doi_link)
         # Pagination variables
         self.rows_per_page: int = settings.value('show_per_page')
-        self.show_per_page_comboBox.addItems(['10', '25', '50', '100', '250', '500', '1000'])
+        self.show_per_page_comboBox.addItems(SettingsCore.SHOW_PER_PAGE_VALUES)
         self.show_per_page_comboBox.setCurrentText(str(self.rows_per_page))
         self.current_page_1 = 0
         self.rows_per_page_1 = self.rows_per_page
         self.total_records_1 = self.get_total_records_1()
         self.show_per_page_comboBox.currentTextChanged.connect(self.change_rows_per_page_1)
 
-        self.show_per_page_comboBox_2.addItems(['10', '25', '50', '100', '250', '500', '1000'])
+        self.show_per_page_comboBox_2.addItems(SettingsCore.SHOW_PER_PAGE_VALUES)
         self.show_per_page_comboBox_2.setCurrentText(str(self.rows_per_page))
         self.current_page_2 = 0
         self.rows_per_page_2 = self.rows_per_page
@@ -1166,6 +1168,7 @@ class DataViewerWidget(QWidget):
         Slot to change the number of rows displayed per page for the sample table
         """
         self.rows_per_page_1 = int(self.show_per_page_comboBox.currentText())
+        settings.setValue('show_per_page', self.rows_per_page_1)
         self.current_page_1 = 0
         self.display_data_table()
 
@@ -1190,6 +1193,7 @@ class DataViewerWidget(QWidget):
         Slot to change the number of rows displayed per page for the sample table
         """
         self.rows_per_page_2 = int(self.show_per_page_comboBox_2.currentText())
+        settings.setValue('show_per_page', self.rows_per_page_2)
         self.current_page_2 = 0
         self.display_table_with_data_filter()
 
