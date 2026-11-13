@@ -1,12 +1,9 @@
-import os
-import sys
-
-from PyQt6 import QtCore as QtC
+from PyQt6 import QtCore as QtC, QtWidgets
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtWidgets as QtW
-from PyQt6.QtCore import QRegularExpression
+from PyQt6.QtCore import QRegularExpression, QPoint, QSize
 from PyQt6.QtSql import QSqlQuery
-from PyQt6.uic import loadUi
+from PyQt6.QtWidgets import QLabel, QComboBox, QDialogButtonBox
 
 import Functions.Text_manipulations as TxM
 import logger_setup
@@ -19,7 +16,7 @@ settings = SettingsManager().settings
 from Functions.Widget_classes import (get_headers,
                                       ReadableProxyModel, get_name_column, get_total_records, EditableSqlQueryModel,
                                       get_id_from_name, get_record_row, delete_data, show_loading_dialog,
-                                      close_loading_dialog, scroll_to_record)
+                                      close_loading_dialog, scroll_to_record, FrozenTableView)
 from ui.AddTags import AddTags
 from ui.Merge import MergeDialog
 
@@ -32,25 +29,20 @@ class EditTable(QtW.QDialog):
     def __init__(self, parent_window, table_name, **kwargs):
         super().__init__(parent=parent_window)
         logger_setup.get_logger().info(f'Opening {table_name} edit dialog')
-        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-        sources_ui_file = os.path.join(base_path, "EditTable.ui")
-        loadUi(sources_ui_file, self)
-        self.setModal(True)
-        self.setWindowTitle(f'Edit {TxM.add_spaces_camel(table_name)}')
-        self.add_pushButton.setText(f'Add {TxM.add_spaces_camel(table_name)}')
-        self.updated = False
+        show_loading_dialog('Loading', f'Opening edit window for {table_name}...')
 
         self.table = TxM.remove_spaces(table_name)
+
+        self.build_ui(table_name)
+        self.loadWindowState()
+
+        self.setModal(True)
+        self.setWindowTitle(f'Edit {TxM.add_spaces_camel(table_name)}')
+
+        self.updated = False
+
         self.msg = QtW.QMessageBox(self)
         self.name_completer = QtW.QCompleter()
-
-        # Pagination variables
-        self.show_per_page_comboBox: QtW.QComboBox
-        self.show_per_page_comboBox.addItems(SettingsCore.SHOW_PER_PAGE_VALUES)
-        self.current_page = 0
-        self.rows_per_page = settings.value('show_per_page')
-        self.show_per_page_comboBox.setCurrentText(str(self.rows_per_page))
-        self.total_records = 0
 
         self.model = EditableSqlQueryModel()
         self.table_proxy_model = ReadableProxyModel()
@@ -59,15 +51,13 @@ class EditTable(QtW.QDialog):
         self.table_headers = None
         self.create_model()
 
-
         create_savepoint('before_edit')
 
         self.close_by_dialog = False
         self.search_lineEdit.returnPressed.connect(self.search)
 
         self.add_pushButton.clicked.connect(self.add_popup)
-        self.commit_pushButton.clicked.connect(self.commit_question)
-        self.cancel_pushButton.clicked.connect(self.rollback)
+
 
         self.goto_line_edit.returnPressed.connect(self.go_to_record)
         self.prev_button.clicked.connect(self.previous_page)
@@ -80,6 +70,89 @@ class EditTable(QtW.QDialog):
         self.edit_tableView.frozen_table_view.customContextMenuRequested.connect(self.show_context_menu)
 
         close_loading_dialog('Loading', f'Opening edit window for {table_name}...')
+
+    def build_ui(self, table_name):
+        self.main_layout = QtW.QVBoxLayout(self)
+
+        # ---- Top row: Add button, search ----
+        self.top_layout = QtW.QHBoxLayout()
+
+        self.add_pushButton = QtW.QPushButton(f'Add {TxM.add_spaces_camel(table_name)}')
+        self.add_pushButton.setObjectName('add_pushButton')
+        self.add_pushButton.setAutoDefault(False)
+        self.top_layout.addWidget(self.add_pushButton)
+
+        self.horizontalSpacer_2 = QtW.QSpacerItem(
+            40, 20, QtW.QSizePolicy.Policy.Expanding, QtW.QSizePolicy.Policy.Minimum)
+        self.top_layout.addItem(self.horizontalSpacer_2)
+
+        self.label_2 = QtW.QLabel('Search:')
+        self.label_2.setObjectName('label_2')
+        self.top_layout.addWidget(self.label_2)
+
+        self.search_lineEdit = QtW.QLineEdit()
+        self.search_lineEdit.setObjectName('search_lineEdit')
+        self.search_lineEdit.setPlaceholderText('search this page')
+        self.top_layout.addWidget(self.search_lineEdit)
+
+        self.main_layout.addLayout(self.top_layout)
+
+        # ---- Table ----
+        self.edit_tableView = FrozenTableView()
+        self.edit_tableView.setObjectName('edit_tableView')
+        self.edit_tableView.setEditTriggers(
+            QtW.QAbstractItemView.EditTrigger.AnyKeyPressed
+            | QtW.QAbstractItemView.EditTrigger.DoubleClicked
+            | QtW.QAbstractItemView.EditTrigger.EditKeyPressed)
+        self.main_layout.addWidget(self.edit_tableView)
+
+        # ---- Paging / navigation row ----
+        self.bottom_layout = QtW.QHBoxLayout()
+
+        self.prev_button = QtW.QPushButton('Back')
+        self.prev_button.setObjectName('prev_button')
+        self.prev_button.setAutoDefault(False)
+        self.bottom_layout.addWidget(self.prev_button)
+
+        self.next_button = QtW.QPushButton('Next')
+        self.next_button.setObjectName('next_button')
+        self.next_button.setAutoDefault(False)
+        self.bottom_layout.addWidget(self.next_button)
+
+        self.bottom_layout.addWidget(QLabel("Show per page:"))
+
+        self.show_per_page_comboBox = QComboBox()
+        self.show_per_page_comboBox.setObjectName('show_per_page_comboBox')
+        self.show_per_page_comboBox.addItems(SettingsCore.SHOW_PER_PAGE_VALUES)
+        self.current_page = 0
+        self.rows_per_page = settings.value('show_per_page')
+        self.show_per_page_comboBox.setCurrentText(str(self.rows_per_page))
+        self.total_records = 0
+        self.bottom_layout.addWidget(self.show_per_page_comboBox)
+
+        self.page_info_label = QtW.QLabel('placeholder')
+        self.page_info_label.setObjectName('page_info_label')
+        self.bottom_layout.addWidget(self.page_info_label)
+
+        self.goto_line_edit = QtW.QLineEdit()
+        self.goto_line_edit.setObjectName('goto_line_edit')
+        self.goto_line_edit.setSizePolicy(QtW.QSizePolicy.Policy.Expanding, QtW.QSizePolicy.Policy.Fixed)
+        self.goto_line_edit.setPlaceholderText('Go to record')
+        self.bottom_layout.addWidget(self.goto_line_edit)
+
+        self.main_layout.addLayout(self.bottom_layout)
+
+        # ---- Bottom row: Cancel / Commit ----
+        self.buttonBox = QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.StandardButton.Save |
+            QtWidgets.QDialogButtonBox.StandardButton.Cancel
+        )
+
+        self.buttonBox.accepted.connect(self.commit_question)
+        self.buttonBox.rejected.connect(self.rollback)
+
+        self.main_layout.addWidget(self.buttonBox)
+
 
     def change_rows_per_page(self):
         """
@@ -353,6 +426,7 @@ class EditTable(QtW.QDialog):
         Overridden close event to handle the case where the user tries to close the dialog
         :param QCloseEvent event:
         """
+        self.saveWindowState()
         if not self.close_by_dialog:
             if self.updated:
                 self.discard_question()
@@ -365,3 +439,11 @@ class EditTable(QtW.QDialog):
             logger_setup.get_logger().info(f'Closing {self.table} edit dialog')
             release_savepoint('before_edit')
             event.accept()
+
+    def saveWindowState(self):
+        settings.setValue(f"ui/{self.table}/pos", self.pos())
+        settings.setValue(f"ui/{self.table}/size", self.size())
+
+    def loadWindowState(self):
+        self.move(settings.value(f"ui/{self.table}/pos", defaultValue=QPoint(410, 241), type=QPoint))
+        self.resize(settings.value(f"ui/{self.table}/size", defaultValue=QSize(750, 701), type=QSize))
