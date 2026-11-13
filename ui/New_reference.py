@@ -1,35 +1,64 @@
-import os
-import sys
-import sqlite3
-from PyQt6 import QtWidgets as QtW
-from PyQt6 import QtCore as QtC
-from PyQt6.uic import loadUi
+from PyQt6 import QtWidgets
 from PyQt6.QtSql import QSqlQuery
+from PyQt6.QtWidgets import QDialogButtonBox
 
 from Functions.Widget_classes import close_loading_dialog, show_loading_dialog
 import logger_setup
 
 
-class NewReference(QtW.QDialog):
+class NewReference(QtWidgets.QDialog):
     def __init__(self, parent_window):
         super().__init__(parent=parent_window)
 
         logger_setup.get_logger().info(f'Opening reference add dialog')
+        show_loading_dialog('Loading', 'Opening add window for References...')
 
-        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-        base_path = os.path.normpath(base_path)
-        sources_ui_file = fr'{os.path.join(base_path, "New_reference.ui")}'
-        sources_ui_file = os.path.normpath(sources_ui_file)
-        loadUi(sources_ui_file, self)
+        self.build_ui()
+
         self.setWindowTitle('Add Reference')
         self.setModal(True)
         self.updated = False
         self.ids_added = []
 
-        self.ok_buttonBox.accepted.connect(self.add_reference)
-        self.ok_buttonBox.rejected.connect(self.rejected)
-
         close_loading_dialog('Loading', 'Opening add window for References...')
+
+    def build_ui(self):
+        self.form_layout = QtWidgets.QFormLayout(self)
+        self.setLayout(self.form_layout)
+
+        self.authors_lineEdit = QtWidgets.QLineEdit()
+        self.authors_lineEdit.setPlaceholderText('e.g., Metcalf and Burges, Metcalf et al.')
+        self.form_layout.addRow('Authors:', self.authors_lineEdit)
+
+        self.title_lineEdit = QtWidgets.QLineEdit()
+        self.title_lineEdit.setPlaceholderText('e.g., abc123')
+        self.form_layout.addRow('Title:', self.title_lineEdit)
+
+        self.year_lineEdit = QtWidgets.QLineEdit()
+        self.year_lineEdit.setPlaceholderText('e.g., 2026')
+        self.form_layout.addRow('Year:', self.year_lineEdit)
+
+        self.source_lineEdit = QtWidgets.QLineEdit()
+        self.source_lineEdit.setPlaceholderText('e.g., abc123')
+        self.form_layout.addRow('Source:', self.source_lineEdit)
+
+        self.doi_lineEdit = QtWidgets.QLineEdit()
+        self.doi_lineEdit.setPlaceholderText('e.g., 10.xxxx/xxxx')
+        self.form_layout.addRow('DOI:', self.doi_lineEdit)
+
+        self.description_lineEdit = QtWidgets.QLineEdit()
+        self.description_lineEdit.setPlaceholderText('e.g., abc123')
+        self.form_layout.addRow('Description:', self.description_lineEdit)
+
+        self.buttonBox = QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.StandardButton.Ok |
+            QtWidgets.QDialogButtonBox.StandardButton.Cancel
+        )
+
+        self.form_layout.addWidget(self.buttonBox)
+
+        self.buttonBox.accepted.connect(self.add_reference)
+        self.buttonBox.rejected.connect(self.rejected)
 
     def add_reference(self):
         authors = self.authors_lineEdit.text()
