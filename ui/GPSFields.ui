@@ -424,7 +424,7 @@
   <customwidget>
    <class>FocusGroupBox</class>
    <extends>QGroupBox</extends>
-   <header>Functions/Widget_classes.h</header>
+   <header>util/widgets/GroupBoxes/FocusGroupBox.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

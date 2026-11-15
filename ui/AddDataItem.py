@@ -1,23 +1,22 @@
-import os
-import sys
-
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
 from PyQt6.QtWidgets import QMessageBox
 
-import Functions.Text_manipulations as TxM
 import logger_setup
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
+from util.widgets.models.ReadableProxyModel import ReadableProxyModel
+
+from Functions.Widget_classes import (close_loading_dialog, get_headers, get_name_column, bulk_update_parent_row)
+
 settings = SettingsManager().settings
-from Functions.Widget_classes import (close_loading_dialog, get_headers, get_name_column, bulk_update_parent_row,
-                                      ReadableProxyModel)
 
 
 class AddDataItem(QtW.QDialog):
     """Dialog for adding Samples, Aliquots, Grains, Spots, or Analyses with description"""
+
     def __init__(self, table: str, parent=None, **kwargs):
         super().__init__(parent)
         if not table:
@@ -150,12 +149,14 @@ class AddDataItem(QtW.QDialog):
             return False
         query = QtS.QSqlQuery()
         if self.parent_data_id:
-            query.prepare(f'INSERT INTO {self.table} ({self.name_header}, {self.description_header}, {self.parent_data_id_header}) VALUES (:name, :description, :parent_data_id)')
+            query.prepare(
+                f'INSERT INTO {self.table} ({self.name_header}, {self.description_header}, {self.parent_data_id_header}) VALUES (:name, :description, :parent_data_id)')
             query.bindValue(':name', name)
             query.bindValue(':description', description if description else QtC.QVariant())
             query.bindValue(':parent_data_id', self.parent_data_id)
         else:
-            query.prepare(f'INSERT INTO {self.table} ({self.name_header}, {self.description_header}) VALUES (:name, :description)')
+            query.prepare(
+                f'INSERT INTO {self.table} ({self.name_header}, {self.description_header}) VALUES (:name, :description)')
             query.bindValue(':name', name)
             query.bindValue(':description', description if description else QtC.QVariant())
         if not query.exec():
@@ -185,7 +186,8 @@ class AddDataItem(QtW.QDialog):
         else:
             sql_parent = f'= {self.parent_id}'
         if self.add_item == 'child':
-            query.prepare(f'SELECT {self.headers[0]}, {self.headers[2]} FROM {self.table} WHERE {self.headers[1]} {sql_parent}')
+            query.prepare(
+                f'SELECT {self.headers[0]}, {self.headers[2]} FROM {self.table} WHERE {self.headers[1]} {sql_parent}')
             if not query.exec():
                 logger_setup.get_logger().critical(f'Error adding {self.table} item: {name}')
                 logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
@@ -237,7 +239,7 @@ class AddDataItem(QtW.QDialog):
                 self.ids_added.append(query.lastInsertId())
             else:
                 # If the new item is being inserted in the middle, create a space for the new item
-                result, updated_ids = bulk_update_parent_row(self.table, self.parent_id, 1, self.parent_row+1)
+                result, updated_ids = bulk_update_parent_row(self.table, self.parent_id, 1, self.parent_row + 1)
                 if not result:
                     logger_setup.get_logger().critical(f'Error adding {self.table} item: {name}')
                     return False
@@ -258,19 +260,22 @@ class AddDataItem(QtW.QDialog):
                     logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                     logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
                     return False
-                logger_setup.get_logger().info(f'Successfully added {name} to {self.table} at row {len(parent_rows)+1}')
+                logger_setup.get_logger().info(
+                    f'Successfully added {name} to {self.table} at row {len(parent_rows) + 1}')
                 self.ids_added.append(query.lastInsertId())
         elif self.add_item == 'parent':  # Need to update the parent of all new child ids to the newly-added item
             # find top level parent ID and parent row for all items being moved
             top_parent_id, top_parent_row = self.top_node()
             if not top_parent_id and not top_parent_row:
                 # find all old parent IDs that are None or not integers and get the smallest row index
-                parent_row = min((row for row, pid in zip(self.old_parent_rows, self.old_parent_ids) if pid is None or not isinstance(pid, int)), default=None)
+                parent_row = min((row for row, pid in zip(self.old_parent_rows, self.old_parent_ids) if
+                                  pid is None or not isinstance(pid, int)), default=None)
             query.prepare(
                 f'INSERT INTO {self.table} ({self.name_header}, {self.description_header}, {self.headers[1]}, {self.headers[2]}, {self.parent_data_id_header}) VALUES (:name, :description, :parent_id, :parent_row, :parent_data_id)')
             query.bindValue(':name', name)
             query.bindValue(':description', description)
-            query.bindValue(':parent_id', top_parent_id if top_parent_id and isinstance(top_parent_id, int) else QtC.QVariant())
+            query.bindValue(':parent_id',
+                            top_parent_id if top_parent_id and isinstance(top_parent_id, int) else QtC.QVariant())
             query.bindValue(':parent_row', top_parent_row if top_parent_row is not None else QtC.QVariant())
             query.bindValue(':parent_data_id', self.parent_data_id)
             if not query.exec():
@@ -312,6 +317,7 @@ class AddDataItem(QtW.QDialog):
 
     def top_node(self):
         query = QtS.QSqlQuery()
+
         def get_depth(depth_id):
             depth = 0
             while depth_id is not None:
@@ -326,7 +332,8 @@ class AddDataItem(QtW.QDialog):
                     return None
                 if not query.next():
                     logger_setup.get_logger().critical(f'Error adding {self.table} item: {self.name_lineEdit.text()}')
-                    logger_setup.get_logger().debug(f'Error finding depth of {self.table} item ID {depth_id}: No record found')
+                    logger_setup.get_logger().debug(
+                        f'Error finding depth of {self.table} item ID {depth_id}: No record found')
                     return None
                 depth_parent_id = query.value(0)
                 if depth_parent_id == '':
@@ -351,7 +358,8 @@ class AddDataItem(QtW.QDialog):
             top_parent_row = None
             top_parent_id = None
             for item_id in candidates:
-                query.prepare(f"SELECT {self.headers[1]}, {self.headers[2]} FROM {self.table} WHERE {self.headers[0]} = :id")
+                query.prepare(
+                    f"SELECT {self.headers[1]}, {self.headers[2]} FROM {self.table} WHERE {self.headers[0]} = :id")
                 query.bindValue(':id', item_id)
                 if not query.exec():
                     logger_setup.get_logger().critical(f'Error adding {self.table} item: {self.name_lineEdit.text()}')
@@ -362,7 +370,8 @@ class AddDataItem(QtW.QDialog):
                     continue
                 if not query.next():
                     logger_setup.get_logger().critical(f'Error adding {self.table} item: {self.name_lineEdit.text()}')
-                    logger_setup.get_logger().debug(f'Error finding parent row of {self.table} item ID {item_id}: No record found')
+                    logger_setup.get_logger().debug(
+                        f'Error finding parent row of {self.table} item ID {item_id}: No record found')
                     continue
                 parent_id = query.value(0)
                 parent_row = query.value(1)
@@ -371,7 +380,8 @@ class AddDataItem(QtW.QDialog):
                     top_parent_id = parent_id
         else:
             top_item_id = candidates[0]
-            query.prepare(f'SELECT {self.headers[1]}, {self.headers[2]} FROM {self.table} WHERE {self.headers[0]} = :id')
+            query.prepare(
+                f'SELECT {self.headers[1]}, {self.headers[2]} FROM {self.table} WHERE {self.headers[0]} = :id')
             query.bindValue(':id', top_item_id)
             if not query.exec():
                 logger_setup.get_logger().critical(f'Error adding {self.table} item: {self.name_lineEdit.text()}')
@@ -382,7 +392,8 @@ class AddDataItem(QtW.QDialog):
                 return None, None
             if not query.next():
                 logger_setup.get_logger().critical(f'Error adding {self.table} item: {self.name_lineEdit.text()}')
-                logger_setup.get_logger().debug(f'Error finding parent row of {self.table} item ID {top_item_id}: No record found')
+                logger_setup.get_logger().debug(
+                    f'Error finding parent row of {self.table} item ID {top_item_id}: No record found')
                 return None, None
             top_parent_id = query.value(0)
             top_parent_row = query.value(1)
@@ -433,7 +444,8 @@ class AddDataItem(QtW.QDialog):
                 return
         msg = QMessageBox()
         msg.setIcon(QtW.QMessageBox.Icon.Information)
-        msg.setText(f'Note: The new {self.table} may not show up in a filtered view or if items missing data are hidden in settings.\n')
+        msg.setText(
+            f'Note: The new {self.table} may not show up in a filtered view or if items missing data are hidden in settings.\n')
         msg.setStandardButtons(QtW.QMessageBox.StandardButton.Cancel | QtW.QMessageBox.StandardButton.Ok)
         response = msg.exec()
         if response == QtW.QMessageBox.StandardButton.Cancel:

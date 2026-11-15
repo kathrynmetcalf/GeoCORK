@@ -13,15 +13,22 @@ from Functions.Database_views import ViewQuery
 from Functions.Settings_manager import SettingsManager
 from ui.settings import SettingsCore
 
-settings = SettingsManager().settings
-from Functions.Widget_classes import (SQLiteTableModel, ReadableProxyModel, TreeModel,
-                                      TreeContextMenu, expand_collapse, get_name_column, get_headers,
-                                      get_view_from_table, TreeSortFilterProxyModel, get_readable_header,
+from Functions.Widget_classes import (expand_collapse, get_name_column, get_headers,
+                                      get_view_from_table, get_readable_header,
                                       show_loading_dialog, close_loading_dialog, get_record_row,
                                       get_id_from_name, columns_as_list, save_expanded_state,
-                                      TrackExpandedTreeView, FrozenTableView, scroll_to_record)
+                                      FrozenTableView, scroll_to_record)
 from ui.EditTreeView import EditTreeView
 from ui.EditView import EditView
+from util.widgets.context_menus import TreeContextMenu
+from util.widgets.models.ReadableProxyModel import ReadableProxyModel
+from util.widgets.models.SQLiteTableModel import SQLiteTableModel
+from util.widgets.models.TrackExpandedTreeView import TrackExpandedTreeView
+from util.widgets.models.TreeModel import TreeModel
+from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
+
+settings = SettingsManager().settings
+
 
 class ViewDataTab(QtW.QWidget):
     def __init__(self, parent_id: int, parent_type: str, child_type: str, label: str):

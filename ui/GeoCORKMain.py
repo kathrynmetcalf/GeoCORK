@@ -1,5 +1,4 @@
 import os
-import sys
 import time
 from datetime import datetime
 
@@ -9,7 +8,6 @@ from PyQt6.QtCore import QPoint, QSize, QStandardPaths
 from PyQt6.QtGui import QAction
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from PyQt6.QtWidgets import QMenu, QFileDialog, QProgressDialog
-from PyQt6.uic import loadUi
 from tzlocal import get_localzone
 
 import logger_setup
@@ -21,9 +19,7 @@ from Functions.Database_manager import update_database, turn_on_foreign_keys
 from Functions.Savepoint_manager import SavepointManager
 from Functions.Settings_manager import SettingsManager
 from ui.SampleMap import SampleMapWindow
-from ui.menus.StaticMenuGuard import install_static_menus
 
-settings = SettingsManager().settings
 from Functions.Text_manipulations import shrink_home, expand_home
 from Functions.Widget_classes import get_name_from_id, close_loading_dialog, show_loading_dialog
 from util.widgets.tabs.PartiallyCloseableTabWidget import PartiallyCloseableTabWidget
@@ -35,8 +31,7 @@ from ui.settings.Settings import SettingsDialog
 from ui.ViewDataTab import ViewDataTab
 from ui.settings.SettingsCore import default_settings
 
-
-# import Select_Database as sd  # Eventually get database file from initial dialog
+settings = SettingsManager().settings
 
 
 class GeoCORK(QtW.QMainWindow):
@@ -90,7 +85,7 @@ class GeoCORK(QtW.QMainWindow):
         default_settings()
 
         close_loading_dialog('Opening',
-                                              f'Opening {self.db_name}... \n(GeoCORK may be slower for large databases)')
+                             f'Opening {self.db_name}... \n(GeoCORK may be slower for large databases)')
         self.showMaximized()
         self.show()
 
@@ -109,7 +104,6 @@ class GeoCORK(QtW.QMainWindow):
         self.tabWidget.setCurrentIndex(0)
         self.tabWidget.tabCloseRequested.connect(self.close_tab)
         self.tabWidget.currentChanged.connect(self.on_tab_changed)
-
 
     def build_file_menu(self) -> QMenu:
         """Build the File menu. Actions are created once and never change; only the Recent submenu's contents change."""
@@ -194,7 +188,8 @@ class GeoCORK(QtW.QMainWindow):
 
         self.landingpage.selected_files = file_name
         if self.landingpage.selected_files not in self.landingpage.list_recents:
-            self.landingpage.list_recents.insert(0, self.landingpage.selected_files)  # Add the new database to the top of the list
+            self.landingpage.list_recents.insert(0,
+                                                 self.landingpage.selected_files)  # Add the new database to the top of the list
             settings.setValue("ui/LandingPage/recentlist", self.landingpage.list_recents)
         self.landingpage.db = None
         self.landingpage.open_about_db()
@@ -272,7 +267,8 @@ class GeoCORK(QtW.QMainWindow):
             self.thread.start()
 
         else:
-            logger_setup.get_logger().critical('Uncommitted changes: cannot backup\nPlease commit or discard changes before creating a backup.')
+            logger_setup.get_logger().critical(
+                'Uncommitted changes: cannot backup\nPlease commit or discard changes before creating a backup.')
             logger_setup.get_logger().debug(f"Savepoints: {SavepointManager.get_instance().active_savepoints_names()}")
 
     def restore_backup(self):
@@ -342,7 +338,7 @@ class GeoCORK(QtW.QMainWindow):
                 return
             label = f'{parent_type} {parent_name}: {child_type}'
             show_loading_dialog('Loading',
-                                                     f'Loading {parent_type} {parent_name}: {child_type}...')
+                                f'Loading {parent_type} {parent_name}: {child_type}...')
             tab = ViewDataTab(p_id, parent_type, child_type, label)
             tab.setUpdatesEnabled(False)
             start_add_tab_time = time.time()
@@ -356,7 +352,8 @@ class GeoCORK(QtW.QMainWindow):
     def close_tab(self, index):
         self.tabWidget: PartiallyCloseableTabWidget
         if index >= len(self.tabWidget.permanent_tabs):
-            if index == len(self.tabWidget.permanent_tabs): # If the export tab is to the left of the closed tab, switch to the data tables tab
+            if index == len(
+                    self.tabWidget.permanent_tabs):  # If the export tab is to the left of the closed tab, switch to the data tables tab
                 self.tabWidget.setCurrentIndex(0)
             else:
                 self.tabWidget.setCurrentIndex(index - 1)

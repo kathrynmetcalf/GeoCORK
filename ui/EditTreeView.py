@@ -10,11 +10,9 @@ from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
 import logger_setup
 from Functions.Widget_classes import (
-    TreeModel, CheckableTreeCombobox, CheckableTreeModel, SQLiteTableModel, CheckableComboBox,
-    CheckableSqlTableModel, CheckableSqlQueryModel, get_headers, get_name_column, set_table, populate_many_combo_checks,
-    populate_model_checks, get_columns, get_readable_header, find_current_sub_items, get_id_from_name,
-    add_tree_popup, save_expanded_state, restore_expanded_state, get_selected_tree_ids, TreeContextMenu,
-    expand_collapse, get_name_from_id, get_view_from_table, columns_as_list_current, TreeSortFilterProxyModel,
+    get_headers, get_name_column, set_table, get_columns, get_readable_header, find_current_sub_items, get_id_from_name,
+    add_tree_popup, save_expanded_state, restore_expanded_state, get_selected_tree_ids,
+    expand_collapse, get_name_from_id, get_view_from_table, columns_as_list_current,
     delete_data, delete_query, show_loading_dialog, close_loading_dialog, update_modified_timestamp
 )
 from Functions import SQLUtils
@@ -23,6 +21,16 @@ from Functions.Settings_manager import SettingsManager
 from ui.AddDataItem import AddDataItem
 from ui.EditView import EditView
 from ui.New_reference import NewReference
+from util.populate_models import populate_many_combo_checks, populate_model_checks
+from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
+from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
+from util.widgets.context_menus import TreeContextMenu
+from util.widgets.models.CheckableSqlQueryModel import CheckableSqlQueryModel
+from util.widgets.models.CheckableSqlTableModel import CheckableSqlTableModel
+from util.widgets.models.CheckableTreeModel import CheckableTreeModel
+from util.widgets.models.SQLiteTableModel import SQLiteTableModel
+from util.widgets.models.TreeModel import TreeModel
+from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
 
 settings = SettingsManager().settings
 from Functions.Database_views import ViewQuery
@@ -32,7 +40,7 @@ from ui.EditTree import EditTree
 from ui.EditTable import EditTable
 from ui.Merge import MergeDialog
 from ui.SampleChainEdit import SampleChainEdit
-from Functions.Widget_classes import find_tree_model, populate_combo_box
+from Functions.Widget_classes import find_tree_model
 import time
 
 class SetSelectedValues(QtW.QDialog):
@@ -48,7 +56,7 @@ class SetSelectedValues(QtW.QDialog):
         self.widget.setSizePolicy(QtW.QSizePolicy.Policy.Expanding, QtW.QSizePolicy.Policy.Expanding)
         if isinstance(self.widget, QtW.QComboBox):
             self.widget.setSizeAdjustPolicy(QtW.QComboBox.SizeAdjustPolicy.AdjustToContents)
-            if isinstance(self.widget, CheckableComboBox | CheckableTreeCombobox):
+            if isinstance(self.widget, CheckableComboBox | CheckableTreeComboBox):
                 self.widget.add_triggered.connect(parent_window.add_tag_popup)
                 self.widget.edit_triggered.connect(parent_window.edit_tag_popup)
         self.commit_button = QtW.QPushButton('Commit')
@@ -69,7 +77,7 @@ class SetSelectedValues(QtW.QDialog):
             self.widget.add_triggered.connect(self.add_popup)
             self.widget.edit_triggered.connect(self.edit_popup)
             self.widget.delete_triggered.connect(self.delete_item)
-        elif isinstance(self.widget, CheckableTreeCombobox):
+        elif isinstance(self.widget, CheckableTreeComboBox):
             self.widget.add_triggered.connect(self.add_popup)
             self.widget.edit_triggered.connect(self.edit_popup)
         close_loading_dialog('Loading', f'Loading...')
@@ -685,7 +693,7 @@ class EditTreeView(QtW.QDialog):
         header = header.replace(' ', '')
         set_table(self.combo_model, self.dropdown_table)
         if self.dropdown_table in SQLUtils.user_viewable_trees:
-            self.combo = CheckableTreeCombobox()
+            self.combo = CheckableTreeComboBox()
             self.combo_tree_model = CheckableTreeModel()
             self.combo_tree_model.setSourceModel(self.combo_model)
             self.combo.setModel(self.combo_tree_model)
@@ -735,7 +743,7 @@ class EditTreeView(QtW.QDialog):
         self.combo.view().installEventFilter(self)
         self.combo.model_modifiable = True
         self.combo.closedOnLineEditClick = False
-        if isinstance(self.combo, CheckableComboBox | CheckableTreeCombobox):
+        if isinstance(self.combo, CheckableComboBox | CheckableTreeComboBox):
             self.combo.enable_context_menu(True)
             self.combo.add_triggered.connect(self.add_tag_popup)
             self.combo.edit_triggered.connect(self.edit_tag_popup)

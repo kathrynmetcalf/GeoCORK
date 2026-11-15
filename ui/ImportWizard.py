@@ -28,15 +28,24 @@ from Functions.Savepoint_manager import create_savepoint, rollback_savepoint, re
 from Functions.Settings_manager import SettingsManager
 from ui.settings.SettingsCore import get_importer_brushes
 from ui.EditView import EditView
+from util.populate_models import populate_combo_box
+from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
+from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
+from util.widgets.ComboBoxes.SearchableComboBox import SearchableComboBox
+from util.widgets.GroupBoxes.CollapsibleGroupBox import CollapsibleGroupBox
+from util.widgets.models.CheckableSQLiteTableModel import CheckableSQLiteTableModel
+from util.widgets.models.CheckableSqlQueryModel import CheckableSqlQueryModel
+from util.widgets.models.CheckableSqlTableModel import CheckableSqlTableModel
+from util.widgets.models.CheckableTreeModel import CheckableTreeModel
+from util.widgets.models.ImportSheetModel import ImportSheetModel
+from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
 
 settings = SettingsManager().settings
 from Functions.Widget_classes import (
-    CheckableComboBox, CheckableSqlTableModel, SearchableComboBox, CheckableTreeModel,
-    CheckableTreeCombobox, save_expanded_state, get_name_column, add_tree_popup, get_id_from_name, get_name_from_id,
-    get_headers, CheckableSqlQueryModel, CompleterInputDialog,
+    save_expanded_state, get_name_column, add_tree_popup, get_id_from_name, get_name_from_id,
+    get_headers, CompleterInputDialog,
     get_view_from_table,
-    search_dictionary, ImportSheetModel, show_loading_dialog, close_loading_dialog, DisableItemModel, delete_data,
-    populate_combo_box, CheckableSQLiteTableModel, TreeSortFilterProxyModel, find_tree_model, CollapsibleGroupBox)
+    search_dictionary, show_loading_dialog, close_loading_dialog, DisableItemModel, delete_data, find_tree_model)
 
 from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags
@@ -699,7 +708,7 @@ class ImportWizardDialog(QWidget):
         self.combo_upb_lab_facility_comboBox.setToolTip('Applies the selected lab facility to all U-Pb rows')
 
         # ComboBox for setting UPbAnalysisMethod
-        self.combo_upb_analysis_method_comboBox = CheckableTreeCombobox()
+        self.combo_upb_analysis_method_comboBox = CheckableTreeComboBox()
         self.combo_upb_analysis_method_comboBox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         self.combo_upb_analysis_method_comboBox.setToolTip('Applies the selected analysis method to all U-Pb rows')
 
@@ -734,7 +743,7 @@ class ImportWizardDialog(QWidget):
         self.combo_geochem_lab_facility_comboBox.setToolTip('Applies the selected lab facility to all geochemical rows')
 
         # ComboBox for setting GeoChem Analysis Method
-        self.combo_geochem_analysis_method_comboBox = CheckableTreeCombobox()
+        self.combo_geochem_analysis_method_comboBox = CheckableTreeComboBox()
         self.combo_geochem_analysis_method_comboBox.setSizePolicy(QSizePolicy.Policy.Preferred,
                                                                   QSizePolicy.Policy.Minimum)
         self.combo_geochem_analysis_method_comboBox.setToolTip(

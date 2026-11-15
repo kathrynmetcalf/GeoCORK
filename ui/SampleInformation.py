@@ -14,9 +14,9 @@ import logger_setup
 import Functions.SQLUtils as SQLUtils
 
 from Functions.Widget_classes import (
-    set_table, SQLiteTableModel, CheckableSqlTableModel, TreeModel, CheckableTreeCombobox, save_expanded_state,
-    delete_data, find_tree_model, CheckableComboBox, get_headers, add_tree_popup, populate_combo_box,
-    populate_many_combo_checks, ReadableProxyModel, get_view_from_table, close_loading_dialog, show_loading_dialog,
+    set_table, save_expanded_state,
+    delete_data, find_tree_model, get_headers, add_tree_popup,
+    get_view_from_table, close_loading_dialog, show_loading_dialog,
     get_id_from_name, get_name_column
 )
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
@@ -24,7 +24,7 @@ from Functions.Check_triggers import update_modified_timestamp
 from Functions.Settings_manager import SettingsManager
 from ui.EditView import EditView
 
-settings = SettingsManager().settings
+
 from ui.GPSFields import GPSFields
 from ui.AgeFields import AgeFields
 from ui.ColumnFields import ColumnFields
@@ -34,6 +34,16 @@ from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags
 from ui.New_reference import NewReference
 from ui.EditUPbTags import EditUPbTags
+
+from util.populate_models import populate_many_combo_checks, populate_combo_box
+from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
+from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
+from util.widgets.models.CheckableSqlTableModel import CheckableSqlTableModel
+from util.widgets.models.SQLiteTableModel import SQLiteTableModel
+from util.widgets.models.TreeModel import TreeModel
+from util.widgets.models.ReadableProxyModel import ReadableProxyModel
+
+settings = SettingsManager().settings
 
 
 class SampleInformation(QtW.QDialog):
@@ -428,9 +438,9 @@ class SampleInformation(QtW.QDialog):
         else:
             logger_setup.get_logger().info("No samples selected")
 
-    def update_sample_tags(self, combo: CheckableTreeCombobox):
+    def update_sample_tags(self, combo: CheckableTreeComboBox):
         logger_setup.get_logger().info(f"update_sample_tags called with {combo.objectName()}")
-        if not isinstance(combo, CheckableTreeCombobox):
+        if not isinstance(combo, CheckableTreeComboBox):
             logger_setup.get_logger().critical(f"Combo box is not CheckableTreeComboBox")
             return False
         if len(self.checked_sample_list) == 0:
@@ -568,7 +578,7 @@ class SampleInformation(QtW.QDialog):
                 model = model.sourceModel()
         if isinstance(combo, CheckableComboBox):
             selected_ids = model.checked_ids
-        elif isinstance(combo, CheckableTreeCombobox):
+        elif isinstance(combo, CheckableTreeComboBox):
             model, indexes = find_tree_model(model, None)
             if model:
                 selected_ids = model.checked_ids

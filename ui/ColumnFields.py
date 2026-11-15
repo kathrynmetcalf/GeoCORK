@@ -5,22 +5,29 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 
-import logger_setup
 from Functions.Widget_classes import (
-    TreeModel, populate_combo_box, CheckableComboBox, get_headers, populate_many_combo_checks, add_tree_popup,
+    get_headers, add_tree_popup,
     save_expanded_state, get_name_from_id, find_tree_model, get_view_from_table, show_loading_dialog,
-    close_loading_dialog, FocusGroupBox, set_comboBox_text, update_modified_timestamp
+    close_loading_dialog, set_comboBox_text, update_modified_timestamp
 )
 from Functions import SQLUtils
 from Functions.Settings_manager import SettingsManager
 
-settings = SettingsManager().settings
 from Functions.Database_views import ViewQuery
 from Functions.Check_triggers import validate_update
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
 from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags
+
+import logger_setup
+from util.populate_models import populate_combo_box, populate_many_combo_checks
+from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
+from util.widgets.GroupBoxes.FocusGroupBox import FocusGroupBox
+from util.widgets.models.TreeModel import TreeModel
+
+settings = SettingsManager().settings
+
 
 class ColumnFields(QtW.QWidget):
     def __init__(self, sample_ids: list, parent=None):
@@ -143,7 +150,7 @@ class ColumnFields(QtW.QWidget):
                 if text is None or text == '':
                     set_comboBox_text(self.column_name_comboBox, "")
                 elif text == "-":
-                    partially_checked_ids = set(value for value in values if value != "" )
+                    partially_checked_ids = set(value for value in values if value != "")
                     self.column_name_comboBox.source_model().update_model_checks(set(), set(partially_checked_ids))
                 else:
                     column_id = text
@@ -313,10 +320,10 @@ class ColumnFields(QtW.QWidget):
         self.checked_sample_list = sample_ids
         if len(self.checked_sample_list) == 0:
             # No samples selected, clear fields and disable groups
-            self.clear_fields() # Also disconnects signals
+            self.clear_fields()  # Also disconnects signals
             self.connect_signals()
         else:
-            self.clear_fields() # Also disconnects signals
+            self.clear_fields()  # Also disconnects signals
             self.populate_dropdowns()
             self.populate_fields()
 

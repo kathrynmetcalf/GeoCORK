@@ -3,15 +3,12 @@ import re
 import sqlite3
 import time
 
-from PyQt6 import QtCore, QtWidgets
-from PyQt6.QtCore import Qt, QEventLoop
-from PyQt6.QtGui import QAction
+from PyQt6.QtCore import Qt
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QVBoxLayout, QScrollArea, QSizePolicy, QWidget, QListWidgetItem, QMessageBox, QLabel
 
 from Functions import SQLUtils
 import logger_setup
-from ui.DataViewerWidget import DataViewerWidget
 from Functions.Widget_classes import show_loading_dialog, close_loading_dialog
 from ui.filters.FilterHelpers import process_group
 from ui.filters.FilterGroupBox import FilterGroupBox

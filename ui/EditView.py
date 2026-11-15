@@ -14,13 +14,11 @@ import Functions.Text_manipulations as TxM
 import logger_setup
 from Functions.Check_triggers import validate_update
 from Functions.Widget_classes import (
-    TreeModel, CheckableTreeCombobox, CheckableTreeModel, ReadableProxyModel, populate_combo_box,
-    SQLiteTableModel, CheckableComboBox, CheckableSqlTableModel, CheckableSqlQueryModel, get_headers, get_name_column,
-    populate_many_combo_checks, populate_model_checks, delete_data, scroll_to_record, get_columns, get_table_from_view,
+    delete_data, scroll_to_record, get_columns, get_table_from_view,
     find_current_sub_items, get_record_row, get_id_from_name, add_tree_popup, save_expanded_state, get_readable_header,
-    get_name_from_id, find_tree_model, get_view_from_table, TreeSortFilterProxyModel, populate_tree_model_checks,
-    columns_as_list, show_loading_dialog, close_loading_dialog, CheckableTreeView, CheckableSQLiteTableModel,
-    get_edit_view_from_table, common_strings
+    get_name_from_id, find_tree_model, get_view_from_table,
+    columns_as_list, show_loading_dialog, close_loading_dialog,
+    get_edit_view_from_table, common_strings, get_headers, get_name_column
 )
 from Functions import SQLUtils
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
@@ -28,6 +26,19 @@ from Functions.Settings_manager import SettingsManager
 from ui.SampleChainEdit import SampleChainEdit
 from ui.AddDataItem import AddDataItem
 from ui.settings import SettingsCore
+from util.populate_models import populate_combo_box, populate_tree_model_checks, populate_model_checks, \
+    populate_many_combo_checks
+from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
+from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
+from util.widgets.models.CheckableSQLiteTableModel import CheckableSQLiteTableModel
+from util.widgets.models.CheckableSqlQueryModel import CheckableSqlQueryModel
+from util.widgets.models.CheckableSqlTableModel import CheckableSqlTableModel
+from util.widgets.models.CheckableTreeModel import CheckableTreeModel
+from util.widgets.models.CheckableTreeView import CheckableTreeView
+from util.widgets.models.ReadableProxyModel import ReadableProxyModel
+from util.widgets.models.SQLiteTableModel import SQLiteTableModel
+from util.widgets.models.TreeModel import TreeModel
+from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
 
 settings = SettingsManager().settings
 from Functions.Database_views import ViewQuery
@@ -78,7 +89,7 @@ class SetSelectedValues(QtW.QDialog):
         self.main_layout.addLayout(button_layout)
         self.setLayout(self.main_layout)
         self.adjustSize()
-        if isinstance(self.widget, CheckableComboBox | CheckableTreeCombobox):
+        if isinstance(self.widget, CheckableComboBox | CheckableTreeComboBox):
             self.connect_checkable_combobox()
         close_loading_dialog('Loading', f'Loading...')
 
@@ -194,7 +205,7 @@ class SetSelectedValues(QtW.QDialog):
         if not selected_ids:
             return
         combo.blockSignals(True)
-        if isinstance(combo, CheckableTreeCombobox):
+        if isinstance(combo, CheckableTreeComboBox):
             tree_model = find_tree_model(combo.model(), [])[0]
             if not tree_model.removeItems(selected_ids):
                 combo.blockSignals(False)
@@ -1230,7 +1241,7 @@ class EditView(QtW.QDialog):
                     (self.table == 'Grains' and self.dropdown_table == 'Aliquots')):
                 if self.parent_type == 'Samples':
                     if self.dropdown_table == 'Aliquots':
-                        self.combo = CheckableTreeCombobox(self)
+                        self.combo = CheckableTreeComboBox(self)
                         query = f'SELECT * FROM Aliquots WHERE SampleID = {self.parent_id}'
                     elif self.dropdown_table == 'Grains':
                         self.combo = CheckableComboBox(self)
@@ -1258,7 +1269,7 @@ class EditView(QtW.QDialog):
                         self.combo = CheckableComboBox(self)
                         query = f'SELECT * FROM Spots WHERE GrainID = {self.parent_id}'
             elif self.dropdown_table in SQLUtils.user_viewable_trees:
-                self.combo = CheckableTreeCombobox(self)
+                self.combo = CheckableTreeComboBox(self)
             elif 'Abbreviation' in header:
                 self.combo = QtW.QComboBox(self)
             else:
@@ -1318,7 +1329,7 @@ class EditView(QtW.QDialog):
         self.combo.view().installEventFilter(self)
         self.combo.model_modifiable = True
         self.combo.closedOnLineEditClick = False
-        if isinstance(self.combo, CheckableComboBox | CheckableTreeCombobox):
+        if isinstance(self.combo, CheckableComboBox | CheckableTreeComboBox):
             # Enable context menu for checkable comboboxes
             self.combo.enable_context_menu(True)
             self.combo.add_triggered.connect(self.add_tag_popup)
@@ -1877,7 +1888,7 @@ class EditView(QtW.QDialog):
             tree_model = CheckableTreeModel()
             # tree_model = LazyCheckableTreeModel()
             tree_model.setSourceModel(child_model)
-            child_combo = CheckableTreeCombobox()
+            child_combo = CheckableTreeComboBox()
             child_combo.set_single_click(True)
             child_combo.setModel(tree_model)
             child_combo.setModelColumn(0)
@@ -2084,7 +2095,7 @@ class EditView(QtW.QDialog):
                 self.save_lineedit_data()
             elif self.combo is not None:
                 # Clear the combo box
-                if isinstance(self.combo, CheckableComboBox | CheckableTreeCombobox):
+                if isinstance(self.combo, CheckableComboBox | CheckableTreeComboBox):
                     self.combo_model.clear_checks()
                 self.combo.setCurrentIndex(-1)
                 self.save_dropdown_data()
@@ -2527,7 +2538,7 @@ class EditView(QtW.QDialog):
                 f'Multiple {parent_table} found for the selected aliquots.\nPlease select a {get_headers(parent_table)[get_name_column(parent_table)]} for the new {self.table}.')
             layout.addWidget(label)
             if parent_table == 'Aliquots':
-                combo = CheckableTreeCombobox()
+                combo = CheckableTreeComboBox()
             else:
                 combo = CheckableComboBox()
             view_query = ViewQuery(parent_table, True, **{'show_columns': show_cols,
@@ -2542,7 +2553,7 @@ class EditView(QtW.QDialog):
             layout.addWidget(button_box)
             dlg.setLayout(layout)
             if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
-                if isinstance(combo, CheckableTreeCombobox):
+                if isinstance(combo, CheckableTreeComboBox):
                     checked_parent_ids = combo.tree_model.return_checked_ids()[0]
                 else:
                     checked_parent_ids = combo.source_model().return_checked_ids()[0]
@@ -2662,7 +2673,7 @@ class EditView(QtW.QDialog):
     def delete_tag_popup(self):
         combo = self.combo
         combo.blockSignals(True)
-        if isinstance(combo, CheckableTreeCombobox):
+        if isinstance(combo, CheckableTreeComboBox):
             tree_model = find_tree_model(combo.model(), [])[0]
             selected_ids = list(tree_model.checked_ids)
             selected_ids.extend(list(tree_model.partially_checked_ids))

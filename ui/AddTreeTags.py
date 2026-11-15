@@ -5,7 +5,7 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
-from PyQt6.QtCore import QPoint, QSize, QSortFilterProxyModel
+from PyQt6.QtCore import QPoint, QSize
 from PyQt6.uic import loadUi
 
 import Functions.Text_manipulations as TxM
@@ -13,12 +13,14 @@ import logger_setup
 from Functions.Database_manager import update_database
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
+from util.widgets.context_menus import TreeContextMenu
+from util.widgets.models.TreeModel import TreeModel
+from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
+
 settings = SettingsManager().settings
-from Functions.Widget_classes import (TreeModel, TreeContextMenu, expand_collapse, save_expanded_state,
+from Functions.Widget_classes import (expand_collapse, save_expanded_state,
                                       restore_expanded_state, show_loading_dialog, close_loading_dialog,
-                                      get_headers, get_name_column, get_description_column, set_table, ReadableProxyModel,
-                                      get_id_from_name, TreeSortFilterProxyModel, get_name_from_id, SQLiteTableModel
-                                      )
+                                      get_headers, set_table, get_id_from_name)
 
 
 class AddTreeTags(QtW.QDialog):

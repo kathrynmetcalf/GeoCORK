@@ -12,32 +12,46 @@ from PyQt6.QtWidgets import (QWidget, QComboBox, QPushButton, QMessageBox, QComp
 from PyQt6.QtGui import QAction
 
 import Functions.Text_manipulations as TxM
-import logger_setup
+
 from Functions.Database_manager import update_database
 from Functions import SQLUtils
 from Functions.Database_views import ViewQuery
 from Functions.Widget_classes import (
-    SQLiteTableModel, TreeSortFilterProxyModel, TreeModel, get_name_column,
-    ReadableProxyModel, get_id_from_name, get_record_row, columns_as_list, get_view_from_table, find_current_sub_items,
-    show_loading_dialog, close_loading_dialog, TrackExpandedTreeView, TreeContextMenu, expand_collapse,
+    get_name_column,
+    get_id_from_name, get_record_row, columns_as_list, get_view_from_table, find_current_sub_items,
+    show_loading_dialog, close_loading_dialog, expand_collapse,
     scroll_to_record, FrozenTableView)
 from Functions.Widget_classes import get_headers
-from ui.SampleInformation import SampleInformation
+
 from Functions.Settings_manager import SettingsManager
-from ui.settings import SettingsCore
+from util.widgets.context_menus import TreeContextMenu
+
 from util.widgets.delegates import WordWrapDelegate
 
-settings = SettingsManager().settings
+from ui.settings import SettingsCore
+
+from ui.SampleInformation import SampleInformation
+
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
 from ui.EditView import EditView
 from ui.EditTreeView import EditTreeView
+
+import logger_setup
+from util.widgets.models.ReadableProxyModel import ReadableProxyModel
+from util.widgets.models.SQLiteTableModel import SQLiteTableModel
+from util.widgets.models.TrackExpandedTreeView import TrackExpandedTreeView
+from util.widgets.models.TreeModel import TreeModel
+from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
+
+settings = SettingsManager().settings
 
 
 class DataViewerWidget(QWidget):
     """
     A widget for displaying filtered data from a database.
     """
+
     def __init__(self, parent_class, ids_to_show: set, table_type):
         """
         Initializes the DataViewerWidget.
@@ -59,7 +73,7 @@ class DataViewerWidget(QWidget):
             self.filtered_sample_ids = ids_to_show
 
         self.data_table = table_type
-        self.data_filtered_table = 'RockTypes' # default to rocktypes
+        self.data_filtered_table = 'RockTypes'  # default to rocktypes
 
         self.current_selection = []
 
@@ -143,7 +157,8 @@ class DataViewerWidget(QWidget):
         self.filtered_edit_pushButton.clicked.connect(
             lambda: self.edit_popup(self.dbTable_treeView, self.filtered_data_hierarchy_combobox))
 
-        self.filtered_search_lineEdit.returnPressed.connect(lambda: self.search(self.filtered_search_lineEdit, self.data_table_proxy_model))
+        self.filtered_search_lineEdit.returnPressed.connect(
+            lambda: self.search(self.filtered_search_lineEdit, self.data_table_proxy_model))
 
         self.selectionTimer = QTimer()
         self.selectionTimer.setSingleShot(True)
@@ -171,9 +186,11 @@ class DataViewerWidget(QWidget):
         self.filtered_data_selector_groupbox = QGroupBox(self)
         self.filtered_data_selector_groupbox.setLayout(QVBoxLayout())
         self.filtered_data_selector_groupbox.layout().setSpacing(0)
-        self.filtered_data_selector_groupbox.setContentsMargins(11, 5, 5, 11) # default is 11
-        self.filtered_data_selector_groupbox.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed))
-        self.filtered_data_selector_groupbox.setTitle("View Filtered High-Level Sample, Aliquot, Grain, Spot, UPb Data or Geochem Data")
+        self.filtered_data_selector_groupbox.setContentsMargins(11, 5, 5, 11)  # default is 11
+        self.filtered_data_selector_groupbox.setSizePolicy(
+            QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed))
+        self.filtered_data_selector_groupbox.setTitle(
+            "View Filtered High-Level Sample, Aliquot, Grain, Spot, UPb Data or Geochem Data")
         self.filtered_data_selector_groupbox.setFixedHeight(125)
 
         # ----------
@@ -181,7 +198,8 @@ class DataViewerWidget(QWidget):
         topleft_placeholder = QWidget(parent=self.filtered_data_selector_groupbox)
         topleft_placeholder.setLayout(QHBoxLayout())
         topleft_placeholder.layout().setContentsMargins(0, 0, 0, 0)
-        topleft_placeholder.layout().addWidget(QLabel("Search Filtered Data View: ", self.filtered_data_selector_groupbox))
+        topleft_placeholder.layout().addWidget(
+            QLabel("Search Filtered Data View: ", self.filtered_data_selector_groupbox))
 
         self.filtered_search_lineEdit = QLineEdit(self.filtered_data_selector_groupbox)
         self.filtered_search_lineEdit.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed))
@@ -226,7 +244,8 @@ class DataViewerWidget(QWidget):
         topright_placeholder = QWidget(parent=self.related_data_selector_groupbox)
         topright_placeholder.setLayout(QHBoxLayout())
         topright_placeholder.layout().setContentsMargins(0, 0, 0, 0)
-        topright_placeholder.layout().addWidget(QLabel("Search Related Data View: ", self.related_data_selector_groupbox))
+        topright_placeholder.layout().addWidget(
+            QLabel("Search Related Data View: ", self.related_data_selector_groupbox))
 
         self.related_search_lineEdit = QLineEdit(self.related_data_selector_groupbox)
         self.related_search_lineEdit.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed))
@@ -401,7 +420,8 @@ class DataViewerWidget(QWidget):
             if new_table == 'Samples':
                 filtered_ids = self.filtered_sample_ids
             else:
-                aliquot_ids, grain_ids, spot_ids, upb_analysis_ids = find_current_sub_items(data_ids=list(self.filtered_sample_ids), table='Samples')
+                aliquot_ids, grain_ids, spot_ids, upb_analysis_ids = find_current_sub_items(
+                    data_ids=list(self.filtered_sample_ids), table='Samples')
                 if new_table == 'Aliquots':
                     if aliquot_ids:
                         filtered_ids = set(aliquot_ids)
@@ -462,7 +482,7 @@ class DataViewerWidget(QWidget):
             self.switch_to_table_2(self.db_stackedWidget_2)
         else:
             logger_setup.get_logger().critical(
-            f"Error {self.data_filtered_table}: Tried to switch to a table with no table or tree..Don't know how it got here")
+                f"Error {self.data_filtered_table}: Tried to switch to a table with no table or tree..Don't know how it got here")
         self.goto_line_edit_2.setCompleter(None)
         self.display_table_with_data_filter()
 
@@ -477,7 +497,8 @@ class DataViewerWidget(QWidget):
         msg.setIcon(QMessageBox.Icon.Question)
         msg.setWindowTitle('Many results')
         if table == 'Aliquots':
-            msg.setText(f'Would you like to view {number} {table}? Paging is not available for trees, so this will take a while to load.')
+            msg.setText(
+                f'Would you like to view {number} {table}? Paging is not available for trees, so this will take a while to load.')
         else:
             msg.setText(f'Would you like to view {number} {table}? This may take a while to load.')
         msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
@@ -539,7 +560,7 @@ class DataViewerWidget(QWidget):
             name_column = get_name_column(get_view_from_table(table))
             if name_column is not None:
                 name_header = self.data_table_model.headerData(name_column, Qt.Orientation.Horizontal,
-                                           Qt.ItemDataRole.DisplayRole)
+                                                               Qt.ItemDataRole.DisplayRole)
                 self.set_go_to_completer(self.goto_line_edit, name_header, table)
 
             self.data_table_proxy_model = ReadableProxyModel()
@@ -553,7 +574,8 @@ class DataViewerWidget(QWidget):
             self.dbTable_tableView.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
             self.dbTable_tableView.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
             if hasattr(self.dbTable_tableView, 'frozen_table_view'):
-                self.dbTable_tableView.frozen_table_view.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+                self.dbTable_tableView.frozen_table_view.setSelectionBehavior(
+                    QAbstractItemView.SelectionBehavior.SelectRows)
             else:
                 self.dbTable_tableView.setItemDelegate(WordWrapDelegate(self.dbTable_tableView))
             self.dbTable_tableView.verticalHeader().hide()
@@ -587,7 +609,9 @@ class DataViewerWidget(QWidget):
             # Get the sample IDs for these aliquots, then apply a filter to show only the aliquot IDs in data_ids_to_show
             # Otherwise, the tree structure is not maintained
             show_cols = settings.value('aliquot_view_columns')
-            sample_ids = columns_as_list(f'SELECT SampleID FROM Aliquots WHERE AliquotID {self.sql_data_ids_to_show}', ['SampleID'])[0]
+            sample_ids = \
+            columns_as_list(f'SELECT SampleID FROM Aliquots WHERE AliquotID {self.sql_data_ids_to_show}', ['SampleID'])[
+                0]
             if not sample_ids:
                 logger_setup.get_logger().critical(f'Error displaying Aliquots')
                 logger_setup.get_logger().debug(f'No SampleIDs found for Aliquots: {self.sql_data_ids_to_show}')
@@ -669,7 +693,7 @@ class DataViewerWidget(QWidget):
             data_filter_view = self.dbTable_tableView
 
         if ((self.current_selection == data_filter_view.selectionModel().selectedIndexes()) and
-            (not data_filter_view.selectionModel().hasSelection())):
+                (not data_filter_view.selectionModel().hasSelection())):
             close_loading_dialog('Loading', f'Displaying filtered {self.related_data_combobox.currentText()}...')
             return
         elif not data_filter_view.selectionModel().hasSelection():
@@ -775,10 +799,10 @@ class DataViewerWidget(QWidget):
                 case 'UPbAnalyses':
                     table_condition = f"WHERE UPbAnalyses.UPbAnalysisID {sql_selected_data_filter_ids}"
             close_loading_dialog('Loading',
-                                                      f'Displaying filtered {self.related_data_combobox.currentText()}...')
+                                 f'Displaying filtered {self.related_data_combobox.currentText()}...')
         else:
             close_loading_dialog('Loading',
-                                                      f'Displaying filtered {self.related_data_combobox.currentText()}...')
+                                 f'Displaying filtered {self.related_data_combobox.currentText()}...')
             return
 
         sql += table_condition
@@ -864,7 +888,9 @@ class DataViewerWidget(QWidget):
                 f'Sucessfully displayed {self.data_filtered_table} with selection-based filter')
 
         elif self.data_filtered_table in SQLUtils.user_viewable_tables:
-            self.set_go_to_completer(self.goto_line_edit_2, get_headers(self.data_filtered_table)[get_name_column(self.data_filtered_table)], self.data_filtered_table)
+            self.set_go_to_completer(self.goto_line_edit_2,
+                                     get_headers(self.data_filtered_table)[get_name_column(self.data_filtered_table)],
+                                     self.data_filtered_table)
             self.total_records_2 = self.get_total_records_2(self.related_data_combobox)
             offset = self.current_page_2 * self.rows_per_page_2
             if self.data_filtered_table == 'Columns' or self.data_filtered_table == 'References':
@@ -906,7 +932,8 @@ class DataViewerWidget(QWidget):
             self.dbTable_tableView_2.resizeColumnsToContents()
             self.dbTable_tableView_2.setSortingEnabled(True)
             self.dbTable_tableView_2.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-            self.data_filtered_table_proxy_model.sort(get_name_column(get_view_from_table(table)), Qt.SortOrder.AscendingOrder)
+            self.data_filtered_table_proxy_model.sort(get_name_column(get_view_from_table(table)),
+                                                      Qt.SortOrder.AscendingOrder)
             self.dbTable_tableView_2.setSizeAdjustPolicy(
                 QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
 
@@ -921,8 +948,8 @@ class DataViewerWidget(QWidget):
             self.page_info_label_2.setText(
                 f"Showing records {start_record} - {end_record} of {self.total_records_2}")
 
-            logger_setup.get_logger().info(f'Sucessfully displayed {self.data_filtered_table} with selection-based filter')
-
+            logger_setup.get_logger().info(
+                f'Sucessfully displayed {self.data_filtered_table} with selection-based filter')
 
         close_loading_dialog('Loading', f'Displaying filtered {self.related_data_combobox.currentText()}...')
 
@@ -1012,7 +1039,7 @@ class DataViewerWidget(QWidget):
                                     sample_names.append(sample_name)
                     sample_names.sort()
                     sample_name, ok = QInputDialog.getItem(self, "Select Sample",
-                                                               "Edit aliquots of selected sample:", sample_names, 0, False)
+                                                           "Edit aliquots of selected sample:", sample_names, 0, False)
                     if not ok:
                         logger_setup.get_logger().info(f'User cancelled sample selection')
                         return
@@ -1082,7 +1109,7 @@ class DataViewerWidget(QWidget):
 
     def open_doi_link(self, item: QTableWidgetItem):
         if self.dbTable_tableView_2.model().headerData(item.column(), Qt.Orientation.Horizontal,
-                                                     Qt.ItemDataRole.DisplayRole) == "DOI":
+                                                       Qt.ItemDataRole.DisplayRole) == "DOI":
             text: str = item.data(Qt.ItemDataRole.DisplayRole)
             if text.startswith('doi:'):
                 text = text.replace('doi:', '')
@@ -1156,7 +1183,7 @@ class DataViewerWidget(QWidget):
         :return:
         """
         search_expression = QRegularExpression(search_lineEdit.text(),
-                                                   options=QRegularExpression.PatternOption.CaseInsensitiveOption)
+                                               options=QRegularExpression.PatternOption.CaseInsensitiveOption)
         proxy_model.setFilterRegularExpression(search_expression)
         if dbTable_treeView is not None:
             dbTable_treeView.expandAll()

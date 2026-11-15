@@ -1,13 +1,15 @@
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtGui as QtG
 
-import logger_setup
-from Functions.Widget_classes import (show_loading_dialog, close_loading_dialog)
+from Functions.Widget_classes import close_loading_dialog
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 import ui.ColumnFields
 
+import logger_setup
+
 settings = SettingsManager().settings
+
 
 class ColumnDialog(QtW.QDialog):
     def __init__(self, sample_ids: list, parent=None):

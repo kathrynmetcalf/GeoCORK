@@ -526,7 +526,7 @@
   <customwidget>
    <class>CheckableComboBox</class>
    <extends>QComboBox</extends>
-   <header location="global">Functions/Widget_classes.h</header>
+   <header location="global">util/widgets/ComboBoxes/CheckableComboBox.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

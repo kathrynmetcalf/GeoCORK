@@ -1,6 +1,5 @@
 import os
 import sys
-from wsgiref import headers
 
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
@@ -13,9 +12,10 @@ import logger_setup
 from Functions.Database_manager import update_database
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
+from util.widgets.models.ReadableProxyModel import ReadableProxyModel
+
 settings = SettingsManager().settings
-from Functions.Widget_classes import set_table, get_headers, get_name_column, get_description_column, ReadableProxyModel, \
-    close_loading_dialog
+from Functions.Widget_classes import set_table, get_headers, get_name_column, get_description_column, close_loading_dialog
 
 
 class AddTags(QtW.QDialog):

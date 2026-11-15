@@ -4,7 +4,7 @@ import sys
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QPixmap, QPainter, QPalette
 from PyQt6.QtSvg import QSvgRenderer
-from PyQt6.QtWidgets import QLabel, QVBoxLayout, QDialog, QApplication, QHBoxLayout, QPushButton
+from PyQt6.QtWidgets import QLabel, QVBoxLayout, QDialog, QApplication, QPushButton
 
 import logger_setup
 from Functions.Settings_manager import SettingsManager

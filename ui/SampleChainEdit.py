@@ -5,13 +5,16 @@ from PyQt6 import QtSql as QtS
 import logger_setup
 
 from Functions.Widget_classes import (
-    CheckableTreeCombobox, populate_combo_box, CheckableComboBox, find_current_sub_items, get_name_from_id,
-    find_tree_model, show_loading_dialog, close_loading_dialog, find_child_ids, update_modified_timestamp,
-    get_id_from_name
+    find_current_sub_items, get_name_from_id,
+    find_tree_model, show_loading_dialog, close_loading_dialog, find_child_ids, update_modified_timestamp
 )
 from Functions import SQLUtils
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint, SavepointManager
 from Functions.Settings_manager import SettingsManager
+from util.populate_models import populate_combo_box
+from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
+from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
+
 settings = SettingsManager().settings
 from Functions.Database_views import ViewQuery
 
@@ -53,7 +56,7 @@ class SampleChainEdit(QtW.QDialog):
         self.sample_current_label = QtW.QLabel()
         self.sample_lineEdit = None
         self.aliquot_mode_comboBox = QtW.QComboBox()
-        self.aliquot_comboBox = CheckableTreeCombobox()
+        self.aliquot_comboBox = CheckableTreeComboBox()
         self.aliquot_comboBox.set_single_click(True)
         self.aliquot_current_label = QtW.QLabel()
         self.aliquot_lineEdit = None
@@ -255,7 +258,7 @@ class SampleChainEdit(QtW.QDialog):
             line_edit = self.sample_lineEdit
             edit_row = 0
         elif mode_combo == self.aliquot_mode_comboBox:
-            name_combo: CheckableTreeCombobox = self.aliquot_comboBox
+            name_combo: CheckableTreeComboBox = self.aliquot_comboBox
             line_edit = self.aliquot_lineEdit
             edit_row = 1
         elif mode_combo == self.grain_mode_comboBox:

@@ -16,25 +16,30 @@ import logger_setup
 import Functions.SQLUtils as SQLUtils
 
 from Functions.Widget_classes import (
-    SQLiteTableModel, CheckableSqlQueryModel,
-    CheckableSqlTableModel, get_name_column, CheckableTreeModel, TreeModel, populate_many_combo_checks,
-    find_current_sub_items, populate_combo_box, add_tree_popup, CheckableTreeCombobox,
-    CheckableComboBox, find_tree_model, populate_model_checks, populate_tree_model_checks, save_expanded_state,
-    restore_expanded_state, get_name_from_id, get_id_from_name, get_view_from_table, TreeSortFilterProxyModel,
-    CheckableTreeView, LazyCheckableTreeModel, show_loading_dialog, close_loading_dialog
+    get_name_column, find_current_sub_items, add_tree_popup,
+    find_tree_model, save_expanded_state,
+    get_name_from_id, get_view_from_table,
+    show_loading_dialog, close_loading_dialog
 )
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
-from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
+from Functions.Check_triggers import update_modified_timestamp
 from Functions.Settings_manager import SettingsManager
 from ui.EditView import EditView
 
-settings = SettingsManager().settings
+
 from Functions.Database_views import ViewQuery
 from ui.New_reference import NewReference
 from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags
 from ui.EditTable import EditTable
+
 from ui.EditTree import EditTree
+
+from util.populate_models import populate_many_combo_checks, populate_model_checks, populate_combo_box
+from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
+from util.widgets.models.TreeModel import TreeModel
+
+settings = SettingsManager().settings
 
 class EditUPbTags(QtW.QDialog):
     def __init__(self, parent_window, sample_id_list: list | None):
@@ -169,7 +174,7 @@ class EditUPbTags(QtW.QDialog):
 
     def update_subfield_id(self, field: str):
         combo = self.sender()
-        if isinstance(combo, CheckableTreeCombobox):
+        if isinstance(combo, CheckableTreeComboBox):
             model, indexes = find_tree_model(combo.model(), None)
             table = model.table
             column = get_name_column(table)
@@ -288,7 +293,7 @@ class EditUPbTags(QtW.QDialog):
 
     def update_many_id(self, field: str):
         combo = self.sender()
-        if isinstance(combo, CheckableTreeCombobox):
+        if isinstance(combo, CheckableTreeComboBox):
             model, indexes = find_tree_model(combo.model(), None)
             table = model.table
             column = get_name_column(table)

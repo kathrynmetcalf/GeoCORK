@@ -173,7 +173,7 @@
   <customwidget>
    <class>TrackExpandedTreeView</class>
    <extends>QTreeView</extends>
-   <header>Functions/Widget_classes.h</header>
+   <header>util/widgets/models/TrackExpandedTreeView.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

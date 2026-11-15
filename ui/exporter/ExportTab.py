@@ -24,14 +24,19 @@ from Functions import ExportDatabase
 from Functions import SQLUtils
 from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
 from Functions.Database_views import ViewQuery
-from Functions.Widget_classes import (ReadableProxyModel, SQLiteTableModel, find_parent_items, show_loading_dialog,
-                                      close_loading_dialog, columns_as_list, get_total_records, populate_combo_box)
+from Functions.Widget_classes import (find_parent_items, show_loading_dialog,
+                                      close_loading_dialog, columns_as_list, get_total_records)
 from Functions.Settings_manager import SettingsManager
+from ui.filters import FilterHelpers
+from ui.filters.FiltersTab import FiltersTab
+
+from util.layouts.FlowLayout import FlowLayout
+from util.populate_models import populate_combo_box
+from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
+from util.widgets.models.ReadableProxyModel import ReadableProxyModel
+from util.widgets.models.SQLiteTableModel import SQLiteTableModel
 
 settings = SettingsManager().settings
-from Functions.Widget_classes import CheckableComboBox
-from util.layouts.FlowLayout import FlowLayout
-
 
 class ExportTab(QWidget):
     """
@@ -356,7 +361,7 @@ class ExportTab(QWidget):
             filter_json = json_query.value(0)
 
             # loops through each filter in the checked filter list, processes the json to sql
-            filtered_where_clause, ctes = Filters.process_json_to_sql(filter_json[1:-1], scope='UPbAnalyses')
+            filtered_where_clause, ctes = FilterHelpers.process_json_to_sql(filter_json[1:-1], scope='UPbAnalyses')
             filtered_where_clause = filtered_where_clause[0:-1]
 
             sql_query = f"SELECT DISTINCT UPbAnalysisID FROM ({filtered_where_clause});"
@@ -465,7 +470,7 @@ class ExportTab(QWidget):
 
             logger_setup.get_logger().info('Fetching Filters for Grouped Filter List')
             # loops through each filter in the checked filter list, processes the json to sql
-            filtered_where_clause, ctes = Filters.process_json_to_sql(filter_json[1:-1], scope='UPbAnalyses')
+            filtered_where_clause, ctes = FilterHelpers.process_json_to_sql(filter_json[1:-1], scope='UPbAnalyses')
             filtered_where_clause = filtered_where_clause[0:-1]
 
             sql_query = f"SELECT DISTINCT UPbAnalysisID FROM ({filtered_where_clause});"
@@ -724,7 +729,7 @@ class ExportTab(QWidget):
         tab_widget = self.parentWidget().parentWidget()
         if tab_widget is not None:
             try:
-                filter_widget = tab_widget.findChild(Filters.Filters)
+                filter_widget = tab_widget.findChild(FiltersTab)
                 self.active_filter_sample_ids = filter_widget.querybuilder.get_filtered_ids('Samples')
                 if self.active_filter_sample_ids is None:
                     self.active_filter_sample_ids = []

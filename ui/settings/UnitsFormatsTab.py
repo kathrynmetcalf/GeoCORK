@@ -5,8 +5,10 @@ from PyQt6.QtGui import QRegularExpressionValidator
 from PyQt6.QtSql import QSqlQueryModel
 
 import logger_setup
-from Functions.Widget_classes import get_headers, populate_combo_box, FormatComboBox
+from Functions.Widget_classes import get_headers
 from ui.settings.SettingsCore import settings, update_setting, update_abbreviation
+from util.populate_models import populate_combo_box
+from util.widgets.ComboBoxes.FormatComboBox import FormatComboBox
 
 MAX_SIZE = 16777215
 

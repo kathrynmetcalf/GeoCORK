@@ -11,14 +11,17 @@ from Functions.Database_manager import update_database
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 from ui.settings import SettingsCore
+from util.widgets.models.EditableSqlQueryModel import EditableSqlQueryModel
+from util.widgets.models.ReadableProxyModel import ReadableProxyModel
 
-settings = SettingsManager().settings
 from Functions.Widget_classes import (get_headers,
-                                      ReadableProxyModel, get_name_column, get_total_records, EditableSqlQueryModel,
+                                      get_name_column, get_total_records,
                                       get_id_from_name, get_record_row, delete_data, show_loading_dialog,
                                       close_loading_dialog, scroll_to_record, FrozenTableView)
 from ui.AddTags import AddTags
 from ui.Merge import MergeDialog
+
+settings = SettingsManager().settings
 
 
 class EditTable(QtW.QDialog):
@@ -57,7 +60,6 @@ class EditTable(QtW.QDialog):
         self.search_lineEdit.returnPressed.connect(self.search)
 
         self.add_pushButton.clicked.connect(self.add_popup)
-
 
         self.goto_line_edit.returnPressed.connect(self.go_to_record)
         self.prev_button.clicked.connect(self.previous_page)
@@ -152,7 +154,6 @@ class EditTable(QtW.QDialog):
         self.buttonBox.rejected.connect(self.rollback)
 
         self.main_layout.addWidget(self.buttonBox)
-
 
     def change_rows_per_page(self):
         """
@@ -378,7 +379,7 @@ class EditTable(QtW.QDialog):
         """
         current_model_index = self.table_proxy_model.mapToSource(self.edit_tableView.currentIndex())
         if (self.edit_tableView.currentIndex().isValid() and
-            not self.model.setData(current_model_index, current_model_index.data(), QtC.Qt.ItemDataRole.EditRole)):
+                not self.model.setData(current_model_index, current_model_index.data(), QtC.Qt.ItemDataRole.EditRole)):
             # There is a valid index selected and submitting data failed
             logger_setup.get_logger().critical('Failed to save changes')
             return

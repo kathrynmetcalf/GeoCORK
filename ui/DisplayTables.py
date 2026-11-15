@@ -12,10 +12,10 @@ from PyQt6.QtWidgets import QPushButton, QTableWidgetItem, QLineEdit
 
 from PyQt6.uic import loadUi
 from Functions.Widget_classes import (
-    TreeSortFilterProxyModel, DisplayRoundedModel, DisplayRoundedQueryModel, SQLiteTableModel, save_expanded_state,
-    expand_collapse, TreeContextMenu, TreeModel, ReadableProxyModel, add_tree_popup, FrozenTableView, get_name_column,
+    save_expanded_state,
+    expand_collapse, add_tree_popup, FrozenTableView, get_name_column,
     get_headers, get_total_records, get_record_row, close_loading_dialog, show_loading_dialog, columns_as_list,
-    TableToolTipModel, get_id_from_name, scroll_to_record, get_view_from_table, TrackExpandedTreeView
+    TableToolTipModel, get_id_from_name, scroll_to_record, get_view_from_table
 )
 import Functions.Text_manipulations as TxM
 from Functions import SQLUtils
@@ -24,6 +24,14 @@ from Functions.Database_manager import update_database
 from Functions.Settings_manager import SettingsManager
 from ui.SampleMap import SampleMapWindow
 from ui.settings import SettingsCore
+from util.widgets.context_menus import TreeContextMenu
+from util.widgets.models.DisplayRoundedModel import DisplayRoundedModel
+from util.widgets.models.DisplayRoundedQueryModel import DisplayRoundedQueryModel
+from util.widgets.models.ReadableProxyModel import ReadableProxyModel
+from util.widgets.models.SQLiteTableModel import SQLiteTableModel
+from util.widgets.models.TrackExpandedTreeView import TrackExpandedTreeView
+from util.widgets.models.TreeModel import TreeModel
+from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
 
 settings = SettingsManager().settings
 from Functions.Database_views import ViewQuery

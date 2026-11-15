@@ -23,3 +23,21 @@ class WordWrapDelegate(QtWidgets.QStyledItemDelegate):
         super().initStyleOption(option, index)
         option.textElideMode = Qt.TextElideMode.ElideNone  # Do not cut text
         option.wrapMode = QTextOption.WrapMode.WordWrap  # Allow word wrap
+        
+
+class ActiveSelectionDelegate(WordWrapDelegate):
+    """
+    Delegate that forces selected items to be painted with the active selection color (blue) even when the view does not have keyboard focus
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+    def paint(self,
+              painter: QtWidgets.QStylePainter,
+              option: QtWidgets.QStyleOptionViewItem,
+              index: QtCore.QModelIndex
+    ) -> None:
+
+        option = QtWidgets.QStyleOptionViewItem(option)
+        option.state |= QtWidgets.QStyle.StateFlag.State_Active
+        super().paint(painter, option, index)

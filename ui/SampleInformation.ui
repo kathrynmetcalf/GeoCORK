@@ -233,7 +233,7 @@
            </widget>
           </item>
           <item>
-           <widget class="CheckableTreeCombobox" name="sample_context_comboBox"/>
+           <widget class="CheckableTreeComboBox" name="sample_context_comboBox"/>
           </item>
          </layout>
         </item>
@@ -256,7 +256,7 @@
            </widget>
           </item>
           <item>
-           <widget class="CheckableTreeCombobox" name="sampling_method_comboBox"/>
+           <widget class="CheckableTreeComboBox" name="sampling_method_comboBox"/>
           </item>
          </layout>
         </item>
@@ -279,7 +279,7 @@
            </widget>
           </item>
           <item>
-           <widget class="CheckableTreeCombobox" name="unit_comboBox"/>
+           <widget class="CheckableTreeComboBox" name="unit_comboBox"/>
           </item>
          </layout>
         </item>
@@ -302,7 +302,7 @@
            </widget>
           </item>
           <item>
-           <widget class="CheckableTreeCombobox" name="rock_type_comboBox"/>
+           <widget class="CheckableTreeComboBox" name="rock_type_comboBox"/>
           </item>
          </layout>
         </item>
@@ -325,7 +325,7 @@
            </widget>
           </item>
           <item>
-           <widget class="CheckableTreeCombobox" name="region_comboBox"/>
+           <widget class="CheckableTreeComboBox" name="region_comboBox"/>
           </item>
          </layout>
         </item>
@@ -348,7 +348,7 @@
            </widget>
           </item>
           <item>
-           <widget class="CheckableTreeCombobox" name="setting_comboBox"/>
+           <widget class="CheckableTreeComboBox" name="setting_comboBox"/>
           </item>
          </layout>
         </item>
@@ -371,7 +371,7 @@
            </widget>
           </item>
           <item>
-           <widget class="CheckableTreeCombobox" name="age_signature_comboBox"/>
+           <widget class="CheckableTreeComboBox" name="age_signature_comboBox"/>
           </item>
          </layout>
         </item>
@@ -512,19 +512,19 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>CheckableTreeCombobox</class>
+   <class>CheckableTreeComboBox</class>
    <extends>QComboBox</extends>
-   <header>Functions/Widget_classes.h</header>
+   <header>util/widgets/ComboBoxes/CheckableTreeComboBox.h</header>
   </customwidget>
   <customwidget>
    <class>CheckableComboBox</class>
    <extends>QComboBox</extends>
-   <header location="global">Functions/Widget_classes.h</header>
+   <header location="global">util/widgets/ComboBoxes/CheckableComboBox.h</header>
   </customwidget>
   <customwidget>
    <class>EditingTextEdit</class>
    <extends>QTextEdit</extends>
-   <header>Functions/Widget_classes.h</header>
+   <header>util/widgets/text_edits.h</header>
   </customwidget>
  </customwidgets>
  <tabstops>

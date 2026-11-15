@@ -1,6 +1,5 @@
 """'Table Displays' tab of the Settings dialog."""
 from PyQt6 import QtWidgets as QtW
-from PyQt6.QtCore import QRect
 from PyQt6.QtGui import QFont, QFontDatabase
 
 from ui.SelectColumns import SelectColumns

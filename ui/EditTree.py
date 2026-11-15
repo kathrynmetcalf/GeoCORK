@@ -11,18 +11,23 @@ from PyQt6.QtCore import QRegularExpression
 from PyQt6.uic import loadUi
 
 import Functions.Text_manipulations as TxM
-import logger_setup
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 from ui.Merge import MergeDialog
 
-settings = SettingsManager().settings
 from Functions.Widget_classes import (
-    set_table, TreeModel, TreeContextMenu, get_selected_tree_ids, expand_collapse, save_expanded_state,
-    add_tree_popup, TreeSortFilterProxyModel, delete_data, show_loading_dialog, close_loading_dialog,
+    set_table, get_selected_tree_ids, expand_collapse, save_expanded_state,
+    add_tree_popup, show_loading_dialog, close_loading_dialog,
     restore_expanded_state
 )
 from ui.AddTreeTags import AddTreeTags
+
+import logger_setup
+from util.widgets.context_menus import TreeContextMenu
+from util.widgets.models.TreeModel import TreeModel
+from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
+
+settings = SettingsManager().settings
 
 
 class EditTree(QtW.QDialog):
@@ -45,8 +50,6 @@ class EditTree(QtW.QDialog):
         self.table_item_ids: list = []
         for key, value in kwargs.items():
             setattr(self, key, value)
-
-
 
         # Set the model and table
         self.table = TxM.remove_spaces(table_name)

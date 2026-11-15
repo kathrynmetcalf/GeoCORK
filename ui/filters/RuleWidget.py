@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import QWidget, QHBoxLayout, QSizePolicy, QLineEdit, QPushB
 import logger_setup
 from Functions import SQLUtils
 from Functions.Widget_classes import get_name_column, TableToolTipModel
-from util.widgets.FocusWheelComboBox import FocusWheelComboBox
+from util.widgets.ComboBoxes.FocusWheelComboBox import FocusWheelComboBox
 
 
 class RuleWidget(QWidget):

@@ -10,15 +10,23 @@ from PyQt6.QtWidgets import QTreeView
 from PyQt6.uic import loadUi
 
 import Functions.Text_manipulations as TxM
-import logger_setup
+
 from Functions import SQLUtils
 from Functions.Settings_manager import SettingsManager
-settings = SettingsManager().settings
-from Functions.Widget_classes import (
-    TreeSortFilterProxyModel, DisplayRoundedModel, DisplayRoundedQueryModel, SQLiteTableModel, save_expanded_state,
-    TreeModel, ReadableProxyModel, get_view_from_table, show_loading_dialog, close_loading_dialog, FrozenTableView
-)
+
+from Functions.Widget_classes import (save_expanded_state, get_view_from_table,
+                                      show_loading_dialog, close_loading_dialog, FrozenTableView)
 from Functions.Database_views import ViewQuery
+
+import logger_setup
+from util.widgets.models.DisplayRoundedModel import DisplayRoundedModel
+from util.widgets.models.DisplayRoundedQueryModel import DisplayRoundedQueryModel
+from util.widgets.models.ReadableProxyModel import ReadableProxyModel
+from util.widgets.models.SQLiteTableModel import SQLiteTableModel
+from util.widgets.models.TreeModel import TreeModel
+from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
+
+settings = SettingsManager().settings
 
 
 class DisplayTablesSimplified(QtW.QWidget):
@@ -232,7 +240,6 @@ class DisplayTablesSimplified(QtW.QWidget):
             close_loading_dialog('Loading', msg)
         else:
             close_loading_dialog('Loading', f'Loading {self.table}...')
-
 
     def optimizeVerticalResize(self, logical_index, old_size, new_size):
         """Trigger a delayed row height update when the user resizes the window vertically."""
