@@ -1,17 +1,12 @@
-import os
-import sys
 import time
 
-from PyQt6 import QtCore as QtC
-from PyQt6 import QtGui as QtG
-from PyQt6 import QtSql as QtS
-from PyQt6 import QtWidgets as QtW
+from PyQt6 import QtCore, QtGui, QtWidgets, QtSql
 from PyQt6.QtCore import QPoint, QSize
 from PyQt6.QtCore import QRegularExpression
-from PyQt6.uic import loadUi
+from PyQt6.QtWidgets import QDialogButtonBox
 
 import Functions.Text_manipulations as TxM
-from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 from ui.Merge import MergeDialog
 
@@ -24,13 +19,14 @@ from ui.AddTreeTags import AddTreeTags
 
 import logger_setup
 from util.widgets.context_menus import TreeContextMenu
+from util.widgets.models.TrackExpandedTreeView import TrackExpandedTreeView
 from util.widgets.models.TreeModel import TreeModel
 from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
 
 settings = SettingsManager().settings
 
 
-class EditTree(QtW.QDialog):
+class EditTree(QtWidgets.QDialog):
     """
     Opens an EditTable dialog used to edit a table in the database.
     """
@@ -40,9 +36,11 @@ class EditTree(QtW.QDialog):
 
         logger_setup.get_logger().info(f'Opening {table_name} tree edit dialog')
         start_edit_tree_time = time.time()
-        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-        sources_ui_file = os.path.join(base_path, "EditTree.ui")
-        loadUi(sources_ui_file, self)
+        self.setWindowTitle(f'Edit {table_name}')
+
+        self.build_ui(table_name)
+        self.loadWindowState()
+
         self.setModal(True)
         self.updated = False
 
@@ -55,13 +53,12 @@ class EditTree(QtW.QDialog):
         self.table = TxM.remove_spaces(table_name)
         logger_setup.get_logger().info(f'Setting up {table_name} tree model')
         # self.model = SQLiteTableModel(f'SELECT * FROM {self.table}')
-        self.model = QtS.QSqlTableModel()
+        self.model = QtSql.QSqlTableModel()
         set_table(self.model, self.table)
         self.total_records = self.model.rowCount()
-        self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
+        self.model.setEditStrategy(QtSql.QSqlTableModel.EditStrategy.OnFieldChange)
         self.tree_model = TreeModel(self.model)
-        self.setWindowTitle(f'Edit {table_name}')
-        self.add_pushButton.setText(f'Add {table_name}')
+
         logger_setup.get_logger().info('Setting up proxy model')
         self.tree_proxy_model = TreeSortFilterProxyModel()
         self.tree_proxy_model.setSourceModel(self.tree_model)
@@ -69,10 +66,10 @@ class EditTree(QtW.QDialog):
 
         logger_setup.get_logger().info('Connecting signals')
         self.edit_treeView.setUniformRowHeights(True)
-        self.edit_treeView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
+        self.edit_treeView.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
         self.edit_treeView.customContextMenuRequested.connect(self.show_context_menu)
 
-        self.msg = QtW.QMessageBox(self)
+        self.msg = QtWidgets.QMessageBox(self)
 
         self.display_tree()
         create_savepoint('before_edit')
@@ -80,13 +77,66 @@ class EditTree(QtW.QDialog):
         self.close_by_dialog = False
         self.search_lineEdit.returnPressed.connect(self.search)
         self.add_pushButton.clicked.connect(self.add_popup)
-        self.commit_pushButton.clicked.connect(self.commit_question)
-        self.cancel_pushButton.clicked.connect(self.discard_question)
         self.tree_model.dataChanged.connect(self.set_updated)
 
         close_loading_dialog('Loading', f'Opening edit window for {self.table_name}...')
         logger_setup.get_logger().info(
             f'Opened {table_name} tree edit dialog in {time.time() - start_edit_tree_time} seconds')
+
+    def build_ui(self, table_name):
+        self.main_layout = QtWidgets.QVBoxLayout(self)
+
+        # ---- Top row: Add button, search ----
+        self.top_layout = QtWidgets.QHBoxLayout()
+
+        self.add_pushButton = QtWidgets.QPushButton(f'Add {TxM.add_spaces_camel(table_name)}')
+        self.add_pushButton.setObjectName('add_pushButton')
+        self.add_pushButton.setAutoDefault(False)
+        self.top_layout.addWidget(self.add_pushButton)
+
+        self.horizontalSpacer_2 = QtWidgets.QSpacerItem(
+            40, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
+        self.top_layout.addItem(self.horizontalSpacer_2)
+
+        self.label_2 = QtWidgets.QLabel('Search:')
+        self.label_2.setObjectName('label_2')
+        self.top_layout.addWidget(self.label_2)
+
+        self.search_lineEdit = QtWidgets.QLineEdit()
+        self.search_lineEdit.setObjectName('search_lineEdit')
+        self.search_lineEdit.setPlaceholderText('search this page')
+        self.top_layout.addWidget(self.search_lineEdit)
+
+        self.main_layout.addLayout(self.top_layout)
+
+        # ---- Tree ----
+        self.edit_treeView = TrackExpandedTreeView()
+        self.edit_treeView.setObjectName('edit_treeView')
+        self.edit_treeView.setEditTriggers(
+            QtWidgets.QAbstractItemView.EditTrigger.AnyKeyPressed
+            | QtWidgets.QAbstractItemView.EditTrigger.DoubleClicked
+            | QtWidgets.QAbstractItemView.EditTrigger.EditKeyPressed)
+        self.main_layout.addWidget(self.edit_treeView)
+
+        # ---- Paging / navigation row ----
+        self.bottom_layout = QtWidgets.QHBoxLayout()
+
+        self.page_info_label = QtWidgets.QLabel('placeholder')
+        self.page_info_label.setObjectName('page_info_label')
+        self.bottom_layout.addWidget(self.page_info_label)
+
+        self.main_layout.addLayout(self.bottom_layout)
+
+        # ---- Bottom row: Cancel / Commit ----
+        self.buttonBox = QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.StandardButton.Save |
+            QtWidgets.QDialogButtonBox.StandardButton.Cancel
+        )
+
+        self.buttonBox.accepted.connect(self.commit_question)
+        self.buttonBox.rejected.connect(self.discard_question)
+
+        self.main_layout.addWidget(self.buttonBox)
 
     def set_updated(self):
         """
@@ -96,9 +146,9 @@ class EditTree(QtW.QDialog):
         self.updated = True
 
     def search(self):
-        self.search_lineEdit: QtW.QLineEdit
+        self.search_lineEdit: QtWidgets.QLineEdit
         self.tree_proxy_model.setRecursiveFilteringEnabled(True)
-        search_expression = QtC.QRegularExpression(self.search_lineEdit.text(),
+        search_expression = QtCore.QRegularExpression(self.search_lineEdit.text(),
                                                    options=QRegularExpression.PatternOption.CaseInsensitiveOption)
         self.tree_proxy_model.setFilterRegularExpression(search_expression)
         if self.search_lineEdit.text() != '':
@@ -110,7 +160,7 @@ class EditTree(QtW.QDialog):
         :param pos: The position of the mouse click
         :return:
         """
-        self.edit_treeView: QtW.QTreeView
+        self.edit_treeView: QtWidgets.QTreeView
         tree_menu = TreeContextMenu()
         if self.table == 'Ages':
             tree_menu.set_view(self.edit_treeView, False, False, False)
@@ -120,7 +170,7 @@ class EditTree(QtW.QDialog):
         if action:
             self.tree_context_menu(action)
 
-    def tree_context_menu(self, action: QtG.QAction):
+    def tree_context_menu(self, action: QtGui.QAction):
         """
         Context menu for tree views
         :param action: The action selected from the context menu
@@ -142,7 +192,7 @@ class EditTree(QtW.QDialog):
         self.tree_proxy_model = TreeSortFilterProxyModel()
         self.tree_proxy_model.setSourceModel(self.tree_model)
         self.edit_treeView.setModel(self.tree_proxy_model)
-        self.edit_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
+        self.edit_treeView.header().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
         start_hide_columns_time = time.time()
         self.edit_treeView.hideColumn(1)  # don't show ID column
         self.edit_treeView.hideColumn(2)  # don't show parent ID column
@@ -153,9 +203,9 @@ class EditTree(QtW.QDialog):
         self.edit_treeView.setDragEnabled(True)
         self.edit_treeView.setAcceptDrops(True)
         self.edit_treeView.setDropIndicatorShown(True)
-        self.edit_treeView.setDragDropMode(QtW.QAbstractItemView.DragDropMode.InternalMove)
-        self.edit_treeView.setDefaultDropAction(QtC.Qt.DropAction.MoveAction)
-        self.edit_treeView.setSelectionMode(QtW.QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.edit_treeView.setDragDropMode(QtWidgets.QAbstractItemView.DragDropMode.InternalMove)
+        self.edit_treeView.setDefaultDropAction(QtCore.Qt.DropAction.MoveAction)
+        self.edit_treeView.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.ExtendedSelection)
         restore_expanded_state(self.table, self.edit_treeView)
         self.tree_model.dataEdited.connect(self.save_expanded)
         self.tree_model.modelReset.connect(self.update_proxy)
@@ -178,7 +228,7 @@ class EditTree(QtW.QDialog):
         self.edit_treeView.expand_from_ids()
         close_loading_dialog('Loading', f'Displaying {self.model.rowCount()} {self.table_name}...')
 
-    def add_popup(self, action: QtG.QAction | None = None):
+    def add_popup(self, action: QtGui.QAction | None = None):
         save_expanded_state(self.table, self.edit_treeView)
         dlg_args = add_tree_popup(self.edit_treeView, action)
         show_loading_dialog('Loading', f'Opening add window for {self.table}...')
@@ -188,7 +238,7 @@ class EditTree(QtW.QDialog):
             dlg = AddTreeTags(self, self.table)
         if not dlg:
             return
-        if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
+        if dlg.exec() == QtWidgets.QDialog.DialogCode.Accepted:
             self.updated = True
             self.tree_model.dataEdited.emit()
             self.update_proxy()
@@ -208,7 +258,7 @@ class EditTree(QtW.QDialog):
         if len(ids_to_merge) < 2:
             logger_setup.get_logger().error('At least two records must be selected to merge')
             return
-        if MergeDialog(self.table, ids_to_merge, self).exec() == QtW.QDialog.DialogCode.Accepted:
+        if MergeDialog(self.table, ids_to_merge, self).exec() == QtWidgets.QDialog.DialogCode.Accepted:
             self.updated = True
             self.tree_model.dataEdited.emit()
             self.update_proxy()
@@ -221,7 +271,7 @@ class EditTree(QtW.QDialog):
         item_ids = []
         for view_index in self.edit_treeView.selectedIndexes():
             id_index = self.tree_proxy_model.index(view_index.row(), 1, view_index.parent())
-            item_id = id_index.data(QtC.Qt.ItemDataRole.DisplayRole)
+            item_id = id_index.data(QtCore.Qt.ItemDataRole.DisplayRole)
             if item_id not in item_ids:
                 item_ids.append(item_id)
         if len(item_ids) == 0:
@@ -231,13 +281,13 @@ class EditTree(QtW.QDialog):
             self.update_proxy()
 
     def commit_question(self):
-        msg_box = QtW.QMessageBox()
-        msg_box.setIcon(QtW.QMessageBox.Icon.Question)
+        msg_box = QtWidgets.QMessageBox()
+        msg_box.setIcon(QtWidgets.QMessageBox.Icon.Question)
         msg_box.setText('Are you sure you want to commit all changes to the database?')
-        msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
-        msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+        msg_box.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No)
+        msg_box.setDefaultButton(QtWidgets.QMessageBox.StandardButton.No)
         response = msg_box.exec()
-        if response == QtW.QMessageBox.StandardButton.Yes:
+        if response == QtWidgets.QMessageBox.StandardButton.Yes:
             self.commit()
             self.updated = True
         else:
@@ -249,13 +299,13 @@ class EditTree(QtW.QDialog):
         :return:
         """
         if self.updated:
-            msg_box = QtW.QMessageBox()
-            msg_box.setIcon(QtW.QMessageBox.Icon.Question)
+            msg_box = QtWidgets.QMessageBox()
+            msg_box.setIcon(QtWidgets.QMessageBox.Icon.Question)
             msg_box.setText('Are you sure you want to discard all changes?')
-            msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
-            msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+            msg_box.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No)
+            msg_box.setDefaultButton(QtWidgets.QMessageBox.StandardButton.No)
             response = msg_box.exec()
-            if response == QtW.QMessageBox.StandardButton.Yes:
+            if response == QtWidgets.QMessageBox.StandardButton.Yes:
                 self.rollback()
             else:
                 pass
@@ -289,11 +339,12 @@ class EditTree(QtW.QDialog):
         self.close()
         self.close_by_dialog = False
 
-    def closeEvent(self, event: QtG.QCloseEvent):
+    def closeEvent(self, event: QtGui.QCloseEvent):
         """
         Overridden close event to handle the case where the user tries to close the dialog
         :param QCloseEvent event:
         """
+        self.saveWindowState()
         if not self.close_by_dialog:
             if self.updated:
                 self.discard_question()
