@@ -1,6 +1,7 @@
 from PyQt6 import QtCore
 
-from Functions.Widget_classes import get_name_column, display_age
+from Functions.Widget_classes import get_name_column
+from util.display_formatting import display_age
 
 
 class SampleAgeProxyModel(QtCore.QSortFilterProxyModel):

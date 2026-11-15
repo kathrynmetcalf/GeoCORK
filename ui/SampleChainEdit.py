@@ -9,7 +9,7 @@ from Functions.Widget_classes import (
     find_tree_model, show_loading_dialog, close_loading_dialog, find_child_ids, update_modified_timestamp
 )
 from Functions import SQLUtils
-from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint, SavepointManager
+from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 from util.populate_models import populate_combo_box
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox

@@ -8,10 +8,12 @@ from PyQt6.QtWidgets import QMessageBox
 import Functions.Database_manager as Database_manager
 import Functions.SQLUtils as SQLUtils
 import logger_setup
-from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 
 from Functions.Widget_classes import show_loading_dialog, close_loading_dialog
+from util.database.formats import concordance_formats, error_formats, gps_formats
+from util.database.units import age_units, analytical_units, distance_units, direction_units
 
 settings = SettingsManager().settings
 
@@ -2888,7 +2890,7 @@ def update_schema_v103(database: QtS.QSqlDatabase = None) -> bool:
             return False
 
     base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-    xml_file = os.path.join(base_path, "GeologicTime_Ages.xml")
+    xml_file = os.path.join(base_path, "../../../Functions/GeologicTime_Ages.xml")
     tree = ET.parse(xml_file)
     root = tree.getroot()
 
@@ -3363,7 +3365,7 @@ def populate_tables(database=None) -> bool:
         return False
     out = []
     while query.next(): out.append(query.value(1))
-    if not out or len(out) != SQLUtils.age_units:  # if there is no output, the table is empty
+    if not out or len(out) != age_units:  # if there is no output, the table is empty
         if not populate_age_units(database):  # populate it
             return False
     if not populate_age_conversions(database):
@@ -3379,7 +3381,7 @@ def populate_tables(database=None) -> bool:
         return False
     out = []
     while query.next(): out.append(query.value(1))
-    if not out or len(out) != len(SQLUtils.analytical_units):  # if there is no output, the table is empty
+    if not out or len(out) != len(analytical_units):  # if there is no output, the table is empty
         if not populate_analytical_units(database):  # populate it
             return False
     if not populate_analytical_conversions(database):
@@ -3409,7 +3411,7 @@ def populate_tables(database=None) -> bool:
         return False
     out = []
     while query.next(): out.append(query.value(1))
-    if not out or len(out) != len(SQLUtils.analytical_units):  # if there is no output, the table is empty
+    if not out or len(out) != len(analytical_units):  # if there is no output, the table is empty
         if not populate_analytical_units(database):  # populate it
             return False
     if not populate_analytical_conversions(database):
@@ -3438,7 +3440,7 @@ def populate_tables(database=None) -> bool:
         return False
     out = []
     while query.next(): out.append(query.value(1))
-    if not out or len(out) != len(SQLUtils.concordance_formats):  # if there is no output, the table is empty
+    if not out or len(out) != len(concordance_formats):  # if there is no output, the table is empty
         if not populate_concordance_formats(database):  # populate it
             return False
     if not populate_concordance_conversions(database):
@@ -3453,7 +3455,7 @@ def populate_tables(database=None) -> bool:
         return False
     out = []
     while query.next(): out.append(query.value(1))
-    if not out or len(out) != len(SQLUtils.direction_units):  # if there is no output, the table is empty
+    if not out or len(out) != len(direction_units):  # if there is no output, the table is empty
         if not populate_direction_units(database):  # populate it
             return False
 
@@ -3466,7 +3468,7 @@ def populate_tables(database=None) -> bool:
         return False
     out = []
     while query.next(): out.append(query.value(1))
-    if not out or len(out) != len(SQLUtils.distance_units):  # if there is no output, the table is empty
+    if not out or len(out) != len(distance_units):  # if there is no output, the table is empty
         if not populate_distance_units(database):  # populate it
             return False
     if not populate_distance_conversions(database):
@@ -3481,7 +3483,7 @@ def populate_tables(database=None) -> bool:
         return False
     out = []
     while query.next(): out.append(query.value(1))
-    if not out or len(out) != len(SQLUtils.error_formats):  # if there is no output, the table is empty
+    if not out or len(out) != len(error_formats):  # if there is no output, the table is empty
         if not populate_error_formats(database):
             return False
     if not populate_error_conversions(database):
@@ -3496,7 +3498,7 @@ def populate_tables(database=None) -> bool:
         return False
     out = []
     while query.next(): out.append(query.value(2))
-    if not out or len(out) != len(SQLUtils.gps_formats):  # if there is no output, the table is empty
+    if not out or len(out) != len(gps_formats):  # if there is no output, the table is empty
         populate_gps_formats(database)
     sql = 'DELETE FROM GPSFormatConversions'
     if not query.exec(sql):
@@ -3540,7 +3542,6 @@ def populate_age_units(database=None) -> bool:
     else:
         query = QtS.QSqlQuery(database)
     # Begin by deleting all rows in the table to allow for a reset if things get changed
-    age_units = SQLUtils.age_units
     for unit in age_units:
         sql = f'''INSERT INTO AgeUnits(AgeUnitName, AgeUnitAbbreviation) VALUES("{unit[0]}","{unit[1]}")'''
         if not query.exec(sql):
@@ -3567,7 +3568,6 @@ def populate_age_conversions(database=None) -> bool:
         query = QtS.QSqlQuery(database)
         database: QtS.QSqlDatabase
         age_conversion_model = QtS.QSqlTableModel(db=database)
-    age_units = SQLUtils.age_units
     age_conversion_model.setTable('AgeUnitConversions')
     age_conversion_model.select()
     while age_conversion_model.canFetchMore():
@@ -3631,31 +3631,6 @@ def populate_analytical_units(database=None) -> bool:
         query = QtS.QSqlQuery()
     else:
         query = QtS.QSqlQuery(database)
-    analytical_units = SQLUtils.analytical_units
-    for analytical_unit in analytical_units:
-        sql = f'''INSERT INTO AnalyticalUnits(AnalyticalUnitName, AnalyticalUnitAbbreviation, AnalyticalUnitDescription)
-                                VALUES("{analytical_unit[0]}","{analytical_unit[1]}","{analytical_unit[2]}")'''
-        if not query.exec(sql):
-            if 'UNIQUE constraint failed' not in query.lastError().text():
-                logger_setup.get_logger().critical('Error populating AnalyticalUnits')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                return False
-    return True
-
-def populate_analytical_units(database=None) -> bool:
-    """
-    Connect to the database and add the default analytical units. Uses the default database connection if no database
-    is provided.
-    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
-    :return: True for success, False for failure
-    """
-
-    if database is None:
-        query = QtS.QSqlQuery()
-    else:
-        query = QtS.QSqlQuery(database)
-    analytical_units = SQLUtils.analytical_units
     for analytical_unit in analytical_units:
         sql = f'''INSERT INTO AnalyticalUnits(AnalyticalUnitName, AnalyticalUnitAbbreviation, AnalyticalUnitDescription)
                                 VALUES("{analytical_unit[0]}","{analytical_unit[1]}","{analytical_unit[2]}")'''
@@ -3681,7 +3656,6 @@ def populate_analytical_conversions(database=None) -> bool:
     else:
         query = QtS.QSqlQuery(database)
         analytical_unit_conversion_model = QtS.QSqlTableModel(db=database)
-    analytical_units = SQLUtils.analytical_units
     analytical_unit_conversion_model.setTable('AnalyticalUnitConversions')
     analytical_unit_conversion_model.select()
     while analytical_unit_conversion_model.canFetchMore():
@@ -3792,129 +3766,6 @@ def populate_analytical_conversions(database=None) -> bool:
                             return False
     return True
 
-def populate_analytical_conversions(database=None) -> bool:
-    """
-    Connect to the database and add the default analytical format conversions. Uses the default database connection if no
-    database is provided.
-    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
-    :return: True for success, False for failure
-    """
-    if database is None:
-        query = QtS.QSqlQuery()
-        analytical_unit_conversion_model = QtS.QSqlTableModel()
-    else:
-        query = QtS.QSqlQuery(database)
-        analytical_unit_conversion_model = QtS.QSqlTableModel(db=database)
-    analytical_units = SQLUtils.analytical_units
-    analytical_unit_conversion_model.setTable('AnalyticalUnitConversions')
-    analytical_unit_conversion_model.select()
-    while analytical_unit_conversion_model.canFetchMore():
-        analytical_unit_conversion_model.fetchMore()
-    for unit1 in range(len(analytical_units)):
-        for unit2 in range(len(analytical_units)):
-            if unit2 > unit1:
-                abbr1 = analytical_units[unit1][1]
-                abbr2 = analytical_units[unit2][1]
-                # Define mass-fraction equivalence groups (all interconvertible by simple scaling)
-                # ppm = mg/kg = μg/g (1e-6)
-                # ppb = μg/kg = ng/g (1e-9)
-                # ppt = ng/kg = pg/g (1e-12)
-                # wt% (1e-2)
-                ppm_group = ('ppm', 'mg/kg', 'μg/g')
-                ppb_group = ('ppb', 'ng/g')
-                ppt_group = ('ppt',)
-                wtpct_group = ('wt%',)
-                # Mapping from format abbreviation to its mass fraction (dimensionless)
-                mass_fraction_factors = {}
-                for fmt in ppm_group:
-                    mass_fraction_factors[fmt] = 1e-6
-                for fmt in ppb_group:
-                    mass_fraction_factors[fmt] = 1e-9
-                for fmt in ppt_group:
-                    mass_fraction_factors[fmt] = 1e-12
-                for fmt in wtpct_group:
-                    mass_fraction_factors[fmt] = 1e-2
-                # Isotope abundance equivalence group (at% and fraction interconvertible)
-                atom_fraction_factors = {'at%': 1e-2, 'fraction': 1.0}
-                conversion1to2 = '-'
-                conversion2to1 = '-'
-                if abbr1 in mass_fraction_factors and abbr2 in mass_fraction_factors:
-                    # Both formats are mass-based concentrations - simple scaling
-                    factor = mass_fraction_factors[abbr1] / mass_fraction_factors[abbr2]
-                    inverse_factor = mass_fraction_factors[abbr2] / mass_fraction_factors[abbr1]
-                    if factor == 1.0:
-                        # Equivalent units (e.g., ppm and mg/kg)
-                        conversion1to2 = 'x'
-                        conversion2to1 = 'x'
-                    else:
-                        conversion1to2 = f'x*{factor:g}'
-                        conversion2to1 = f'x*{inverse_factor:g}'
-                elif abbr1 in atom_fraction_factors and abbr2 in atom_fraction_factors:
-                    # Both formats are atomic abundance - simple scaling
-                    factor = atom_fraction_factors[abbr1] / atom_fraction_factors[abbr2]
-                    inverse_factor = atom_fraction_factors[abbr2] / atom_fraction_factors[abbr1]
-                    if factor == 1.0:
-                        conversion1to2 = 'x'
-                        conversion2to1 = 'x'
-                    else:
-                        conversion1to2 = f'x*{factor:g}'
-                        conversion2to1 = f'x*{inverse_factor:g}'
-                elif (abbr1, abbr2) == ('mol/g', 'atoms/g') or (abbr1, abbr2) == ('atoms/g', 'mol/g'):
-                    # Avogadro's number scaling between mol/g and atoms/g
-                    if abbr1 == 'mol/g':
-                        conversion1to2 = 'x*6.02214076e23'
-                        conversion2to1 = 'x/6.02214076e23'
-                    else:
-                        conversion1to2 = 'x/6.02214076e23'
-                        conversion2to1 = 'x*6.02214076e23'
-                # All other format pairs (e.g., concentration <-> isotope ratio, cps <-> concentration,
-                # delta <-> epsilon, initial <-> measured ratio) require additional context such as
-                # element identity, atomic mass, reference standard, decay constant, or instrument
-                # calibration. These cannot be expressed as a simple algebraic conversion and are
-                # left as the placeholder '-'.
-                analytical_unit_conversion_model.setFilter(
-                    f'FromAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr1}") AND ToAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr2}")')
-                if analytical_unit_conversion_model.rowCount() == 0:
-                    sql = f'''INSERT INTO AnalyticalUnitConversions(FromAnalyticalUnitID, ToAnalyticalUnitID, AnalyticalUnitConversionCalculation)
-                                                            VALUES((SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr1}"),(SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr2}"),"{conversion1to2}")'''
-                    if not query.exec(sql):
-                        logger_setup.get_logger().critical('Error populating AnalyticalUnitConversions')
-                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                        return False
-                else:
-                    current_conversion = analytical_unit_conversion_model.record(0).value(
-                        'AnalyticalUnitConversionCalculation')
-                    if current_conversion != conversion1to2:
-                        sql = f'''UPDATE AnalyticalUnitConversions SET AnalyticalUnitConversionCalculation = "{conversion1to2}"
-                                                            WHERE FromAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr1}") AND ToAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr2}")'''
-                        if not query.exec(sql):
-                            logger_setup.get_logger().critical('Error populating AnalyticalUnitConversions')
-                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                            return False
-                analytical_unit_conversion_model.setFilter(
-                    f'FromAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr2}") AND ToAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr1}")')
-                if analytical_unit_conversion_model.rowCount() == 0:
-                    sql = f'''INSERT INTO AnalyticalUnitConversions(FromAnalyticalUnitID, ToAnalyticalUnitID, AnalyticalUnitConversionCalculation)
-                                                            VALUES((SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr2}"),(SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr1}"),"{conversion2to1}")'''
-                    if not query.exec(sql):
-                        logger_setup.get_logger().critical('Error populating AnalyticalUnitConversions')
-                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                        return False
-                else:
-                    current_conversion = analytical_unit_conversion_model.record(0).value(
-                        'AnalyticalUnitConversionCalculation')
-                    if current_conversion != conversion2to1:
-                        sql = f'''UPDATE AnalyticalUnitConversions SET AnalyticalUnitConversionCalculation = "{conversion2to1}"
-                                                            WHERE FromAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr2}") AND ToAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr1}")'''
-                        if not query.exec(sql):
-                            logger_setup.get_logger().critical('Error populating AnalyticalUnitConversions')
-                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                            return False
-    return True
 
 def populate_concordance_formats(database=None) -> bool:
     """
@@ -3928,7 +3779,6 @@ def populate_concordance_formats(database=None) -> bool:
         query = QtS.QSqlQuery()
     else:
         query = QtS.QSqlQuery(database)
-    concordance_formats = SQLUtils.concordance_formats
     for concordance_format in concordance_formats:
         sql = f'''INSERT INTO ConcordanceFormats(ConcordanceFormatName, ConcordanceFormatAbbreviation, ConcordanceFormatDescription)
                                 VALUES("{concordance_format[0]}","{concordance_format[1]}","{concordance_format[2]}")'''
@@ -3954,7 +3804,6 @@ def populate_concordance_conversions(database=None) -> bool:
     else:
         query = QtS.QSqlQuery(database)
         concordance_conversion_model = QtS.QSqlTableModel(db=database)
-    concordance_formats = SQLUtils.concordance_formats
     concordance_conversion_model.setTable('ConcordanceFormatConversions')
     concordance_conversion_model.select()
     while concordance_conversion_model.canFetchMore():
@@ -4073,7 +3922,6 @@ def populate_distance_units(database=None) -> bool:
     else:
         query = QtS.QSqlQuery(database)
     # International standard foot is 0.3048 meters exactly
-    distance_units = SQLUtils.distance_units
     for unit in distance_units:
         sql = f'''INSERT INTO DistanceUnits(DistanceUnitName, DistanceUnitAbbreviation)
                                     VALUES("{unit[0]}","{unit[1]}")'''
@@ -4099,7 +3947,6 @@ def populate_distance_conversions(database=None) -> bool:
     else:
         query = QtS.QSqlQuery(database)
         distance_conversion_model = QtS.QSqlTableModel(db=database)
-    distance_units = SQLUtils.distance_units
     distance_conversion_model.setTable('DistanceUnitConversions')
     distance_conversion_model.select()
     while distance_conversion_model.canFetchMore():
@@ -4176,7 +4023,6 @@ def populate_error_formats(database=None) -> bool:
         query = QtS.QSqlQuery()
     else:
         query = QtS.QSqlQuery(database)
-    error_formats = SQLUtils.error_formats
     for error_format in error_formats:
         sql = f'''INSERT INTO ErrorFormats(ErrorFormatName, ErrorFormatAbbreviation, ErrorFormatDescription)
                                     VALUES("{error_format[0]}","{error_format[1]}","{error_format[2]}")'''
@@ -4202,7 +4048,6 @@ def populate_error_conversions(database=None) -> bool:
     else:
         query = QtS.QSqlQuery(database)
         error_conversion_model = QtS.QSqlTableModel(db=database)
-    error_formats = SQLUtils.error_formats
     error_conversion_model.setTable('ErrorFormatConversions')
     error_conversion_model.select()
     while error_conversion_model.canFetchMore():
@@ -4287,10 +4132,9 @@ def populate_geochemical_analytes(database=None) -> bool:
         query = QtS.QSqlQuery()
     else:
         query = QtS.QSqlQuery(database)
-    geochemical_analyte_classes = SQLUtils.geochemical_analyte_classes
     analyte_class_ids = {}
     root_row = 0
-    for geochemical_class in geochemical_analyte_classes:
+    for geochemical_class in SQLUtils.geochemical_analyte_classes:
         if geochemical_class[0] == 'REE':
             parent_id = analyte_class_ids['element']
             parent_row = 0
@@ -4378,7 +4222,6 @@ def populate_gps_formats(database=None) -> bool:
         query = QtS.QSqlQuery()
     else:
         query = QtS.QSqlQuery(database)
-    gps_formats = SQLUtils.gps_formats
     for gps_format in gps_formats:
         sql = f'''INSERT INTO GPSFormats(GPSFormatName, GPSFormatAbbreviation, GPSFormatDescription)
                     VALUES("{gps_format[0]}","{gps_format[1]}","{gps_format[2]}")'''
@@ -4405,7 +4248,6 @@ def populate_gps_conversions(database=None) -> bool:
         query = QtS.QSqlQuery(database)
         gps_format_model = QtS.QSqlTableModel(db=database)
         gps_conversion_model = QtS.QSqlTableModel(db=database)
-    gps_formats = SQLUtils.gps_formats
     gps_format_model.setTable('GPSFormats')
     gps_format_model.select()
     while gps_format_model.canFetchMore():
@@ -4692,7 +4534,7 @@ def populate_ages(database=None) -> bool:
         query = QtS.QSqlQuery(database)
 
     base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-    xml_file = os.path.join(base_path, "GeologicTime_Ages.xml")
+    xml_file = os.path.join(base_path, "../../../Functions/GeologicTime_Ages.xml")
 
     tree = ET.parse(xml_file)
     root = tree.getroot()

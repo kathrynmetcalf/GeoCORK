@@ -9,7 +9,7 @@ import logger_setup
 from Functions.Alter_database import convert_gps_location
 from Functions.Check_triggers import validate_insert, update_modified_timestamp
 from Functions.Database_manager import update_database
-from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from util.database.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Widget_classes import show_loading_dialog
 from ui.AddTreeTags import AddTreeTags
 

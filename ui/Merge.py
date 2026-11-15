@@ -5,7 +5,7 @@ from Functions.Widget_classes import (get_name_from_id, get_headers, get_name_co
                                       show_loading_dialog, close_loading_dialog)
 from Functions import SQLUtils
 import logger_setup
-from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 
 class MergeDialog(QtW.QDialog):
     def __init__(self, table, merge_ids, parent=None):

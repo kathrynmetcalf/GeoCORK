@@ -6,11 +6,11 @@ from datetime import datetime
 from queue import Queue
 import os
 
-from PyQt6.QtCore import QSettings, QStandardPaths
+from PyQt6.QtCore import QStandardPaths
 from PyQt6.QtSql import QSqlDatabase
 from PyQt6.QtWidgets import QMessageBox, QApplication
 
-from Functions.Savepoint_manager import SavepointManager
+from util.database.Savepoint_manager import SavepointManager
 from Functions.Settings_manager import SettingsManager
 
 settings = SettingsManager().settings

@@ -24,7 +24,7 @@ import logger_setup
 from Functions import SQLUtils
 from Functions.Check_triggers import validate_insert, validate_update
 from Functions.Database_manager import update_database
-from Functions.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
+from util.database.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
 from Functions.Settings_manager import SettingsManager
 from ui.settings.SettingsCore import get_importer_brushes
 from ui.EditView import EditView
@@ -5375,7 +5375,6 @@ class ImportWizardDialog(QWidget):
         :return:
         """
 
-        from Functions.Alter_database import get_columns
         if not self.upb_sheet_name in self.right_tables and not self.geochem_sheet_name in self.right_tables:
             # No analysis data sheets
             return True

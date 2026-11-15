@@ -12,6 +12,8 @@ from PyQt6.QtWidgets import QColorDialog
 import logger_setup
 import Functions.SQLUtils as SQLUtils
 from Functions.Settings_manager import SettingsManager
+from util.database.views import view_attributes_dict
+
 settings = SettingsManager().settings
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -352,7 +354,7 @@ def default_settings():
             settings.setValue(custom_key, default_value)
 
     default_sample_view_columns = []
-    sample_view_columns = SQLUtils.view_attributes_dict['SampleView']
+    sample_view_columns = view_attributes_dict['SampleView']
     for column in sample_view_columns:
         if ' AS ' in column:
             column_name = column.split(' AS ')[1].strip('"')
@@ -367,7 +369,7 @@ def default_settings():
         settings.setValue('sample_view_columns', default_sample_view_columns)
 
     default_sample_edit_columns = []
-    sample_edit_columns = SQLUtils.view_attributes_dict['SampleEditView']
+    sample_edit_columns = view_attributes_dict['SampleEditView']
     for column in sample_edit_columns:
         if ' AS ' in column:
             column_name = column.split(' AS ')[1].strip('"')
@@ -381,7 +383,7 @@ def default_settings():
         settings.setValue('sample_edit_columns', default_sample_edit_columns)
 
     default_aliquot_view_columns = []
-    aliquot_view_columns = SQLUtils.view_attributes_dict['AliquotView']
+    aliquot_view_columns = view_attributes_dict['AliquotView']
     for column in aliquot_view_columns:
         if ' AS ' in column:
             column_name = column.split(' AS ')[1].strip('"')
@@ -395,7 +397,7 @@ def default_settings():
         settings.setValue('aliquot_view_columns', default_aliquot_view_columns)
 
     default_aliquot_edit_columns = []
-    aliquot_edit_columns = SQLUtils.view_attributes_dict['AliquotEditView']
+    aliquot_edit_columns = view_attributes_dict['AliquotEditView']
     for column in aliquot_edit_columns:
         if ' AS ' in column:
             column_name = column.split(' AS ')[1].strip('"')
@@ -409,7 +411,7 @@ def default_settings():
         settings.setValue('aliquot_edit_columns', default_aliquot_edit_columns)
 
     default_grain_view_columns = []
-    grain_view_columns = SQLUtils.view_attributes_dict['GrainView']
+    grain_view_columns = view_attributes_dict['GrainView']
     for column in grain_view_columns:
         if ' AS ' in column:
             column_name = column.split(' AS ')[1].strip('"')
@@ -422,7 +424,7 @@ def default_settings():
         settings.setValue('default_grain_view_columns', default_grain_view_columns)
 
     default_grain_edit_columns = []
-    grain_edit_columns = SQLUtils.view_attributes_dict['GrainEditView']
+    grain_edit_columns = view_attributes_dict['GrainEditView']
     for column in grain_edit_columns:
         if ' AS ' in column:
             column_name = column.split(' AS ')[1].strip('"')
@@ -436,7 +438,7 @@ def default_settings():
         settings.setValue('grain_edit_columns', default_grain_edit_columns)
 
     default_spot_view_columns = []
-    spot_view_columns = SQLUtils.view_attributes_dict['SpotView']
+    spot_view_columns = view_attributes_dict['SpotView']
     for column in spot_view_columns:
         if ' AS ' in column:
             column_name = column.split(' AS ')[1].strip('"')
@@ -449,7 +451,7 @@ def default_settings():
         settings.setValue('default_spot_view_columns', default_spot_view_columns)
 
     default_spot_edit_columns = []
-    spot_edit_columns = SQLUtils.view_attributes_dict['SpotEditView']
+    spot_edit_columns = view_attributes_dict['SpotEditView']
     for column in spot_edit_columns:
         if ' AS ' in column:
             column_name = column.split(' AS ')[1].strip('"')
@@ -463,7 +465,7 @@ def default_settings():
         settings.setValue('spot_edit_columns', default_spot_edit_columns)
 
     default_upb_analysis_view_columns = []
-    upb_analysis_view_columns = SQLUtils.view_attributes_dict['UPbView']
+    upb_analysis_view_columns = view_attributes_dict['UPbView']
     for column in upb_analysis_view_columns:
         if ' AS ' in column:
             column_name = column.split(' AS ')[1].strip('"')
@@ -477,7 +479,7 @@ def default_settings():
         settings.setValue('upb_analysis_view_columns', default_upb_analysis_view_columns)
 
     default_upb_analysis_edit_columns = []
-    upb_analysis_edit_columns = SQLUtils.view_attributes_dict['UPbEditView']
+    upb_analysis_edit_columns = view_attributes_dict['UPbEditView']
     for column in upb_analysis_edit_columns:
         if ' AS ' in column:
             column_name = column.split(' AS ')[1].strip('"')
@@ -486,12 +488,12 @@ def default_settings():
         default_upb_analysis_edit_columns.append(column_name)
     if (not settings.contains('default_upb_analysis_edit_columns') or
             (settings.contains('default_upb_analysis_edit_columns') and
-            set('default_upb_analysis_edit_columns') == set(default_upb_analysis_edit_columns))):
+            set(settings.value('default_upb_analysis_edit_columns')) == set(default_upb_analysis_edit_columns))):
         settings.setValue('default_upb_analysis_edit_columns', default_upb_analysis_edit_columns)
         settings.setValue('upb_analysis_edit_columns', default_upb_analysis_edit_columns)
 
     default_geochem_analysis_view_columns = []
-    geochem_analysis_view_columns = SQLUtils.view_attributes_dict['GeoChemView']
+    geochem_analysis_view_columns = view_attributes_dict['GeoChemView']
     for column in geochem_analysis_view_columns:
         if ' AS ' in column:
             column_name = column.split(' AS ')[1].strip('"')
@@ -516,7 +518,7 @@ def default_settings():
         settings.setValue('geochem_analysis_view_columns', default_geochem_analysis_view_columns)
 
     default_geochem_analysis_edit_columns = []
-    geochem_analysis_edit_columns = SQLUtils.view_attributes_dict['GeoChemEditView']
+    geochem_analysis_edit_columns = view_attributes_dict['GeoChemEditView']
     for column in geochem_analysis_edit_columns:
         if ' AS ' in column:
             column_name = column.split(' AS ')[1].strip('"')
@@ -547,7 +549,7 @@ def default_settings():
         settings.setValue('geochem_analysis_edit_columns', default_geochem_analysis_edit_columns)
 
     default_column_view_columns = []
-    column_view_columns = SQLUtils.view_attributes_dict['ColumnView']
+    column_view_columns = view_attributes_dict['ColumnView']
     for column in column_view_columns:
         if ' AS ' in column:
             column_name = column.split(' AS ')[1].strip('"')
@@ -561,7 +563,7 @@ def default_settings():
         settings.setValue('column_view_columns', default_column_view_columns)
 
     default_column_edit_columns = []
-    column_edit_columns = SQLUtils.view_attributes_dict['ColumnEditView']
+    column_edit_columns = view_attributes_dict['ColumnEditView']
     for column in column_edit_columns:
         if ' AS ' in column:
             column_name = column.split(' AS ')[1].strip('"')
@@ -575,7 +577,7 @@ def default_settings():
         settings.setValue('column_edit_columns', default_column_edit_columns)
 
     default_reference_view_columns = []
-    reference_view_columns = SQLUtils.view_attributes_dict['ReferenceView']
+    reference_view_columns = view_attributes_dict['ReferenceView']
     for column in reference_view_columns:
         if ' AS ' in column:
             column_name = column.split(' AS ')[1].strip('"')

@@ -5,7 +5,7 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6.QtWidgets import QMessageBox
 
 import logger_setup
-from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 from util.widgets.models.ReadableProxyModel import ReadableProxyModel
 

@@ -13,7 +13,7 @@ from PyQt6.QtWebEngineCore import QWebEngineSettings
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QApplication, QWidget
 
-import Functions.GPS_conversions as GPS
+import util.GPS_conversions as GPS
 import Functions.SQLUtils as SQLUtils
 import Functions.Text_manipulations as TxM
 import logger_setup

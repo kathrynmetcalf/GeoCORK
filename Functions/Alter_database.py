@@ -4,10 +4,10 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtSql as QtS
 from PyQt6.QtWidgets import QProgressDialog, QApplication
 
-import Functions.Create_database as Create_db
+import util.database.create.Create_database as Create_db
 import logger_setup
 from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
-from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.LoadingDialog_manager import LoadingDialogManager
@@ -18,7 +18,7 @@ from Functions.Widget_classes import set_table, get_columns, get_headers, bulk_u
 # noinspection PyUnresolvedReferences
 import pyproj
 # noinspection PyUnresolvedReferences
-import Functions.GPS_conversions as GPS
+import util.GPS_conversions as GPS
 
 
 def settings_reset(database: QtS.QSqlDatabase = None) -> bool:

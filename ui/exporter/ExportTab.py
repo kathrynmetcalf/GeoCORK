@@ -20,7 +20,7 @@ from openpyxl import Workbook
 
 import logger_setup
 from Functions.Database_manager import update_database
-from Functions import ExportDatabase
+from util.database.export import ExportDatabase
 from Functions import SQLUtils
 from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
 from Functions.Database_views import ViewQuery

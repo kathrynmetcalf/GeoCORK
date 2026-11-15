@@ -18,7 +18,7 @@ import math
 import numpy as np
 import pandas as pd
 
-from Functions.Plot_data import Option
+from util.plotting.Plot_data import Option
 
 PLOT_TYPES: dict[str, 'PlotType'] = {}
 
@@ -314,7 +314,7 @@ class TeraWasserburg(Concordia):
 
 # ---------------------------------------------------------------- geochemistry (pyrolite)
 
-from Functions.Plot_data import REFERENCE_COMPOSITIONS
+from util.plotting.Plot_data import REFERENCE_COMPOSITIONS
 
 TIO2_PER_TI = 79.866 / 47.867
 MAJOR_OXIDES = ['SiO2', 'TiO2', 'Al2O3', 'Fe2O3T', 'MnO', 'MgO', 'CaO', 'Na2O', 'K2O', 'P2O5']

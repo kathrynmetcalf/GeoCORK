@@ -25,7 +25,7 @@ from util.widgets.GroupBoxes.FocusGroupBox import FocusGroupBox
 from util.widgets.models.CheckableTreeModel import CheckableTreeModel
 from util.widgets.models.TreeModel import TreeModel
 
-from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_update, update_modified_timestamp
 from Functions.Database_views import ViewQuery
 from ui.EditTree import EditTree

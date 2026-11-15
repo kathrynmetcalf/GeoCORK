@@ -1,8 +1,8 @@
 from PyQt6 import QtSql as QtS
 from PyQt6.QtSql import QSqlDatabase
 
-import Functions.Create_database as Create_db
-from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+import util.database.create.Create_database as Create_db
+from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Widget_classes import update_modified_timestamp
 
 

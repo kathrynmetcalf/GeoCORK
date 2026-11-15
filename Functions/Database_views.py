@@ -1,12 +1,9 @@
-import sqlite3
-import time
-
-from PyQt6 import QtSql as QtS
-
 import Functions.SQLUtils as SQLUtils
 import logger_setup
-from Functions.SQLUtils import qaliquot_id
+
 from Functions.Settings_manager import SettingsManager
+from util.database import defined_joins, defined_queries
+from util.database.views import view_attributes_dict
 
 settings = SettingsManager().settings
 
@@ -48,20 +45,20 @@ class ViewQuery:
         self.lsa_columns = []
         self.lspag_columns = []
         self.limited_tags = {
-            'Samples': SQLUtils.limited_sample_tags,
-            'Aliquots': SQLUtils.limited_aliquot_tags,
-            'Grains': SQLUtils.limited_grain_tags,
-            'Spots': SQLUtils.limited_spot_tags,
-            'UPbAnalyses': SQLUtils.limited_upb_tags,
-            'GeoChemicalAnalyses': SQLUtils.limited_geochem_tags,
+            'Samples': defined_joins.limited_sample_tags,
+            'Aliquots': defined_joins.limited_aliquot_tags,
+            'Grains': defined_joins.limited_grain_tags,
+            'Spots': defined_joins.limited_spot_tags,
+            'UPbAnalyses': defined_joins.limited_upb_tags,
+            'GeoChemicalAnalyses': defined_joins.limited_geochem_tags,
         }
         self.limited_tag_joins = {
-            'Samples': SQLUtils.limited_sample_tags_join,
-            'Aliquots': SQLUtils.limited_aliquot_tags_join,
-            'Grains': SQLUtils.limited_grain_tags_join,
-            'Spots': SQLUtils.limited_spot_tags_join,
-            'UPbAnalyses': SQLUtils.limited_upb_tags_join,
-            'GeoChemicalAnalyses': SQLUtils.limited_geochem_tags_join,
+            'Samples': defined_joins.limited_sample_tags_join,
+            'Aliquots': defined_joins.limited_aliquot_tags_join,
+            'Grains': defined_joins.limited_grain_tags_join,
+            'Spots': defined_joins.limited_spot_tags_join,
+            'UPbAnalyses': defined_joins.limited_upb_tags_join,
+            'GeoChemicalAnalyses': defined_joins.limited_geochem_tags_join,
         }
         self.show_items_missing_data = settings.value('show_items_missing_data') == 'true'
         if self.show_items_missing_data:
@@ -367,17 +364,17 @@ class ViewQuery:
                             {f"{'\n'.join(self.query_tags_joins['GeoChemicalAnalyses']) if 'GeoChemicalAnalyses' in self.query_tags_joins else ''}"}
                             '''
         if '"Accepted/TotalUPbAnalyses"' in query_columns:
-            subquery = SQLUtils.qupb_count_spot_subquery
+            subquery = defined_queries.qupb_count_spot_subquery
             if self.join_type != 'INNER':
                 subquery = subquery.replace('INNER JOIN UPbAnalyses ON', f'{self.join_type} JOIN UPbAnalyses ON')
             limited_lspag += f',\n{subquery}'
             lspag_joins += f'\n{SQLUtils.upb_distinct_join_limited_spot}'
         if '"Accepted/TotalGeoChemicalAnalyses"' in query_columns:
-            subquery = SQLUtils.qgeochem_count_spot_subquery
+            subquery = defined_queries.qgeochem_count_spot_subquery
             if self.join_type != 'INNER':
                 subquery = subquery.replace('INNER JOIN GeoChemicalAnalyses ON', f'{self.join_type} JOIN GeoChemicalAnalyses ON')
             limited_lspag += f',\n{subquery}'
-            lspag_joins += f'\n{SQLUtils.gc_distinct_join_limited_spot}'
+            lspag_joins += f'\n{defined_joins.gc_distinct_join_limited_spot}'
 
         spot_query = f'''
                         {self.limited_hierarchy}
@@ -836,7 +833,7 @@ class ViewQuery:
                                 lspag_selects.insert(1, 'Spots.AliquotID AS AliquotID')
                                 if SQLUtils.qaliquot_id not in lsa_selects:
                                     lsa_selects.append(SQLUtils.qaliquot_id)
-                            if qaliquot_id not in lsa_selects:
+                            if SQLUtils.qaliquot_id not in lsa_selects:
                                 lsa_selects.append(SQLUtils.qaliquot_id)
                             if f'{self.join_type} JOIN Aliquots ON Samples.SampleID = Aliquots.SampleID' not in lsa_joins:
                                 lsa_joins.insert(0, f'{self.join_type} JOIN Aliquots ON Samples.SampleID = Aliquots.SampleID')
@@ -1600,7 +1597,7 @@ WITH RECURSIVE ''')
             view_name = get_view_from_table(table=self.table)
         else:
             view_name = get_edit_view_from_table(table=self.table)
-        all_view_columns = SQLUtils.view_attributes_dict[view_name]
+        all_view_columns = view_attributes_dict[view_name]
         for column in all_view_columns:
             if 'UPbAnalyses' not in settings.value('display_analyses') and self.table != 'UPbAnalyses' and 'UPb' in column:
                 continue

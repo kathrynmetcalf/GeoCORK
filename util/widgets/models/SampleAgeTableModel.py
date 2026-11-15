@@ -1,6 +1,6 @@
 from PyQt6 import QtGui, QtCore
 
-from Functions.Widget_classes import display_age
+from util.display_formatting import display_age
 from util.widgets.models.CheckableSqlQueryModel import CheckableSqlQueryModel
 
 

@@ -8,8 +8,8 @@ from PyQt6 import QtGui as QtG
 from PyQt6 import QtWidgets as QtW
 
 import logger_setup
-from Functions.Plot_data import DATA_PROVIDERS, Option
-from Functions.Plot_types import PLOT_TYPES
+from util.plotting.Plot_data import DATA_PROVIDERS, Option
+from util.plotting.Plot_types import PLOT_TYPES
 from Functions.Settings_manager import SettingsManager
 
 settings = SettingsManager().settings

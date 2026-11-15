@@ -17,9 +17,10 @@ import numpy as np
 import pandas as pd
 from PyQt6 import QtSql as QtS
 
-import Functions.SQLUtils as SQLUtils
 import logger_setup
 from Functions.Settings_manager import SettingsManager
+from util.database import defined_queries, defined_joins
+from util.database.units import age_units, analytical_units
 
 settings = SettingsManager().settings
 
@@ -101,34 +102,34 @@ def error_to_1s_relative(error: pd.Series, value: pd.Series, error_format: str) 
     return relative / 2 if error_format.startswith('2') else relative
 
 
-AGE_UNIT_TO_MA = {unit[1]: float(unit[2]) / 1e6 for unit in SQLUtils.age_units}
-"""AgeUnits abbreviation: factor to Ma, from SQLUtils.age_units (years per unit)"""
+AGE_UNIT_TO_MA = {unit[1]: float(unit[2]) / 1e6 for unit in age_units}
+"""AgeUnits abbreviation: factor to Ma, from defined_queries.age_units (years per unit)"""
 
 AGE_COLUMNS = {
-    'Best age (filled)': (SQLUtils.qupb_calc_best_age_filled, SQLUtils.qupb_calc_best_age_filled_error),
-    'Best age': (SQLUtils.qupb_calc_best_age, SQLUtils.qupb_calc_best_age_error),
-    '206Pb/238U': (SQLUtils.qupb_calc_206238_age, SQLUtils.qupb_calc_206238_age_error),
-    '207Pb/206Pb': (SQLUtils.qupb_calc_207206_age, SQLUtils.qupb_calc_207206_age_error),
-    '207Pb/235U': (SQLUtils.qupb_calc_207235_age, SQLUtils.qupb_calc_207235_age_error),
-    '208Pb/232Th': (SQLUtils.qupb_calc_208232_age, SQLUtils.qupb_calc_208232_age_error),
+    'Best age (filled)': (defined_queries.qupb_calc_best_age_filled, defined_queries.qupb_calc_best_age_filled_error),
+    'Best age': (defined_queries.qupb_calc_best_age, defined_queries.qupb_calc_best_age_error),
+    '206Pb/238U': (defined_queries.qupb_calc_206238_age, defined_queries.qupb_calc_206238_age_error),
+    '207Pb/206Pb': (defined_queries.qupb_calc_207206_age, defined_queries.qupb_calc_207206_age_error),
+    '207Pb/235U': (defined_queries.qupb_calc_207235_age, defined_queries.qupb_calc_207235_age_error),
+    '208Pb/232Th': (defined_queries.qupb_calc_208232_age, defined_queries.qupb_calc_208232_age_error),
 }
-"""Display name: (age column, age error column) as SQLUtils select strings"""
+"""Display name: (age column, age error column) as defined_queries select strings"""
 
 RATIO_PAIRS = {
-    '206Pb/238U': ((SQLUtils.qupb_calc_206238, SQLUtils.qupb_calc_206238_error),
-                   (SQLUtils.qupb_calc_238206, SQLUtils.qupb_calc_238206_error)),
-    '207Pb/206Pb': ((SQLUtils.qupb_calc_207206, SQLUtils.qupb_calc_207206_error),
-                    (SQLUtils.qupb_calc_206207, SQLUtils.qupb_calc_206207_error)),
-    '207Pb/235U': ((SQLUtils.qupb_calc_207235, SQLUtils.qupb_calc_207235_error),
-                   (SQLUtils.qupb_calc_235207, SQLUtils.qupb_calc_235207_error)),
+    '206Pb/238U': ((defined_queries.qupb_calc_206238, defined_queries.qupb_calc_206238_error),
+                   (defined_queries.qupb_calc_238206, defined_queries.qupb_calc_238206_error)),
+    '207Pb/206Pb': ((defined_queries.qupb_calc_207206, defined_queries.qupb_calc_207206_error),
+                    (defined_queries.qupb_calc_206207, defined_queries.qupb_calc_206207_error)),
+    '207Pb/235U': ((defined_queries.qupb_calc_207235, defined_queries.qupb_calc_207235_error),
+                   (defined_queries.qupb_calc_235207, defined_queries.qupb_calc_235207_error)),
 }
 """Ratio: ((ratio, error), (reciprocal, error)). Reciprocal ratios share the same relative uncertainty."""
 
-CONCORDANCE_COLUMNS = [SQLUtils.qupb_calc_concordance_68v76, SQLUtils.qupb_calc_concordance_68v75]
+CONCORDANCE_COLUMNS = [defined_queries.qupb_calc_concordance_68v76, defined_queries.qupb_calc_concordance_68v75]
 
 
 def alias(select: str) -> str:
-    """Output column name of a SQLUtils select string ('... AS "Alias"')."""
+    """Output column name of a defined_queries select string ('... AS "Alias"')."""
     return select.rsplit(' AS ', 1)[1].strip('"')
 
 
@@ -156,14 +157,14 @@ class UPbData(DataProvider):
     def fetch(self, sample_ids: list[int]) -> pd.DataFrame:
         if not sample_ids:
             return pd.DataFrame()
-        columns = ([SQLUtils.qsample_id, SQLUtils.qsample_name, SQLUtils.qspot_id, SQLUtils.qgrain_id,
-                    SQLUtils.qupb_id, SQLUtils.qupb_analysis_name,
-                    SQLUtils.qupb_rejected, SQLUtils.qupb_error_corr_68v76, SQLUtils.qupb_error_corr_68v75]
+        columns = ([defined_queries.qsample_id, defined_queries.qsample_name, defined_queries.qspot_id, defined_queries.qgrain_id,
+                    defined_queries.qupb_id, defined_queries.qupb_analysis_name,
+                    defined_queries.qupb_rejected, defined_queries.qupb_error_corr_68v76, defined_queries.qupb_error_corr_68v75]
                    + [column for pair in AGE_COLUMNS.values() for column in pair]
                    + [column for pair in RATIO_PAIRS.values() for ratio in pair for column in ratio]
                    + CONCORDANCE_COLUMNS)
-        sql = (f'SELECT {", ".join(columns)}\nFROM UPbAnalyses\n{SQLUtils.upb_spot_join}\n{SQLUtils.spot_grain_join}\n'
-               f'{SQLUtils.spot_aliquot_join}\n{SQLUtils.aliquot_sample_join}\n'
+        sql = (f'SELECT {", ".join(columns)}\nFROM UPbAnalyses\n{defined_queries.upb_spot_join}\n{defined_queries.spot_grain_join}\n'
+               f'{defined_queries.spot_aliquot_join}\n{defined_queries.aliquot_sample_join}\n'
                f'WHERE Samples.SampleID IN ({", ".join(str(int(i)) for i in sample_ids)})')
         return query_frame(sql)
 
@@ -208,12 +209,12 @@ PPM_FACTORS = {'Parts per million': 1, 'Micrograms per gram': 1, 'Milligrams per
                'Parts per billion': 1e-3, 'Nanograms per gram': 1e-3, 'Parts per trillion': 1e-6,
                'Weight percent': 1e4}
 """AnalyticalUnits name: factor to ppm for mass-fraction units"""
-UNIT_TO_PPM = {unit[1]: PPM_FACTORS[unit[0]] for unit in SQLUtils.analytical_units if unit[0] in PPM_FACTORS}
-"""AnalyticalUnits abbreviation (from SQLUtils.analytical_units): factor to ppm"""
+UNIT_TO_PPM = {unit[1]: PPM_FACTORS[unit[0]] for unit in analytical_units if unit[0] in PPM_FACTORS}
+"""AnalyticalUnits abbreviation (from defined_queries.analytical_units): factor to ppm"""
 
 GEOCHEM_ANALYTE_JOIN = ('LEFT JOIN GeoChemicalAnalytes '
                         'ON GeoChemicalAnalysisValues.GeoChemAnalyteID = GeoChemicalAnalytes.GeoChemAnalyteID')
-"""SQLUtils.geochem_analyte_join joins on GeoChemicalAnalyses.GeoChemAnalyteID, which is not a column of the current
+"""defined_queries.geochem_analyte_join joins on GeoChemicalAnalyses.GeoChemAnalyteID, which is not a column of the current
 GeoChemicalAnalyses table; GeoChemAnalyteID is in GeoChemicalAnalysisValues."""
 
 REFERENCE_COMPOSITIONS = [
@@ -244,12 +245,12 @@ class GeoChemData(DataProvider):
     def fetch(self, sample_ids: list[int]) -> pd.DataFrame:
         if not sample_ids:
             return pd.DataFrame()
-        columns = [SQLUtils.qsample_id, SQLUtils.qsample_name, SQLUtils.qgeochem_id, SQLUtils.qgeochem_analysis_name,
-                   SQLUtils.qgeochem_rejected, SQLUtils.qgeochem_analyte_abbreviation, SQLUtils.qgeochem_analyte_value,
-                   SQLUtils.qgeochem_analyte_unit, SQLUtils.qgeochem_analyte_error, SQLUtils.qgeochem_analyte_error_format]
-        sql = (f'SELECT {", ".join(columns)}\nFROM GeoChemicalAnalyses\n{SQLUtils.geochem_spot_join}\n'
-               f'{SQLUtils.spot_aliquot_join}\n{SQLUtils.aliquot_sample_join}\n{SQLUtils.geochem_analyte_value_join}\n'
-               f'{GEOCHEM_ANALYTE_JOIN}\n{SQLUtils.geochem_analyte_unit_join}\n{SQLUtils.geochem_analyte_error_format_join}\n'
+        columns = [defined_queries.qsample_id, defined_queries.qsample_name, defined_queries.qgeochem_id, defined_queries.qgeochem_analysis_name,
+                   defined_queries.qgeochem_rejected, defined_queries.qgeochem_analyte_abbreviation, defined_queries.qgeochem_analyte_value,
+                   defined_queries.qgeochem_analyte_unit, defined_queries.qgeochem_analyte_error, defined_queries.qgeochem_analyte_error_format]
+        sql = (f'SELECT {", ".join(columns)}\nFROM GeoChemicalAnalyses\n{defined_queries.geochem_spot_join}\n'
+               f'{defined_queries.spot_aliquot_join}\n{defined_joins.aliquot_sample_join}\n{defined_joins.geochem_analyte_value_join}\n'
+               f'{GEOCHEM_ANALYTE_JOIN}\n{defined_joins.geochem_analyte_unit_join}\n{defined_joins.geochem_analyte_error_format_join}\n'
                f'WHERE Samples.SampleID IN ({", ".join(str(int(i)) for i in sample_ids)})')
         return query_frame(sql)
 
@@ -298,14 +299,14 @@ class UPbHfData(DataProvider):
     def fetch(self, sample_ids: list[int]) -> dict:
         if not sample_ids:
             return {'upb': pd.DataFrame(), 'hf': pd.DataFrame()}
-        columns = [SQLUtils.qsample_id, SQLUtils.qsample_name, SQLUtils.qspot_id, SQLUtils.qgrain_id,
-                   SQLUtils.qgeochem_id, SQLUtils.qgeochem_analysis_name, SQLUtils.qgeochem_rejected,
-                   SQLUtils.qgeochem_analyte_abbreviation, SQLUtils.qgeochem_analyte_value,
-                   SQLUtils.qgeochem_analyte_error, SQLUtils.qgeochem_analyte_error_format]
+        columns = [defined_queries.qsample_id, defined_queries.qsample_name, defined_queries.qspot_id, defined_queries.qgrain_id,
+                   defined_queries.qgeochem_id, defined_queries.qgeochem_analysis_name, defined_queries.qgeochem_rejected,
+                   defined_queries.qgeochem_analyte_abbreviation, defined_queries.qgeochem_analyte_value,
+                   defined_queries.qgeochem_analyte_error, defined_queries.qgeochem_analyte_error_format]
         analytes = ', '.join(f"'{a}'" for a in HF_ANALYTES)
-        sql = (f'SELECT {", ".join(columns)}\nFROM GeoChemicalAnalyses\n{SQLUtils.geochem_spot_join}\n'
-               f'{SQLUtils.spot_grain_join}\n{SQLUtils.spot_aliquot_join}\n{SQLUtils.aliquot_sample_join}\n'
-               f'{SQLUtils.geochem_analyte_value_join}\n{GEOCHEM_ANALYTE_JOIN}\n{SQLUtils.geochem_analyte_error_format_join}\n'
+        sql = (f'SELECT {", ".join(columns)}\nFROM GeoChemicalAnalyses\n{defined_queries.geochem_spot_join}\n'
+               f'{defined_queries.spot_grain_join}\n{defined_queries.spot_aliquot_join}\n{defined_queries.aliquot_sample_join}\n'
+               f'{defined_queries.geochem_analyte_value_join}\n{GEOCHEM_ANALYTE_JOIN}\n{defined_queries.geochem_analyte_error_format_join}\n'
                f'WHERE Samples.SampleID IN ({", ".join(str(int(i)) for i in sample_ids)}) '
                f'AND GeoChemicalAnalytes.GeoChemAnalyteAbbreviation IN ({analytes})')
         return {'upb': DATA_PROVIDERS['upb'].fetch(sample_ids), 'hf': query_frame(sql)}

@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import QLabel, QComboBox, QDialogButtonBox
 import Functions.Text_manipulations as TxM
 import logger_setup
 from Functions.Database_manager import update_database
-from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from util.database.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 from ui.settings import SettingsCore
 from util.widgets.models.EditableSqlQueryModel import EditableSqlQueryModel

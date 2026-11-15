@@ -13,10 +13,10 @@ from tzlocal import get_localzone
 import logger_setup
 import ui.ImportWizard
 import ui.New_reference
-from Functions import Savepoint_manager
-from Functions.BackupDatabase import BackupThread
+from util.database import Savepoint_manager
+from util.database.backup.BackupDatabase import BackupThread
 from Functions.Database_manager import update_database, turn_on_foreign_keys
-from Functions.Savepoint_manager import SavepointManager
+from util.database.Savepoint_manager import SavepointManager
 from Functions.Settings_manager import SettingsManager
 from ui.SampleMap import SampleMapWindow
 

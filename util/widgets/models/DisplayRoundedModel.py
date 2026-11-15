@@ -2,7 +2,7 @@ from PyQt6 import QtCore, QtSql
 from PyQt6.QtSql import QSqlDatabase
 
 from Functions.Settings_manager import SettingsManager
-from Functions.Widget_classes import return_rounded, display_value_with_error, display_age, display_gps
+from util.display_formatting import display_age, display_gps, display_value_with_error, return_rounded
 
 settings = SettingsManager().settings
 

@@ -8,7 +8,7 @@ from PyQt6.uic import loadUi
 
 import logger_setup
 from Functions.LoadingDialog_manager import LoadingDialogManager
-from Functions.MergeDatabase import merge_database
+from util.database.merge.merge_helper import merge_database
 
 
 class MergeDatabaseDialog(QDialog):

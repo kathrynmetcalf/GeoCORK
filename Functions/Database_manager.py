@@ -8,13 +8,12 @@ from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from PyQt6.QtWidgets import QMessageBox, QProgressDialog, QApplication
 from PyQt6.QtCore import QStandardPaths, QEventLoop
 
-from Functions.BackupDatabase import BackupThread
+from util.database.backup.BackupDatabase import BackupThread
 from Functions.LoadingDialog_manager import LoadingDialogManager
-from Functions.Savepoint_manager import SavepointManager
+from util.database.Savepoint_manager import SavepointManager
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 import logger_setup
-import Functions.SQLUtils as SQLUtils
 
 
 def turn_on_foreign_keys(database: QSqlDatabase = QSqlDatabase()) -> bool:
@@ -125,7 +124,8 @@ def update_database(database=None) -> bool:
     '''Backup database before any changes.
     Restore the backup before returning if the update fails'''
 
-    from Functions import Create_database as Create_db, Create_indexes
+    from Functions import Create_indexes
+    from util.database.create import Create_database as Create_db
     from Functions import Alter_database as Alter_db
 
     # Update database schema

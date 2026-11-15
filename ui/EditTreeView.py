@@ -16,7 +16,7 @@ from Functions.Widget_classes import (
     delete_data, delete_query, show_loading_dialog, close_loading_dialog, update_modified_timestamp
 )
 from Functions import SQLUtils
-from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 from ui.AddDataItem import AddDataItem
 from ui.EditView import EditView

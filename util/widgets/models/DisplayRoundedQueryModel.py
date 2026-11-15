@@ -3,8 +3,8 @@ from PyQt6.QtSql import QSqlQueryModel, QSqlDatabase
 
 import logger_setup
 from Functions.Settings_manager import SettingsManager
-from Functions.Widget_classes import return_rounded, display_value_with_error, display_age, display_gps, \
-    get_name_column, get_view_from_table
+from Functions.Widget_classes import get_name_column, get_view_from_table
+from util.display_formatting import display_age, display_gps, display_value_with_error, return_rounded
 
 settings = SettingsManager().settings
 

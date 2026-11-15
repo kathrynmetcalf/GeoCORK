@@ -19,7 +19,7 @@ from Functions.Widget_classes import (
 )
 import Functions.Text_manipulations as TxM
 from Functions import SQLUtils
-from Functions import Savepoint_manager
+from util.database import Savepoint_manager
 from Functions.Database_manager import update_database
 from Functions.Settings_manager import SettingsManager
 from ui.SampleMap import SampleMapWindow

@@ -1,5 +1,4 @@
 import sqlite3
-from typing import Dict, List
 from Functions.Widget_classes import get_name_column
 
 import Functions.SQLUtils as SQLUtils
@@ -790,17 +789,3 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
 
     logger_setup.get_logger().info('Merged successfully')
     return True
-
-
-if __name__ == "__main__":
-    # Example usage:
-    # SOURCE_DB = r"/Users/jarrodburges/Downloads/merge test/geochron.db"
-    # INCOMING_DB = r"/Users/jarrodburges/Downloads/merge test/klam.db"
-
-    SOURCE_DB = r"C:\Users\jburges\Downloads\db merge\klam2.db"
-    INCOMING_DB = r"C:\Users\jburges\Downloads\db merge\klam.db"
-
-    # SOURCE_DB = r"/Users/kametcalf/Documents/Research/GeoChron_non_git/GeoChron v.0.db"
-    # INCOMING_DB = r"/Users/kametcalf/Documents/Research/GeoChronology_Code/dec_schema.db"
-
-    merge_database(SOURCE_DB, INCOMING_DB)

@@ -1,5 +1,3 @@
-import os
-import sys
 import math
 
 from PyQt6 import QtWidgets as QtW
@@ -246,9 +244,9 @@ class EditView(QtW.QDialog):
 
         logger_setup.get_logger().info(f'Creating a new EditView for {get_readable_header(table_name)}')
         edit_view_start_time = time.time()
-        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-        sources_ui_file = os.path.join(base_path, "EditTable.ui")
-        loadUi(sources_ui_file, self)
+
+        self.build_ui(table_name)
+
         self.setModal(True)
         self.setWindowTitle(f'Edit {TxM.add_spaces_camel(table_name)}')
         self.updated = False
@@ -321,8 +319,7 @@ class EditView(QtW.QDialog):
 
         self.connect_table_signals()
         self.add_pushButton.clicked.connect(self.add_popup)
-        self.commit_pushButton.clicked.connect(self.commit_question)
-        self.cancel_pushButton.clicked.connect(self.discard_question)
+
         self.goto_line_edit.returnPressed.connect(self.go_to_record)
         self.prev_button.clicked.connect(self.previous_page)
         self.next_button.clicked.connect(self.next_page)

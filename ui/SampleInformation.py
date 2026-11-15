@@ -19,7 +19,7 @@ from Functions.Widget_classes import (
     get_view_from_table, close_loading_dialog, show_loading_dialog,
     get_id_from_name, get_name_column
 )
-from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from util.database.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import update_modified_timestamp
 from Functions.Settings_manager import SettingsManager
 from ui.EditView import EditView

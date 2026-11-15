@@ -13,7 +13,7 @@ from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QFileDialog, QPushButton, QMessageBox, QMainWindow, \
     QListWidget, QListWidgetItem, QApplication, QLabel, QWidget, QVBoxLayout, QHBoxLayout
 import logger_setup
-from Functions import Savepoint_manager
+from util.database import Savepoint_manager
 from Functions.Database_manager import update_database, turn_on_foreign_keys
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
@@ -323,7 +323,6 @@ class LandingPage(QMainWindow):
         self.selected_files = db_file
         self.db = None
         QtWidgets.QApplication.processEvents()
-        from ui.GeoCORKMain import GeoCORK
         for widget in QApplication.allWidgets():
             if widget.objectName() == 'GeoCORKMain':
                 Savepoint_manager.SavepointManager.reset()

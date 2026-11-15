@@ -2,7 +2,7 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtGui as QtG
 
 from Functions.Widget_classes import close_loading_dialog
-from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 import ui.ColumnFields
 

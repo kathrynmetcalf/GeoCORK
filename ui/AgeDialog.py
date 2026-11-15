@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import QApplication
 
 import ui.AgeFields
 
-from Functions.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
+from util.database.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
 from Functions.Settings_manager import SettingsManager
 from Functions.Widget_classes import close_loading_dialog
 

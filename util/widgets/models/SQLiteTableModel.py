@@ -8,8 +8,8 @@ from PyQt6.QtSql import QSqlQuery
 import logger_setup
 from Functions.Database_views import ViewQuery
 from Functions.Settings_manager import SettingsManager
-from Functions.Widget_classes import display_value_with_error, display_gps, get_name_column, get_view_from_table, \
-    display_age, return_rounded, get_headers
+from Functions.Widget_classes import  get_name_column, get_view_from_table, get_headers
+from util.display_formatting import display_value_with_error, display_gps, display_age, return_rounded
 
 settings = SettingsManager().settings
 

@@ -8,7 +8,7 @@ from PyQt6.QtSql import QSqlQueryModel, QSqlTableModel, QSqlDatabase
 
 import logger_setup
 from Functions.Check_triggers import update_modified_timestamp
-from Functions.Savepoint_manager import rollback_savepoint, release_savepoint, create_savepoint
+from util.database.Savepoint_manager import rollback_savepoint, release_savepoint, create_savepoint
 from Functions.Widget_classes import close_loading_dialog, show_loading_dialog, bulk_update_parent_row, delete_data
 from util.widgets.models.DisplayRoundedQueryModel import DisplayRoundedQueryModel
 from util.widgets.models.SQLiteTableModel import SQLiteTableModel
