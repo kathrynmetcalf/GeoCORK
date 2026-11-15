@@ -151,7 +151,7 @@ class EditTable(QtW.QDialog):
         )
 
         self.buttonBox.accepted.connect(self.commit_question)
-        self.buttonBox.rejected.connect(self.rollback)
+        self.buttonBox.rejected.connect(self.discard_question)
 
         self.main_layout.addWidget(self.buttonBox)
 
