@@ -1,3 +1,4 @@
+from PyQt6.QtSql import QSqlQuery
 import Functions.SQLUtils as SQLUtils
 import logger_setup
 
@@ -1117,7 +1118,9 @@ class ViewQuery:
                                     lspag_joins.insert(0, f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID')
                         if col.split(".")[0].split(" ")[-1] != 'GeoChemicalAnalyses':
                             for join in lspag_table_joins:
-                                if f'JOIN {col.split(".")[0].split(" ")[-1]}' in join or f' AS {col.split(".")[0].split(" ")[-1]}' in join:
+                                if (f'JOIN {col.split(".")[0].split(" ")[-1]}' in join or f' AS {col.split(".")[0].split(" ")[-1]}' in join\
+                                        or ("GeoChemAnalyteUnits." in col and "AS GeoChemAnalyteUnits" in join)
+                                        or ("GeoChemAnalyteErrorFormats." in col and "AS GeoChemAnalyteErrorFormats" in join)):
                                     if join not in lspag_joins:
                                         if (join == f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID' and
                                                 col.split(".")[0].split(" ")[-1] == 'Spots'):
@@ -1139,6 +1142,10 @@ class ViewQuery:
                                                 if f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID' not in lspag_joins:
                                                     lspag_joins.insert(0, f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID')
                                                 lspag_joins.insert(1, SQLUtils.spot_grain_join)
+                                            if 'ON GeoChemicalAnalysisValues.' in join and geochem_value_join_str not in lspag_joins:
+                                                lspag_joins.insert(0, geochem_value_join_str)
+                                                if SQLUtils.qgeochem_id not in lspag_selects:
+                                                    lspag_selects.append(SQLUtils.qgeochem_id)
                 if where_header == 'GrainID' and SQLUtils.qgrain_id not in lspag_selects:
                     lspag_selects.append(SQLUtils.qgrain_id)
                     if 'LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID' not in lspag_joins:
@@ -1146,16 +1153,24 @@ class ViewQuery:
                         if f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID' not in lspag_joins:
                             lspag_joins.insert(0, f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID')
                 lsa_selects, lsa_joins = self.get_lsa_from_aliquots(lsa_select_cols, lsa_table_joins, lsa_selects)
-                if where_header == 'SampleID' and 'Aliquots.SampleID AS SampleID' not in lsa_selects:
-                    lsa_selects.append('Aliquots.SampleID AS SampleID')
+                if where_header == 'SampleID':
+                    if 'Aliquots.SampleID AS SampleID' not in lsa_selects:
+                        lsa_selects.append('Aliquots.SampleID AS SampleID')
                     if SQLUtils.qaliquot_id not in lsa_selects:
                         lsa_selects.append(SQLUtils.qaliquot_id)
                     if 'Spots.AliquotID AS AliquotID' not in lspag_selects:
                         lspag_selects.append('Spots.AliquotID AS AliquotID')
-                elif where_header == 'AliquotID' and SQLUtils.qaliquot_id not in lsa_selects:
-                    lsa_selects.append(SQLUtils.qaliquot_id)
+                    if f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID' not in lspag_joins:
+                        lspag_joins.insert(0,
+                                           f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID')
+                elif where_header == 'AliquotID':
+                    if SQLUtils.qaliquot_id not in lsa_selects:
+                        lsa_selects.append(SQLUtils.qaliquot_id)
                     if 'Spots.AliquotID AS AliquotID' not in lspag_selects:
                         lspag_selects.append('Spots.AliquotID AS AliquotID')
+                    if f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID' not in lspag_joins:
+                        lspag_joins.insert(0,
+                                           f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID')
 
             elif self.table == 'Grains':
                 group_lspag = ''
@@ -1592,55 +1607,41 @@ WITH RECURSIVE ''')
         self.query_columns = []
         self.lsa_columns = []
         self.lspag_columns = []
+        geochem_analyte_abbreviations = []
         from Functions.Widget_classes import (get_view_from_table, get_edit_view_from_table)
         if not self.edit_view:
             view_name = get_view_from_table(table=self.table)
         else:
             view_name = get_edit_view_from_table(table=self.table)
         all_view_columns = view_attributes_dict[view_name]
+        if self.table == 'GeoChemicalAnalyses':
+            # Add a view column for each analyte abbreviation in the database
+            query = QSqlQuery(f'SELECT GeoChemAnalyteID, GeoChemAnalyteAbbreviation FROM GeoChemicalAnalytes')
+            if not query.exec():
+                logger_setup.get_logger().critical(f"Error displaying GeoChemicalAnalyses")
+                logger_setup.get_logger().debug(f"Error collecting IDs for GeoChemicalAnalyses: {query.lastError().text()}")
+                logger_setup.get_logger().debug(f"Query: {query.lastQuery()}")
+            while query.next():
+                analyte_id = query.value(0)
+                analyte_abbreviation = query.value(1)
+                view_column = f'''CASE WHEN GeoChemicalAnalysisValues.GeoChemAnalyteID = {analyte_id} 
+                THEN (
+                    CASE WHEN GeoChemicalAnalysisValues.GeoChemAnalyteValue IS NOT NULL AND GeoChemicalAnalysisValues.GeoChemAnalyteError IS NOT NULL
+                        THEN NULLIF(COALESCE(GeoChemicalAnalysisValues.GeoChemAnalyteValue, "") || "±" || COALESCE(GeoChemicalAnalysisValues.GeoChemAnalyteError, "") || " (" || COALESCE(GeoChemAnalyteUnits.AnalyticalUnitAbbreviation, "") || ") " || COALESCE(GeoChemAnalyteErrorFormats.ErrorFormatAbbreviation, ""), "")
+                    WHEN GeoChemicalAnalysisValues.GeoChemAnalyteValue IS NOT NULL AND GeoChemicalAnalysisValues.GeoChemAnalyteError IS NULL
+                        THEN NULLIF(COALESCE(GeoChemicalAnalysisValues.GeoChemAnalyteValue, "") || " (" || COALESCE(GeoChemAnalyteUnits.AnalyticalUnitAbbreviation, "") || ")", "")
+                    ELSE NULL
+                    END 
+                ) END AS "{analyte_abbreviation}"'''
+                all_view_columns.append(view_column)
+                geochem_analyte_abbreviations.append(analyte_abbreviation)
+        all_view_columns = view_attributes_dict[view_name]
         for column in all_view_columns:
             if 'UPbAnalyses' not in settings.value('display_analyses') and self.table != 'UPbAnalyses' and 'UPb' in column:
                 continue
             if 'GeoChemicalAnalyses' not in settings.value('display_analyses') and self.table!= 'GeoChemicalAnalyses' and 'GeoChem' in column:
                 continue
-            if (any(leader in column for leader in SQLUtils.limited_column_leaders['LimitedSamplesAliquots'])
-                    and "Accepted/Total" not in column):
-                if 'REPLACE(GROUP_CONCAT(DISTINCT' in column:
-                    column = column.split('DISTINCT ')[1].replace('), ",", "; ")', '')
-                    if ' AS ' in column and 'ID' in column:
-                        column = f"{column.split(' AS ')[0]} AS {column.split(' AS ')[0].split('.')[1]}"
-                elif 'COUNT(DISTINCT' in column:
-                    column = column.split('COUNT(DISTINCT ')[1].replace(')', '')
-                    if ' AS ' in column and 'ID' in column:
-                        column = f"{column.split(' AS ')[0]} AS {column.split(' AS ')[0].split('.')[1]}"
-                self.lsa_columns.append(column) if (column not in self.lsa_columns and
-                                                    not any(column.split(' AS ')[0] == lsa_column.split(' AS ')[0]
-                                                            for lsa_column in self.lsa_columns)) \
-                    else None
-            elif (any(leader in column for leader in SQLUtils.limited_column_leaders['LimitedSpotsAnalysesGrains'])
-                  and "Accepted/Total" not in column):
-                if self.table == 'Grains' and 'CONCAT' in column:
-                    as_name = column.split(' AS ')[1] if ' AS ' in column else ''
-                    for leader in SQLUtils.limited_column_leaders['LimitedSpotsAnalysesGrains']:
-                        if leader in column:
-                            column_name = column.split(f'{leader}')[1].split(')')[0]
-                            ungrouped_column = f'{leader}{column_name} AS {as_name}'
-                            if ungrouped_column not in self.lspag_columns:
-                                self.lspag_columns.append(ungrouped_column)
-                            break
-                else:
-                    if 'REPLACE(GROUP_CONCAT(DISTINCT' in column:
-                        column = column.split('DISTINCT ')[1].replace('), ",", "; ")', '')
-                        if ' AS ' in column and 'ID' in column:
-                            column = f"{column.split(' AS ')[0]} AS {column.split(' AS ')[0].split('.')[1]}"
-                    elif 'COUNT(DISTINCT' in column:
-                        column = column.split('COUNT(DISTINCT ')[1].replace(')', '')
-                        if ' AS ' in column and 'ID' in column:
-                            column = f"{column.split(' AS ')[0]} AS {column.split(' AS ')[0].split('.')[1]}"
-                    self.lspag_columns.append(column) if (column not in self.lspag_columns and
-                                                           not any(column.split(' AS ')[0] == lspag_column.split(' AS ')
-                                                                   for lspag_column in self.lspag_columns)) \
-                        else None
+
         for column in self.show_columns:
             if 'UPbAnalyses' not in settings.value(
                     'display_analyses') and self.table != 'UPbAnalyses' and 'UPb' in column:
@@ -1648,24 +1649,55 @@ WITH RECURSIVE ''')
             if 'GeoChemicalAnalyses' not in settings.value(
                     'display_analyses') and self.table != 'GeoChemicalAnalyses' and 'GeoChem' in column:
                 continue
-            if self.table == 'GeoChemicalAnalyses' and not any(column in view_column for view_column in all_view_columns):
-                # This is an abbreviation column
-                if 'Value' in column:
-                    lspag_column = f'CASE WHEN GeoChemicalAnalysisValues.GeoChemAnalyteAbbreviation = "{column.split('Value')[0]}" THEN GeoChemicalAnalysisValues.GeoChemAnalyteValue END AS "{column}"'
-                elif 'Unit' in column:
-                    lspag_column = f'CASE WHEN GeoChemicalAnalysisValues.GeoChemAnalyteAbbreviation = "{column.split('Unit')[0]}" THEN GeoChemicalAnalytes.AnalyticalUnitAbbreviation END AS "{column}"'
-                elif 'Format' in column:
-                    lspag_column = f'CASE WHEN GeoChemicalAnalysisValues.GeoChemAnalyteAbbreviation = "{column.split('ErrorFormat')[0]}" THEN GeoChemicalAnalytes.ErrorFormatAbbreviation END AS "{column}"'
-                elif 'Error' in column:
-                    lspag_column = f'CASE WHEN GeoChemicalAnalysisValues.GeoChemAnalyteAbbreviation = "{column.split('Error')[0]}" THEN GeoChemicalAnalytes.CalculatedGeoChemAnalyteError END AS "{column}"'
-                else:
-                    lspag_column = f'CASE WHEN GeoChemicalAnalysisValues.GeoChemAnalyteAbbreviation = "{column}" THEN NULLIF(COALESCE(GeoChemicalAnalysisValues.GeoChemAnalyteValue, "") || "±" || COALESCE(GeoChemicalAnalyses.CalculatedGeoChemAnalyteError, "") || " " || COALESCE(GeoChemicalAnalytes.ErrorFormatAbbreviation, ""), "") END AS "{column}"'
-                self.lspag_columns.append(lspag_column)
-                self.query_columns.append(column)
             else:
                 for view_column in all_view_columns:
-                    if column in view_column:
+                    if (' AS ' in view_column and column.replace('"', '') == view_column.split(' AS ')[1].replace('"', ''))\
+                            or (' AS ' not in view_column and column in view_column):
                         self.query_columns.append(view_column)
+                        if (any(leader in view_column for leader in
+                                SQLUtils.limited_column_leaders['LimitedSamplesAliquots'])
+                                and "Accepted/Total" not in view_column):
+                            if 'REPLACE(GROUP_CONCAT(DISTINCT' in view_column:
+                                view_column = view_column.split('DISTINCT ')[1].replace('), ",", "; ")', '')
+                                if ' AS ' in view_column and 'ID' in view_column:
+                                    view_column = f"{view_column.split(' AS ')[0]} AS {view_column.split(' AS ')[0].split('.')[1]}"
+                            elif 'COUNT(DISTINCT' in view_column:
+                                view_column = view_column.split('COUNT(DISTINCT ')[1].replace(')', '')
+                                if ' AS ' in view_column and 'ID' in view_column:
+                                    view_column = f"{view_column.split(' AS ')[0]} AS {view_column.split(' AS ')[0].split('.')[1]}"
+                            self.lsa_columns.append(view_column) if (view_column not in self.lsa_columns and
+                                                                not any(
+                                                                    view_column.split(' AS ')[0] == lsa_column.split(' AS ')[
+                                                                        0]
+                                                                    for lsa_column in self.lsa_columns)) \
+                                else None
+                        elif (any(leader in view_column for leader in
+                                  SQLUtils.limited_column_leaders['LimitedSpotsAnalysesGrains'])
+                              and "Accepted/Total" not in view_column):
+                            if self.table == 'Grains' and 'CONCAT' in view_column:
+                                as_name = view_column.split(' AS ')[1] if ' AS ' in view_column else ''
+                                for leader in SQLUtils.limited_column_leaders['LimitedSpotsAnalysesGrains']:
+                                    if leader in view_column:
+                                        column_name = view_column.split(f'{leader}')[1].split(')')[0]
+                                        ungrouped_column = f'{leader}{column_name} AS {as_name}'
+                                        if ungrouped_column not in self.lspag_columns:
+                                            self.lspag_columns.append(ungrouped_column)
+                                        break
+                            else:
+                                if 'REPLACE(GROUP_CONCAT(DISTINCT' in view_column:
+                                    view_column = view_column.split('DISTINCT ')[1].replace('), ",", "; ")', '')
+                                    if ' AS ' in view_column and 'ID' in view_column:
+                                        view_column = f"{view_column.split(' AS ')[0]} AS {view_column.split(' AS ')[0].split('.')[1]}"
+                                elif 'COUNT(DISTINCT' in view_column:
+                                    view_column = view_column.split('COUNT(DISTINCT ')[1].replace(')', '')
+                                    if ' AS ' in view_column and 'ID' in view_column:
+                                        view_column = f"{view_column.split(' AS ')[0]} AS {view_column.split(' AS ')[0].split('.')[1]}"
+                                self.lspag_columns.append(view_column) if (view_column not in self.lspag_columns and
+                                                                      not any(
+                                                                          view_column.split(' AS ')[0] == lspag_column.split(
+                                                                              ' AS ')
+                                                                          for lspag_column in self.lspag_columns)) \
+                                    else None
                         break
 
         if self.table in self.limited_tag_joins:
@@ -1686,7 +1718,11 @@ WITH RECURSIVE ''')
                                 if ' AS ' in column:
                                     if column in self.lsa_columns or column in self.lspag_columns:
                                         # Replace the longer column selection with the name after ' AS '
-                                        column = f'{value}.{column.split(" AS ")[1]}'
+                                        if column.split(" AS ")[1].replace('"', '') in geochem_analyte_abbreviations:
+                                            # If the column is a GeoChemicalAnalyte, use MAX() to aggregate values
+                                            column = f'MAX({value}.{column.split(" AS ")[1]}) AS {column.split(" AS ")[1]}'
+                                        else:
+                                            column = f'{value}.{column.split(" AS ")[1]}'
                                         self.query_columns[col] = column
                                     elif 'ID' not in column:
                                         as_name = column.split(' AS ')[1]
@@ -1726,40 +1762,3 @@ WITH RECURSIVE ''')
                                         self.query_tags[table].append(limited_tag)
                                     break
                             break
-
-def upb_columns(edit: bool) -> list:
-    from Functions.Widget_classes import get_headers
-
-    headers = get_headers('UPbAnalyses')
-    columns = []
-    if not edit:
-        for header in headers:
-            if f'UPbAnalyses."{header}" AS "{header}"' in columns:
-                continue
-            if 'Calculated' in header:
-                if f'UPbAnalyses."{header}" AS "{header}"' not in columns:
-                    columns.append(f'UPbAnalyses."{header}" AS "{header}"')
-                if f'{header}Error' in headers and f'UPbAnalyses."{header}Error" AS "{header}Error"' not in columns:
-                    columns.append(f'UPbAnalyses."{header}Error" AS "{header}Error"')
-            elif f'Calculated{header}' in headers:
-                pass
-            elif 'ID' in header or 'Rejected' in header or 'Created' in header or 'Modified' in header:
-                pass
-            elif f'UPbAnalyses."{header}" AS "{header}"' not in columns:
-                columns.append(f'UPbAnalyses."{header}" AS "{header}"')
-
-    if edit:
-        for header in headers:
-            if f'UPbAnalyses."{header}" AS "{header}"' in columns:
-                continue
-            elif 'ID' in header or 'Rejected' in header or 'Created' in header or 'Modified' in header:
-                pass
-            elif 'Calculated' in header:
-                pass
-            else:
-                if f'UPbAnalyses."{header}" AS "{header}"' not in columns:
-                    columns.append(f'UPbAnalyses."{header}" AS "{header}"')
-                if f'{header}Error' in headers and f'UPbAnalyses."{header}Error" AS "{header}Error"' not in columns:
-                    columns.append(f'UPbAnalyses."{header}Error" AS "{header}Error"')
-
-    return columns

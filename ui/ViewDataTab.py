@@ -347,6 +347,9 @@ class ViewDataTab(QtW.QWidget):
             case 'UPbAnalyses':
                 hidden_columns = [0, 1, 2, 3, 4]  # don't show UPbAnalysisID, SpotID, GrainID, AliquotID, SampleID
                 frozen_column = 5
+            case 'GeoChemicalAnalyses':
+                hidden_columns = [0, 1, 2, 3, 4]  # don't show GeoChemicalAnalysisID, SpotID, GrainID, AliquotID, SampleID
+                frozen_column = 5
         for column in range(self.view.model().columnCount()):
             if column in hidden_columns:
                 self.view.hideColumn(column)
@@ -357,7 +360,7 @@ class ViewDataTab(QtW.QWidget):
         elif frozen_column is not None:
             self.view.set_frozen_column(frozen_column)
 
-        query_args = {'show_columns': [self.show_cols[0]], 'where': self.where}
+        query_args = {'show_columns': [self.show_cols[0]], 'where': self.where, 'order_col': self.show_cols[0]}
         view_query = ViewQuery(self.table, True, **query_args)
         table_query = view_query.table_query
         self.table_item_ids = columns_as_list(table_query, [0], view_query)[0]
