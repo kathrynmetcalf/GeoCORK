@@ -48,6 +48,7 @@ from ui.New_reference import NewReference
 from ui.AgeDialog import AgeDialog
 from ui.ColumnDialog import ColumnDialog
 from ui.Merge import MergeDialog
+from util.database.views import view_attributes_dict
 import time
 
 class SetSelectedValues(QtW.QDialog):
@@ -1921,7 +1922,7 @@ class EditView(QtW.QDialog):
         child_name_column = get_name_column(child_view)
         child_name_header = get_headers(child_view)[child_name_column]
         child_model = CheckableSqlQueryModel()
-        show_columns = SQLUtils.view_attributes_dict[child_view]
+        show_columns = view_attributes_dict[child_view]
         while not any(id_column in show_columns[-1] for id_column in ['SampleID', 'AliquotID', 'GrainID', 'SpotID', 'UPbAnalysisID', child_name_header]):
             # Remove the last item from the list
             show_columns = show_columns[0:-1]

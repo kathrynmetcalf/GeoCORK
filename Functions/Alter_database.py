@@ -18,7 +18,7 @@ from Functions.Widget_classes import set_table, get_columns, get_headers, bulk_u
 # noinspection PyUnresolvedReferences
 import pyproj
 # noinspection PyUnresolvedReferences
-import util.GPS_conversions as GPS
+import util.gps_conversions as GPS
 
 
 def settings_reset(database: QtS.QSqlDatabase = None) -> bool:
