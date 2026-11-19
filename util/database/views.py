@@ -95,14 +95,9 @@ view_attributes_dict = {
     'GeoChemView': [qgeochem_id, qspot_id, qgrain_id, qaliquot_id, qsample_id, qgeochem_analysis_name,
                     qspot_name, qgrain_name, qaliquot_name, qsample_name, qgeochem_method, qgeochem_lab_facility,
                     qgeochem_instrument, qgeochem_reference, qgeochem_rejected, qgeochem_rejection_reasons,
-                    qgeochem_contexts, qgeochem_created,
-                    qgeochem_modified],
+                    qgeochem_contexts, qgeochem_created, qgeochem_modified],
     'GeoChemEditView': [qgeochem_id, qspot_id, qgrain_id, qaliquot_id, qsample_id, qgeochem_analysis_name,
                         qspot_name, qgrain_name, qaliquot_name, qsample_name, qgeochem_method, qgeochem_lab_facility,
                         qgeochem_instrument, qgeochem_reference, qgeochem_rejected, qgeochem_rejection_reasons,
                         qgeochem_contexts, qgeochem_created, qgeochem_modified]
 }
-# ,
-#     'GeoChemValueEditView': [qgeochemvalue_id, qgeochem_id, qgeochem_analyte_abbreviation, qgeochem_analyte_value,
-#                              qgeochem_analyte_unit, qgeochem_analyte_error, qgeochem_analyte_error_format,
-#                              qgeochemvalue_created, qgeochemvalue_modified]

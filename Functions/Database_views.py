@@ -1539,7 +1539,7 @@ WITH RECURSIVE ''')
         else:
             # No direct limits on the main hierarchy tables
             self.limited_hierarchy = ''
-        print()
+        logger_setup.get_logger().debug(f'Limited hierarchy: {self.limited_hierarchy}')
 
     def get_lsa_from_aliquots(self, lsa_select_cols, lsa_table_joins, lsa_selects):
         lsa_joins = []
@@ -1635,7 +1635,6 @@ WITH RECURSIVE ''')
                 ) END AS "{analyte_abbreviation}"'''
                 all_view_columns.append(view_column)
                 geochem_analyte_abbreviations.append(analyte_abbreviation)
-        all_view_columns = view_attributes_dict[view_name]
         for column in all_view_columns:
             if 'UPbAnalyses' not in settings.value('display_analyses') and self.table != 'UPbAnalyses' and 'UPb' in column:
                 continue
@@ -1723,7 +1722,6 @@ WITH RECURSIVE ''')
                                             column = f'MAX({value}.{column.split(" AS ")[1]}) AS {column.split(" AS ")[1]}'
                                         else:
                                             column = f'{value}.{column.split(" AS ")[1]}'
-                                        self.query_columns[col] = column
                                     elif 'ID' not in column:
                                         as_name = column.split(' AS ')[1]
                                         column_name = column.split('.')[1].split(' AS ')[0]

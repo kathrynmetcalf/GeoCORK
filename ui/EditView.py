@@ -511,7 +511,7 @@ class EditView(QtW.QDialog):
             logger_setup.get_logger().critical(f'Error displaying {self.table}.')
             return
         if not self.table_item_ids:
-            query_args = {'show_columns': [self.show_cols[0]], 'where': self.where}
+            query_args = {'show_columns': [self.show_cols[0]], 'where': self.where, 'order_col': self.show_cols[0]}
             view_query = ViewQuery(self.table, True, **query_args)
             table_query = view_query.table_query
             self.table_item_ids = columns_as_list(table_query, [0], view_query)[0]  # slow
@@ -653,6 +653,12 @@ class EditView(QtW.QDialog):
             if row != -1:
                 new_page = row // self.rows_per_page
                 if self.current_page != new_page:
+                    # Check for changes before changing the page
+                    if not self.on_row_change(QtC.QModelIndex(), self.edit_tableView.currentIndex()):
+                        logger_setup.get_logger().critical('Failed to save changes')
+                        return
+                    if len(self.model.edited_indexes) > 0:
+                        self.updated = True
                     if self.updated:
                         if not self.reset_model_question():
                             return
@@ -909,7 +915,7 @@ class EditView(QtW.QDialog):
             self.edit_view = self.sender()
         if len(self.edit_view.selectedIndexes()) == 0:
             return
-        elif len(self.edit_view.selectedIndexes()) > 1:
+        elif len(self.edit_view.selectedIndexes()) > 1 and self.table != 'GeoChemicalAnalyses':
             logger_setup.get_logger().error('Right-click with selected values in single column to edit multiple selections')
             return
         proxy_index = self.edit_view.selectedIndexes()[0]
@@ -936,7 +942,7 @@ class EditView(QtW.QDialog):
         if self.table in ['References', '"References"'] and model_index.column() == self.name_column:
             # This is the reference display column which is not editable
             header = self.model.headerData(model_index.column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-            logger_setup.get_logger().error(f'{get_readable_header(header)} is created from other fields and is not directly editable')
+            logger_setup.get_logger().error(f'{get_readable_header(header)} is compiled from other fields and is not directly editable')
             return
         if model_index.column() == self.name_column:
             # The column is the name column for the table. This should be edited with a line edit.
@@ -2799,10 +2805,13 @@ class EditView(QtW.QDialog):
         self.accept()
 
     def commit_question(self):
+        # ignore triggers when the buttonBox does not have focus, as this is likely a search or go-to event
+        if not self.buttonBox.hasFocus():
+            return
         if not self.on_row_change(QtC.QModelIndex(), self.edit_tableView.currentIndex()):
             logger_setup.get_logger().critical('Failed to save changes')
             return
-        if len(self.model.edited_indexes) >= 0:
+        if len(self.model.edited_indexes) > 0:
             self.updated = True
         if self.updated:
             msg_box = QtW.QMessageBox()
@@ -2813,10 +2822,10 @@ class EditView(QtW.QDialog):
             response = msg_box.exec()
             if response == QtW.QMessageBox.StandardButton.Yes:
                 self.commit()
+            elif response == QtW.QMessageBox.StandardButton.No:
+                self.rollback()
             else:
                 pass
-        else:
-            self.rollback()
 
     def discard_question(self):
         if not self.on_row_change(QtC.QModelIndex(), self.edit_tableView.currentIndex()):

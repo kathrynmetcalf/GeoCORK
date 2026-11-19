@@ -168,8 +168,11 @@ def return_rounded(value: str | float | int):
             try:
                 float(value) # value is float, not text
                 if value.split('.')[1] != '0':
-                    rounded_value = str(round(float(value), decimal_places))
-                    # rounded_value = f'{float(value):.{decimal_places}f}'
+                    # if the decimal places exceed the limit, return a rounded value, prevents 1.1 from becoming 1.100000
+                    if len(value.split('.')[1]) > decimal_places:
+                        rounded_value = str(round(float(value), decimal_places))
+                    else:
+                        rounded_value = value
                 else: # value is an integer
                     rounded_value = int(float(value))
             except ValueError:
