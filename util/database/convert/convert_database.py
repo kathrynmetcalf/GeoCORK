@@ -2,8 +2,9 @@ from PyQt6 import QtSql as QtS
 from PyQt6.QtSql import QSqlDatabase
 
 import util.database.create.Create_database as Create_db
+from Functions.Check_triggers import update_modified_timestamp
 from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
-from Widget_classes import update_modified_timestamp
+
 
 
 def check_database_schema(database: QtS.QSqlDatabase, blank_schema_file: str):

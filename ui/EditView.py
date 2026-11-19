@@ -15,7 +15,7 @@ from Functions.Widget_classes import (
     find_current_sub_items, get_record_row, get_id_from_name, add_tree_popup, save_expanded_state, get_readable_header,
     get_name_from_id, find_tree_model, get_view_from_table,
     columns_as_list, show_loading_dialog, close_loading_dialog,
-    get_edit_view_from_table, common_strings, get_headers, get_name_column, FrozenTableView
+    get_edit_view_from_table, common_strings, get_headers, get_name_column
 )
 from Functions import SQLUtils
 from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
@@ -36,6 +36,7 @@ from util.widgets.models.ReadableProxyModel import ReadableProxyModel
 from util.widgets.models.SQLiteTableModel import SQLiteTableModel
 from util.widgets.models.TreeModel import TreeModel
 from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
+from util.widgets.views.frozen_views import FrozenTableView
 
 settings = SettingsManager().settings
 from Functions.Database_views import ViewQuery

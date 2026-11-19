@@ -17,9 +17,10 @@ from util.widgets.models.ReadableProxyModel import ReadableProxyModel
 from Functions.Widget_classes import (get_headers,
                                       get_name_column, get_total_records,
                                       get_id_from_name, get_record_row, delete_data, show_loading_dialog,
-                                      close_loading_dialog, scroll_to_record, FrozenTableView)
+                                      close_loading_dialog, scroll_to_record)
 from ui.AddTags import AddTags
 from ui.Merge import MergeDialog
+from util.widgets.views.frozen_views import FrozenTableView
 
 settings = SettingsManager().settings
 

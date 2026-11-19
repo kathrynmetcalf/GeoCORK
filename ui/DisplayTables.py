@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import QPushButton, QTableWidgetItem, QLineEdit
 from PyQt6.uic import loadUi
 from Functions.Widget_classes import (
     save_expanded_state,
-    expand_collapse, add_tree_popup, FrozenTableView, get_name_column,
+    expand_collapse, add_tree_popup, get_name_column,
     get_headers, get_total_records, get_record_row, close_loading_dialog, show_loading_dialog, columns_as_list,
     TableToolTipModel, get_id_from_name, scroll_to_record, get_view_from_table
 )
@@ -32,6 +32,7 @@ from util.widgets.models.SQLiteTableModel import SQLiteTableModel
 from util.widgets.models.TrackExpandedTreeView import TrackExpandedTreeView
 from util.widgets.models.TreeModel import TreeModel
 from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
+from util.widgets.views.frozen_views import FrozenTableView
 
 settings = SettingsManager().settings
 from Functions.Database_views import ViewQuery

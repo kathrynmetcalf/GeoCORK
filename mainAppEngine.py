@@ -1,19 +1,19 @@
 import os
-import signal
 import sys
 import platform
-import traceback
 
-from PyQt6.QtWidgets import QApplication, QMenuBar
+from PyQt6.QtWidgets import QApplication
 
 import logger_setup
-from Functions.Widget_classes import TooltipFilter
 from ui.LandingUI import LandingPage
 from Functions.Settings_manager import SettingsManager
-settings = SettingsManager().settings
+
 from ui.settings.SettingsCore import reset_to_default_settings, populate_app_defaults, check_missing_settings, default_settings
-# signal.signal(signal.SIGINT, signal.SIG_DFL)
+from util.widgets.event_filters import TooltipFilter
+# keep must be importedto work
 from PyQt6 import QtWebEngineWidgets
+
+settings = SettingsManager().settings
 
 if __name__ == "__main__":
     #force app to always load in light mode

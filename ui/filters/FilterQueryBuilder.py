@@ -12,6 +12,7 @@ import logger_setup
 from Functions.Widget_classes import show_loading_dialog, close_loading_dialog
 from ui.filters.FilterHelpers import process_group
 from ui.filters.FilterGroupBox import FilterGroupBox
+from util.database.database_helper import get_join_from_table
 
 
 class FilterQueryBuilder(QWidget):
@@ -154,7 +155,7 @@ class FilterQueryBuilder(QWidget):
             full_sql += "WITH " + ",\n".join(cte_list) + "\n"
 
         # gathers the join statements with found tables
-        join = SQLUtils.get_join_from_table("", self.main_group_box.get_tables())
+        join = get_join_from_table("", self.main_group_box.get_tables())
         logger_setup.get_logger().debug(f'SQL Join: {join}')
         selects = self.main_group_box.get_selects()
         logger_setup.get_logger().debug(f'SQL Selects: {selects}')
@@ -203,7 +204,7 @@ class FilterQueryBuilder(QWidget):
         elif type == 'Aliquots':
             # where = where_clause.replace('Items', 'Aliquots').replace('ItemID', 'AliquotID')
             # Generate join string
-            join = SQLUtils.get_join_from_table(join, ['Aliquots'])
+            join = get_join_from_table(join, ['Aliquots'])
 
             # Recursive CTE: start from records matching `where_clause`, then gather parents
             cte = f"""
@@ -241,7 +242,7 @@ class FilterQueryBuilder(QWidget):
                 sql_query = cte + aliquot_select
 
         elif type == 'Grains':
-            join = SQLUtils.get_join_from_table(join, ['Spots'])
+            join = get_join_from_table(join, ['Spots'])
             sql_query = full_sql + f"""
             SELECT DISTINCT GrainID FROM (
             SELECT Spots.GrainID
@@ -251,7 +252,7 @@ class FilterQueryBuilder(QWidget):
 
         elif type == 'Spots':
             # where = where_clause.replace('Items', 'Spots').replace('ItemID', 'SpotID')
-            join = SQLUtils.get_join_from_table(join, ['Spots'])
+            join = get_join_from_table(join, ['Spots'])
             sql_query = full_sql + f"""SELECT DISTINCT SpotID FROM (
                 SELECT Spots.SpotID
                 FROM Samples {join}
@@ -260,7 +261,7 @@ class FilterQueryBuilder(QWidget):
 
         elif type == 'UPbAnalyses':
             # where = where_clause.replace('Items', 'UPbAnalyses').replace('ItemID', 'UPbAnalysisID')
-            join = SQLUtils.get_join_from_table(join, ['UPbAnalyses'])
+            join = get_join_from_table(join, ['UPbAnalyses'])
             sql_query = full_sql + f"""SELECT DISTINCT UPbAnalysisID FROM (
                 SELECT UPbAnalyses.UPbAnalysisID
                 FROM Samples {join}

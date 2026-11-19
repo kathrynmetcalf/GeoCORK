@@ -198,7 +198,7 @@
   <customwidget>
    <class>FrozenTableView</class>
    <extends>QTableView</extends>
-   <header location="global">Functions/Widget_classes.h</header>
+   <header location="global">util/widgets/views/frozen_views.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

@@ -5,6 +5,7 @@ from typing import List, Tuple, Dict
 
 from Functions import SQLUtils
 import logger_setup
+from util.database.database_helper import get_join_from_table
 
 
 def process_json_to_sql(json_string, scope):
@@ -21,7 +22,7 @@ def process_json_to_sql(json_string, scope):
         sql += "WITH " + ",\n".join(ctes) + "\n"
 
     table_names = process_table_names(group)
-    join = SQLUtils.get_join_from_table("", table_names)
+    join = get_join_from_table("", table_names)
 
     def extract_as_tables(join):
         as_tables = None
@@ -47,13 +48,13 @@ def process_json_to_sql(json_string, scope):
     if scope == 'Samples':
         sql += f"SELECT * FROM Samples {join} {where_clause};"
     elif scope == 'Aliquots':
-        join = SQLUtils.get_join_from_table(join, ['Aliquots'])
+        join = get_join_from_table(join, ['Aliquots'])
         sql += f"SELECT * FROM Samples {join} {where_clause};"
     elif scope == 'Spots':
-        join = SQLUtils.get_join_from_table(join, ['Spots'])
+        join = get_join_from_table(join, ['Spots'])
         sql += f"SELECT * FROM Samples {join} {where_clause};"
     elif scope == 'UPbAnalyses':
-        join = SQLUtils.get_join_from_table(join, ['UPbAnalyses'])
+        join = get_join_from_table(join, ['UPbAnalyses'])
         sql += f"SELECT * FROM Samples {join} {where_clause};"
     else:
         logger_setup.get_logger().critical(f"Unknown scope: {scope}")

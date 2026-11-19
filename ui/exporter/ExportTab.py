@@ -20,6 +20,7 @@ from openpyxl import Workbook
 
 import logger_setup
 from Functions.Database_manager import update_database
+from util.database.database_helper import get_join_from_table
 from util.database.export import ExportDatabase
 from Functions import SQLUtils
 from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
@@ -341,7 +342,7 @@ class ExportTab(QWidget):
         tables.add('Samples')
 
         # gets final join from all found tables.
-        join = SQLUtils.get_join_from_table("", list(tables))
+        join = get_join_from_table("", list(tables))
 
         filtered_where_clause = ''
         self.filtered_upb_ids = set()

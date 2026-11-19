@@ -20,10 +20,11 @@ from Functions.Widget_classes import (
     get_name_column,
     get_id_from_name, get_record_row, columns_as_list, get_view_from_table, find_current_sub_items,
     show_loading_dialog, close_loading_dialog, expand_collapse,
-    scroll_to_record, FrozenTableView)
+    scroll_to_record)
 from Functions.Widget_classes import get_headers
 
 from Functions.Settings_manager import SettingsManager
+from util.database.database_helper import get_join_from_table
 from util.widgets.context_menus import TreeContextMenu
 
 from util.widgets.delegates import WordWrapDelegate
@@ -43,6 +44,7 @@ from util.widgets.models.SQLiteTableModel import SQLiteTableModel
 from util.widgets.models.TrackExpandedTreeView import TrackExpandedTreeView
 from util.widgets.models.TreeModel import TreeModel
 from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
+from util.widgets.views.frozen_views import FrozenTableView
 
 settings = SettingsManager().settings
 
@@ -781,7 +783,7 @@ class DataViewerWidget(QWidget):
         else:
             sql_columns = ', '.join(f'{sql_table}.{column}' for column in show_cols)
             sql = f'SELECT DISTINCT {sql_columns} FROM Samples '
-        sql += SQLUtils.get_join_from_table(join_str, [sql_table] + [self.data_table])
+        sql += get_join_from_table(join_str, [sql_table] + [self.data_table])
         if selected_data_filter_ids:
             if len(selected_data_filter_ids) > 1:
                 sql_selected_data_filter_ids = f'IN ({", ".join([str(i) for i in selected_data_filter_ids])})'
