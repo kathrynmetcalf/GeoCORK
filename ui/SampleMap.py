@@ -14,7 +14,9 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QApplication, QWidget
 
 import util.gps_conversions as GPS
-import Functions.SQLUtils as SQLUtils
+from util.database.defined_queries import *
+from util.database.database_helper import get_join_from_table
+
 import Functions.Text_manipulations as TxM
 import logger_setup
 from Functions.Settings_manager import SettingsManager
@@ -44,10 +46,11 @@ def sample_location_sql() -> str:
     tag_columns = [
         f'REPLACE(GROUP_CONCAT(DISTINCT {table}.{schema["name_column"]}), ",", "; ") AS {schema["name_column"]}'
         for table, schema in SAMPLE_TAG_TABLES.items()]
-    columns = ([SQLUtils.qsample_id, SQLUtils.qsample_name, SQLUtils.qigsn, SQLUtils.qsample_description,
-                SQLUtils.qgps, SQLUtils.qsample_elev_display]
+
+    columns = ([qsample_id, qsample_name, qigsn, qsample_description,
+                qgps, qsample_elev_display]
                + [f'SampleGPS.{column} AS {column}' for column in GPS_RAW_COLUMNS] + tag_columns)
-    joins = SQLUtils.get_join_from_table('', ['GPSLocations'] + list(SAMPLE_TAG_TABLES))
+    joins = get_join_from_table('', ['GPSLocations'] + list(SAMPLE_TAG_TABLES))
     return (f'SELECT {", ".join(columns)}\nFROM Samples\n{joins}'
             f'WHERE Samples.SampleGPSLocationID IS NOT NULL\nGROUP BY Samples.SampleID')
 
