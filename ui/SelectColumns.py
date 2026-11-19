@@ -25,8 +25,8 @@ class SelectColumns(QWidget):
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "SelectColumns.ui")
         loadUi(sources_ui_file, self)
-
-        self.view_dict = SQLUtils.view_attributes_dict
+        from util.database.views import view_attributes_dict
+        self.view_dict = view_attributes_dict
         if 'SampleIfNullView' in self.view_dict:
             self.view_dict.pop('SampleIfNullView')
 

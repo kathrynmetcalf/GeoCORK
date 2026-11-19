@@ -3897,7 +3897,6 @@ def populate_direction_units(database=None) -> bool:
     else:
         query = QtS.QSqlQuery(database)
     # Begin by deleting all rows in the table to allow for a reset if things get changed
-    direction_units = SQLUtils.direction_units
     for unit in direction_units:
         sql = f'''INSERT INTO DirectionUnits(DirectionUnitName, DirectionUnitAbbreviation, DirectionUnitAbbreviation)
                                 VALUES("{unit[0]}", "{unit[1]}", "{unit[2]}")'''
