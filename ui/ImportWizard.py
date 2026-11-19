@@ -5117,7 +5117,9 @@ class ImportWizardDialog(QWidget):
 
         if ambiguous_static_values:
             from ui.EditView import SetSelectedValues
-            from Functions.Widget_classes import (CheckableTreeCombobox, CheckableComboBox, populate_combo_box)
+            from util.populate_models import populate_combo_box
+            from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
+            from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
             for sheet, columns in ambiguous_static_values.items():
                 for column, values in columns.items():
                     if not values:
@@ -5133,7 +5135,7 @@ class ImportWizardDialog(QWidget):
                                 dlg_text = f'Select the best match for {field} "{value}":'
                             else:
                                 if static_table in SQLUtils.user_viewable_trees:
-                                    combo = CheckableTreeCombobox()
+                                    combo = CheckableTreeComboBox()
                                 else:
                                     combo = CheckableComboBox()
                                 combo.model_modifiable = False
@@ -5146,7 +5148,7 @@ class ImportWizardDialog(QWidget):
                             dlg.main_layout.insertWidget(0, QLabel(dlg_text))
                             if dlg.exec() == QDialog.DialogCode.Accepted:
                                 combo = dlg.widget
-                                combo: CheckableTreeCombobox | CheckableComboBox
+                                combo: CheckableTreeComboBox | CheckableComboBox
                                 selected_value = combo.currentText()
                                 if field == 'Rejected':
                                     # Special case for Rejected field (boolean)
@@ -7372,8 +7374,9 @@ class ImportWizardDialog(QWidget):
             else:
                 # No recognizable GPS fields found
                 return None
-        for format_id in range(0, len(SQLUtils.gps_formats)):
-            if SQLUtils.gps_formats[format_id][1] == gps_format_name:
+        from util.database.formats import gps_formats
+        for format_id in range(0, len(gps_formats)):
+            if gps_formats[format_id][1] == gps_format_name:
                 return format_id + 1  # +1 because GPSFormatID starts at 1
         return None
 
