@@ -19,9 +19,9 @@ from ui.AddTreeTags import AddTreeTags
 
 import logger_setup
 from util.widgets.context_menus import TreeContextMenu
-from util.widgets.models.TrackExpandedTreeView import TrackExpandedTreeView
-from util.widgets.models.TreeModel import TreeModel
-from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
+from util.widgets.views.tree_views import TrackExpandedTreeView
+from util.widgets.models.tree_models import TreeModel
+from util.widgets.models.proxy_models import TreeSortFilterProxyModel
 
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 

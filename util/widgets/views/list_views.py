@@ -9,6 +9,7 @@ class ReorderListView(QtWidgets.QListView):
     which is always at the top of the list. The dropEvent method is overridden to handle dropping items between other items
     while preventing drops before the permanent header or on an item.
     """
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setDefaultDropAction(QtCore.Qt.DropAction.MoveAction)
@@ -26,7 +27,7 @@ class ReorderListView(QtWidgets.QListView):
         # The permanent header will always be at the top, so this works even with multiple selection.
         if index.isValid():
             # Do not move the permanent header
-            if index.data().replace(' ','') == self.model().sourceModel().permanent_header:
+            if index.data().replace(' ', '') == self.model().sourceModel().permanent_header:
                 return
             super().startDrag(action)
 

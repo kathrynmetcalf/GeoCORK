@@ -1,7 +1,5 @@
 from PyQt6 import QtWidgets, QtCore
 
-from Functions.Widget_classes import DisableItemModel
-
 
 class SearchableComboBox(QtWidgets.QComboBox):
     """
@@ -11,6 +9,7 @@ class SearchableComboBox(QtWidgets.QComboBox):
     selection in the combo box changes, allowing for custom handling of selection changes.
     """
     selection_changed = QtCore.pyqtSignal(QtWidgets.QComboBox)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setEditable(True)
@@ -43,6 +42,7 @@ class SearchableComboBox(QtWidgets.QComboBox):
         :return:
         """
         combo_model = self.view().model()
+        from util.widgets.models.item_models import DisableItemModel
         if isinstance(combo_model, DisableItemModel):
             for text_item in texts:
                 self.addItem(text_item)

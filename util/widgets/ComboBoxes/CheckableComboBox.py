@@ -1,19 +1,16 @@
 import time
 
 from PyQt6 import QtCore, QtWidgets, QtGui
-import util.Text_manipulations as TxM
 
 import logger_setup
+import util.Text_manipulations as TxM
 from Functions.Widget_classes import get_name_column, get_view_from_table, show_column
-from util.widgets.context_menus import TreeContextMenu
-from util.widgets.models.CheckableSQLiteTableModel import CheckableSQLiteTableModel
-from util.widgets.models.CheckableSqlQueryModel import CheckableSqlQueryModel
-from util.widgets.models.CheckableSqlTableModel import CheckableSqlTableModel
-from util.widgets.models.CheckableTreeModel import CheckableTreeModel
-from util.widgets.models.ReadableProxyModel import ReadableProxyModel
-from util.widgets.models.SampleAgeTableModel import SampleAgeTableModel
-
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
+from util.widgets.context_menus import TreeContextMenu
+from util.widgets.models.proxy_models import ReadableProxyModel
+from util.widgets.models.query_models import CheckableSqlQueryModel
+from util.widgets.models.table_models import CheckableSQLiteTableModel, CheckableSqlTableModel, SampleAgeTableModel
+from util.widgets.models.tree_models import CheckableTreeModel
 
 
 class CheckableComboBox(QtWidgets.QComboBox):
@@ -31,6 +28,7 @@ class CheckableComboBox(QtWidgets.QComboBox):
     edit_triggered = QtCore.pyqtSignal(QtWidgets.QComboBox)
     add_triggered = QtCore.pyqtSignal(QtWidgets.QComboBox)
     delete_triggered = QtCore.pyqtSignal(QtWidgets.QComboBox)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setEditable(True)
@@ -94,14 +92,15 @@ class CheckableComboBox(QtWidgets.QComboBox):
         """
         current_line_edit_text = self.lineEdit().text()
         source_model = self.source_model()
-        if isinstance(source_model, CheckableSqlTableModel | CheckableSqlQueryModel | CheckableSQLiteTableModel | SampleAgeTableModel):
+        if isinstance(source_model,
+                      CheckableSqlTableModel | CheckableSqlQueryModel | CheckableSQLiteTableModel | SampleAgeTableModel):
             if source_model.partially_checked_ids:
                 # At least one item is partially checked, so the line edit should be a dash
                 self.lineEdit().setText('-')
             elif source_model.checked_ids:
                 new_text = source_model.selected_items_string()
                 if new_text and new_text != current_line_edit_text:
-                        self.lineEdit().setText(new_text)
+                    self.lineEdit().setText(new_text)
             else:
                 # No items are checked, so the line edit should be set blank. Any placeholder text will be shown grayed out
                 self.lineEdit().setText("")
@@ -161,7 +160,8 @@ class CheckableComboBox(QtWidgets.QComboBox):
         else:
             return super().model()
 
-    def setModel(self, model: CheckableSqlTableModel | CheckableSqlQueryModel | SampleAgeTableModel | QtCore.QSortFilterProxyModel):
+    def setModel(self,
+                 model: CheckableSqlTableModel | CheckableSqlQueryModel | SampleAgeTableModel | QtCore.QSortFilterProxyModel):
         """
         Set the model for the combo box. If a proxy model is provided, it sets the source model of the proxy model.
         :param model: checkable model or proxy model
@@ -194,7 +194,8 @@ class CheckableComboBox(QtWidgets.QComboBox):
             show_column(self, self.name_col)
         self.view().setModel(self.proxy_model)
         self.view().setMinimumWidth(self.view().sizeHint().width())
-        logger_setup.get_logger().debug(f'Set model for {self.table} combo box in {time.time() - start_set_model_time:.2f} seconds')
+        logger_setup.get_logger().debug(
+            f'Set model for {self.table} combo box in {time.time() - start_set_model_time:.2f} seconds')
 
     def update_filter(self, text: str):
         """
@@ -208,7 +209,7 @@ class CheckableComboBox(QtWidgets.QComboBox):
         # logger_setup.get_logger().debug(f'Setting filter to: {text}')
         show_loading_dialog('Loading', 'Updating search...')
         search_expression = QtCore.QRegularExpression(text,
-                                                   options=QtCore.QRegularExpression.PatternOption.CaseInsensitiveOption)
+                                                      options=QtCore.QRegularExpression.PatternOption.CaseInsensitiveOption)
         self.proxy_model.setFilterRegularExpression(search_expression)
         self.lineEdit().setText(text)
         close_loading_dialog('Loading', 'Updating search...')
@@ -244,7 +245,8 @@ class CheckableComboBox(QtWidgets.QComboBox):
             table = 'References'
         else:
             table = self.table
-        if self.table in ('Samples', 'Aliquots', 'Spots', 'UPbAnalyses', 'FilterGroups') and self.model().rowCount() !=0:
+        if self.table in ('Samples', 'Aliquots', 'Spots', 'UPbAnalyses',
+                          'FilterGroups') and self.model().rowCount() != 0:
             if self.only_select_deselect:
                 edit_action = None
                 add_action = None
@@ -275,7 +277,7 @@ class CheckableComboBox(QtWidgets.QComboBox):
             clear_all_action = None
             select_all_action = None
             delete_action = None
-        elif self.model().rowCount() !=0:
+        elif self.model().rowCount() != 0:
             edit_action = menu.addAction(f"Edit {TxM.add_spaces_camel(table)}")
             add_action = menu.addAction(f"Add {TxM.add_spaces_camel(table)}")
             clear_all_action = menu.addAction("Clear All Checks")
@@ -333,7 +335,8 @@ class CheckableComboBox(QtWidgets.QComboBox):
         the check state of each item to Checked. It also updates the line edit text to show the names of all checked items.
         :return:
         """
-        if not self.source_model() or not isinstance(self.source_model(), CheckableSqlTableModel | CheckableSqlQueryModel | CheckableSQLiteTableModel):
+        if not self.source_model() or not isinstance(self.source_model(),
+                                                     CheckableSqlTableModel | CheckableSqlQueryModel | CheckableSQLiteTableModel):
             return
         self.source_model().check_all()
 
@@ -349,8 +352,10 @@ class CheckableComboBox(QtWidgets.QComboBox):
             return
         start_time = time.time()
         show_loading_dialog('Loading', f'Loading {self.proxy_model.rowCount()} items...')
-        width_hint = self.view().sizeHintForColumn(self.name_col) if self.name_col is not None else self.view().sizeHint().width()
-        checkbox_width = self.style().pixelMetric(QtWidgets.QStyle.PixelMetric.PM_IndicatorWidth) + 4  # Add some padding for the checkbox
+        width_hint = self.view().sizeHintForColumn(
+            self.name_col) if self.name_col is not None else self.view().sizeHint().width()
+        checkbox_width = self.style().pixelMetric(
+            QtWidgets.QStyle.PixelMetric.PM_IndicatorWidth) + 4  # Add some padding for the checkbox
         total_width = width_hint + checkbox_width
         if self.width() > total_width:
             self.view().setFixedWidth(self.width())
@@ -419,8 +424,8 @@ class CheckableComboBox(QtWidgets.QComboBox):
                         clicked_id = source_model.index(source_index.row(), 0).data(QtCore.Qt.ItemDataRole.DisplayRole)
                     if clicked_id in source_model.checked_ids:
                         if self.not_null:
-                            logger_setup.get_logger().error(f'{source_model.headerData(self.name_col, 
-                               QtCore.Qt.Orientation.Horizontal, QtCore.Qt.ItemDataRole.DisplayRole)} cannot be blank')
+                            logger_setup.get_logger().error(f'{source_model.headerData(self.name_col,
+                                                                                       QtCore.Qt.Orientation.Horizontal, QtCore.Qt.ItemDataRole.DisplayRole)} cannot be blank')
                             return True
                         source_model.clear_checks()
                         self.stop_typing()
@@ -437,7 +442,8 @@ class CheckableComboBox(QtWidgets.QComboBox):
                     # Get model index from view index
                     index = source_model.index(source_index.row(), self.name_col)
                     if source_model.data(index, QtCore.Qt.ItemDataRole.CheckStateRole) == QtCore.Qt.CheckState.Checked:
-                        source_model.setData(index, QtCore.Qt.CheckState.Unchecked, QtCore.Qt.ItemDataRole.CheckStateRole)
+                        source_model.setData(index, QtCore.Qt.CheckState.Unchecked,
+                                             QtCore.Qt.ItemDataRole.CheckStateRole)
                     elif (source_model.data(index, QtCore.Qt.ItemDataRole.CheckStateRole) in
                           (QtCore.Qt.CheckState.Unchecked, QtCore.Qt.CheckState.PartiallyChecked)):
                         source_model.setData(index, QtCore.Qt.CheckState.Checked, QtCore.Qt.ItemDataRole.CheckStateRole)

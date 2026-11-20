@@ -9,6 +9,7 @@ class CustomDragTabBar(QtWidgets.QTabBar):
     and to correct the order of tabs after a drag-and-drop operation. The mouseReleaseEvent is overridden to ensure
     that the permanent tabs are always in the correct order after a drag-and-drop operation.
     """
+
     def __init__(self, permanent_tabs: list, parent=None):
         super().__init__(parent)
         self.permanent_tabs = permanent_tabs

@@ -25,12 +25,11 @@ from util.populate_models import populate_many_combo_checks, populate_model_chec
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
 from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
 from util.widgets.context_menus import TreeContextMenu
-from util.widgets.models.CheckableSqlQueryModel import CheckableSqlQueryModel
-from util.widgets.models.CheckableSqlTableModel import CheckableSqlTableModel
-from util.widgets.models.CheckableTreeModel import CheckableTreeModel
-from util.widgets.models.SQLiteTableModel import SQLiteTableModel
-from util.widgets.models.TreeModel import TreeModel
-from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
+
+from util.widgets.models.query_models import CheckableSqlQueryModel
+from util.widgets.models.table_models import CheckableSqlTableModel, SQLiteTableModel
+from util.widgets.models.tree_models import CheckableTreeModel, TreeModel
+from util.widgets.models.proxy_models import TreeSortFilterProxyModel
 
 settings = SettingsManager().settings
 from Functions.Database_views import ViewQuery

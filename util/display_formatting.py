@@ -6,6 +6,7 @@ from Functions.Widget_classes import get_name_from_id
 
 settings = SettingsManager().settings
 
+
 def display_age(string: str) -> str:
     """
     Displays and converts an age to a rounded value if desired.
@@ -57,8 +58,8 @@ def display_age(string: str) -> str:
         age_elements[2] = f'{old_age_name}-{young_age_name}'
         return ', '.join(age_elements)
 
+
 def display_gps(string: str):
-    from util.database.formats import GPSFormat
     lat_dir = ''
     lon_dir = ''
     if '"' in string or '\'\'' in string:
@@ -144,6 +145,7 @@ def display_gps(string: str):
         string = ''
     return string
 
+
 def display_value_with_error(string: str):
     if string == '± ()':
         return ''
@@ -156,6 +158,7 @@ def display_value_with_error(string: str):
         string = string.replace(f'{value}±{error}', f'{rounded_value}±{rounded_error}')
     return string
 
+
 def return_rounded(value: str | float | int):
     round_values = settings.value('round_values')
     if round_values == 'false':
@@ -166,14 +169,14 @@ def return_rounded(value: str | float | int):
             return value
         elif '.' in value:
             try:
-                float(value) # value is float, not text
+                float(value)  # value is float, not text
                 if value.split('.')[1] != '0':
                     # if the decimal places exceed the limit, return a rounded value, prevents 1.1 from becoming 1.100000
                     if len(value.split('.')[1]) > decimal_places:
                         rounded_value = str(round(float(value), decimal_places))
                     else:
                         rounded_value = value
-                else: # value is an integer
+                else:  # value is an integer
                     rounded_value = int(float(value))
             except ValueError:
                 rounded_value = value
@@ -191,6 +194,7 @@ def return_rounded(value: str | float | int):
     else:
         rounded_value = value
     return rounded_value
+
 
 def return_number(value: str | float | int):
     """

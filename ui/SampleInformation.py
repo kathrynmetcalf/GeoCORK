@@ -38,10 +38,9 @@ from ui.EditUPbTags import EditUPbTags
 from util.populate_models import populate_many_combo_checks, populate_combo_box
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
 from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
-from util.widgets.models.CheckableSqlTableModel import CheckableSqlTableModel
-from util.widgets.models.SQLiteTableModel import SQLiteTableModel
-from util.widgets.models.TreeModel import TreeModel
-from util.widgets.models.ReadableProxyModel import ReadableProxyModel
+from util.widgets.models.table_models import CheckableSqlTableModel, SQLiteTableModel
+from util.widgets.models.tree_models import TreeModel
+from util.widgets.models.proxy_models import ReadableProxyModel
 
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 

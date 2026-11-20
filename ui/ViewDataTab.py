@@ -21,11 +21,11 @@ from Functions.Widget_classes import (expand_collapse, get_name_column, get_head
 from ui.EditTreeView import EditTreeView
 from ui.EditView import EditView
 from util.widgets.context_menus import TreeContextMenu
-from util.widgets.models.ReadableProxyModel import ReadableProxyModel
-from util.widgets.models.SQLiteTableModel import SQLiteTableModel
-from util.widgets.models.TrackExpandedTreeView import TrackExpandedTreeView
-from util.widgets.models.TreeModel import TreeModel
-from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
+
+from util.widgets.models.table_models import SQLiteTableModel
+from util.widgets.views.tree_views import TrackExpandedTreeView
+from util.widgets.models.tree_models import TreeModel
+from util.widgets.models.proxy_models import TreeSortFilterProxyModel, ReadableProxyModel
 from util.widgets.views.frozen_views import FrozenTableView
 
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog

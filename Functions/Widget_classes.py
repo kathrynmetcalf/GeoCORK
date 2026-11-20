@@ -66,7 +66,7 @@ def set_table(model: QtS.QSqlTableModel, table: str) -> QtS.QSqlTableModel | boo
         logger_setup.get_logger().critical(f"Failed to set table to {table})")
         logger_setup.get_logger().debug(f"select error: {model.lastError().text()}")
         return False
-    from util.widgets.models.LazyCheckableSqlTableModel import LazyCheckableSqlTableModel
+    from util.widgets.models.table_models import LazyCheckableSqlTableModel
     if not isinstance(model, LazyCheckableSqlTableModel):
         while model.canFetchMore():
             model.fetchMore()
@@ -317,7 +317,7 @@ def columns_as_list(query: str, cols: list, view_query: ViewQuery=None) -> list 
     :param view_query: ViewQuery object to use for the query, if applicable
     :return: lists of items in each row for given columns
     """
-    from util.widgets.models.SQLiteTableModel import SQLiteTableModel
+    from util.widgets.models.table_models import SQLiteTableModel
     model = SQLiteTableModel(query, view_query=view_query)
     if model.last_error:
         return None
@@ -976,7 +976,7 @@ def delete_data(table: str, data_ids: list, enable_message=True):
             query = f'SELECT * FROM Aliquots WHERE SampleID in ({parent_samples})'
             aliquot_model = QtS.QSqlQueryModel()
             aliquot_model.setQuery(query)
-            from util.widgets.models.TreeModel import TreeModel
+            from util.widgets.models.tree_models import TreeModel
             aliquot_tree = TreeModel(aliquot_model)
             if not aliquot_tree.removeItems(delete_aliquot_ids)[0]:
                 close_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
@@ -1181,7 +1181,7 @@ def find_foreign_associations(table, item_ids):
             first_table_id_header = get_headers(first_table)[0]  # Get the first column header which is the ID column
             if first_table and first_table not in associations:
                 associations[first_table] = []
-            from util.widgets.models.SQLiteTableModel import SQLiteTableModel
+            from util.widgets.models.table_models import SQLiteTableModel
             foreign_table_model = SQLiteTableModel(f'SELECT {first_table_id_header} FROM "{db_table}" {where}')
             if not foreign_table_model.last_error:
                 for row in range(foreign_table_model.rowCount()):
@@ -1228,7 +1228,7 @@ def find_upb_from_samples(sample_ids):
     view_query = ViewQuery('UPbAnalyses', False, **query_args)
     table_query = view_query.table_query
     show_loading_dialog('Loading', 'Gathering related data for UPb Analyses...')
-    from util.widgets.models.SQLiteTableModel import SQLiteTableModel
+    from util.widgets.models.table_models import SQLiteTableModel
     upb_analysis_table = SQLiteTableModel(table_query, view_query=view_query)
     close_loading_dialog('Loading', 'Gathering related data for UPb Analyses...')
     if not upb_analysis_table.last_error:
@@ -1667,8 +1667,7 @@ def find_tree_model(model, indexes: list[QtC.QModelIndex] | None):
     :return: tuple containing the tree model and the mapped indexes, or None if no tree model is found
     """
     # Dig down through any proxy models to find the tree model and retrieve the model and mapped indexes
-    from util.widgets.models.CheckableTreeModel import CheckableTreeModel
-    from util.widgets.models.TreeModel import TreeModel
+    from util.widgets.models.tree_models import TreeModel, CheckableTreeModel
     if isinstance(model, CheckableTreeModel | TreeModel):
         tree_model = model
         tree_indexes = indexes
@@ -1706,7 +1705,7 @@ def find_tree_model(model, indexes: list[QtC.QModelIndex] | None):
 def map_from_tree_model(input_model, tree_indexes: list[QtC.QModelIndex]):
     model_chain = []
     model = input_model
-    from util.widgets.models.TreeModel import TreeModel
+    from util.widgets.models.tree_models import TreeModel
     while not isinstance(model, TreeModel):
         model_chain.insert(0, model)
         model = model.sourceModel() if hasattr(model, 'sourceModel') else getattr(model, 'source_model', None)
@@ -1757,7 +1756,7 @@ def show_column(comboBox: QtW.QComboBox, column: str | int):
         if isinstance(column, str):
             # If the column is a string, find the index of the column by its header data
             column_int = None
-            from util.widgets.models.ReadableProxyModel import ReadableProxyModel
+            from util.widgets.models.proxy_models import ReadableProxyModel
             if isinstance(model, ReadableProxyModel):
                 # If the model is a ReadableProxyModel, get the readable header to compare
                 column = get_readable_header(column)
@@ -1778,7 +1777,7 @@ def show_column(comboBox: QtW.QComboBox, column: str | int):
                     except AttributeError:
                         # If the view does not have a hideColumn method, no need
                         pass
-            from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
+            from util.widgets.models.proxy_models import TreeSortFilterProxyModel
             if isinstance(comboBox.view().model(), TreeSortFilterProxyModel):
                 comboBox.view().model().update_visible_columns()
         if isinstance(comboBox.view().model(), QtC.QSortFilterProxyModel) and not tree_model:
@@ -1838,7 +1837,7 @@ def save_expanded_state(table: str, tree_view: QtW.QTreeView):
     show_loading_dialog('Saving expanded state', f'Saving the expanded state of {table}...')
     logger_setup.get_logger().info(f'Saving the expanded state of {table}...')
     start_save_expanded_time = time.time()
-    from util.widgets.models.TrackExpandedTreeView import TrackExpandedTreeView
+    from util.widgets.views.tree_views import TrackExpandedTreeView
     if isinstance(tree_view, TrackExpandedTreeView):
         expanded_ids = tree_view.expanded_ids
     else:
@@ -1873,13 +1872,13 @@ def restore_expanded_state(table: str, tree_view: QtW.QTreeView):
     logger_setup.get_logger().info(f'Restoring the expanded state of {table}...')
     start_expand_tree_time = time.time()
     expanded_ids = settings.value(f'expanded_ids_{table}', set())
-    from util.widgets.models.TrackExpandedTreeView import TrackExpandedTreeView
+    from util.widgets.views.tree_views import TrackExpandedTreeView
     if isinstance(tree_view, TrackExpandedTreeView):
         tree_view.expanded_ids = expanded_ids
         tree_view.expand_from_ids()
     else:
         model = tree_view.model()
-        from util.widgets.models.LazyCheckableTreeModel import LazyCheckableTreeModel
+        from util.widgets.models.tree_models import LazyCheckableTreeModel
         if isinstance(model, LazyCheckableTreeModel):
             model.load_id_list(list(expanded_ids))
         def restore_state(index):

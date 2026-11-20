@@ -3,33 +3,27 @@ import time
 from PyQt6 import QtWidgets, QtCore, QtSql
 from PyQt6.QtCore import QSortFilterProxyModel
 
-import util.Text_manipulations as TxM
 import logger_setup
+import util.Text_manipulations as TxM
 from Functions import SQLUtils
 from Functions.Database_views import ViewQuery
 from Functions.Settings_manager import SettingsManager
 from Functions.Widget_classes import get_view_from_table, get_name_column, \
     get_headers, set_table, show_column, get_edit_column, get_name_from_id
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
 from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
 from util.widgets.ComboBoxes.TreeComboBox import TreeComboBox
-from util.widgets.models.CheckableSQLiteTableModel import CheckableSQLiteTableModel
-from util.widgets.models.CheckableSqlQueryModel import CheckableSqlQueryModel
-from util.widgets.models.CheckableSqlTableModel import CheckableSqlTableModel
-from util.widgets.models.CheckableTreeModel import CheckableTreeModel
-from util.widgets.models.DisplayRoundedModel import DisplayRoundedModel
-from util.widgets.models.DisplayRoundedQueryModel import DisplayRoundedQueryModel
-from util.widgets.models.LazyCheckableSqlQueryModel import LazyCheckableSqlQueryModel
-from util.widgets.models.LazyCheckableSqlTableModel import LazyCheckableSqlTableModel
-from util.widgets.models.LazyCheckableTreeModel import LazyCheckableTreeModel
-from util.widgets.models.ReadableProxyModel import ReadableProxyModel
-from util.widgets.models.SQLiteTableModel import SQLiteTableModel
-from util.widgets.models.SampleAgeProxyModel import SampleAgeProxyModel
-from util.widgets.models.TreeModel import TreeModel
-from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
-from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
+from util.widgets.models.proxy_models import ReadableProxyModel, SampleAgeProxyModel, TreeSortFilterProxyModel
+from util.widgets.models.query_models import CheckableSqlQueryModel, DisplayRoundedQueryModel, \
+    LazyCheckableSqlQueryModel
+from util.widgets.models.table_models import SQLiteTableModel, CheckableSQLiteTableModel, CheckableSqlTableModel, \
+    DisplayRoundedTableModel, LazyCheckableSqlTableModel
+from util.widgets.models.tree_models import CheckableTreeModel, LazyCheckableTreeModel
+from util.widgets.models.tree_models import TreeModel
 
 settings = SettingsManager().settings
+
 
 def populate_combo_box(comboBox: QtWidgets.QComboBox, **kwargs):
     """
@@ -37,7 +31,7 @@ def populate_combo_box(comboBox: QtWidgets.QComboBox, **kwargs):
     on the provided keyword arguments. It can handle both SQL queries and table names, and it supports displaying
     hierarchical data in a tree structure if the table is part of a user viewable tree. The method also allows specifying
     a specific column to display in the combo box. If a query is provided, it uses a DisplayRoundedQueryModel; otherwise,
-    it uses a DisplayRoundedModel or a SQLiteTableModel based on the table name. If the table is part of a user viewable
+    it uses a DisplayRoundedTableModel or a SQLiteTableModel based on the table name. If the table is part of a user viewable
     tree, it sets the model to a CheckableTreeModel or TreeModel. If the combo box is a CheckableComboBox, it uses
     CheckableSqlTableModel or CheckableSqlQueryModel to populate the combo box. The method also ensures that the
     specified column is displayed in the combo box, and it defaults to showing the name column if no specific column
@@ -113,7 +107,7 @@ def populate_combo_box(comboBox: QtWidgets.QComboBox, **kwargs):
         close_loading_dialog('Loading', msg)
     else:
         if live:
-            model = DisplayRoundedModel()
+            model = DisplayRoundedTableModel()
             set_table(model, table)
         else:
             model = SQLiteTableModel()
@@ -205,9 +199,12 @@ def populate_combo_box(comboBox: QtWidgets.QComboBox, **kwargs):
         if name_col is not None:
             show_column(comboBox, name_col)
     close_loading_dialog('Loading', f'Populating {model.rowCount()} {table}')
-    logger_setup.get_logger().debug(f'Populated combo box {comboBox.objectName()} in {time.time() - start_populate_combo_time} seconds')
+    logger_setup.get_logger().debug(
+        f'Populated combo box {comboBox.objectName()} in {time.time() - start_populate_combo_time} seconds')
 
-def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel, item_ids: list, item_table: str=None, table_id_header: str=None):
+
+def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel, item_ids: list,
+                          item_table: str = None, table_id_header: str = None):
     """
     Populate the checkable model with checks based on the item IDs and the item table, e.g. given a checkable Columns
     model and a list of Sample IDs, mark what columns are associated with those samples. This method iterates through
@@ -273,7 +270,7 @@ def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel
         logger_setup.get_logger().debug(f'Error: {association_query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {association_query_str}')
         close_loading_dialog('Checking model',
-                                             f'Checking {row_count} {model.tableName()}...')
+                             f'Checking {row_count} {model.tableName()}...')
         return False
     while association_query.next():
         table_id = association_query.value(0)
@@ -294,10 +291,13 @@ def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel
         model.load_checked()
 
     close_loading_dialog('Checking model', f'Checking {row_count} {model.tableName()}...')
-    logger_setup.get_logger().debug(f'Populated model checks for {model.tableName()} in {time.time() - start_populate_model_checks_time} seconds')
+    logger_setup.get_logger().debug(
+        f'Populated model checks for {model.tableName()} in {time.time() - start_populate_model_checks_time} seconds')
     return True
 
-def populate_tree_model_checks(tree_model: CheckableTreeModel, item_ids: list, item_table: str=None, table_id_header: str=None):
+
+def populate_tree_model_checks(tree_model: CheckableTreeModel, item_ids: list, item_table: str = None,
+                               table_id_header: str = None):
     """
     Populate the tree model with checks based on the item IDs and the item table, e.g. given a checkable Units model and
     a list of Sample IDs, mark what units are associated with those samples. This method recursively iterates through
@@ -322,7 +322,8 @@ def populate_tree_model_checks(tree_model: CheckableTreeModel, item_ids: list, i
     table = tree_model.table
     show_loading_dialog('Checking model', f'Checking {row_count} {table}...')
     if table_id_header is None:
-        table_id_header = tree_model.headerData(id_col, QtCore.Qt.Orientation.Horizontal, QtCore.Qt.ItemDataRole.DisplayRole)
+        table_id_header = tree_model.headerData(id_col, QtCore.Qt.Orientation.Horizontal,
+                                                QtCore.Qt.ItemDataRole.DisplayRole)
         if ' ' in table_id_header:
             table_id_header = TxM.remove_spaces(table_id_header)
     # Check that the table_id_header is in the item_table headers
@@ -369,10 +370,14 @@ def populate_tree_model_checks(tree_model: CheckableTreeModel, item_ids: list, i
     if isinstance(tree_model, LazyCheckableTreeModel):
         tree_model.load_checked()
     close_loading_dialog('Checking model', f'Checking {row_count} {table}...')
-    logger_setup.get_logger().debug(f'Populated tree model checks for {table} in {time.time() - start_populate_tree_model_checks_time} seconds')
+    logger_setup.get_logger().debug(
+        f'Populated tree model checks for {table} in {time.time() - start_populate_tree_model_checks_time} seconds')
     return True
 
-def populate_many_model_checks(many_to_many_table: str, model: CheckableSqlTableModel | CheckableSqlQueryModel | CheckableTreeModel, first_table_ids: list):
+
+def populate_many_model_checks(many_to_many_table: str,
+                               model: CheckableSqlTableModel | CheckableSqlQueryModel | CheckableTreeModel,
+                               first_table_ids: list):
     """
     Populate a model with checks based on a many-to-many relationship table and a list of IDs from the first table.
     This method checks how many of the given IDs have a specific tag in the many-to-many relationship table. It updates
@@ -433,7 +438,9 @@ def populate_many_model_checks(many_to_many_table: str, model: CheckableSqlTable
     if model.checked_ids != all_items or model.partially_checked_ids != some_items:
         model.update_model_checks(set(all_items), set(some_items))
     close_loading_dialog('Checking model', f'Checking {row_count} {model.tableName()}...')
-    logger_setup.get_logger().info(f"Populated checks for {many_to_many_table} in {time.time() - start_populate_many_checks_time} seconds")
+    logger_setup.get_logger().info(
+        f"Populated checks for {many_to_many_table} in {time.time() - start_populate_many_checks_time} seconds")
+
 
 def populate_many_combo_checks(many_to_many_table: str, combo: QtWidgets.QComboBox, first_table_ids: list):
     """
@@ -476,4 +483,5 @@ def populate_many_combo_checks(many_to_many_table: str, combo: QtWidgets.QComboB
     if not text:
         text = ''
     combo.setCurrentText(text)
-    logger_setup.get_logger().info(f"Populated combo checks for {many_to_many_table} in {time.time() - start_populate_many_checks_time} seconds")
+    logger_setup.get_logger().info(
+        f"Populated combo checks for {many_to_many_table} in {time.time() - start_populate_many_checks_time} seconds")

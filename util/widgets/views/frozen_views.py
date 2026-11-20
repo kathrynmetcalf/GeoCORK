@@ -2,7 +2,7 @@ from PyQt6 import QtWidgets, QtCore
 
 import logger_setup
 from util.widgets.delegates import ActiveSelectionDelegate
-from util.widgets.models.TrackExpandedTreeView import TrackExpandedTreeView
+from util.widgets.views.tree_views import TrackExpandedTreeView
 
 
 class FrozenTableView(QtWidgets.QTableView):
@@ -15,6 +15,7 @@ class FrozenTableView(QtWidgets.QTableView):
     is updated whenever the section sizes change, and the geometry of the frozen table view is adjusted to match the
     main table view's geometry.
     """
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.frozen_table_view = QtWidgets.QTableView(self)
@@ -219,14 +220,15 @@ class FrozenTableView(QtWidgets.QTableView):
         :return: current index after moving the cursor
         """
         current = super().moveCursor(cursorAction, modifiers)
-        if (cursorAction == QtWidgets.QAbstractItemView.CursorAction.MoveLeft and current.column() > self.frozen_column and
+        if (
+                cursorAction == QtWidgets.QAbstractItemView.CursorAction.MoveLeft and current.column() > self.frozen_column and
                 self.visualRect(current).topLeft().x() < self.frozen_table_view.columnWidth(self.frozen_column)):
             new_value = (self.horizontalScrollBar().value() + self.visualRect(current).topLeft().x() -
                          self.frozen_table_view.columnWidth(self.frozen_column))
             self.horizontalScrollBar().setValue(new_value)
         return current
 
-    def scrollTo(self, index, hint = ...):
+    def scrollTo(self, index, hint=...):
         """
         Scroll to the specified index in the frozen table view. This method overrides the QTableView scrollTo method
         to handle the case where the index is in a column greater than the frozen column. If that happens, it
@@ -269,9 +271,12 @@ class FrozenTableView(QtWidgets.QTableView):
         self.frozen_table_view.setColumnWidth(self.frozen_column, self.columnWidth(self.frozen_column))
         self.frozen_table_view.horizontalHeader().setFixedHeight(header_height)
         self.sync_row_heights()
-        logger_setup.get_logger().debug(f'Frozen column geometry: (x: {x_pos}, y: {y_pos}, width: {width}, height: {height})')
-        logger_setup.get_logger().debug(f'Table geometry: (x: {self.x()}, y: {self.y()}, width: {self.width()}, height: {self.height()})')
-        logger_setup.get_logger().debug(f'Viewport geometry: (x: {self.viewport().x()}, y: {self.viewport().y()}, width: {self.viewport().width()}, height: {self.viewport().height()})')
+        logger_setup.get_logger().debug(
+            f'Frozen column geometry: (x: {x_pos}, y: {y_pos}, width: {width}, height: {height})')
+        logger_setup.get_logger().debug(
+            f'Table geometry: (x: {self.x()}, y: {self.y()}, width: {self.width()}, height: {self.height()})')
+        logger_setup.get_logger().debug(
+            f'Viewport geometry: (x: {self.viewport().x()}, y: {self.viewport().y()}, width: {self.viewport().width()}, height: {self.viewport().height()})')
 
 
 class FrozenTreeView(TrackExpandedTreeView):
@@ -284,6 +289,7 @@ class FrozenTreeView(TrackExpandedTreeView):
     is updated whenever the section sizes change, and the geometry of the frozen tree view is adjusted to match the
     main tree view's geometry.
     """
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.frozen_tree_view = TrackExpandedTreeView(self)
@@ -423,14 +429,15 @@ class FrozenTreeView(TrackExpandedTreeView):
         :return: current index after moving the cursor
         """
         current = super().moveCursor(cursorAction, modifiers)
-        if (cursorAction == QtWidgets.QAbstractItemView.CursorAction.MoveLeft and current.column() > self.frozen_column and
+        if (
+                cursorAction == QtWidgets.QAbstractItemView.CursorAction.MoveLeft and current.column() > self.frozen_column and
                 self.visualRect(current).topLeft().x() < self.frozen_tree_view.columnWidth(self.frozen_column)):
             new_value = (self.horizontalScrollBar().value() + self.visualRect(current).topLeft().x() -
                          self.frozen_tree_view.columnWidth(self.frozen_column))
             self.horizontalScrollBar().setValue(new_value)
         return current
 
-    def scrollTo(self, index, hint = ...):
+    def scrollTo(self, index, hint=...):
         """
         Scroll to the specified index in the frozen table view. This method overrides the QTableView scrollTo method
         to handle the case where the index is in a column greater than the frozen column. If that happens, it
@@ -473,6 +480,9 @@ class FrozenTreeView(TrackExpandedTreeView):
         self.frozen_tree_view.setColumnWidth(self.frozen_column, self.columnWidth(self.frozen_column))
         self.frozen_tree_view.header().setFixedHeight(header_height)
         self.sync_row_heights()
-        logger_setup.get_logger().debug(f'Frozen column geometry: (x: {x_pos}, y: {y_pos}, width: {width}, height: {height})')
-        logger_setup.get_logger().debug(f'Table geometry: (x: {self.x()}, y: {self.y()}, width: {self.width()}, height: {self.height()})')
-        logger_setup.get_logger().debug(f'Viewport geometry: (x: {self.viewport().x()}, y: {self.viewport().y()}, width: {self.viewport().width()}, height: {self.viewport().height()})')
+        logger_setup.get_logger().debug(
+            f'Frozen column geometry: (x: {x_pos}, y: {y_pos}, width: {width}, height: {height})')
+        logger_setup.get_logger().debug(
+            f'Table geometry: (x: {self.x()}, y: {self.y()}, width: {self.width()}, height: {self.height()})')
+        logger_setup.get_logger().debug(
+            f'Viewport geometry: (x: {self.viewport().x()}, y: {self.viewport().y()}, width: {self.viewport().width()}, height: {self.viewport().height()})')

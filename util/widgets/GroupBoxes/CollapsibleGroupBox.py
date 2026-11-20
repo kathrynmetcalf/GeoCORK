@@ -5,6 +5,7 @@ class CollapsibleGroupBox(QtWidgets.QWidget):
     """
     Group box that can be expanded or collapsed with a click on the button
     """
+
     def __init__(self, title='', parent=None):
         super().__init__(parent)
         self.isExpanded = True

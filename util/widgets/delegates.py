@@ -7,6 +7,7 @@ class FontDelegate(QtWidgets.QStyledItemDelegate):
     """
     Custom delegate to display text with a custom font.
     """
+
     def initStyleOption(self, option, index):
         """Initializes the options of the delegate"""
         super().initStyleOption(option, index)
@@ -14,21 +15,24 @@ class FontDelegate(QtWidgets.QStyledItemDelegate):
         if font:
             option.font = font
 
+
 class WordWrapDelegate(QtWidgets.QStyledItemDelegate):
     """
     Custom delegate to enable word wrap in QTableView.
     """
+
     def initStyleOption(self, option, index):
         """Initializes the options of the delegate"""
         super().initStyleOption(option, index)
         option.textElideMode = Qt.TextElideMode.ElideNone  # Do not cut text
         option.wrapMode = QTextOption.WrapMode.WordWrap  # Allow word wrap
-        
+
 
 class ActiveSelectionDelegate(WordWrapDelegate):
     """
     Delegate that forces selected items to be painted with the active selection color (blue) even when the view does not have keyboard focus
     """
+
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -36,8 +40,7 @@ class ActiveSelectionDelegate(WordWrapDelegate):
               painter: QtWidgets.QStylePainter,
               option: QtWidgets.QStyleOptionViewItem,
               index: QtCore.QModelIndex
-    ) -> None:
-
+              ) -> None:
         option = QtWidgets.QStyleOptionViewItem(option)
         option.state |= QtWidgets.QStyle.StateFlag.State_Active
         super().paint(painter, option, index)

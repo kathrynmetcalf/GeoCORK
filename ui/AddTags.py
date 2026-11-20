@@ -12,7 +12,7 @@ import logger_setup
 from Functions.Database_manager import update_database
 from util.database.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
-from util.widgets.models.ReadableProxyModel import ReadableProxyModel
+from util.widgets.models.proxy_models import ReadableProxyModel
 
 settings = SettingsManager().settings
 from Functions.Widget_classes import set_table, get_headers, get_name_column, get_description_column

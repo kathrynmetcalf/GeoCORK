@@ -3,8 +3,8 @@ from PyQt6.QtCore import QSortFilterProxyModel
 
 import logger_setup
 from Functions.Widget_classes import get_name_column
-from util.widgets.models.CheckableSqlQueryModel import CheckableSqlQueryModel
-from util.widgets.models.CheckableSqlTableModel import CheckableSqlTableModel
+from util.widgets.models.query_models import CheckableSqlQueryModel
+from util.widgets.models.table_models import CheckableSqlTableModel
 
 
 class CheckableTableView(QtWidgets.QTableView):
@@ -12,6 +12,7 @@ class CheckableTableView(QtWidgets.QTableView):
     A QTableView subclass that allows for checkable items in a table structure. This class extends QTableView to allows users
     to select multiple items. The model can be set to a CheckableSqlTableModel or CheckableSqlQueryModel, which provides the data for the table.
     """
+
     def __init__(self):
         super().__init__()
         self.setSortingEnabled(True)
@@ -29,7 +30,8 @@ class CheckableTableView(QtWidgets.QTableView):
         """
         if isinstance(model, QSortFilterProxyModel):
             if not isinstance(model.sourceModel(), (CheckableSqlTableModel, CheckableSqlQueryModel)):
-                raise TypeError("Model must be a CheckableSqlTableModel, CheckableSqlQueryModel, or a QSortFilterProxyModel wrapping one of those models")
+                raise TypeError(
+                    "Model must be a CheckableSqlTableModel, CheckableSqlQueryModel, or a QSortFilterProxyModel wrapping one of those models")
         super().setModel(model)
 
     def toggle_check_state(self, model_index: QtCore.QModelIndex):
@@ -55,8 +57,8 @@ class CheckableTableView(QtWidgets.QTableView):
                         if source_model.not_null and len(source_model.checked_ids) == 1:
                             logger_setup.get_logger().error(
                                 f'{source_model.headerData(
-                                    get_name_column(source_model.tableName()), 
-                                    QtCore.Qt.Orientation.Horizontal, 
+                                    get_name_column(source_model.tableName()),
+                                    QtCore.Qt.Orientation.Horizontal,
                                     QtCore.Qt.ItemDataRole.DisplayRole)} cannot be blank')
                             return
                         source_model.checked_ids = set()

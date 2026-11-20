@@ -57,9 +57,9 @@
 #
 #         return True
 #
-# class VerifiableSqlTableModel(DisplayRoundedModel):
+# class VerifiableSqlTableModel(DisplayRoundedTableModel):
 #     """
-#     Custom DisplayRoundedModel (subclass of QSqlTableModel) to verify data before submitting changes to the database
+#     Custom DisplayRoundedTableModel (subclass of QSqlTableModel) to verify data before submitting changes to the database
 #     upon row change.
 #     """
 #     row_submitted = QtC.pyqtSignal(int)

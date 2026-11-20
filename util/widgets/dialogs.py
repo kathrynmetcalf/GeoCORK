@@ -7,7 +7,9 @@ class CompleterInputDialog(QtWidgets.QDialog):
     that provides suggestions based on a list of strings. The user can type in the combo box, and the completer will
     suggest completions based on the input.
     """
-    def __init__(self, parent: QtWidgets.QWidget, title: str, label: str, completer_list: list[str], editable: bool = False):
+
+    def __init__(self, parent: QtWidgets.QWidget, title: str, label: str, completer_list: list[str],
+                 editable: bool = False):
         super().__init__(parent)
         self.setWindowTitle(title)
         self.setLayout(QtWidgets.QVBoxLayout())
@@ -29,7 +31,8 @@ class CompleterInputDialog(QtWidgets.QDialog):
         self.completer.setCompletionMode(QtWidgets.QCompleter.CompletionMode.PopupCompletion)
         self.line_edit.setCompleter(self.completer)
         self.layout().addWidget(self.combo_box)
-        self.button_box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Ok | QtWidgets.QDialogButtonBox.StandardButton.Cancel)
+        self.button_box = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.StandardButton.Ok | QtWidgets.QDialogButtonBox.StandardButton.Cancel)
         self.layout().addWidget(self.button_box)
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)

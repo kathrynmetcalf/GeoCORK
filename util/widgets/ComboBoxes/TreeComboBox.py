@@ -7,13 +7,11 @@ from PyQt6.QtGui import QAction
 import logger_setup
 from Functions.Widget_classes import find_tree_model, restore_expanded_state, save_expanded_state, \
     expand_collapse, show_column
-from util.widgets.context_menus import TreeContextMenu
-from util.widgets.models.CheckableTreeModel import CheckableTreeModel
-from util.widgets.models.CheckableTreeView import CheckableTreeView
-from util.widgets.models.TrackExpandedTreeView import TrackExpandedTreeView
-from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
-
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
+from util.widgets.context_menus import TreeContextMenu
+from util.widgets.models.proxy_models import TreeSortFilterProxyModel
+from util.widgets.models.tree_models import CheckableTreeModel
+from util.widgets.views.tree_views import CheckableTreeView, TrackExpandedTreeView
 
 
 class TreeComboBox(QtWidgets.QComboBox):
@@ -28,6 +26,7 @@ class TreeComboBox(QtWidgets.QComboBox):
     edit_triggered = QtCore.pyqtSignal(QtWidgets.QComboBox)
     add_triggered = QtCore.pyqtSignal(QtWidgets.QComboBox, QAction)
     delete_triggered = QtCore.pyqtSignal(QtWidgets.QComboBox)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.proxy_model = None
@@ -117,7 +116,8 @@ class TreeComboBox(QtWidgets.QComboBox):
         self.treeView.resizeColumnToContents(0)
         self.treeView.setMinimumWidth(self.treeView.sizeHint().width())
         self.treeView.setSortingEnabled(False)
-        logger_setup.get_logger().debug(f'Set model for tree combobox in {time.time() - start_set_model_time:.2f} seconds')
+        logger_setup.get_logger().debug(
+            f'Set model for tree combobox in {time.time() - start_set_model_time:.2f} seconds')
 
     def update_filter(self, text: str):
         """
@@ -130,7 +130,8 @@ class TreeComboBox(QtWidgets.QComboBox):
         """
         self.start_typing()
         # logger_setup.get_logger().debug(f'Setting filter to: {text}')
-        search_expression = QtCore.QRegularExpression(text, options=QtCore.QRegularExpression.PatternOption.CaseInsensitiveOption)
+        search_expression = QtCore.QRegularExpression(text,
+                                                      options=QtCore.QRegularExpression.PatternOption.CaseInsensitiveOption)
         self.proxy_model.setRecursiveFilteringEnabled(True)
         self.proxy_model.setFilterRegularExpression(search_expression)
         if text != "":

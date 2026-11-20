@@ -33,8 +33,8 @@ from ui.filters.FiltersTab import FiltersTab
 from util.layouts.FlowLayout import FlowLayout
 from util.populate_models import populate_combo_box
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
-from util.widgets.models.ReadableProxyModel import ReadableProxyModel
-from util.widgets.models.SQLiteTableModel import SQLiteTableModel
+from util.widgets.models.proxy_models import ReadableProxyModel
+from util.widgets.models.table_models import SQLiteTableModel
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 
 settings = SettingsManager().settings

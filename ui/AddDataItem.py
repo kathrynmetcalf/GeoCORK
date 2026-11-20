@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import QMessageBox
 import logger_setup
 from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
-from util.widgets.models.ReadableProxyModel import ReadableProxyModel
+from util.widgets.models.proxy_models import ReadableProxyModel
 
 from Functions.Widget_classes import get_headers, get_name_column, bulk_update_parent_row
 from util.loading_dialog_manager import close_loading_dialog

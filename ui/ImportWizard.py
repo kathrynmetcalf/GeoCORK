@@ -24,28 +24,27 @@ import logger_setup
 from Functions import SQLUtils
 from Functions.Check_triggers import validate_insert, validate_update
 from Functions.Database_manager import update_database
-from util.database.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
 from Functions.Settings_manager import SettingsManager
-from ui.settings.SettingsCore import get_importer_brushes
 from ui.EditView import EditView
+from ui.settings.SettingsCore import get_importer_brushes
+from util.database.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
 from util.populate_models import populate_combo_box
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
 from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
 from util.widgets.ComboBoxes.SearchableComboBox import SearchableComboBox
 from util.widgets.GroupBoxes.CollapsibleGroupBox import CollapsibleGroupBox
-from util.widgets.models.CheckableSQLiteTableModel import CheckableSQLiteTableModel
-from util.widgets.models.CheckableSqlQueryModel import CheckableSqlQueryModel
-from util.widgets.models.CheckableSqlTableModel import CheckableSqlTableModel
-from util.widgets.models.CheckableTreeModel import CheckableTreeModel
-from util.widgets.models.ImportSheetModel import ImportSheetModel
-from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
+from util.widgets.models.item_models import DisableItemModel
+from util.widgets.models.proxy_models import TreeSortFilterProxyModel
+from util.widgets.models.query_models import CheckableSqlQueryModel
+from util.widgets.models.table_models import CheckableSQLiteTableModel, CheckableSqlTableModel, ImportSheetTableModel
+from util.widgets.models.tree_models import CheckableTreeModel
 
 settings = SettingsManager().settings
 from Functions.Widget_classes import (
     save_expanded_state, get_name_column, add_tree_popup, get_id_from_name, get_name_from_id,
     get_headers,
     get_view_from_table,
-    search_dictionary, DisableItemModel, delete_data, find_tree_model)
+    search_dictionary, delete_data, find_tree_model)
 
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.widgets.dialogs import CompleterInputDialog
@@ -2661,7 +2660,7 @@ class ImportWizardDialog(QWidget):
         display_start_time = time.time()
         check_style = self.identify_rejected.isChecked()
 
-        dataframe_model = ImportSheetModel(self.sheets[sheet_name], check_style)
+        dataframe_model = ImportSheetTableModel(self.sheets[sheet_name], check_style)
         print(f'Rows: {dataframe_model.rowCount()}, Columns: {dataframe_model.columnCount()}')
         self.right_table.blockSignals(True)
         self.right_table.setModel(dataframe_model)

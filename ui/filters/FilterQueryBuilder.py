@@ -7,6 +7,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QVBoxLayout, QScrollArea, QSizePolicy, QWidget, QListWidgetItem, QMessageBox, QLabel
 
+import logger_setup
 from Functions import SQLUtils
 
 from ui.filters.FilterHelpers import process_group

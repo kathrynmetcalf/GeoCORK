@@ -1,23 +1,23 @@
 import os
-import sys
 import platform
+import sys
 
-from PyQt6.QtWidgets import QApplication
-
-import logger_setup
-from ui.LandingUI import LandingPage
-from Functions.Settings_manager import SettingsManager
-
-from ui.settings.SettingsCore import reset_to_default_settings, populate_app_defaults, check_missing_settings, default_settings
-from util.widgets.event_filters import TooltipFilter
 # keep must be imported to work
 # noinspection PyUnresolvedReferences
 from PyQt6 import QtWebEngineWidgets
+from PyQt6.QtWidgets import QApplication
+
+import logger_setup
+from Functions.Settings_manager import SettingsManager
+from ui.LandingUI import LandingPage
+from ui.settings.SettingsCore import reset_to_default_settings, populate_app_defaults, check_missing_settings, \
+    default_settings
+from util.widgets.event_filters import TooltipFilter
 
 settings = SettingsManager().settings
 
 if __name__ == "__main__":
-    #force app to always load in light mode
+    # force app to always load in light mode
     if platform.system() == 'Windows':
         sys.argv += ['-platform', 'windows:darkmode=1']
 

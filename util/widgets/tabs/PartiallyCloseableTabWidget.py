@@ -1,11 +1,13 @@
 from PyQt6 import QtWidgets
 
+
 # todo add vertical line between indexes 1-3 and others
 class PartiallyCloseableTabWidget(QtWidgets.QTabWidget):
     """
     Custom QTabWidget that allows for some permanent tabs that cannot be closed or moved, but allows other tabs to be
     created, moved, and closed.
     """
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.permanent_tabs = []
@@ -85,13 +87,13 @@ class PartiallyCloseableTabWidget(QtWidgets.QTabWidget):
         """
         super().removeTab(index)
         self.update_close_buttons()
-        if self.tabText(index) in self.permanent_tabs and self.tabText(index-1) in self.permanent_tabs:
-            self.setCurrentIndex(index-1)
+        if self.tabText(index) in self.permanent_tabs and self.tabText(index - 1) in self.permanent_tabs:
+            self.setCurrentIndex(index - 1)
         elif self.tabText(index) in self.permanent_tabs:
-            self.setCurrentIndex(index-1)
-        elif self.tabText(index-1) in self.permanent_tabs:
+            self.setCurrentIndex(index - 1)
+        elif self.tabText(index - 1) in self.permanent_tabs:
             self.setCurrentIndex(index)
         else:
             self.setCurrentIndex(index)
         # if self.count() >= 3:
-            # self.tabBar.add_vertical_line()
+        # self.tabBar.add_vertical_line()

@@ -10,9 +10,11 @@ import logger_setup
 from Functions import SQLUtils
 from Functions.Settings_manager import SettingsManager
 from ui.settings import SettingsCore
+from util.widgets.models.item_models import ColumnItemModel
+from util.widgets.models.proxy_models import ColumnListProxyModel
 from util.widgets.views.list_views import ReorderListView
 
-from Functions.Widget_classes import ColumnListProxyModel, ColumnItemModel, get_name_column
+from Functions.Widget_classes import get_name_column
 
 settings = SettingsManager().settings
 

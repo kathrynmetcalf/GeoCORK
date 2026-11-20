@@ -18,7 +18,7 @@ from Functions.Widget_classes import save_expanded_state, get_view_from_table
 from Functions.Database_views import ViewQuery
 
 import logger_setup
-from util.widgets.models.DisplayRoundedModel import DisplayRoundedModel
+from util.widgets.models.DisplayRoundedTableModel import DisplayRoundedTableModel
 from util.widgets.models.DisplayRoundedQueryModel import DisplayRoundedQueryModel
 from util.widgets.models.ReadableProxyModel import ReadableProxyModel
 from util.widgets.models.SQLiteTableModel import SQLiteTableModel
@@ -61,7 +61,7 @@ class DisplayTablesSimplified(QtW.QWidget):
         self.dbtable_list = [table for table in self.user_view_tables if table not in self.dbtree_list]
 
         self.sample_proxy_model = ReadableProxyModel()
-        self.model = DisplayRoundedModel(db=self.database)
+        self.model = DisplayRoundedTableModel(db=self.database)
         self.query_model = DisplayRoundedQueryModel(db=self.database)
         self.tree_model = TreeModel(db=self.database)
         self.tree_proxy_model = ReadableProxyModel()

@@ -11,8 +11,8 @@ from Functions.Database_manager import update_database
 from util.database.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 from ui.settings import SettingsCore
-from util.widgets.models.EditableSqlQueryModel import EditableSqlQueryModel
-from util.widgets.models.ReadableProxyModel import ReadableProxyModel
+from util.widgets.models.query_models import EditableSqlQueryModel
+from util.widgets.models.proxy_models import ReadableProxyModel
 
 from Functions.Widget_classes import (get_headers,
                                       get_name_column, get_total_records,

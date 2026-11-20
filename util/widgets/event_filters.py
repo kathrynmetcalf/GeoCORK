@@ -24,8 +24,8 @@ class TooltipFilter(QObject):
             return False  # allow tooltip normally
 
         if event.type() in (
-            QEvent.Type.ToolTipChange,
-            QEvent.Type.QueryWhatsThis
+                QEvent.Type.ToolTipChange,
+                QEvent.Type.QueryWhatsThis
         ):
             allow = self.settings.value("display_tooltips", True, bool)
             if not allow:

@@ -1,38 +1,37 @@
-import re
 import os
+import re
 import sys
 import webbrowser
 
 import qtawesome
-from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
+from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import Qt, QTimer, QRegularExpression
 from PyQt6.QtWidgets import QPushButton, QTableWidgetItem, QLineEdit
-
 from PyQt6.uic import loadUi
+
+import util.Text_manipulations as TxM
+from Functions import SQLUtils
+from Functions.Database_manager import update_database
+from Functions.Settings_manager import SettingsManager
 from Functions.Widget_classes import (
     save_expanded_state,
     expand_collapse, add_tree_popup, get_name_column,
     get_headers, get_total_records, get_record_row, columns_as_list,
-    TableToolTipModel, get_id_from_name, scroll_to_record, get_view_from_table
+    get_id_from_name, scroll_to_record, get_view_from_table
 )
-import util.Text_manipulations as TxM
-from Functions import SQLUtils
-from util.database import Savepoint_manager
-from Functions.Database_manager import update_database
-from Functions.Settings_manager import SettingsManager
 from ui.SampleMap import SampleMapWindow
 from ui.settings import SettingsCore
+from util.database import Savepoint_manager
 from util.widgets.context_menus import TreeContextMenu
-from util.widgets.models.DisplayRoundedModel import DisplayRoundedModel
-from util.widgets.models.DisplayRoundedQueryModel import DisplayRoundedQueryModel
-from util.widgets.models.ReadableProxyModel import ReadableProxyModel
-from util.widgets.models.SQLiteTableModel import SQLiteTableModel
-from util.widgets.models.TrackExpandedTreeView import TrackExpandedTreeView
-from util.widgets.models.TreeModel import TreeModel
-from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
+from util.widgets.models.item_models import TableToolTipModel
+from util.widgets.models.proxy_models import ReadableProxyModel, TreeSortFilterProxyModel
+from util.widgets.models.query_models import DisplayRoundedQueryModel
+from util.widgets.models.table_models import DisplayRoundedTableModel, SQLiteTableModel
+from util.widgets.models.tree_models import TreeModel
 from util.widgets.views.frozen_views import FrozenTableView
+from util.widgets.views.tree_views import TrackExpandedTreeView
 
 settings = SettingsManager().settings
 from Functions.Database_views import ViewQuery
@@ -79,7 +78,7 @@ class DisplayTables(QtW.QWidget):
         self.dbtree_list = SQLUtils.user_viewable_trees
         self.dbtable_list = [table for table in self.user_view_tables if table not in self.dbtree_list]
 
-        self.model = DisplayRoundedModel()
+        self.model = DisplayRoundedTableModel()
         self.query_model = DisplayRoundedQueryModel()
         self.tree_model = TreeModel()
         self.tree_proxy_model = TreeSortFilterProxyModel()
@@ -286,7 +285,8 @@ class DisplayTables(QtW.QWidget):
                 self.table_proxy_model.sort(proxy_name_column, QtC.Qt.SortOrder.AscendingOrder)
             self.dbTable_tableView: FrozenTableView
             self.dbTable_tableView.setSelectionBehavior(QtW.QAbstractItemView.SelectionBehavior.SelectRows)
-            self.dbTable_tableView.frozen_table_view.setSelectionBehavior(QtW.QAbstractItemView.SelectionBehavior.SelectRows)
+            self.dbTable_tableView.frozen_table_view.setSelectionBehavior(
+                QtW.QAbstractItemView.SelectionBehavior.SelectRows)
 
             self.dbTable_tableView.setModel(self.table_proxy_model)
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
@@ -408,10 +408,11 @@ class DisplayTables(QtW.QWidget):
 
     def open_doi_link(self, item: QTableWidgetItem):
         self.dbTable_tableView: FrozenTableView
-        if self.dbTable_tableView.model().headerData(item.column(), Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole) == "DOI":
-            text:str = item.data(Qt.ItemDataRole.DisplayRole)
+        if self.dbTable_tableView.model().headerData(item.column(), Qt.Orientation.Horizontal,
+                                                     Qt.ItemDataRole.DisplayRole) == "DOI":
+            text: str = item.data(Qt.ItemDataRole.DisplayRole)
             if text.startswith('doi:'):
-                text = text.replace('doi:','')
+                text = text.replace('doi:', '')
 
             doi_regex = re.compile(r"^(10\.\d{4,9}\/[-._;()\/:A-Z0-9]+)$", re.IGNORECASE)
 

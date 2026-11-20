@@ -36,7 +36,7 @@ from ui.EditTree import EditTree
 
 from util.populate_models import populate_many_combo_checks, populate_model_checks, populate_combo_box
 from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
-from util.widgets.models.TreeModel import TreeModel
+from util.widgets.models.tree_models import TreeModel
 
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 

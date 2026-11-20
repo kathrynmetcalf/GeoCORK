@@ -3,12 +3,11 @@ from PyQt6.QtGui import QAction
 
 import logger_setup
 from Functions.Widget_classes import expand_collapse, save_expanded_state
-
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.widgets.ComboBoxes.TreeComboBox import TreeComboBox
 from util.widgets.context_menus import TreeContextMenu
-from util.widgets.models.CheckableTreeModel import CheckableTreeModel
-from util.widgets.models.CheckableTreeView import CheckableTreeView
+from util.widgets.models.tree_models import CheckableTreeModel
+from util.widgets.views.tree_views import CheckableTreeView
 
 
 class CheckableTreeComboBox(TreeComboBox):
@@ -166,7 +165,8 @@ class CheckableTreeComboBox(TreeComboBox):
         :return:
         """
         show_loading_dialog('Loading', f'Loading {self.tree_model.sourceModel().rowCount()} items...')
-        logger_setup.get_logger().info(f'Showing popup for checkable tree combo box with {self.tree_model.sourceModel().rowCount()} items')
+        logger_setup.get_logger().info(
+            f'Showing popup for checkable tree combo box with {self.tree_model.sourceModel().rowCount()} items')
         super().showPopup()
         if not self.clicked:
             # If the user has not clicked on an item yet, expand all checked items. After the first click, the
@@ -231,8 +231,9 @@ class CheckableTreeComboBox(TreeComboBox):
                 if self.treeView.isExpanded(index):
                     option.state |= QtWidgets.QStyle.StateFlag.State_Open
 
-                expand_button_rect = self.treeView.style().subElementRect(QtWidgets.QStyle.SubElement.SE_TreeViewDisclosureItem,
-                                                                 option, self.treeView)
+                expand_button_rect = self.treeView.style().subElementRect(
+                    QtWidgets.QStyle.SubElement.SE_TreeViewDisclosureItem,
+                    option, self.treeView)
                 if expand_button_rect.contains(event.pos()):
                     # This returns true when the expand/collapse icon is NOT clicked
                     if self.single_click:
@@ -240,11 +241,12 @@ class CheckableTreeComboBox(TreeComboBox):
                         if not self.tree_model:
                             logger_setup.get_logger().info(f'No checkable tree model found in {self.objectName()}')
                             return True
-                        checked_indices, partially_checked_indices = self.tree_model.traverse_checkable_tree(QtCore.QModelIndex())
+                        checked_indices, partially_checked_indices = self.tree_model.traverse_checkable_tree(
+                            QtCore.QModelIndex())
                         for model_index in checked_indices:
                             if model_index == index or (model_index.row() == index.row()
-                                and model_index.column() == index.column()
-                                and model_index.parent() == index.parent()):
+                                                        and model_index.column() == index.column()
+                                                        and model_index.parent() == index.parent()):
                                 self.treeView.setCurrentIndex(QtCore.QModelIndex())
                                 break
                         self.tree_model.blockSignals(True)

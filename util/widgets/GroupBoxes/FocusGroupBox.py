@@ -4,10 +4,9 @@ from PyQt6.QtWidgets import QGroupBox
 import logger_setup
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
 from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
-from util.widgets.models.CheckableSQLiteTableModel import CheckableSQLiteTableModel
-from util.widgets.models.CheckableSqlQueryModel import CheckableSqlQueryModel
-from util.widgets.models.CheckableSqlTableModel import CheckableSqlTableModel
-from util.widgets.models.CheckableTreeModel import CheckableTreeModel
+from util.widgets.models.query_models import CheckableSqlQueryModel
+from util.widgets.models.table_models import CheckableSQLiteTableModel, CheckableSqlTableModel
+from util.widgets.models.tree_models import CheckableTreeModel
 
 
 class FocusGroupBox(QGroupBox):
@@ -19,6 +18,7 @@ class FocusGroupBox(QGroupBox):
     the group box loses focus without any changes.
     """
     focusLost = QtCore.pyqtSignal()
+
     def __init__(self, parent=None):
         super(FocusGroupBox, self).__init__(parent)
         self.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
@@ -72,7 +72,8 @@ class FocusGroupBox(QGroupBox):
                     pass
                 except AttributeError:
                     pass
-                if isinstance(child.model(), CheckableSqlTableModel | CheckableSqlQueryModel | CheckableSQLiteTableModel | CheckableTreeModel):
+                if isinstance(child.model(),
+                              CheckableSqlTableModel | CheckableSqlQueryModel | CheckableSQLiteTableModel | CheckableTreeModel):
                     self.initial_values.append([child, child.model().return_checked_ids()])
                     child.model().checksChanged.connect(lambda ch=child: self.set_edited(ch))
                 else:
@@ -188,7 +189,7 @@ class FocusGroupBox(QGroupBox):
             self.focus_lost_timer.start(100)
         return super().eventFilter(obj, event)
 
-    def check_focus_state(self, child: QtWidgets.QWidget=None):
+    def check_focus_state(self, child: QtWidgets.QWidget = None):
         """
         Check if the group box or any of its children has focus. If not, emit the focusLost signal. This method is called
         when the focus lost timer times out, indicating that the group box has lost focus. It checks if any child widget

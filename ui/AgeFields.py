@@ -21,8 +21,7 @@ from util.populate_models import populate_combo_box, populate_tree_model_checks,
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
 from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
 from util.widgets.GroupBoxes.FocusGroupBox import FocusGroupBox
-from util.widgets.models.CheckableTreeModel import CheckableTreeModel
-from util.widgets.models.TreeModel import TreeModel
+from util.widgets.models.tree_models import TreeModel, CheckableTreeModel
 
 from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_update, update_modified_timestamp

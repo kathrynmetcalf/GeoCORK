@@ -8,6 +8,7 @@ class EditingTextEdit(QtWidgets.QTextEdit):
     not emitted when the application loses focus, to avoid incomplete edits being processed.
     """
     editingFinished = QtCore.pyqtSignal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self._isApplicationFocused = True
@@ -25,4 +26,3 @@ class EditingTextEdit(QtWidgets.QTextEdit):
         if self._isApplicationFocused:
             # Only emit if the application is focused, not if the whole application has lost focus
             self.editingFinished.emit()
-

@@ -23,7 +23,7 @@ import logger_setup
 from util.populate_models import populate_combo_box, populate_many_combo_checks
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
 from util.widgets.GroupBoxes.FocusGroupBox import FocusGroupBox
-from util.widgets.models.TreeModel import TreeModel
+from util.widgets.models.tree_models import TreeModel
 
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 

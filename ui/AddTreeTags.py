@@ -14,8 +14,8 @@ from Functions.Database_manager import update_database
 from util.database.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 from util.widgets.context_menus import TreeContextMenu
-from util.widgets.models.TreeModel import TreeModel
-from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
+from util.widgets.models.tree_models import TreeModel
+from util.widgets.models.proxy_models import TreeSortFilterProxyModel
 
 settings = SettingsManager().settings
 from Functions.Widget_classes import (expand_collapse, save_expanded_state,

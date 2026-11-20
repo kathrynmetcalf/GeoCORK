@@ -6,7 +6,6 @@ from Functions.Check_triggers import update_modified_timestamp
 from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 
 
-
 def check_database_schema(database: QtS.QSqlDatabase, blank_schema_file: str):
     # create a temporary database with Create_database, then compare its schema with the loaded file
     # if the schemas are different, create a new database with the correct schema and copy the data over

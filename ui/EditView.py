@@ -27,15 +27,12 @@ from util.populate_models import populate_combo_box, populate_tree_model_checks,
     populate_many_combo_checks
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
 from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
-from util.widgets.models.CheckableSQLiteTableModel import CheckableSQLiteTableModel
-from util.widgets.models.CheckableSqlQueryModel import CheckableSqlQueryModel
-from util.widgets.models.CheckableSqlTableModel import CheckableSqlTableModel
-from util.widgets.models.CheckableTreeModel import CheckableTreeModel
-from util.widgets.models.CheckableTreeView import CheckableTreeView
-from util.widgets.models.ReadableProxyModel import ReadableProxyModel
-from util.widgets.models.SQLiteTableModel import SQLiteTableModel
-from util.widgets.models.TreeModel import TreeModel
-from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
+from util.widgets.models.table_models import CheckableSQLiteTableModel, CheckableSqlTableModel, SQLiteTableModel
+from util.widgets.models.query_models import CheckableSqlQueryModel
+from util.widgets.models.tree_models import CheckableTreeModel, TreeModel
+from util.widgets.views.tree_views import CheckableTreeView
+from util.widgets.models.proxy_models import ReadableProxyModel, TreeSortFilterProxyModel
+
 from util.widgets.views.frozen_views import FrozenTableView
 
 settings = SettingsManager().settings

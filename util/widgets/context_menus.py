@@ -2,7 +2,7 @@ from PyQt6 import QtWidgets
 
 import logger_setup
 from Functions.Widget_classes import find_tree_model, get_selected_tree_ids
-from util.widgets.models.CheckableTreeView import CheckableTreeView
+from util.widgets.views.tree_views import CheckableTreeView
 
 
 class TreeContextMenu(QtWidgets.QMenu):
@@ -16,13 +16,15 @@ class TreeContextMenu(QtWidgets.QMenu):
     can be used with both checkable and non-checkable tree views, and it provides a flexible way to interact with tree
     structures in the application.
     """
-    def __init__(self, parent = None):
+
+    def __init__(self, parent=None):
         super().__init__(parent)
         self.tree_view = None
         self.model = None
         self.indexes = None
 
-    def set_view(self, tree_view: QtWidgets.QTreeView, delete_active: bool = True, add_active: bool = True, edit_active: bool = True):
+    def set_view(self, tree_view: QtWidgets.QTreeView, delete_active: bool = True, add_active: bool = True,
+                 edit_active: bool = True):
         """
         Set the view for the context menu. This method initializes the context menu with actions based on the selected
         items in the tree view. It retrieves the model and indexes of the selected items, and then adds actions for
