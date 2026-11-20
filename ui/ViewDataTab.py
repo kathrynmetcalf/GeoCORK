@@ -15,7 +15,7 @@ from ui.settings import SettingsCore
 
 from Functions.Widget_classes import (expand_collapse, get_name_column, get_headers,
                                       get_view_from_table, get_readable_header,
-                                      show_loading_dialog, close_loading_dialog, get_record_row,
+                                      get_record_row,
                                       get_id_from_name, columns_as_list, save_expanded_state,
                                       scroll_to_record)
 from ui.EditTreeView import EditTreeView
@@ -27,6 +27,8 @@ from util.widgets.models.TrackExpandedTreeView import TrackExpandedTreeView
 from util.widgets.models.TreeModel import TreeModel
 from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
 from util.widgets.views.frozen_views import FrozenTableView
+
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 
 settings = SettingsManager().settings
 

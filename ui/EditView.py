@@ -14,7 +14,7 @@ from Functions.Widget_classes import (
     delete_data, scroll_to_record, get_columns, get_table_from_view,
     find_current_sub_items, get_record_row, get_id_from_name, add_tree_popup, save_expanded_state, get_readable_header,
     get_name_from_id, find_tree_model, get_view_from_table,
-    columns_as_list, show_loading_dialog, close_loading_dialog,
+    columns_as_list,
     get_edit_view_from_table, common_strings, get_headers, get_name_column
 )
 from Functions import SQLUtils
@@ -50,6 +50,8 @@ from ui.AgeDialog import AgeDialog
 from ui.ColumnDialog import ColumnDialog
 from ui.Merge import MergeDialog
 from util.database.views import view_attributes_dict
+
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 import time
 
 class SetSelectedValues(QtW.QDialog):

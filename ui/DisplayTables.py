@@ -14,7 +14,7 @@ from PyQt6.uic import loadUi
 from Functions.Widget_classes import (
     save_expanded_state,
     expand_collapse, add_tree_popup, get_name_column,
-    get_headers, get_total_records, get_record_row, close_loading_dialog, show_loading_dialog, columns_as_list,
+    get_headers, get_total_records, get_record_row, columns_as_list,
     TableToolTipModel, get_id_from_name, scroll_to_record, get_view_from_table
 )
 import Functions.Text_manipulations as TxM
@@ -43,6 +43,8 @@ from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags
 from ui.New_reference import NewReference
 from ui.SampleInformation import SampleInformation
+
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 import logger_setup
 import time
 

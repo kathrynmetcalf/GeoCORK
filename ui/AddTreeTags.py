@@ -19,9 +19,9 @@ from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyMode
 
 settings = SettingsManager().settings
 from Functions.Widget_classes import (expand_collapse, save_expanded_state,
-                                      restore_expanded_state, show_loading_dialog, close_loading_dialog,
-                                      get_headers, set_table, get_id_from_name)
+                                      restore_expanded_state, get_headers, set_table, get_id_from_name)
 
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 
 class AddTreeTags(QtW.QDialog):
     """

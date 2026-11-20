@@ -11,7 +11,7 @@ import logger_setup
 from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 
-from Functions.Widget_classes import show_loading_dialog, close_loading_dialog
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.database.formats import concordance_formats, error_formats, gps_formats
 from util.database.units import age_units, analytical_units, distance_units, direction_units
 

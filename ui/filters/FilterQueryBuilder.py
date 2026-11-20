@@ -8,11 +8,11 @@ from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QVBoxLayout, QScrollArea, QSizePolicy, QWidget, QListWidgetItem, QMessageBox, QLabel
 
 from Functions import SQLUtils
-import logger_setup
-from Functions.Widget_classes import show_loading_dialog, close_loading_dialog
+
 from ui.filters.FilterHelpers import process_group
 from ui.filters.FilterGroupBox import FilterGroupBox
 from util.database.database_helper import get_join_from_table
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 
 
 class FilterQueryBuilder(QWidget):

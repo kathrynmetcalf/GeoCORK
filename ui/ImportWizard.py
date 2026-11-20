@@ -43,9 +43,12 @@ from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyMode
 settings = SettingsManager().settings
 from Functions.Widget_classes import (
     save_expanded_state, get_name_column, add_tree_popup, get_id_from_name, get_name_from_id,
-    get_headers, CompleterInputDialog,
+    get_headers,
     get_view_from_table,
-    search_dictionary, show_loading_dialog, close_loading_dialog, DisableItemModel, delete_data, find_tree_model)
+    search_dictionary, DisableItemModel, delete_data, find_tree_model)
+
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
+from util.widgets.dialogs import CompleterInputDialog
 
 from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags

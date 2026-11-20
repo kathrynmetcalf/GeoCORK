@@ -18,8 +18,7 @@ import Functions.SQLUtils as SQLUtils
 from Functions.Widget_classes import (
     get_name_column, find_current_sub_items, add_tree_popup,
     find_tree_model, save_expanded_state,
-    get_name_from_id, get_view_from_table,
-    show_loading_dialog, close_loading_dialog
+    get_name_from_id, get_view_from_table
 )
 from util.database.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import update_modified_timestamp
@@ -38,6 +37,8 @@ from ui.EditTree import EditTree
 from util.populate_models import populate_many_combo_checks, populate_model_checks, populate_combo_box
 from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
 from util.widgets.models.TreeModel import TreeModel
+
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 
 settings = SettingsManager().settings
 

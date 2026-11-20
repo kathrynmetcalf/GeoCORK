@@ -15,7 +15,9 @@ from Functions.Settings_manager import SettingsManager
 from util.widgets.models.ReadableProxyModel import ReadableProxyModel
 
 settings = SettingsManager().settings
-from Functions.Widget_classes import set_table, get_headers, get_name_column, get_description_column, close_loading_dialog
+from Functions.Widget_classes import set_table, get_headers, get_name_column, get_description_column
+
+from util.loading_dialog_manager import close_loading_dialog
 
 
 class AddTags(QtW.QDialog):

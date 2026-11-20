@@ -10,9 +10,11 @@ from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_ke
 from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
-from Functions.LoadingDialog_manager import LoadingDialogManager
+from util.loading_dialog_manager import LoadingDialogManager
 loading_manager = LoadingDialogManager.get_instance()
 from Functions.Widget_classes import set_table, get_columns, get_headers, bulk_update_parent_row
+
+
 # the below imports are required for GPS conversions, pycharm detects no usage do not remove
 # below comments are for pycharm to ignore issues
 # noinspection PyUnresolvedReferences

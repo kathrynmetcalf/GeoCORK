@@ -10,7 +10,8 @@ from Functions.Settings_manager import SettingsManager
 
 from ui.settings.SettingsCore import reset_to_default_settings, populate_app_defaults, check_missing_settings, default_settings
 from util.widgets.event_filters import TooltipFilter
-# keep must be importedto work
+# keep must be imported to work
+# noinspection PyUnresolvedReferences
 from PyQt6 import QtWebEngineWidgets
 
 settings = SettingsManager().settings

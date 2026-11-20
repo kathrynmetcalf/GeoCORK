@@ -7,8 +7,7 @@ from PyQt6 import QtSql as QtS
 
 from Functions.Widget_classes import (
     get_headers, add_tree_popup,
-    save_expanded_state, get_name_from_id, find_tree_model, get_view_from_table, show_loading_dialog,
-    close_loading_dialog, set_comboBox_text, update_modified_timestamp
+    save_expanded_state, get_name_from_id, find_tree_model, get_view_from_table, set_comboBox_text, update_modified_timestamp
 )
 from Functions import SQLUtils
 from Functions.Settings_manager import SettingsManager
@@ -25,6 +24,8 @@ from util.populate_models import populate_combo_box, populate_many_combo_checks
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
 from util.widgets.GroupBoxes.FocusGroupBox import FocusGroupBox
 from util.widgets.models.TreeModel import TreeModel
+
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 
 settings = SettingsManager().settings
 

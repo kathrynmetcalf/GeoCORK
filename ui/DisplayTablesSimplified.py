@@ -14,8 +14,7 @@ import Functions.Text_manipulations as TxM
 from Functions import SQLUtils
 from Functions.Settings_manager import SettingsManager
 
-from Functions.Widget_classes import (save_expanded_state, get_view_from_table,
-                                      show_loading_dialog, close_loading_dialog, FrozenTableView)
+from Functions.Widget_classes import save_expanded_state, get_view_from_table
 from Functions.Database_views import ViewQuery
 
 import logger_setup
@@ -25,6 +24,9 @@ from util.widgets.models.ReadableProxyModel import ReadableProxyModel
 from util.widgets.models.SQLiteTableModel import SQLiteTableModel
 from util.widgets.models.TreeModel import TreeModel
 from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
+from util.widgets.views.frozen_views import FrozenTableView
+
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 
 settings = SettingsManager().settings
 

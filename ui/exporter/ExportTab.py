@@ -25,8 +25,7 @@ from util.database.export import ExportDatabase
 from Functions import SQLUtils
 from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
 from Functions.Database_views import ViewQuery
-from Functions.Widget_classes import (find_parent_items, show_loading_dialog,
-                                      close_loading_dialog, columns_as_list, get_total_records)
+from Functions.Widget_classes import find_parent_items, columns_as_list, get_total_records
 from Functions.Settings_manager import SettingsManager
 from ui.filters import FilterHelpers
 from ui.filters.FiltersTab import FiltersTab
@@ -36,6 +35,7 @@ from util.populate_models import populate_combo_box
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
 from util.widgets.models.ReadableProxyModel import ReadableProxyModel
 from util.widgets.models.SQLiteTableModel import SQLiteTableModel
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 
 settings = SettingsManager().settings
 

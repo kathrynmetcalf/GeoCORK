@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import QMessageBox, QProgressDialog, QApplication
 from PyQt6.QtCore import QStandardPaths, QEventLoop
 
 from util.database.backup.BackupDatabase import BackupThread
-from Functions.LoadingDialog_manager import LoadingDialogManager
+from util.loading_dialog_manager import LoadingDialogManager
 from util.database.Savepoint_manager import SavepointManager
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings

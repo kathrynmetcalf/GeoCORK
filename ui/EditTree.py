@@ -12,7 +12,7 @@ from ui.Merge import MergeDialog
 
 from Functions.Widget_classes import (
     set_table, get_selected_tree_ids, expand_collapse, save_expanded_state,
-    add_tree_popup, show_loading_dialog, close_loading_dialog,
+    add_tree_popup,
     restore_expanded_state
 )
 from ui.AddTreeTags import AddTreeTags
@@ -22,6 +22,8 @@ from util.widgets.context_menus import TreeContextMenu
 from util.widgets.models.TrackExpandedTreeView import TrackExpandedTreeView
 from util.widgets.models.TreeModel import TreeModel
 from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
+
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 
 settings = SettingsManager().settings
 

@@ -5,7 +5,7 @@ import ui.GPSFields
 import logger_setup
 from util.database.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
 from Functions.Settings_manager import SettingsManager
-from Functions.Widget_classes import close_loading_dialog
+from util.loading_dialog_manager import close_loading_dialog
 settings = SettingsManager().settings
 
 

@@ -5,9 +5,9 @@ import PyQt6.QtCore as QtC
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 
 from Functions import SQLUtils
-from Functions.LoadingDialog_manager import LoadingDialogManager
+from util.loading_dialog_manager import LoadingDialogManager
 from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
-from Functions.Widget_classes import show_loading_dialog, close_loading_dialog
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 import logger_setup
 
 

@@ -2,7 +2,7 @@ from PyQt6 import QtWidgets
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QDialogButtonBox
 
-from Functions.Widget_classes import close_loading_dialog, show_loading_dialog
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 import logger_setup
 
 

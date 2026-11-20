@@ -8,7 +8,7 @@ import logger_setup
 from Functions import SQLUtils
 from Functions.Database_views import ViewQuery
 from Functions.Settings_manager import SettingsManager
-from Functions.Widget_classes import show_loading_dialog, get_view_from_table, close_loading_dialog, get_name_column, \
+from Functions.Widget_classes import get_view_from_table, get_name_column, \
     get_headers, set_table, show_column, get_edit_column, get_name_from_id
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
 from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
@@ -27,6 +27,7 @@ from util.widgets.models.SQLiteTableModel import SQLiteTableModel
 from util.widgets.models.SampleAgeProxyModel import SampleAgeProxyModel
 from util.widgets.models.TreeModel import TreeModel
 from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 
 settings = SettingsManager().settings
 

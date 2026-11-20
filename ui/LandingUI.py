@@ -16,9 +16,10 @@ import logger_setup
 from util.database import Savepoint_manager
 from Functions.Database_manager import update_database, turn_on_foreign_keys
 from Functions.Settings_manager import SettingsManager
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
+
 settings = SettingsManager().settings
 from Functions.Text_manipulations import shrink_home, expand_home
-from Functions.Widget_classes import show_loading_dialog, close_loading_dialog
 from ui.MergeDatabaseUI import MergeDatabaseDialog
 from ui.settings.SettingsCore import update_stylesheet
 

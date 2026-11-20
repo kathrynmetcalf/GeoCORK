@@ -5,7 +5,7 @@ from PyQt6 import QtSql
 from PyQt6.QtWidgets import QProgressDialog, QApplication
 
 import logger_setup
-from Functions.LoadingDialog_manager import LoadingDialogManager
+from util.loading_dialog_manager import LoadingDialogManager
 
 '''Commands to create the database indexes'''
 '''SQL strings to create each index'''

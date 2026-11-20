@@ -21,7 +21,7 @@ from Functions.Settings_manager import SettingsManager
 from ui.SampleMap import SampleMapWindow
 
 from Functions.Text_manipulations import shrink_home, expand_home
-from Functions.Widget_classes import get_name_from_id, close_loading_dialog, show_loading_dialog
+from Functions.Widget_classes import get_name_from_id
 from util.widgets.tabs.PartiallyCloseableTabWidget import PartiallyCloseableTabWidget
 from ui.DisplayTables import DisplayTables
 from ui.exporter.ExportTab import ExportTab
@@ -30,6 +30,8 @@ from ui.SampleInformation import SampleInformation
 from ui.settings.Settings import SettingsDialog
 from ui.ViewDataTab import ViewDataTab
 from ui.settings.SettingsCore import default_settings
+
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 
 settings = SettingsManager().settings
 

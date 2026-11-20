@@ -6,8 +6,7 @@ import logger_setup
 
 from Functions.Widget_classes import (
     find_current_sub_items, get_name_from_id,
-    find_tree_model, show_loading_dialog, close_loading_dialog, find_child_ids, update_modified_timestamp
-)
+    find_tree_model, find_child_ids, update_modified_timestamp)
 from Functions import SQLUtils
 from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
@@ -17,6 +16,7 @@ from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
 
 settings = SettingsManager().settings
 from Functions.Database_views import ViewQuery
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 
 class SampleChainEdit(QtW.QDialog):
     def __init__(self, parent_window, child_table: str, current_parents: dict, child_ids: list):

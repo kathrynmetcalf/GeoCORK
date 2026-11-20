@@ -19,8 +19,7 @@ from Functions.Database_views import ViewQuery
 from Functions.Widget_classes import (
     get_name_column,
     get_id_from_name, get_record_row, columns_as_list, get_view_from_table, find_current_sub_items,
-    show_loading_dialog, close_loading_dialog, expand_collapse,
-    scroll_to_record)
+    expand_collapse, scroll_to_record)
 from Functions.Widget_classes import get_headers
 
 from Functions.Settings_manager import SettingsManager
@@ -45,6 +44,8 @@ from util.widgets.models.TrackExpandedTreeView import TrackExpandedTreeView
 from util.widgets.models.TreeModel import TreeModel
 from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
 from util.widgets.views.frozen_views import FrozenTableView
+
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 
 settings = SettingsManager().settings
 

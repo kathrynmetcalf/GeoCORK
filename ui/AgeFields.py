@@ -11,7 +11,6 @@ from PyQt6.uic import loadUi
 from Functions.Widget_classes import (
     set_table, delete_data, get_name_column, get_view_from_table,
     find_tree_model, get_headers, add_tree_popup, save_expanded_state,
-    show_loading_dialog, close_loading_dialog,
     get_id_from_name, get_name_from_id
 )
 
@@ -32,6 +31,8 @@ from ui.EditTree import EditTree
 from ui.EditTable import EditTable
 from ui.AddTreeTags import AddTreeTags
 from ui.AddTags import AddTags
+
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 
 import logger_setup
 

@@ -6,21 +6,20 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
-from PyQt6.QtCore import Qt, QSortFilterProxyModel, QObject, QSettings, QEvent
+from PyQt6.QtCore import Qt, QSortFilterProxyModel
 from PyQt6.QtGui import QBrush, QColor
 from PyQt6.QtSql import QSqlQuery, QSqlDatabase
-from PyQt6.QtWidgets import QToolTip
 
 import Functions.Text_manipulations as TxM
 import logger_setup
 from Functions import SQLUtils
 from Functions.Check_triggers import update_modified_timestamp
-from Functions.LoadingDialog_manager import LoadingDialogManager
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from Functions.Database_views import ViewQuery
 from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 from util.database.database_helper import get_join_from_table
-from util.widgets.delegates import ActiveSelectionDelegate
+
 
 settings = SettingsManager().settings
 
@@ -577,6 +576,7 @@ def scroll_to_record(record_id: int, view: QtW.QTableView):
             # selection_model.setCurrentIndex(view_index, QtC.QItemSelectionModel.SelectionFlag.Current)
         # view.updateGeometry()
         view.viewport().update()
+        from util.widgets.views.frozen_views import FrozenTableView
         if isinstance(view, FrozenTableView):
             view.frozen_table_view.viewport().update()
         view.setFocus()
@@ -1718,41 +1718,7 @@ def map_from_tree_model(input_model, tree_indexes: list[QtC.QModelIndex]):
     return model_indexes
 
 
-class CompleterInputDialog(QtW.QDialog):
-    """
-    A dialog that allows the user to input text with a completer. This dialog contains a combo box with a completer
-    that provides suggestions based on a list of strings. The user can type in the combo box, and the completer will
-    suggest completions based on the input.
-    """
-    def __init__(self, parent: QtW.QWidget, title: str, label: str, completer_list: list[str], editable: bool = False):
-        super().__init__(parent)
-        self.setWindowTitle(title)
-        self.setLayout(QtW.QVBoxLayout())
-        self.layout().addWidget(QtW.QLabel(label))
-        self.combo_box = QtW.QComboBox()
-        self.combo_box.setEditable(editable)
-        self.line_edit = self.combo_box.lineEdit()
-        self.combo_box.addItems(completer_list)
-        list_model = QtC.QStringListModel(sorted(completer_list, key=str.casefold))
-        list_proxy_model = QtC.QSortFilterProxyModel()
-        list_proxy_model.setSourceModel(list_model)
-        list_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
-        list_proxy_model.setSortCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
-        self.completer = QtW.QCompleter()
-        self.completer.setModel(list_proxy_model)
-        self.completer.setFilterMode(QtC.Qt.MatchFlag.MatchContains)
-        self.completer.setCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
-        self.completer.setModelSorting(QtW.QCompleter.ModelSorting.CaseInsensitivelySortedModel)
-        self.completer.setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
-        self.line_edit.setCompleter(self.completer)
-        self.layout().addWidget(self.combo_box)
-        self.button_box = QtW.QDialogButtonBox(QtW.QDialogButtonBox.StandardButton.Ok | QtW.QDialogButtonBox.StandardButton.Cancel)
-        self.layout().addWidget(self.button_box)
-        self.button_box.accepted.connect(self.accept)
-        self.button_box.rejected.connect(self.reject)
 
-    def get_input(self):
-        return self.line_edit.text()
 
 class ReorderListView(QtW.QListView):
     """
@@ -2329,27 +2295,10 @@ def get_readable_header(header: str):
         header = header.replace('(', ' (')
     return header
 
-loading_manager = LoadingDialogManager.get_instance()
 
-def show_loading_dialog(title, message):
-    """
-    Show a loading dialog while the action is taking place. The loading dialog is managed by the
-    LoadingDialogManager, which ensures that it is closed properly after the action is completed. The title and message
-    of the loading dialog can be customized.
-    :param title: Title of the loading dialog
-    :param message: Message to display in the loading dialog
-    :return:
-    """
-    loading_manager.show_loading_dialog(title, message)
 
-def close_loading_dialog(title, message):
-    """
-    Close the loading dialog with the given title and message. This ensures that the loading dialog is closed properly.
-    :param title: Title of the loading dialog to close
-    :param message: Message displayed in the loading dialog to close
-    :return:
-    """
-    loading_manager.close_loading_dialog(title, message)
+
+
 
 
 # ---------------------------

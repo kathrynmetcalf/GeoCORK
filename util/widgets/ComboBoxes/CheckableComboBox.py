@@ -4,8 +4,7 @@ from PyQt6 import QtCore, QtWidgets, QtGui
 import Functions.Text_manipulations as TxM
 
 import logger_setup
-from Functions.Widget_classes import get_name_column, get_view_from_table, show_column, \
-    close_loading_dialog, show_loading_dialog
+from Functions.Widget_classes import get_name_column, get_view_from_table, show_column
 from util.widgets.context_menus import TreeContextMenu
 from util.widgets.models.CheckableSQLiteTableModel import CheckableSQLiteTableModel
 from util.widgets.models.CheckableSqlQueryModel import CheckableSqlQueryModel
@@ -13,6 +12,8 @@ from util.widgets.models.CheckableSqlTableModel import CheckableSqlTableModel
 from util.widgets.models.CheckableTreeModel import CheckableTreeModel
 from util.widgets.models.ReadableProxyModel import ReadableProxyModel
 from util.widgets.models.SampleAgeTableModel import SampleAgeTableModel
+
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 
 
 class CheckableComboBox(QtWidgets.QComboBox):

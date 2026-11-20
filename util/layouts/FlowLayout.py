@@ -1,8 +1,5 @@
 from PyQt6.QtCore import QSize, QPoint, Qt, QRect, pyqtSignal
-from PyQt6.QtWidgets import (
-    QWidget, QScrollArea, QVBoxLayout, QLayout, QSpacerItem, QSizePolicy
-)
-
+from PyQt6.QtWidgets import QWidget, QScrollArea, QVBoxLayout, QLayout, QSpacerItem, QSizePolicy
 
 class FlowLayout(QLayout):
     """A ``QLayout`` that arranges its child widgets horizontally and vertically.

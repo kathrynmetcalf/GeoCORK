@@ -1,11 +1,12 @@
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtSql as QtS
 
-from Functions.Widget_classes import (get_name_from_id, get_headers, get_name_column, get_id_from_name,
-                                      show_loading_dialog, close_loading_dialog)
+from Functions.Widget_classes import get_name_from_id, get_headers, get_name_column, get_id_from_name
 from Functions import SQLUtils
 import logger_setup
 from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 
 class MergeDialog(QtW.QDialog):
     def __init__(self, table, merge_ids, parent=None):

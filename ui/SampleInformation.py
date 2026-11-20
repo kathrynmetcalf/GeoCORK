@@ -16,7 +16,7 @@ import Functions.SQLUtils as SQLUtils
 from Functions.Widget_classes import (
     set_table, save_expanded_state,
     delete_data, find_tree_model, get_headers, add_tree_popup,
-    get_view_from_table, close_loading_dialog, show_loading_dialog,
+    get_view_from_table,
     get_id_from_name, get_name_column
 )
 from util.database.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
@@ -42,6 +42,8 @@ from util.widgets.models.CheckableSqlTableModel import CheckableSqlTableModel
 from util.widgets.models.SQLiteTableModel import SQLiteTableModel
 from util.widgets.models.TreeModel import TreeModel
 from util.widgets.models.ReadableProxyModel import ReadableProxyModel
+
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 
 settings = SettingsManager().settings
 

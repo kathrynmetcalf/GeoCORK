@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
 
 import logger_setup
 from ui.DataViewerWidget import DataViewerWidget
-from Functions.Widget_classes import show_loading_dialog
+from util.loading_dialog_manager import show_loading_dialog
 from ui.filters.SaveFilterDialog import SaveFilterDialog
 
 VIEWABLE_LABELS = {

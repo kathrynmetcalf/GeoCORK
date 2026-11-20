@@ -7,8 +7,9 @@ from PyQt6.QtGui import QBrush, QColor, QFont
 from PyQt6.QtWidgets import QApplication, QProgressDialog
 
 import logger_setup
-from Functions.LoadingDialog_manager import LoadingDialogManager
-from Functions.Widget_classes import strip_strings, close_loading_dialog, show_loading_dialog
+from util.loading_dialog_manager import LoadingDialogManager
+from Functions.Widget_classes import strip_strings
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 
 
 class ImportSheetModel(QAbstractTableModel):

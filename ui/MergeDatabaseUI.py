@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import QDialogButtonBox, QFileDialog, QDialog, QMessageBox
 from PyQt6.uic import loadUi
 
 import logger_setup
-from Functions.LoadingDialog_manager import LoadingDialogManager
+from util.loading_dialog_manager import LoadingDialogManager
 from util.database.merge.merge_helper import merge_database
 
 
