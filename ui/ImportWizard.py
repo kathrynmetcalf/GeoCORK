@@ -25,14 +25,26 @@ from Functions import SQLUtils
 from Functions.Check_triggers import validate_insert, validate_update
 from Functions.Database_manager import update_database
 from Functions.Settings_manager import SettingsManager
+from Functions.Widget_classes import (
+    save_expanded_state, get_name_column, add_tree_popup, get_id_from_name, get_name_from_id,
+    get_headers,
+    get_view_from_table,
+    search_dictionary, delete_data, find_tree_model)
+from ui.AddTags import AddTags
+from ui.AddTreeTags import AddTreeTags
+from ui.EditTable import EditTable
+from ui.EditTree import EditTree
 from ui.EditView import EditView
+from ui.New_reference import NewReference
 from ui.settings.SettingsCore import get_importer_brushes
 from util.database.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.populate_models import populate_combo_box
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
 from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
 from util.widgets.ComboBoxes.SearchableComboBox import SearchableComboBox
 from util.widgets.GroupBoxes.CollapsibleGroupBox import CollapsibleGroupBox
+from util.widgets.dialogs import CompleterInputDialog
 from util.widgets.models.item_models import DisableItemModel
 from util.widgets.models.proxy_models import TreeSortFilterProxyModel
 from util.widgets.models.query_models import CheckableSqlQueryModel
@@ -40,20 +52,6 @@ from util.widgets.models.table_models import CheckableSQLiteTableModel, Checkabl
 from util.widgets.models.tree_models import CheckableTreeModel
 
 settings = SettingsManager().settings
-from Functions.Widget_classes import (
-    save_expanded_state, get_name_column, add_tree_popup, get_id_from_name, get_name_from_id,
-    get_headers,
-    get_view_from_table,
-    search_dictionary, delete_data, find_tree_model)
-
-from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
-from util.widgets.dialogs import CompleterInputDialog
-
-from ui.AddTags import AddTags
-from ui.AddTreeTags import AddTreeTags
-from ui.EditTable import EditTable
-from ui.EditTree import EditTree
-from ui.New_reference import NewReference
 
 CONFIG_FILE = 'column_mappings.json'
 CONFIG_FILE = QStandardPaths.writableLocation(

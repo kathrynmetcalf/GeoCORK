@@ -7,7 +7,6 @@ from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import Qt, QSortFilterProxyModel
-from PyQt6.QtGui import QBrush, QColor
 from PyQt6.QtSql import QSqlQuery, QSqlDatabase
 
 import util.Text_manipulations as TxM

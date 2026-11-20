@@ -1,22 +1,22 @@
-from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtSql as QtS
+from PyQt6 import QtWidgets as QtW
 
 import logger_setup
-
+from Functions import SQLUtils
+from Functions.Database_views import ViewQuery
+from Functions.Settings_manager import SettingsManager
 from Functions.Widget_classes import (
     find_current_sub_items, get_name_from_id,
     find_tree_model, find_child_ids, update_modified_timestamp)
-from Functions import SQLUtils
 from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
-from Functions.Settings_manager import SettingsManager
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.populate_models import populate_combo_box
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
 from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
 
 settings = SettingsManager().settings
-from Functions.Database_views import ViewQuery
-from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
+
 
 class SampleChainEdit(QtW.QDialog):
     def __init__(self, parent_window, child_table: str, current_parents: dict, child_ids: list):
@@ -45,7 +45,8 @@ class SampleChainEdit(QtW.QDialog):
         self.new_grain_id = None
         self.new_spot_id = None
         self.modes = ['Existing', 'Move', 'New']
-        self.mode_tooltips = ['Assign subitems to an existing item', 'Move items at this level under a new item', 'Create a new item at this level']
+        self.mode_tooltips = ['Assign subitems to an existing item', 'Move items at this level under a new item',
+                              'Create a new item at this level']
 
         self.grid_layout = QtW.QGridLayout()
         self.horizontal_layout = QtW.QHBoxLayout()
@@ -99,7 +100,8 @@ class SampleChainEdit(QtW.QDialog):
                 self.sample_mode_comboBox.addItem(value)
                 self.sample_mode_comboBox.setItemData(i, self.mode_tooltips[i], QtC.Qt.ItemDataRole.ToolTipRole)
         view_query = ViewQuery('Samples', True, **{'show_columns': settings.value('sample_edit_columns')[0:4]})
-        populate_combo_box(self.sample_comboBox, **{'table': 'Samples', 'query': view_query.table_query, 'view_query': view_query})
+        populate_combo_box(self.sample_comboBox,
+                           **{'table': 'Samples', 'query': view_query.table_query, 'view_query': view_query})
         if 'Samples' in self.current_parents and self.current_parents["Samples"]:
             self.current_sample_id = self.current_parents["Samples"][0]
             current_sample_name = get_name_from_id('Samples', self.current_sample_id)
@@ -193,19 +195,22 @@ class SampleChainEdit(QtW.QDialog):
             new_sample_id = list(self.sample_comboBox.source_model().checked_ids)[0]
         else:
             new_sample_id = None
-        if not new_sample_id and self.sample_comboBox.model().rowCount()>0:
+        if not new_sample_id and self.sample_comboBox.model().rowCount() > 0:
             # Check the first one
             new_sample_id = self.sample_comboBox.source_model().index(0, 1).data(QtC.Qt.ItemDataRole.DisplayRole)
             self.sample_comboBox.source_model().update_model_checks({new_sample_id}, {})
-        elif not new_sample_id and (self.sample_mode_comboBox.currentText() == 'New' or self.sample_comboBox.model().rowCount()==0):
+        elif not new_sample_id and (
+                self.sample_mode_comboBox.currentText() == 'New' or self.sample_comboBox.model().rowCount() == 0):
             self.aliquot_comboBox.clear()
             close_loading_dialog('Loading', 'Updating aliquots...')
         if new_sample_id != self.new_sample_id:
             self.new_sample_id = new_sample_id
-        query_args = {'show_columns': settings.value(SQLUtils.view_setting_dict['AliquotEditView']), 'where': f' WHERE SampleID = {self.new_sample_id}'}
+        query_args = {'show_columns': settings.value(SQLUtils.view_setting_dict['AliquotEditView']),
+                      'where': f' WHERE SampleID = {self.new_sample_id}'}
         view_query = ViewQuery('Aliquots', True, **query_args)
         table_query = view_query.table_query
-        populate_combo_box(self.aliquot_comboBox, **{'table': 'Aliquots', 'query': table_query, 'view_query': view_query})
+        populate_combo_box(self.aliquot_comboBox,
+                           **{'table': 'Aliquots', 'query': table_query, 'view_query': view_query})
         close_loading_dialog('Loading', 'Updating aliquots...')
 
     def update_grains_spots(self):
@@ -217,7 +222,7 @@ class SampleChainEdit(QtW.QDialog):
             new_aliquot_id = list(aliquot_tree_model.checked_ids)[0]
         else:
             new_aliquot_id = None
-        if not new_aliquot_id and aliquot_tree_model.rowCount(QtC.QModelIndex())>0:
+        if not new_aliquot_id and aliquot_tree_model.rowCount(QtC.QModelIndex()) > 0:
             # Check the first one
             new_aliquot_id = aliquot_tree_model.index(0, 1, QtC.QModelIndex()).data(QtC.Qt.ItemDataRole.DisplayRole)
             aliquot_tree_model.update_model_checks({new_aliquot_id}, {})
@@ -241,14 +246,16 @@ class SampleChainEdit(QtW.QDialog):
         else:
             new_grain_id = None
         if not new_grain_id:
-            query_args = {'show_columns': settings.value(SQLUtils.view_setting_dict['SpotEditView']), 'where': f'WHERE AliquotID = {self.new_aliquot_id}'}
+            query_args = {'show_columns': settings.value(SQLUtils.view_setting_dict['SpotEditView']),
+                          'where': f'WHERE AliquotID = {self.new_aliquot_id}'}
             view_query = ViewQuery('Spots', True, **query_args)
             table_query = view_query.table_query
             populate_combo_box(self.spot_comboBox, **{'table': 'Spots', 'query': table_query, 'view_query': view_query})
         else:
             if new_grain_id != self.new_grain_id:
                 self.new_grain_id = new_grain_id
-            populate_combo_box(self.spot_comboBox, **{'table': 'Spots', 'query': f'SELECT * FROM Spots WHERE AliquotID = {self.new_aliquot_id} AND GrainID = {self.new_grain_id}'})
+            populate_combo_box(self.spot_comboBox, **{'table': 'Spots',
+                                                      'query': f'SELECT * FROM Spots WHERE AliquotID = {self.new_aliquot_id} AND GrainID = {self.new_grain_id}'})
         close_loading_dialog('Loading', 'Updating spots...')
 
     def mode_changed(self):
@@ -319,7 +326,8 @@ class SampleChainEdit(QtW.QDialog):
                 query.bindValue(0, new_sample_name)
                 if not query.exec():
                     if 'UNIQUE constraint failed: Samples.SampleName' in query.lastError().text():
-                        logger_setup.get_logger().error(f'Sample name "{new_sample_name}" already exists in the database. Names must be unique.')
+                        logger_setup.get_logger().error(
+                            f'Sample name "{new_sample_name}" already exists in the database. Names must be unique.')
                     else:
                         logger_setup.get_logger().critical(f'Error updating sample chain for {self.child_table}')
                         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
@@ -348,7 +356,8 @@ class SampleChainEdit(QtW.QDialog):
                 query.bindValue(2, self.new_sample_id)
                 if not query.exec():
                     if 'UNIQUE constraint failed: Aliquots.AliquotName' in query.lastError().text():
-                        logger_setup.get_logger().error(f'Aliquot name {new_aliquot_name} already exists in the database. Names must be unique.')
+                        logger_setup.get_logger().error(
+                            f'Aliquot name {new_aliquot_name} already exists in the database. Names must be unique.')
                     else:
                         logger_setup.get_logger().critical(f'Error updating sample chain for {self.child_table}')
                         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
@@ -361,7 +370,8 @@ class SampleChainEdit(QtW.QDialog):
                 if not self.new_aliquot_id:
                     logger_setup.get_logger().error(f'Aliquot required for {self.child_table}')
                     return False
-                if not query.exec(f'SELECT ParentAliquotID, AliquotParentRow, SampleID FROM Aliquots WHERE AliquotID = {self.new_aliquot_id}'):
+                if not query.exec(
+                        f'SELECT ParentAliquotID, AliquotParentRow, SampleID FROM Aliquots WHERE AliquotID = {self.new_aliquot_id}'):
                     logger_setup.get_logger().critical(f'Error updating sample chain for {self.child_table}')
                     logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                     logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
@@ -386,7 +396,8 @@ class SampleChainEdit(QtW.QDialog):
                             aliquot_rows.append(query.value(0))
                         aliquot_rows.sort(reverse=True)
                         parent_row = aliquot_rows[0] + 1
-                    if not query.exec(f'UPDATE Aliquots SET (SampleID, ParentAliquotID, AliquotParentRow) = ({self.new_sample_id}, NULL, {parent_row}) WHERE AliquotID = {self.new_aliquot_id}'):
+                    if not query.exec(
+                            f'UPDATE Aliquots SET (SampleID, ParentAliquotID, AliquotParentRow) = ({self.new_sample_id}, NULL, {parent_row}) WHERE AliquotID = {self.new_aliquot_id}'):
                         logger_setup.get_logger().critical(f'Error updating sample chain for {self.child_table}')
                         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
@@ -400,7 +411,8 @@ class SampleChainEdit(QtW.QDialog):
                 query.bindValue(0, new_grain_name)
                 if not query.exec():
                     if 'UNIQUE constraint failed: Grains.GrainName' in query.lastError().text():
-                        logger_setup.get_logger().error(f'Grain name "{new_grain_name}" already exists in the database. Names must be unique.')
+                        logger_setup.get_logger().error(
+                            f'Grain name "{new_grain_name}" already exists in the database. Names must be unique.')
                     else:
                         logger_setup.get_logger().critical(f'Error updating sample chain for {self.child_table}')
                         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
@@ -420,7 +432,8 @@ class SampleChainEdit(QtW.QDialog):
                     query.bindValue(2, QtC.QVariant())
                 if not query.exec():
                     if 'UNIQUE constraint failed: Spots.SpotName' in query.lastError().text():
-                        logger_setup.get_logger().error(f'Spot name "{new_spot_name}" already exists in the database. Names must be unique.')
+                        logger_setup.get_logger().error(
+                            f'Spot name "{new_spot_name}" already exists in the database. Names must be unique.')
                     else:
                         logger_setup.get_logger().critical(f'Error updating sample chain for {self.child_table}')
                         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
@@ -433,7 +446,8 @@ class SampleChainEdit(QtW.QDialog):
                 if self.child_table == 'UPbAnalyses' and not self.new_spot_id:
                     logger_setup.get_logger().error(f'Spot required for {self.child_table}')
                     return False
-                if not query.prepare(f'UPDATE Spots SET (AliquotID, GrainID) = (?,?) WHERE SpotID = {self.new_spot_id}'):
+                if not query.prepare(
+                        f'UPDATE Spots SET (AliquotID, GrainID) = (?,?) WHERE SpotID = {self.new_spot_id}'):
                     logger_setup.get_logger().critical(f'Error updating sample chain for {self.child_table}')
                     logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                     logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
@@ -483,7 +497,8 @@ class SampleChainEdit(QtW.QDialog):
                 if not self.new_spot_id:
                     logger_setup.get_logger().error(f'Spot required for {self.child_table}')
                     return False
-                if not query.exec(f'UPDATE UPbAnalyses SET SpotID = {self.new_spot_id} WHERE UPbAnalysisID {sql_where}'):
+                if not query.exec(
+                        f'UPDATE UPbAnalyses SET SpotID = {self.new_spot_id} WHERE UPbAnalysisID {sql_where}'):
                     logger_setup.get_logger().critical(f'Error updating sample chain for {self.child_table}')
                     logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                     logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
@@ -513,7 +528,8 @@ class SampleChainEdit(QtW.QDialog):
                     logger_setup.get_logger().error(f'Aliquot required for {self.child_table}')
                     return False
                 select_query = QtS.QSqlQuery()
-                if not select_query.exec(f'SELECT SpotID FROM Spots WHERE AliquotID = {self.new_aliquot_id} AND GrainID {sql_where}'):
+                if not select_query.exec(
+                        f'SELECT SpotID FROM Spots WHERE AliquotID = {self.new_aliquot_id} AND GrainID {sql_where}'):
                     logger_setup.get_logger().critical(f'Error updating sample chain for {self.child_table}')
                     logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                     logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
@@ -535,7 +551,8 @@ class SampleChainEdit(QtW.QDialog):
                     return False
                 update_sample_ids = []
                 update_aliquot_parent_ids = []
-                if not query.exec(f'SELECT AliquotID, ParentAliquotID, SampleID FROM Aliquots WHERE AliquotID {sql_where}'):
+                if not query.exec(
+                        f'SELECT AliquotID, ParentAliquotID, SampleID FROM Aliquots WHERE AliquotID {sql_where}'):
                     logger_setup.get_logger().critical(f'Error updating sample chain for {self.child_table}')
                     logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                     logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
@@ -563,7 +580,8 @@ class SampleChainEdit(QtW.QDialog):
                     parent_row = aliquot_rows[0]
                     for aliquot_id in self.child_ids:
                         parent_row += 1
-                        if not query.exec(f'UPDATE Aliquots SET (ParentAliquotID, AliquotParentRow) = (NULL, {parent_row}) WHERE AliquotID = {aliquot_id}'):
+                        if not query.exec(
+                                f'UPDATE Aliquots SET (ParentAliquotID, AliquotParentRow) = (NULL, {parent_row}) WHERE AliquotID = {aliquot_id}'):
                             logger_setup.get_logger().critical(f'Error updating sample chain for {self.child_table}')
                             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                             logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
@@ -579,7 +597,8 @@ class SampleChainEdit(QtW.QDialog):
                         aliquot_where = f'= {update_sample_ids[0]}'
                     else:
                         aliquot_where = f'IN ({", ".join(str(update_id) for update_id in update_sample_ids)})'
-                    if not query.exec(f'UPDATE Aliquots SET SampleID = {self.new_sample_id} WHERE AliquotID {aliquot_where}'):
+                    if not query.exec(
+                            f'UPDATE Aliquots SET SampleID = {self.new_sample_id} WHERE AliquotID {aliquot_where}'):
                         logger_setup.get_logger().critical(f'Error updating sample chain for {self.child_table}')
                         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
@@ -605,22 +624,23 @@ class SampleChainEdit(QtW.QDialog):
             self.new_sample_id = list(self.sample_comboBox.source_model().checked_ids)[0]
         else:
             self.new_sample_id = None
-        if self.aliquot_comboBox.model().rowCount(QtC.QModelIndex())>0:
+        if self.aliquot_comboBox.model().rowCount(QtC.QModelIndex()) > 0:
             aliquot_tree_model = find_tree_model(self.aliquot_comboBox.model(), None)[0]
             if aliquot_tree_model.checked_ids and not self.aliquot_lineEdit:
                 self.new_aliquot_id = list(aliquot_tree_model.checked_ids)[0]
             else:
                 self.new_aliquot_id = None
-        if self.grain_comboBox.model().rowCount()>0 and self.grain_comboBox.source_model().checked_ids and not self.grain_lineEdit:
+        if self.grain_comboBox.model().rowCount() > 0 and self.grain_comboBox.source_model().checked_ids and not self.grain_lineEdit:
             self.new_grain_id = list(self.grain_comboBox.source_model().checked_ids)[0]
         else:
             self.new_grain_id = None
-        if self.spot_comboBox.model().rowCount()>0 and self.spot_comboBox.source_model().checked_ids and not self.spot_lineEdit:
+        if self.spot_comboBox.model().rowCount() > 0 and self.spot_comboBox.source_model().checked_ids and not self.spot_lineEdit:
             self.new_spot_id = list(self.spot_comboBox.source_model().checked_ids)[0]
         else:
             self.new_spot_id = None
         if (self.new_sample_id == self.current_sample_id and self.new_aliquot_id == self.current_aliquot_id
-                and (self.new_grain_id==self.current_grain_id or (not self.new_grain_id and not self.current_grain_id))
+                and (self.new_grain_id == self.current_grain_id or (
+                        not self.new_grain_id and not self.current_grain_id))
                 and self.new_spot_id == self.new_spot_id):
             self.updated = False
         else:

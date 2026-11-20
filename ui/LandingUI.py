@@ -12,17 +12,17 @@ from PyQt6.QtSql import QSqlDatabase
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QFileDialog, QPushButton, QMessageBox, QMainWindow, \
     QListWidget, QListWidgetItem, QApplication, QLabel, QWidget, QVBoxLayout, QHBoxLayout
+
 import logger_setup
-from util.database import Savepoint_manager
 from Functions.Database_manager import update_database, turn_on_foreign_keys
 from Functions.Settings_manager import SettingsManager
+from ui.MergeDatabaseUI import MergeDatabaseDialog
+from ui.settings.SettingsCore import update_stylesheet
+from util.Text_manipulations import shrink_home, expand_home
+from util.database import Savepoint_manager
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 
 settings = SettingsManager().settings
-from util.Text_manipulations import shrink_home, expand_home
-from ui.MergeDatabaseUI import MergeDatabaseDialog
-from ui.settings.SettingsCore import update_stylesheet
-
 
 LOGO_BOX = QSize(500, 100)
 """Maximum size of the landing page logo; the logo is scaled to fit while keeping its aspect ratio."""
@@ -106,8 +106,9 @@ class LandingPage(QMainWindow):
         bottom_info = QWidget()
         bottom_info.setLayout(QHBoxLayout())
 
-        self.citation = LinkLabel(text = f'Metcalf, K., & Burges, J. 2026. kathrynmetcalf/GeoCORK: GeoCORK {settings.value('default_geocork_version')}. Zenodo. https://doi.org/10.5281/zenodo.15833658',
-                                  url = 'https://doi.org/10.5281/zenodo.15833658')
+        self.citation = LinkLabel(
+            text=f'Metcalf, K., & Burges, J. 2026. kathrynmetcalf/GeoCORK: GeoCORK {settings.value('default_geocork_version')}. Zenodo. https://doi.org/10.5281/zenodo.15833658',
+            url='https://doi.org/10.5281/zenodo.15833658')
         self.citation.setObjectName("citation")
         self.citation.setToolTip("Double-click to open the GeoCORK publication citation")
         bottom_info.layout().addWidget(self.citation)
@@ -144,7 +145,7 @@ class LandingPage(QMainWindow):
             # Move the selected database to the top of the list
 
             if self.selected_files not in self.list_recents:
-                self.list_recents.insert(0, self.selected_files) # Add the new database to the top of the list
+                self.list_recents.insert(0, self.selected_files)  # Add the new database to the top of the list
             else:
                 self.list_recents.remove(self.selected_files)
                 self.list_recents.insert(0, self.selected_files)
@@ -260,10 +261,10 @@ class LandingPage(QMainWindow):
         if not self.test_database_lock():
             if '/' in self.selected_files:
                 show_loading_dialog("Opening",
-                         f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
+                                    f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
             elif '\\' in self.selected_files:
                 show_loading_dialog("Opening",
-                         f"Opening {self.selected_files.split('\\')[-1]}... \n(GeoCORK may be slower for large databases)")
+                                    f"Opening {self.selected_files.split('\\')[-1]}... \n(GeoCORK may be slower for large databases)")
             QtWidgets.QApplication.processEvents()
             from ui.GeoCORKMain import GeoCORK
             for widget in QApplication.allWidgets():
@@ -283,12 +284,12 @@ class LandingPage(QMainWindow):
                 if not self.db.isOpen():
                     logger_setup.get_logger().critical(f"Error opening database: {self.db.lastError().text()}")
                     close_loading_dialog("Opening",
-                         f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
+                                         f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
                     self.show()
                     return
                 if not turn_on_foreign_keys():
                     close_loading_dialog("Opening",
-                         f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
+                                         f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
                     self.show()
                     return
                 Savepoint_manager.SavepointManager()
@@ -296,7 +297,7 @@ class LandingPage(QMainWindow):
                 if not update_database():
                     logger_setup.get_logger().critical('Error updating and displaying database')
                     close_loading_dialog("Opening",
-                         f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
+                                         f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
                     self.show()
                     return
             self.hide()
@@ -339,12 +340,14 @@ class LandingPage(QMainWindow):
 
         logger_setup.get_logger().info('Beginning Restore')
         self.last_percent = 0
+
         def progress(status, remaining, total):
             # Calculate progress percentage
             percent = 100 - int((remaining / total) * 100)
             if percent != self.last_percent:
                 logger_setup.get_logger().info(f'Backup Progress: {percent}')
                 self.last_percent = percent
+
         backup.backup(src, pages=5, progress=progress)
         src.commit()
         backup.commit()
@@ -353,14 +356,13 @@ class LandingPage(QMainWindow):
 
         self.open_geo_cork()
 
-
     def cancel_open(self):
         if '/' in self.selected_files:
             close_loading_dialog("Opening",
-                         f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
+                                 f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
         elif '\\' in self.selected_files:
             close_loading_dialog("Opening",
-                         f"Opening {self.selected_files.split('\\')[-1]}... \n(GeoCORK may be slower for large databases)")
+                                 f"Opening {self.selected_files.split('\\')[-1]}... \n(GeoCORK may be slower for large databases)")
         self.db.close()
         self.db = None
 
@@ -383,12 +385,12 @@ class LandingPage(QMainWindow):
             if "database is locked" in str(e):
                 logger_setup.get_logger().debug(
                     f"Database lock error: {e}")
-                self.show_message("Database Locked", "The database is currently locked. Make sure it is not in use elsewhere.")
+                self.show_message("Database Locked",
+                                  "The database is currently locked. Make sure it is not in use elsewhere.")
                 return True
             else:
                 self.show_message("Error", f"An error occurred: {e}")
         return False
-
 
     def show_message(self, title, message):
         msg_box = QMessageBox(self)
@@ -440,7 +442,6 @@ class LandingPage(QMainWindow):
             self.db = None
             self.open_geo_cork()
 
-
     def new_database_dialog(self):
         file_name, _ = QFileDialog.getSaveFileName(
             None,
@@ -470,7 +471,7 @@ class LandingPage(QMainWindow):
             Savepoint_manager.SavepointManager()
             self.selected_files = file_name
             if self.selected_files not in self.list_recents:
-                self.list_recents.insert(0, self.selected_files) # Add the new database to the top of the list
+                self.list_recents.insert(0, self.selected_files)  # Add the new database to the top of the list
                 settings.setValue("ui/LandingPage/recentlist", self.list_recents)
             settings.setValue('db_file', file_name)
             self.open_about_db()
@@ -478,7 +479,6 @@ class LandingPage(QMainWindow):
 
     def open_github(self):
         webbrowser.open('https://github.com/kathrynmetcalf/GeoCORK')
-
 
     def showFileDialog(self):
         if self.listWidget.currentItem() is not None:
@@ -575,7 +575,6 @@ class LandingPage(QMainWindow):
             settings.setValue('ui/LandingPage/recentlist', self.list_recents)
             self.listWidget.clear()
 
-
     def get_filename(self):
         return self.selected_files
 
@@ -589,6 +588,7 @@ class LandingPage(QMainWindow):
 
     def clear_selection(self):
         self.listWidget.setCurrentItem(None)
+
 
 class UnselectableListWidget(QListWidget):
     def __init__(self, parent=None):

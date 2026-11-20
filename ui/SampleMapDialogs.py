@@ -4,14 +4,14 @@ from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
 
 import Functions.SQLUtils as SQLUtils
-import util.Text_manipulations as TxM
 import logger_setup
+import util.Text_manipulations as TxM
 from Functions.Alter_database import convert_gps_location
 from Functions.Check_triggers import validate_insert, update_modified_timestamp
 from Functions.Database_manager import update_database
+from ui.AddTreeTags import AddTreeTags
 from util.database.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from util.loading_dialog_manager import show_loading_dialog
-from ui.AddTreeTags import AddTreeTags
 
 SAMPLE_TAG_TABLES = {key.split('.')[0]: schema for key, schema in SQLUtils.tree_tables_schema.items()
                      if schema['bridge_table'].startswith('Samples_')}
@@ -73,7 +73,8 @@ class MapAddSampleDialog(QtW.QDialog):
         form.addRow('Elevation error', self.elev_error_lineEdit)
         form.addRow('Elevation unit', self.elev_unit_comboBox)
         form.addRow('Description', self.description_textEdit)
-        buttons = QtW.QDialogButtonBox(QtW.QDialogButtonBox.StandardButton.Ok | QtW.QDialogButtonBox.StandardButton.Cancel)
+        buttons = QtW.QDialogButtonBox(
+            QtW.QDialogButtonBox.StandardButton.Ok | QtW.QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.add_sample)
         buttons.rejected.connect(self.reject)
         form.addRow(buttons)
@@ -126,7 +127,8 @@ class MapAddSampleDialog(QtW.QDialog):
         if gps_id:
             logger_setup.get_logger().info(f'GPS location already exists with ID {gps_id}')
         else:
-            query.prepare(f'INSERT INTO GPSLocations ({", ".join(GPS_COLUMNS)}) VALUES ({", ".join("?" * len(GPS_COLUMNS))})')
+            query.prepare(
+                f'INSERT INTO GPSLocations ({", ".join(GPS_COLUMNS)}) VALUES ({", ".join("?" * len(GPS_COLUMNS))})')
             for value in gps_values:
                 query.addBindValue(bind(value))
             if not query.exec():
@@ -270,6 +272,7 @@ class BulkTagDialog(QtW.QDialog):
             shown = child_visible or text.casefold() in item.text(0).casefold()
             item.setHidden(not shown)
             return shown
+
         for i in range(self.tags_treeWidget.topLevelItemCount()):
             visible(self.tags_treeWidget.topLevelItem(i))
 
@@ -281,8 +284,9 @@ class BulkTagDialog(QtW.QDialog):
         s = self.schema
         query = QtS.QSqlQuery()
         if add:
-            query.prepare(f'INSERT OR IGNORE INTO {s["bridge_table"]} ({s["bridge_from_column"]}, {s["bridge_to_column"]}) '
-                          f'VALUES (?, ?)')
+            query.prepare(
+                f'INSERT OR IGNORE INTO {s["bridge_table"]} ({s["bridge_from_column"]}, {s["bridge_to_column"]}) '
+                f'VALUES (?, ?)')
         else:
             query.prepare(f'DELETE FROM {s["bridge_table"]} '
                           f'WHERE {s["bridge_from_column"]} = ? AND {s["bridge_to_column"]} = ?')

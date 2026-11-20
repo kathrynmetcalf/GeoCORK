@@ -1,11 +1,13 @@
 from PyQt6 import QtWidgets as QtW
-from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import QPoint, QSize, QEventLoop
-import ui.GPSFields
+from PyQt6.QtWidgets import QApplication
+
 import logger_setup
-from util.database.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
+import ui.GPSFields
 from Functions.Settings_manager import SettingsManager
+from util.database.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
 from util.loading_dialog_manager import close_loading_dialog
+
 settings = SettingsManager().settings
 
 

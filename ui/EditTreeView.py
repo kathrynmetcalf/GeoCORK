@@ -1,49 +1,47 @@
 import os
 import sys
+import time
 
-from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
+from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import QPoint, QSize, QSortFilterProxyModel
 from PyQt6.uic import loadUi
-import util.Text_manipulations as TxM
+
 import logger_setup
+import util.Text_manipulations as TxM
+from Functions import SQLUtils
+from Functions.Database_views import ViewQuery
+from Functions.Settings_manager import SettingsManager
+from Functions.Widget_classes import find_tree_model
 from Functions.Widget_classes import (
     get_headers, get_name_column, set_table, get_columns, get_readable_header, find_current_sub_items, get_id_from_name,
     add_tree_popup, save_expanded_state, restore_expanded_state, get_selected_tree_ids,
     expand_collapse, get_name_from_id, get_view_from_table, columns_as_list_current,
     delete_data, delete_query, update_modified_timestamp
 )
-from Functions import SQLUtils
-from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
-from Functions.Settings_manager import SettingsManager
 from ui.AddDataItem import AddDataItem
+from ui.AddTags import AddTags
+from ui.AddTreeTags import AddTreeTags
+from ui.EditTable import EditTable
+from ui.EditTree import EditTree
 from ui.EditView import EditView
+from ui.Merge import MergeDialog
 from ui.New_reference import NewReference
-from util.populate_models import populate_many_combo_checks, populate_model_checks
+from ui.SampleChainEdit import SampleChainEdit
+from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
+from util.populate_models import populate_many_combo_checks, populate_model_checks, populate_combo_box
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
 from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
 from util.widgets.context_menus import TreeContextMenu
-
+from util.widgets.models.proxy_models import TreeSortFilterProxyModel
 from util.widgets.models.query_models import CheckableSqlQueryModel
 from util.widgets.models.table_models import CheckableSqlTableModel, SQLiteTableModel
 from util.widgets.models.tree_models import CheckableTreeModel, TreeModel
-from util.widgets.models.proxy_models import TreeSortFilterProxyModel
 
 settings = SettingsManager().settings
-from Functions.Database_views import ViewQuery
-from ui.AddTags import AddTags
-from ui.AddTreeTags import AddTreeTags
-from ui.EditTree import EditTree
-from ui.EditTable import EditTable
-from ui.Merge import MergeDialog
-from ui.SampleChainEdit import SampleChainEdit
-from Functions.Widget_classes import find_tree_model
-
-from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
-
-import time
 
 
 class SetSelectedValues(QtW.QDialog):

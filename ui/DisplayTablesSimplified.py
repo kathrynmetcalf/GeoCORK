@@ -9,24 +9,18 @@ from PyQt6.QtSql import QSqlDatabase
 from PyQt6.QtWidgets import QTreeView
 from PyQt6.uic import loadUi
 
-import util.Text_manipulations as TxM
-
-from Functions import SQLUtils
-from Functions.Settings_manager import SettingsManager
-
-from Functions.Widget_classes import save_expanded_state, get_view_from_table
-from Functions.Database_views import ViewQuery
-
 import logger_setup
-from util.widgets.models.DisplayRoundedTableModel import DisplayRoundedTableModel
-from util.widgets.models.DisplayRoundedQueryModel import DisplayRoundedQueryModel
-from util.widgets.models.ReadableProxyModel import ReadableProxyModel
-from util.widgets.models.SQLiteTableModel import SQLiteTableModel
-from util.widgets.models.TreeModel import TreeModel
-from util.widgets.models.TreeSortFilterProxyModel import TreeSortFilterProxyModel
-from util.widgets.views.frozen_views import FrozenTableView
-
+import util.Text_manipulations as TxM
+from Functions import SQLUtils
+from Functions.Database_views import ViewQuery
+from Functions.Settings_manager import SettingsManager
+from Functions.Widget_classes import save_expanded_state, get_view_from_table
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
+from util.widgets.models.proxy_models import ReadableProxyModel, TreeSortFilterProxyModel
+from util.widgets.models.query_models import DisplayRoundedQueryModel
+from util.widgets.models.table_models import DisplayRoundedTableModel, SQLiteTableModel
+from util.widgets.models.tree_models import TreeModel
+from util.widgets.views.frozen_views import FrozenTableView
 
 settings = SettingsManager().settings
 

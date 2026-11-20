@@ -2,47 +2,40 @@ import os
 import sys
 import time
 
-from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
-
+from PyQt6 import QtWidgets as QtW
 from PyQt6.uic import loadUi
 
-import logger_setup
-
 import Functions.SQLUtils as SQLUtils
-
+import logger_setup
+from Functions.Check_triggers import update_modified_timestamp
+from Functions.Settings_manager import SettingsManager
 from Functions.Widget_classes import (
     set_table, save_expanded_state,
     delete_data, find_tree_model, get_headers, add_tree_popup,
     get_view_from_table,
     get_id_from_name, get_name_column
 )
-from util.database.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
-from Functions.Check_triggers import update_modified_timestamp
-from Functions.Settings_manager import SettingsManager
-from ui.EditView import EditView
-
-
-from ui.GPSFields import GPSFields
+from ui.AddTags import AddTags
+from ui.AddTreeTags import AddTreeTags
 from ui.AgeFields import AgeFields
 from ui.ColumnFields import ColumnFields
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
-from ui.AddTags import AddTags
-from ui.AddTreeTags import AddTreeTags
-from ui.New_reference import NewReference
 from ui.EditUPbTags import EditUPbTags
-
+from ui.EditView import EditView
+from ui.GPSFields import GPSFields
+from ui.New_reference import NewReference
+from util.database.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.populate_models import populate_many_combo_checks, populate_combo_box
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
 from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
+from util.widgets.models.proxy_models import ReadableProxyModel
 from util.widgets.models.table_models import CheckableSqlTableModel, SQLiteTableModel
 from util.widgets.models.tree_models import TreeModel
-from util.widgets.models.proxy_models import ReadableProxyModel
-
-from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 
 settings = SettingsManager().settings
 
@@ -121,7 +114,8 @@ class SampleInformation(QtW.QDialog):
 
         self.installEventFilter(self)
         end_init_time = time.time()
-        logger_setup.get_logger().info(f"Sample information dialog initialized in {end_init_time - start_init_time} seconds")
+        logger_setup.get_logger().info(
+            f"Sample information dialog initialized in {end_init_time - start_init_time} seconds")
         self.showMaximized()
 
         close_loading_dialog('Loading', f'Opening Sample Information window...')
@@ -153,7 +147,8 @@ class SampleInformation(QtW.QDialog):
         self.sample_names_model.select()
         for row in range(self.sample_names_model.rowCount()):
             name_index = self.sample_names_model.index(row, 1, QtC.QModelIndex())
-            if self.sample_names_model.data(name_index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
+            if self.sample_names_model.data(name_index,
+                                            QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
                 name = self.sample_names_model.data(name_index, QtC.Qt.ItemDataRole.DisplayRole)
                 checked_sample_names.append(name)
                 # add the sample id to the list
@@ -177,11 +172,12 @@ class SampleInformation(QtW.QDialog):
         self.sample_names_proxy.sort(get_name_column('Samples'), QtC.Qt.SortOrder.AscendingOrder)
         logger_setup.get_logger().info(f"Updated sample list: {self.checked_sample_names}")
         end_update_sample_list_time = time.time()
-        logger_setup.get_logger().info(f"Updated sample list: {self.checked_sample_names} in {end_update_sample_list_time - start_update_sample_list_time} seconds")
+        logger_setup.get_logger().info(
+            f"Updated sample list: {self.checked_sample_names} in {end_update_sample_list_time - start_update_sample_list_time} seconds")
         self.update_fields()
 
     def update_fields(self):
-        show_loading_dialog('Updating','Updating fields...')
+        show_loading_dialog('Updating', 'Updating fields...')
         logger_setup.get_logger().info("Updating fields")
         self.disconnect_text_signals()
         if set(self.gps.item_ids) != set(self.checked_sample_list):
@@ -225,7 +221,8 @@ class SampleInformation(QtW.QDialog):
         self.sample_name_comboBox.view().setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         end_populate_dropdown_time = time.time()
         close_loading_dialog('Loading', 'Populating dropdowns...')
-        logger_setup.get_logger().info(f"Populated dropdowns in {end_populate_dropdown_time - start_populate_dropdown_time} seconds")
+        logger_setup.get_logger().info(
+            f"Populated dropdowns in {end_populate_dropdown_time - start_populate_dropdown_time} seconds")
         logger_setup.get_logger().info("Dropdowns populated")
 
     def connect_signals(self):
@@ -239,8 +236,10 @@ class SampleInformation(QtW.QDialog):
         # self.sample_name_comboBox.view().customContextMenuRequested.connect(self.show_context_menu)
         self.sample_name_comboBox.edit_triggered.connect(self.edit_popup)
         self.sample_name_comboBox.delete_triggered.connect(self.delete_item)
-        self.sample_name_lineEdit.editingFinished.connect(lambda: self.update_field('SampleName', f'{self.sample_name_lineEdit.text()}'))
-        self.sample_igsn_lineEdit.editingFinished.connect(lambda: self.update_field('SampleIGSN', f'{self.sample_igsn_lineEdit.text()}'))
+        self.sample_name_lineEdit.editingFinished.connect(
+            lambda: self.update_field('SampleName', f'{self.sample_name_lineEdit.text()}'))
+        self.sample_igsn_lineEdit.editingFinished.connect(
+            lambda: self.update_field('SampleIGSN', f'{self.sample_igsn_lineEdit.text()}'))
         self.sample_context_comboBox.closing.connect(lambda: self.update_sample_tags(self.sample_context_comboBox))
         self.sample_context_comboBox.add_triggered.connect(self.add_popup)
         self.sample_context_comboBox.edit_triggered.connect(self.edit_popup)
@@ -262,7 +261,8 @@ class SampleInformation(QtW.QDialog):
         self.age_signature_comboBox.closing.connect(lambda: self.update_sample_tags(self.age_signature_comboBox))
         self.age_signature_comboBox.add_triggered.connect(self.add_popup)
         self.age_signature_comboBox.edit_triggered.connect(self.edit_popup)
-        self.sample_description_textEdit.editingFinished.connect(lambda: self.update_field('SampleDescription', f'{self.sample_description_textEdit.toPlainText()}'))
+        self.sample_description_textEdit.editingFinished.connect(
+            lambda: self.update_field('SampleDescription', f'{self.sample_description_textEdit.toPlainText()}'))
         logger_setup.get_logger().info("Signals connected")
 
     def disconnect_text_signals(self):
@@ -320,7 +320,7 @@ class SampleInformation(QtW.QDialog):
                     self.sample_description_textEdit.setText(f"{text}")
 
         # Sample tags
-        populate_many_combo_checks('Samples_SampleContexts',self.sample_context_comboBox, self.checked_sample_list)
+        populate_many_combo_checks('Samples_SampleContexts', self.sample_context_comboBox, self.checked_sample_list)
         populate_many_combo_checks('Samples_SamplingMethods', self.sampling_method_comboBox, self.checked_sample_list)
         populate_many_combo_checks('Samples_Units', self.unit_comboBox, self.checked_sample_list)
         populate_many_combo_checks('Samples_RockTypes', self.rock_type_comboBox, self.checked_sample_list)
@@ -329,7 +329,8 @@ class SampleInformation(QtW.QDialog):
         populate_many_combo_checks('Samples_AgeSignatures', self.age_signature_comboBox, self.checked_sample_list)
 
         end_populate_fields_time = time.time()
-        logger_setup.get_logger().info(f"Populated fields in {end_populate_fields_time - start_populate_fields_time} seconds")
+        logger_setup.get_logger().info(
+            f"Populated fields in {end_populate_fields_time - start_populate_fields_time} seconds")
         logger_setup.get_logger().info("Fields populated")
 
     def clear_fields(self):
@@ -342,7 +343,8 @@ class SampleInformation(QtW.QDialog):
         if self.sample_context_comboBox.model().rowCount() > 0:
             populate_many_combo_checks('Samples_SampleContexts', self.sample_context_comboBox, self.checked_sample_list)
         if self.sampling_method_comboBox.model().rowCount() > 0:
-            populate_many_combo_checks('Samples_SamplingMethods', self.sampling_method_comboBox, self.checked_sample_list)
+            populate_many_combo_checks('Samples_SamplingMethods', self.sampling_method_comboBox,
+                                       self.checked_sample_list)
         if self.unit_comboBox.model().rowCount() > 0:
             populate_many_combo_checks('Samples_Units', self.unit_comboBox, self.checked_sample_list)
         if self.rock_type_comboBox.model().rowCount() > 0:
@@ -371,7 +373,8 @@ class SampleInformation(QtW.QDialog):
         if self.samples_table.rowCount() == 0:
             logger_setup.get_logger().info("No samples to populate")
             return
-        logger_setup.get_logger().info(f"Populated sample dictionary in {time.time() - start_populate_samples_time} seconds")
+        logger_setup.get_logger().info(
+            f"Populated sample dictionary in {time.time() - start_populate_samples_time} seconds")
 
     def update_field(self, field: str, text: str):
         logger_setup.get_logger().info(f"Update field called with {field} and {text}")
@@ -381,12 +384,14 @@ class SampleInformation(QtW.QDialog):
         start_update_field_time = time.time()
         if text != "-":
             if len(self.checked_sample_list) > 0:
-                logger_setup.get_logger().info(f"Updating {field} to {text} for {len(self.checked_sample_list)} samples")
+                logger_setup.get_logger().info(
+                    f"Updating {field} to {text} for {len(self.checked_sample_list)} samples")
                 query = QtS.QSqlQuery()
                 create_savepoint('before_update')
                 for sample_id in self.checked_sample_list:
                     if not query.exec(f"SELECT {field} FROM Samples WHERE SampleID = {sample_id}"):
-                        logger_setup.get_logger().critical(f"Failed to select {field} for SampleID {sample_id}: {query.lastError().text()}")
+                        logger_setup.get_logger().critical(
+                            f"Failed to select {field} for SampleID {sample_id}: {query.lastError().text()}")
                         return
                     query.next()
                     if query.value(0) != text:
@@ -397,7 +402,8 @@ class SampleInformation(QtW.QDialog):
                         query.bindValue(":text", text)
                         query.bindValue(":sample_id", sample_id)
                         if not query.exec():
-                            logger_setup.get_logger().critical(f"Failed to update {field} to {text} for SampleID {sample_id}: {query.lastError().text()}")
+                            logger_setup.get_logger().critical(
+                                f"Failed to update {field} to {text} for SampleID {sample_id}: {query.lastError().text()}")
                             rollback_savepoint('before_update')
                             return
                         update_modified_timestamp('Samples', [sample_id])
@@ -412,29 +418,34 @@ class SampleInformation(QtW.QDialog):
             else:
                 logger_setup.get_logger().info("No samples selected")
 
-    def update_id(self, id_field: str, name_field:str, text: str, table: str):
+    def update_id(self, id_field: str, name_field: str, text: str, table: str):
         logger_setup.get_logger().info(f'update_id called with {id_field}, {name_field}, {text}, {table}')
         start_update_id_time = time.time()
         item_id = get_id_from_name(table, text)
         if len(self.checked_sample_list) > 0:
-            logger_setup.get_logger().info(f"Updating {id_field} to {item_id} for {len(self.checked_sample_list)} samples")
+            logger_setup.get_logger().info(
+                f"Updating {id_field} to {item_id} for {len(self.checked_sample_list)} samples")
             query = QtS.QSqlQuery()
             create_savepoint('before_update')
             for sample_id in self.checked_sample_list:
                 if not query.exec(f"SELECT {id_field} FROM Samples WHERE SampleID = {sample_id}"):
-                    logger_setup.get_logger().critical(f"Failed to select {id_field} for SampleID {sample_id}: {query.lastError().text()}")
+                    logger_setup.get_logger().critical(
+                        f"Failed to select {id_field} for SampleID {sample_id}: {query.lastError().text()}")
                     return
                 query.next()
                 if query.value(0) != item_id:
                     if not query.exec(f"UPDATE Samples SET {id_field} = {item_id} WHERE SampleID = {sample_id}"):
-                        logger_setup.get_logger().critical(f"Failed to update {id_field} to {item_id} for SampleID {sample_id}: {query.lastError().text()}")
+                        logger_setup.get_logger().critical(
+                            f"Failed to update {id_field} to {item_id} for SampleID {sample_id}: {query.lastError().text()}")
                         rollback_savepoint('before_update')
                         return
             update_modified_timestamp('Samples', self.checked_sample_list)
             self.updated = True
             end_update_id_time = time.time()
-            logger_setup.get_logger().info(f"Updated {id_field} to {item_id} for {len(self.checked_sample_list)} samples in {end_update_id_time - start_update_id_time} seconds")
-            logger_setup.get_logger().info(f"Updated {id_field} to {item_id} for {len(self.checked_sample_list)} samples")
+            logger_setup.get_logger().info(
+                f"Updated {id_field} to {item_id} for {len(self.checked_sample_list)} samples in {end_update_id_time - start_update_id_time} seconds")
+            logger_setup.get_logger().info(
+                f"Updated {id_field} to {item_id} for {len(self.checked_sample_list)} samples")
             release_savepoint('before_update')
         else:
             logger_setup.get_logger().info("No samples selected")
@@ -469,7 +480,8 @@ class SampleInformation(QtW.QDialog):
         self.updated = True
         populate_many_combo_checks(f'Samples_{table}', combo, self.checked_sample_list)
         end_update_sample_tags_time = time.time()
-        logger_setup.get_logger().info(f"Updated {table} for {len(self.checked_sample_list)} samples in {end_update_sample_tags_time - start_update_sample_tags} seconds")
+        logger_setup.get_logger().info(
+            f"Updated {table} for {len(self.checked_sample_list)} samples in {end_update_sample_tags_time - start_update_sample_tags} seconds")
         release_savepoint('before_update')
         return True
 
@@ -574,7 +586,8 @@ class SampleInformation(QtW.QDialog):
         model = combo.model()
         table = None
         while not table:
-            try: table = model.tableName()
+            try:
+                table = model.tableName()
             except AttributeError:
                 model = model.sourceModel()
         if isinstance(combo, CheckableComboBox):

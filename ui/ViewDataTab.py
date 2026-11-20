@@ -2,8 +2,8 @@ import time
 
 import qtawesome
 from PyQt6 import QtCore as QtC
-from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtSql as QtS
+from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import QTimer, QRegularExpression
 from PyQt6.QtWidgets import QHeaderView, QLabel, QPushButton
 
@@ -11,8 +11,6 @@ import logger_setup
 from Functions.Database_manager import update_database
 from Functions.Database_views import ViewQuery
 from Functions.Settings_manager import SettingsManager
-from ui.settings import SettingsCore
-
 from Functions.Widget_classes import (expand_collapse, get_name_column, get_headers,
                                       get_view_from_table, get_readable_header,
                                       get_record_row,
@@ -20,15 +18,14 @@ from Functions.Widget_classes import (expand_collapse, get_name_column, get_head
                                       scroll_to_record)
 from ui.EditTreeView import EditTreeView
 from ui.EditView import EditView
-from util.widgets.context_menus import TreeContextMenu
-
-from util.widgets.models.table_models import SQLiteTableModel
-from util.widgets.views.tree_views import TrackExpandedTreeView
-from util.widgets.models.tree_models import TreeModel
-from util.widgets.models.proxy_models import TreeSortFilterProxyModel, ReadableProxyModel
-from util.widgets.views.frozen_views import FrozenTableView
-
+from ui.settings import SettingsCore
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
+from util.widgets.context_menus import TreeContextMenu
+from util.widgets.models.proxy_models import TreeSortFilterProxyModel, ReadableProxyModel
+from util.widgets.models.table_models import SQLiteTableModel
+from util.widgets.models.tree_models import TreeModel
+from util.widgets.views.frozen_views import FrozenTableView
+from util.widgets.views.tree_views import TrackExpandedTreeView
 
 settings = SettingsManager().settings
 
@@ -57,7 +54,8 @@ class ViewDataTab(QtW.QWidget):
             logger_setup.get_logger().critical(f'Error: Invalid child type {self.child_type}')
             self.close()
         self.table = self.child_type
-        self.name_header = get_headers(get_view_from_table(self.table))[get_name_column(get_view_from_table(self.table))]
+        self.name_header = get_headers(get_view_from_table(self.table))[
+            get_name_column(get_view_from_table(self.table))]
         self.name_completer = QtW.QCompleter()
 
         # Retrieve the main window
@@ -100,7 +98,8 @@ class ViewDataTab(QtW.QWidget):
             self.h_layout_bottom.addWidget(self.show_label)
             self.h_layout_bottom.addWidget(self.show_per_page_comboBox)
             self.h_layout_bottom.addWidget(self.page_info_label)
-            self.h_layout_bottom.addItem(QtW.QSpacerItem(20, 20, QtW.QSizePolicy.Policy.Expanding, QtW.QSizePolicy.Policy.Minimum))
+            self.h_layout_bottom.addItem(
+                QtW.QSpacerItem(20, 20, QtW.QSizePolicy.Policy.Expanding, QtW.QSizePolicy.Policy.Minimum))
             self.h_layout_bottom.addWidget(self.goto_line_edit)
         else:
             self.goto_line_edit = None
@@ -307,7 +306,7 @@ class ViewDataTab(QtW.QWidget):
         else:
             self.proxy_model = ReadableProxyModel()
             self.proxy_model.setSourceModel(self.model)
-        self.proxy_model.setFilterKeyColumn(-1) # search all columns
+        self.proxy_model.setFilterKeyColumn(-1)  # search all columns
         self.view.setModel(self.proxy_model)
         if isinstance(self.view, QtW.QTreeView):
             self.view.setSortingEnabled(False)
@@ -351,7 +350,8 @@ class ViewDataTab(QtW.QWidget):
                 hidden_columns = [0, 1, 2, 3, 4]  # don't show UPbAnalysisID, SpotID, GrainID, AliquotID, SampleID
                 frozen_column = 5
             case 'GeoChemicalAnalyses':
-                hidden_columns = [0, 1, 2, 3, 4]  # don't show GeoChemicalAnalysisID, SpotID, GrainID, AliquotID, SampleID
+                hidden_columns = [0, 1, 2, 3,
+                                  4]  # don't show GeoChemicalAnalysisID, SpotID, GrainID, AliquotID, SampleID
                 frozen_column = 5
         for column in range(self.view.model().columnCount()):
             if column in hidden_columns:
@@ -370,7 +370,7 @@ class ViewDataTab(QtW.QWidget):
         self.total_records = len(self.table_item_ids)
         if self.table != 'Aliquots':
             self.page_info_label.setText(
-            f'{self.current_page * self.rows_per_page + 1}-{min((self.current_page + 1) * self.rows_per_page, self.total_records)} of {self.total_records}')
+                f'{self.current_page * self.rows_per_page + 1}-{min((self.current_page + 1) * self.rows_per_page, self.total_records)} of {self.total_records}')
         else:
             self.page_info_label.setText(f'{self.total_records} {self.table}')
         end_display_table_time = time.time()

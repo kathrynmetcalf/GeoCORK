@@ -1,5 +1,5 @@
-from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
+from PyQt6 import QtSql as QtS
 
 import logger_setup
 
@@ -36,6 +36,7 @@ def update_modified_timestamp(table: str, record_ids: list):
         logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
         return f'Error updating modified timestamp for {table}'
     return ''
+
 
 def validate_insert(table: str, columns: list, values: list, gps_format_id: int | None):
     """
@@ -131,7 +132,8 @@ def validate_insert(table: str, columns: list, values: list, gps_format_id: int 
             if error:
                 if error != 'AgeErrorFormatID missing AgeError':
                     return "Age error given without error format", 'AgeErrorFormatID'
-        error, header = check_insert_concordance(pairs, values[columns.index('ConcordanceFormatID')] if 'ConcordanceFormatID' in columns else None)
+        error, header = check_insert_concordance(pairs, values[
+            columns.index('ConcordanceFormatID')] if 'ConcordanceFormatID' in columns else None)
         if error:
             if error != 'ConcordanceFormatID missing Concordance':
                 return "Concordance/discordance given without type", 'ConcordanceFormatID'
@@ -140,6 +142,7 @@ def validate_insert(table: str, columns: list, values: list, gps_format_id: int 
             if error != 'SpotSizeUnitID missing SpotSize':
                 return "Spot size given without units", 'SpotSizeUnitID'
     return None, None
+
 
 def validate_update(table: str, columns: list, values: list, where: str):
     """
@@ -216,7 +219,8 @@ def validate_update(table: str, columns: list, values: list, where: str):
         youngest_unit_error, header = check_update_pairs(all_records, 'YoungestDirectAge', 'DirectAgeUnitID')
         if youngest_unit_error == 'DirectAgeUnitID missing YoungestDirectAge':
             youngest_unit_error = None
-        direct_ages_error, header = check_update_age_range(all_records, 'OldestDirectAge', 'YoungestDirectAge', 'DirectAge')
+        direct_ages_error, header = check_update_age_range(all_records, 'OldestDirectAge', 'YoungestDirectAge',
+                                                           'DirectAge')
         if direct_ages_error:
             return direct_ages_error, header
         if unit_error or oldest_unit_error or youngest_unit_error:
@@ -297,6 +301,7 @@ def validate_update(table: str, columns: list, values: list, where: str):
                 return "Spot size given without units", header
     return None, None
 
+
 def check_update_units(all_records: list, value_col: str, unit_id_col: str):
     """
     Check that the value and unit id are both being set, both not set, or the value is not being set without a unit id
@@ -327,6 +332,7 @@ def check_update_units(all_records: list, value_col: str, unit_id_col: str):
     # A unit id missing a value is not problematic
     return None, None
 
+
 def check_insert_pairs(pairs: list, column1: str, column2: str):
     """
     Checks a pair of columns that should have data in both columns or both be NULL.
@@ -351,6 +357,7 @@ def check_insert_pairs(pairs: list, column1: str, column2: str):
     if new_column1 == 'NULL' and new_column2 != 'NULL':
         return f'{column2} missing {column1}', column1
     return None, None
+
 
 def check_update_pairs(all_records: list, column1, column2):
     column1 = column1.replace(f'"', '')
@@ -388,12 +395,14 @@ def check_update_pairs(all_records: list, column1, column2):
             return f'{column1} missing {column2}', column2
     return None, None
 
+
 def check_insert_age_range(pairs: list, old_column: str, young_column: str):
-    from Functions.Widget_classes import SQLiteTableModel, get_headers
+    from Functions.Widget_classes import get_headers
     if not pairs or not old_column or not young_column:
         return 'Incomplete data given for age range'
     age_model = None
     if 'ID' in old_column and 'ID' in young_column:
+        from util.widgets.models.table_models import SQLiteTableModel
         age_model = SQLiteTableModel('SELECT * FROM Ages')
         if age_model.last_error:
             return f'Unable to access Ages table', None
@@ -426,12 +435,15 @@ def check_insert_age_range(pairs: list, old_column: str, young_column: str):
                 return f'Oldest direct age is younger than youngest direct age', old_column
     return None, None
 
+
 def check_update_age_range(all_records: list, old_column: str, young_column: str, direct_column: str):
-    from Functions.Widget_classes import SQLiteTableModel, get_headers
+    from Functions.Widget_classes import get_headers
+
     if not all_records or not old_column or not young_column:
         return 'Incomplete data given for age range'
     age_model = None
     if 'ID' in old_column and 'ID' in young_column:
+        from util.widgets.models.table_models import SQLiteTableModel
         age_model = SQLiteTableModel('SELECT * FROM Ages')
         if age_model.last_error:
             return f'Unable to access Ages table', None
@@ -516,6 +528,7 @@ def check_update_age_range(all_records: list, old_column: str, young_column: str
             if new_direct < new_young:
                 return f'Direct age not in direct age range', old_column
     return None, None
+
 
 def check_gps_format_insert(pairs: list, format_id: int):
     if not pairs or not format_id:
@@ -657,9 +670,9 @@ def check_gps_format_insert(pairs: list, format_id: int):
                 return 'Use only positive coordinates in NSEW format', 'GPSLatDeg'
             if '-' in new_londeg:
                 return 'Use only positive coordinates in NSEW format', 'GPSLonDeg'
-            if new_latdir in ('3','4'):
+            if new_latdir in ('3', '4'):
                 return 'Latitude direction must be N or S', 'GPSLatDirectionID'
-            if new_londir in ('1','2'):
+            if new_londir in ('1', '2'):
                 return 'Longitude direction must be E or W', 'GPSLonDirectionID'
     if 'UTM' in gps_format_abbreviation:
         if new_latdeg != 'NULL' or new_latmin != 'NULL' or new_latsec != 'NULL' or new_latdir != 'NULL':
@@ -697,6 +710,7 @@ def check_gps_format_insert(pairs: list, format_id: int):
     if new_elev_error != 'NULL' and new_elev == 'NULL':
         return 'Elevation error given without elevation', 'GPSElev'
     return None, None
+
 
 def check_gps_format_update(all_records: list, new_format_id: int):
     gps_format_model = QtS.QSqlTableModel()
@@ -772,7 +786,9 @@ def check_gps_format_update(all_records: list, new_format_id: int):
 
     if 'D' in gps_format_abbreviation:
         # DD, DDM, or DMS
-        if (new_utmn != 'NULL' or (new_utmn == '' and 'NULL' not in old_utmns)) or (new_utme != 'NULL' or (new_utme == '' and 'NULL' not in old_utmes) or (new_utmzone != 'NULL' or (new_utmzone == '' and 'NULL' not in old_utmzones))):
+        if (new_utmn != 'NULL' or (new_utmn == '' and 'NULL' not in old_utmns)) or (
+                new_utme != 'NULL' or (new_utme == '' and 'NULL' not in old_utmes) or (
+                new_utmzone != 'NULL' or (new_utmzone == '' and 'NULL' not in old_utmzones))):
             return 'UTM coordinates given for degrees format. Coordinates should be entered in the format originally provided.', 'GPSUTMZone'
         if (new_latdeg != 'NULL' and new_londeg == 'NULL'):
             return 'Missing degrees lon in degree format', 'GPSLonDeg'
@@ -784,9 +800,11 @@ def check_gps_format_update(all_records: list, new_format_id: int):
             return 'Missing degrees lon in degree format', 'GPSLonDeg'
         if 'DD ' in gps_format_abbreviation:
             # DD
-            if new_latmin != 'NULL' or new_latsec != 'NULL' or (new_latmin == '' and 'NULL' not in old_latmins) or (new_latsec == '' and 'NULL' not in old_latsecs):
+            if new_latmin != 'NULL' or new_latsec != 'NULL' or (new_latmin == '' and 'NULL' not in old_latmins) or (
+                    new_latsec == '' and 'NULL' not in old_latsecs):
                 return 'Minutes and/or seconds given in DD format', 'GPSLatMin'
-            if new_lonmin != 'NULL' or new_lonsec != 'NULL' or (new_lonmin == '' and 'NULL' not in old_lonmins) or (new_lonsec == '' and 'NULL' not in old_lonsecs):
+            if new_lonmin != 'NULL' or new_lonsec != 'NULL' or (new_lonmin == '' and 'NULL' not in old_lonmins) or (
+                    new_lonsec == '' and 'NULL' not in old_lonsecs):
                 return 'Minutes and/or seconds given in DD format', 'GPSLonMin'
         elif 'DM' in gps_format_abbreviation:
             # DDM or DMS
@@ -847,7 +865,7 @@ def check_gps_format_update(all_records: list, new_format_id: int):
             if (new_londir == '' and 'NULL' not in old_londirs) and (new_latdir != '' and 'NULL' in old_latdirs):
                 return 'Only one direction given in NSEW format', 'GPSLonDirectionID'
             if ((new_latdir == 'NULL' and new_latdeg != 'NULL') or
-                    (new_latdir == 'NULL' and new_latdeg =='' and 'NULL' not in old_latdegs) or
+                    (new_latdir == 'NULL' and new_latdeg == '' and 'NULL' not in old_latdegs) or
                     (new_latdir == '' and 'NULL' in old_latdirs and new_latdeg != 'NULL')):
                 return 'Missing direction in NSEW format', 'GPSLatDirectionID'
             if ((new_londir == 'NULL' and new_londeg != 'NULL') or
@@ -866,9 +884,9 @@ def check_gps_format_update(all_records: list, new_format_id: int):
                 return 'Use only positive coordinates in NSEW format', 'GPSLatDeg'
             if '-' in new_londeg or (new_londeg == '' and '-' in old_londegs):
                 return 'Use only positive coordinates in NSEW format', 'GPSLonDeg'
-            if new_latdir in ('3','4'):
+            if new_latdir in ('3', '4'):
                 return 'Latitude direction must be N or S', 'GPSLatDirectionID'
-            if new_londir in ('1','2'):
+            if new_londir in ('1', '2'):
                 return 'Longitude direction must be E or W', 'GPSLonDirectionID'
     if 'UTM' in gps_format_abbreviation:
         if ((new_latdeg != 'NULL' or (new_latdeg == '' and 'NULL' not in old_latdegs)) or
@@ -920,11 +938,16 @@ def check_gps_format_update(all_records: list, new_format_id: int):
                 (new_utmzone != 'NULL' and new_utme == '' and 'NULL' in old_utmes) or
                 (new_utmzone == '' and 'NULL' not in old_utmzones and new_utme == 'NULL')):
             return 'UTM zone given without coordinates in UTM format', 'GPSUTMZone'
-    if (new_elev != 'NULL' and new_elev_unit == 'NULL') or (new_elev != 'NULL' and new_elev_unit == '' and 'NULL' in old_elev_units) or (new_elev == '' and 'NULL' not in old_elevs and new_elev_unit == 'NULL'):
+    if (new_elev != 'NULL' and new_elev_unit == 'NULL') or (
+            new_elev != 'NULL' and new_elev_unit == '' and 'NULL' in old_elev_units) or (
+            new_elev == '' and 'NULL' not in old_elevs and new_elev_unit == 'NULL'):
         return 'Elevation missing units', 'GPSElevUnitID'
-    if (new_elev == 'NULL' and new_elev_error != 'NULL') or (new_elev == 'NULL' and new_elev_error == '' and 'NULL' not in old_elev_errors) or (new_elev == '' and 'NULL' in old_elevs and new_elev_error != 'NULL'):
+    if (new_elev == 'NULL' and new_elev_error != 'NULL') or (
+            new_elev == 'NULL' and new_elev_error == '' and 'NULL' not in old_elev_errors) or (
+            new_elev == '' and 'NULL' in old_elevs and new_elev_error != 'NULL'):
         return 'Elevation error missing elevation', 'GPSElev'
     return None, None
+
 
 def check_insert_concordance(pairs: list, concordance_format_id: int):
     if not pairs or not concordance_format_id:
@@ -947,6 +970,7 @@ def check_insert_concordance(pairs: list, concordance_format_id: int):
     #     if new_68v76_concordance != 'NULL' or new_68v75_concordance != 'NULL':
     #         return '206Pb/238Uv207Pb/206Pb and 207Pb/238Uv207Pb/235U concordance values should be NULL in MinSegDisc format', 'Concordance_206Pb/238Uv207Pb/206Pb'
     return None, None
+
 
 def check_update_concordance(all_records: list):
     """
@@ -989,6 +1013,7 @@ def check_update_concordance(all_records: list):
         return 'Concordance/discordance given without type', 'ConcordanceFormatID'
     return None, None
 
+
 def check_dependencies(table: str, record_id_header: str, record_ids: list, record_names: list):
     """
     Check whether the records provided are being used in other tables
@@ -998,7 +1023,8 @@ def check_dependencies(table: str, record_id_header: str, record_ids: list, reco
     :return: Nothing if successful, error message if not
     """
 
-    def build_dependencies_check(table: str, dependent_table: str, record_id_header: str, record_ids: list, record_names: list):
+    def build_dependencies_check(table: str, dependent_table: str, record_id_header: str, record_ids: list,
+                                 record_names: list):
         """
         Check if the records are being used in the dependent table
         :param table: name of the table to be checked
@@ -1045,12 +1071,13 @@ def check_dependencies(table: str, record_id_header: str, record_ids: list, reco
             record_child_ids.append(child_ids)
         return children_text, record_child_ids
 
-    def build_parent_check(table: str, record_id_header:str, record_ids: list, record_names: list):
+    def build_parent_check(table: str, record_id_header: str, record_ids: list, record_names: list):
         query = QtS.QSqlQuery()
         parents_text = ''
         record_parent_ids = []
         for index in range(len(record_ids)):
-            if not query.exec(f'SELECT "Parent{record_id_header}" FROM {table} WHERE {record_id_header} = {record_ids[index]}'):
+            if not query.exec(
+                    f'SELECT "Parent{record_id_header}" FROM {table} WHERE {record_id_header} = {record_ids[index]}'):
                 return f'Unable to check if {table} records have parents: {query.lastError().text()}'
             parent_ids = []
             while query.next():
@@ -1070,21 +1097,25 @@ def check_dependencies(table: str, record_id_header: str, record_ids: list, reco
         return dependencies_text
     if table == 'Ages':
         # Check if the record is being used in SampleAges
-        dependencies_text, record_dependent_ids = build_dependencies_check(table, 'SampleAges', 'OldestAgeID', record_ids, record_names)
+        dependencies_text, record_dependent_ids = build_dependencies_check(table, 'SampleAges', 'OldestAgeID',
+                                                                           record_ids, record_names)
         text, list = build_dependencies_check(table, 'SampleAges', 'YoungestAgeID', record_ids, record_names)
         dependencies_text += text
         for item in list:
             record_dependent_ids.append(item)
         children_text, record_child_ids = build_child_check(table, 'parentAgeID', record_ids, record_names)
-        parent_text, record_parent_ids = build_parent_check(table, record_id_header, 'parentAgeID', record_ids, record_names)
+        parent_text, record_parent_ids = build_parent_check(table, record_id_header, 'parentAgeID', record_ids,
+                                                            record_names)
         return dependencies_text, record_dependent_ids
     if table == 'AliquotContexts':
         # Check if the record is being used in Aliquots_AliquotContexts
-        dependencies_text = build_dependencies_check(table, 'Aliquots_AliquotContexts', 'AliquotContextID', record_ids, record_names)
+        dependencies_text = build_dependencies_check(table, 'Aliquots_AliquotContexts', 'AliquotContextID', record_ids,
+                                                     record_names)
         return dependencies_text
     if table == 'Aliquots':
         # Check which samples it belongs to
         dependencies_text = build_dependencies_check(table, 'Samples', 'SampleID', record_ids, record_names)
+
 
 def try_float(value):
     try:

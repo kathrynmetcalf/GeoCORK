@@ -1,28 +1,26 @@
-# from operator import itemgetter
 import os
 import sys
+import time
 
-from PyQt6 import QtWidgets as QtW
-from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
+from PyQt6 import QtSql as QtS
+from PyQt6 import QtWidgets as QtW
 from PyQt6.uic import loadUi
+
+import logger_setup
+from Functions.Alter_database import convert_gps_location
+from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
+from Functions.Settings_manager import SettingsManager
 from Functions.Widget_classes import (set_table, set_comboBox_text, get_headers,
                                       delete_data,
                                       get_id_from_name)
-from Functions.Settings_manager import SettingsManager
+from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from util.display_formatting import return_number
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.populate_models import populate_combo_box
 
 settings = SettingsManager().settings
-from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
-from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
-from Functions.Alter_database import convert_gps_location
-
-from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
-
-import time
-import logger_setup
 
 
 class GPSFields(QtW.QWidget):

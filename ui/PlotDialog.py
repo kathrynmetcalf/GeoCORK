@@ -1,16 +1,16 @@
+from PyQt6 import QtCore as QtC
+from PyQt6 import QtGui as QtG
+from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QLabel
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
 from matplotlib.colors import to_hex
 from matplotlib.figure import Figure
-from PyQt6 import QtCore as QtC
-from PyQt6 import QtGui as QtG
-from PyQt6 import QtWidgets as QtW
 
 import logger_setup
+from Functions.Settings_manager import SettingsManager
 from util.plotting.Plot_data import DATA_PROVIDERS, Option
 from util.plotting.Plot_types import PLOT_TYPES
-from Functions.Settings_manager import SettingsManager
 
 settings = SettingsManager().settings
 
@@ -218,11 +218,13 @@ class PlotDialog(QtW.QDialog):
             message = 'Select samples on the map to plot'
         else:
             try:
-                self.frame = self.provider.load(self.sample_ids, self.options_for(self.provider.key, self.provider.options))
+                self.frame = self.provider.load(self.sample_ids,
+                                                self.options_for(self.provider.key, self.provider.options))
                 if self.frame.empty:
                     message = f'No {self.provider.label} for the {len(self.sample_ids)} selected samples'
                 else:
-                    message = self.plot.draw(self.figure, self.frame, self.options_for(self.plot.name, self.plot.options))
+                    message = self.plot.draw(self.figure, self.frame,
+                                             self.options_for(self.plot.name, self.plot.options))
             except Exception as error:  # a plot failing (e.g. optimized bandwidth on one grain) must not close the window
                 logger_setup.get_logger().exception(f'Error drawing {self.plot.name}')
                 self.figure.clear()

@@ -3,7 +3,8 @@ import Functions.SQLUtils as SQLUtils
 import logger_setup
 
 from Functions.Settings_manager import SettingsManager
-from util.database import defined_joins, defined_queries
+from util.database.defined_joins import *
+from util.database.defined_queries import *
 from util.database.views import view_attributes_dict
 
 settings = SettingsManager().settings
@@ -46,20 +47,20 @@ class ViewQuery:
         self.lsa_columns = []
         self.lspag_columns = []
         self.limited_tags = {
-            'Samples': defined_joins.limited_sample_tags,
-            'Aliquots': defined_joins.limited_aliquot_tags,
-            'Grains': defined_joins.limited_grain_tags,
-            'Spots': defined_joins.limited_spot_tags,
-            'UPbAnalyses': defined_joins.limited_upb_tags,
-            'GeoChemicalAnalyses': defined_joins.limited_geochem_tags,
+            'Samples': limited_sample_tags,
+            'Aliquots': limited_aliquot_tags,
+            'Grains': limited_grain_tags,
+            'Spots': limited_spot_tags,
+            'UPbAnalyses': limited_upb_tags,
+            'GeoChemicalAnalyses': limited_geochem_tags,
         }
         self.limited_tag_joins = {
-            'Samples': defined_joins.limited_sample_tags_join,
-            'Aliquots': defined_joins.limited_aliquot_tags_join,
-            'Grains': defined_joins.limited_grain_tags_join,
-            'Spots': defined_joins.limited_spot_tags_join,
-            'UPbAnalyses': defined_joins.limited_upb_tags_join,
-            'GeoChemicalAnalyses': defined_joins.limited_geochem_tags_join,
+            'Samples': limited_sample_tags_join,
+            'Aliquots': limited_aliquot_tags_join,
+            'Grains': limited_grain_tags_join,
+            'Spots': limited_spot_tags_join,
+            'UPbAnalyses': limited_upb_tags_join,
+            'GeoChemicalAnalyses': limited_geochem_tags_join,
         }
         self.show_items_missing_data = settings.value('show_items_missing_data') == 'true'
         if self.show_items_missing_data:
@@ -112,7 +113,7 @@ class ViewQuery:
         self.limited_hierarchy_query()
         query_columns = ',\n'.join(self.query_columns)
 
-        lsa_hierarchy_join = SQLUtils.limited_sample_aliquot_hierarchy_join
+        lsa_hierarchy_join = limited_sample_aliquot_hierarchy_join
         if self.join_type != 'INNER':
             lsa_hierarchy_join = lsa_hierarchy_join.replace('INNER JOIN', f'{self.join_type} JOIN')
 
@@ -134,17 +135,17 @@ class ViewQuery:
                         {f"{'\n'.join(self.query_tags_joins['GeoChemicalAnalyses']) if 'GeoChemicalAnalyses' in self.query_tags_joins else ''}"}
                         '''
         if '"Accepted/TotalUPbAnalyses"' in query_columns:
-            subquery = SQLUtils.qupb_count_sample_subquery
+            subquery = qupb_count_sample_subquery
             if self.join_type != 'INNER':
                 subquery = subquery.replace('INNER JOIN UPbAnalyses ON', f'{self.join_type} JOIN UPbAnalyses ON')
             limited_lspag += f',\n{subquery}'
-            lspag_joins += f'\n{SQLUtils.upb_distinct_join_limited_sample}'
+            lspag_joins += f'\n{upb_distinct_join_limited_sample}'
         if '"Accepted/TotalGeoChemicalAnalyses"' in query_columns:
-            subquery = SQLUtils.qgeochem_count_sample_subquery
+            subquery = qgeochem_count_sample_subquery
             if self.join_type != 'INNER':
                 subquery = subquery.replace('INNER JOIN GeoChemicalAnalyses ON', f'{self.join_type} JOIN GeoChemicalAnalyses ON')
             limited_lspag += f',\n{subquery}'
-            lspag_joins += f'\n{SQLUtils.gc_distinct_join_limited_sample}'
+            lspag_joins += f'\n{gc_distinct_join_limited_sample}'
 
         sample_query = f'''
                         {self.limited_hierarchy}
@@ -182,7 +183,7 @@ class ViewQuery:
         self.limited_hierarchy_query()
         query_columns = ',\n'.join(self.query_columns)
 
-        lsa_hierarchy_join = SQLUtils.limited_sample_aliquot_hierarchy_join
+        lsa_hierarchy_join = limited_sample_aliquot_hierarchy_join
         if self.join_type != 'INNER':
             lsa_hierarchy_join = lsa_hierarchy_join.replace('INNER JOIN', f'{self.join_type} JOIN')
 
@@ -204,17 +205,17 @@ class ViewQuery:
                             {f"{'\n'.join(self.query_tags_joins['GeoChemicalAnalyses']) if 'GeoChemicalAnalyses' in self.query_tags_joins else ''}"}
                             '''
         if '"Accepted/TotalUPbAnalyses"' in query_columns:
-            subquery = SQLUtils.qupb_count_aliquot_subquery
+            subquery = qupb_count_aliquot_subquery
             if self.join_type != 'INNER':
                 subquery = subquery.replace('INNER JOIN UPbAnalyses ON', f'{self.join_type} JOIN UPbAnalyses ON')
             limited_lspag += f',\n{subquery}'
-            lspag_joins += f'\n{SQLUtils.upb_distinct_join_limited_aliquot}'
+            lspag_joins += f'\n{upb_distinct_join_limited_aliquot}'
         if '"Accepted/TotalGeoChemicalAnalyses"' in query_columns:
-            subquery = SQLUtils.qgeochem_count_grain_subquery
+            subquery = qgeochem_count_grain_subquery
             if self.join_type != 'INNER':
                 subquery = subquery.replace('INNER JOIN GeoChemicalAnalyses ON', f'{self.join_type} JOIN GeoChemicalAnalyses ON')
             limited_lspag += f',\n{subquery}'
-            lspag_joins += f'\n{SQLUtils.gc_distinct_join_limited_grain}'
+            lspag_joins += f'\n{gc_distinct_join_limited_grain}'
 
         aliquot_query = f'''
                         {self.limited_hierarchy}
@@ -250,7 +251,7 @@ class ViewQuery:
         self.limited_hierarchy_query()
         query_columns = ',\n'.join(self.query_columns)
 
-        lspag_hierarchy_join = SQLUtils.limited_spot_analysis_grain_hierarchy_join
+        lspag_hierarchy_join = limited_spot_analysis_grain_hierarchy_join
         if self.join_type != 'INNER':
             lspag_hierarchy_join = lspag_hierarchy_join.replace('INNER JOIN', f'{self.join_type} JOIN')
 
@@ -284,18 +285,18 @@ class ViewQuery:
                             {f"{'\n'.join(self.query_tags_joins['GeoChemicalAnalyses']) if 'GeoChemicalAnalyses' in self.query_tags_joins else ''}"}
                             '''
         if '"Accepted/TotalUPbAnalyses"' in query_columns:
-            subquery = SQLUtils.qupb_count_grain_subquery
+            subquery = qupb_count_grain_subquery
             if self.join_type != 'INNER':
                 subquery = subquery.replace('INNER JOIN UPbAnalyses ON', f'{self.join_type} JOIN UPbAnalyses ON')
             limited_lspag += f',\n{subquery}'
-            lspag_joins += f'\n{SQLUtils.upb_distinct_join_limited_grain}'
+            lspag_joins += f'\n{upb_distinct_join_limited_grain}'
         if '"Accepted/TotalGeoChemicalAnalyses"' in query_columns:
-            subquery = SQLUtils.qgeochem_count_grain_subquery
+            subquery = qgeochem_count_grain_subquery
             if self.join_type != 'INNER':
                 subquery = subquery.replace('INNER JOIN GeoChemicalAnalyses ON',
                                             f'{self.join_type} JOIN GeoChemicalAnalyses ON')
             limited_lspag += f',\n{subquery}'
-            lspag_joins += f'\n{SQLUtils.gc_distinct_join_limited_grain}'
+            lspag_joins += f'\n{gc_distinct_join_limited_grain}'
 
         grain_query = f'''
                                 {self.limited_hierarchy}
@@ -331,7 +332,7 @@ class ViewQuery:
         self.limited_hierarchy_query()
         query_columns = ',\n'.join(self.query_columns)
 
-        lspag_hierarchy_join = SQLUtils.limited_spot_analysis_grain_hierarchy_join
+        lspag_hierarchy_join = limited_spot_analysis_grain_hierarchy_join
         if self.join_type != 'INNER':
             lspag_hierarchy_join = lspag_hierarchy_join.replace('INNER JOIN', f'{self.join_type} JOIN')
 
@@ -365,17 +366,17 @@ class ViewQuery:
                             {f"{'\n'.join(self.query_tags_joins['GeoChemicalAnalyses']) if 'GeoChemicalAnalyses' in self.query_tags_joins else ''}"}
                             '''
         if '"Accepted/TotalUPbAnalyses"' in query_columns:
-            subquery = defined_queries.qupb_count_spot_subquery
+            subquery = qupb_count_spot_subquery
             if self.join_type != 'INNER':
                 subquery = subquery.replace('INNER JOIN UPbAnalyses ON', f'{self.join_type} JOIN UPbAnalyses ON')
             limited_lspag += f',\n{subquery}'
-            lspag_joins += f'\n{SQLUtils.upb_distinct_join_limited_spot}'
+            lspag_joins += f'\n{upb_distinct_join_limited_spot}'
         if '"Accepted/TotalGeoChemicalAnalyses"' in query_columns:
-            subquery = defined_queries.qgeochem_count_spot_subquery
+            subquery = qgeochem_count_spot_subquery
             if self.join_type != 'INNER':
                 subquery = subquery.replace('INNER JOIN GeoChemicalAnalyses ON', f'{self.join_type} JOIN GeoChemicalAnalyses ON')
             limited_lspag += f',\n{subquery}'
-            lspag_joins += f'\n{defined_joins.gc_distinct_join_limited_spot}'
+            lspag_joins += f'\n{gc_distinct_join_limited_spot}'
 
         spot_query = f'''
                         {self.limited_hierarchy}
@@ -410,7 +411,7 @@ class ViewQuery:
         self.limited_hierarchy_query()
         query_columns = ',\n'.join(self.query_columns)
 
-        lspag_hierarchy_join = SQLUtils.limited_spot_analysis_grain_hierarchy_join
+        lspag_hierarchy_join = limited_spot_analysis_grain_hierarchy_join
         if self.join_type != 'INNER':
             lspag_hierarchy_join = lspag_hierarchy_join.replace('INNER JOIN', f'{self.join_type} JOIN')
 
@@ -474,7 +475,7 @@ class ViewQuery:
         self.limited_hierarchy_query()
         query_columns = ',\n'.join(self.query_columns)
 
-        lspag_hierarchy_join = SQLUtils.limited_spot_analysis_grain_hierarchy_join
+        lspag_hierarchy_join = limited_spot_analysis_grain_hierarchy_join
         if self.join_type != 'INNER':
             lspag_hierarchy_join = lspag_hierarchy_join.replace('INNER JOIN', f'{self.join_type} JOIN')
 
@@ -539,9 +540,9 @@ class ViewQuery:
                     SELECT
                         {query_columns}
                     FROM Columns
-                    {SQLUtils.gps_column_join if any(col in query_columns for col in [SQLUtils.qcolumn_gps, SQLUtils.qcolumn_gps_display, SQLUtils.qcolumn_elev, SQLUtils.qcolumn_elev_display]) else ''}
-                    {SQLUtils.column_units_join if any(col in query_columns for col in [SQLUtils.qcolumn_total_height_depth_unit, SQLUtils.qcolumn_elev_unit]) else ''}
-                    {SQLUtils.gps_column_left_joins if any(col in query_columns for col in [SQLUtils.qcolumn_gps_display, SQLUtils.qcolumn_elev_display]) else ''}
+                    {gps_column_join if any(col in query_columns for col in [qcolumn_gps, qcolumn_gps_display, qcolumn_elev, qcolumn_elev_display]) else ''}
+                    {column_units_join if any(col in query_columns for col in [qcolumn_total_height_depth_unit, qcolumn_elev_unit]) else ''}
+                    {gps_column_left_joins if any(col in query_columns for col in [qcolumn_gps_display, qcolumn_elev_display]) else ''}
                     {self.query_where}
                     {self.group_by}
                     {self.order_by}
@@ -737,12 +738,12 @@ class ViewQuery:
         lsa_from_table = 'Aliquots'
         lspag_from_table = 'Spots'
         lsa_select_cols = self.lsa_columns
-        for id_col in [SQLUtils.qsample_id, SQLUtils.qaliquot_id]:
+        for id_col in [qsample_id, qaliquot_id]:
             lsa_select_cols.remove(id_col) if id_col in lsa_select_cols else None
-        lsa_table_joins = SQLUtils.limited_lsa_lspag_joins['LimitedSamplesAliquots'].copy()
+        lsa_table_joins = limited_lsa_lspag_joins['LimitedSamplesAliquots'].copy()
         select_cols = self.lspag_columns
         lspag_id_selects = []
-        for id_col in [SQLUtils.qspot_id, SQLUtils.qgrain_id, SQLUtils.qupb_id, SQLUtils.qgeochem_id]:
+        for id_col in [qspot_id, qgrain_id, qupb_id, qgeochem_id]:
             select_cols.remove(id_col) if id_col in select_cols else None
             if any(id_col.split(' AS ')[1] in query_col for query_col in self.query_columns):
                 if id_col.split(' AS ')[1] == 'GrainID':
@@ -751,11 +752,11 @@ class ViewQuery:
                     lspag_id_selects.append(id_col)
         lspag_select_cols = lspag_id_selects + select_cols
         if self.table == 'UPbAnalyses' or settings.value('display_analyses') == ['UPbAnalyses']:
-            lspag_table_joins = SQLUtils.limited_lsa_lspag_joins['LimitedSpotsUPbAnalysesGrains'].copy()
+            lspag_table_joins = limited_lsa_lspag_joins['LimitedSpotsUPbAnalysesGrains'].copy()
         elif self.table == 'GeoChemicalAnalyses' or settings.value('display_analyses') == ['GeoChemicalAnalyses']:
-            lspag_table_joins = SQLUtils.limited_lsa_lspag_joins['LimitedSpotsGeoChemicalAnalysesGrains'].copy()
+            lspag_table_joins = limited_lsa_lspag_joins['LimitedSpotsGeoChemicalAnalysesGrains'].copy()
         else:
-            lspag_table_joins = SQLUtils.limited_lsa_lspag_joins['LimitedSpotsAnalysesGrains'].copy()
+            lspag_table_joins = limited_lsa_lspag_joins['LimitedSpotsAnalysesGrains'].copy()
         lsa_selects = []
         lsa_joins = []
         lspag_selects = []
@@ -794,11 +795,11 @@ class ViewQuery:
                 if 'GeoChemicalAnalyses' in settings.value('display_analyses'):
                     lspag_table_joins.append(spot_geochem_join_str)
                 lspag_table_joins.append('LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID')
-                lsa_selects = [SQLUtils.qsample_id]
+                lsa_selects = [qsample_id]
                 for col in lsa_select_cols:
                     as_name = col.split(' AS ')[1] if ' AS ' in col else ''
                     if ((as_name and as_name in self.show_columns) or
-                            (col in [SQLUtils.qaliquot_id]) or (as_name in self.order_col or as_name in self.group_col
+                            (col in [qaliquot_id]) or (as_name in self.order_col or as_name in self.group_col
                             or as_name in self.where) or ('ID' in col and not as_name)):
                         if col not in lsa_selects:
                             lsa_selects.append(col)
@@ -814,16 +815,16 @@ class ViewQuery:
                                         if 'ON Aliquots.' in join and f'{self.join_type} JOIN Aliquots ON Samples.SampleID = Aliquots.SampleID' not in lsa_joins:
                                             lsa_joins.insert(0,
                                                                 f'{self.join_type} JOIN Aliquots ON Samples.SampleID = Aliquots.SampleID')
-                                            if SQLUtils.qaliquot_id not in lsa_selects:
-                                                lsa_selects.append(SQLUtils.qaliquot_id)
-                if where_header == 'AliquotID' and SQLUtils.qaliquot_id not in lsa_selects:
-                    lsa_selects.append(SQLUtils.qaliquot_id)
+                                            if qaliquot_id not in lsa_selects:
+                                                lsa_selects.append(qaliquot_id)
+                if where_header == 'AliquotID' and qaliquot_id not in lsa_selects:
+                    lsa_selects.append(qaliquot_id)
                     if f'{self.join_type} JOIN Aliquots ON Samples.SampleID = Aliquots.SampleID' not in lsa_joins:
                         lsa_joins.insert(0, f'{self.join_type} JOIN Aliquots ON Samples.SampleID = Aliquots.SampleID')
                 for col in lspag_select_cols:
                     as_name = col.split(' AS ')[1] if ' AS ' in col else ''
                     if ((as_name and as_name in self.show_columns) or
-                            (col in [SQLUtils.qspot_id, SQLUtils.qupb_id, SQLUtils.qgeochem_id, SQLUtils.qgrain_id, 'Spots.GrainID AS GrainID']) or
+                            (col in [qspot_id, qupb_id, qgeochem_id, qgrain_id, 'Spots.GrainID AS GrainID']) or
                             (as_name in self.order_col or as_name in self.group_col or as_name in self.where) or
                             ('ID' in col and not as_name)):
                         if col not in lspag_selects:
@@ -832,10 +833,10 @@ class ViewQuery:
                                 lspag_selects.insert(0, 'Spots.SpotID AS SpotID')
                             if 'Spots.AliquotID AS AliquotID' not in lspag_selects:
                                 lspag_selects.insert(1, 'Spots.AliquotID AS AliquotID')
-                                if SQLUtils.qaliquot_id not in lsa_selects:
-                                    lsa_selects.append(SQLUtils.qaliquot_id)
-                            if SQLUtils.qaliquot_id not in lsa_selects:
-                                lsa_selects.append(SQLUtils.qaliquot_id)
+                                if qaliquot_id not in lsa_selects:
+                                    lsa_selects.append(qaliquot_id)
+                            if qaliquot_id not in lsa_selects:
+                                lsa_selects.append(qaliquot_id)
                             if f'{self.join_type} JOIN Aliquots ON Samples.SampleID = Aliquots.SampleID' not in lsa_joins:
                                 lsa_joins.insert(0, f'{self.join_type} JOIN Aliquots ON Samples.SampleID = Aliquots.SampleID')
                         if col.split(".")[0].split(" ")[-1] != 'Spots':
@@ -843,14 +844,14 @@ class ViewQuery:
                                 if f'JOIN {col.split(".")[0].split(" ")[-1]}' in join or f' AS {col.split(".")[0].split(" ")[-1]}' in join:
                                     if join not in lspag_joins:
                                         if (join == spot_upb_join_str and
-                                                SQLUtils.qupb_id not in lspag_selects):
+                                                qupb_id not in lspag_selects):
                                             # Add to the beginning of the list
-                                            lspag_selects.append(SQLUtils.qupb_id)
+                                            lspag_selects.append(qupb_id)
                                             lspag_joins.insert(0, join)
                                         elif (join == spot_geochem_join_str and
-                                                SQLUtils.qgeochem_id not in lspag_selects):
+                                                qgeochem_id not in lspag_selects):
                                             # Add to the beginning of the list
-                                            lspag_selects.append(SQLUtils.qgeochem_id)
+                                            lspag_selects.append(qgeochem_id)
                                             lspag_joins.insert(0, join)
                                         elif (join == 'LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID' and
                                               'Spots.GrainID AS GrainID' not in lspag_selects):
@@ -861,28 +862,28 @@ class ViewQuery:
                                             lspag_joins.append(join)
                                             if f'ON UPbAnalyses.' in join and spot_upb_join_str not in lspag_joins:
                                                 lspag_joins.insert(0, spot_upb_join_str)
-                                                if SQLUtils.qupb_id not in lspag_selects:
-                                                    lspag_selects.append(SQLUtils.qupb_id)
+                                                if qupb_id not in lspag_selects:
+                                                    lspag_selects.append(qupb_id)
                                             if 'ON GeoChemicalAnalyses.' in join and spot_geochem_join_str not in lspag_joins:
                                                 lspag_joins.insert(0, spot_geochem_join_str)
-                                                if SQLUtils.qgeochem_id not in lspag_selects:
-                                                    lspag_selects.append(SQLUtils.qgeochem_id)
+                                                if qgeochem_id not in lspag_selects:
+                                                    lspag_selects.append(qgeochem_id)
                                             if 'ON Grains.' in join and 'LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID' not in lspag_joins:
                                                 lspag_joins.insert(0, 'LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID')
                                                 if 'Spots.GrainID AS GrainID' not in lspag_selects:
                                                     lspag_selects.append('Spots.GrainID AS GrainID')
-                if where_header == SQLUtils.qupb_id and SQLUtils.qupb_id not in lspag_selects:
-                    lspag_selects.append(SQLUtils.qupb_id)
+                if where_header == qupb_id and qupb_id not in lspag_selects:
+                    lspag_selects.append(qupb_id)
                     if spot_upb_join_str not in lspag_joins:
                         lspag_joins.insert(0, spot_upb_join_str)
-                elif where_header == SQLUtils.qgeochem_id and SQLUtils.qgeochem_id not in lspag_selects:
-                    lspag_selects.append(SQLUtils.qgeochem_id)
+                elif where_header == qgeochem_id and qgeochem_id not in lspag_selects:
+                    lspag_selects.append(qgeochem_id)
                     if spot_geochem_join_str not in lspag_joins:
                         lspag_joins.insert(0, spot_geochem_join_str)
             elif self.table == 'Aliquots':
                 lsa_from_table = 'Aliquots'
                 lspag_from_table = 'Spots'
-                lsa_selects = [SQLUtils.qaliquot_id]
+                lsa_selects = [qaliquot_id]
                 lsa_table_joins.append(f'{self.join_type} JOIN Samples ON Aliquots.SampleID = Samples.SampleID')
                 if 'UPbAnalyses' in settings.value('display_analyses'):
                     lspag_table_joins.append(spot_upb_join_str)
@@ -897,14 +898,14 @@ class ViewQuery:
                 for col in lspag_select_cols:
                     as_name = col.split(' AS ')[1] if ' AS ' in col else ''
                     if ((as_name and as_name in self.show_columns) or
-                            (col in [SQLUtils.qspot_id, SQLUtils.qupb_id, SQLUtils.qgeochem_id, SQLUtils.qgrain_id]) or
+                            (col in [qspot_id, qupb_id, qgeochem_id, qgrain_id]) or
                             (as_name in self.order_col or as_name in self.group_col or as_name in self.where) or
                             ('ID' in col and not as_name)):
                         if col not in lspag_selects:
                             lspag_selects.append(col)
                             if (any('Rejected' in show_col for show_col in self.show_columns)
-                                    and SQLUtils.qupb_rejected not in lspag_selects):
-                                lspag_selects.append(SQLUtils.qupb_rejected)
+                                    and qupb_rejected not in lspag_selects):
+                                lspag_selects.append(qupb_rejected)
                             if 'Spots.SpotID AS SpotID' not in lspag_selects:
                                 lspag_selects.insert(0, 'Spots.SpotID AS SpotID')
                             if 'Spots.AliquotID AS AliquotID' not in lspag_selects:
@@ -913,45 +914,45 @@ class ViewQuery:
                             for join in lspag_table_joins:
                                 if f'JOIN {col.split(".")[0].split(" ")[-1]}' in join or f' AS {col.split(".")[0].split(" ")[-1]}' in join:
                                     if join not in lspag_joins:
-                                        if join == spot_upb_join_str and SQLUtils.qupb_id not in lspag_selects:
+                                        if join == spot_upb_join_str and qupb_id not in lspag_selects:
                                             # Add to the beginning of the list
-                                            lspag_selects.append(SQLUtils.qupb_id)
+                                            lspag_selects.append(qupb_id)
                                             lspag_joins.insert(0, join)
-                                        elif join == spot_geochem_join_str and SQLUtils.qgeochem_id not in lspag_selects:
+                                        elif join == spot_geochem_join_str and qgeochem_id not in lspag_selects:
                                             # Add to the beginning of the list
-                                            lspag_selects.append(SQLUtils.qgeochem_id)
+                                            lspag_selects.append(qgeochem_id)
                                             lspag_joins.insert(0, join)
-                                        elif join == SQLUtils.spot_grain_join and SQLUtils.qgrain_id not in lspag_selects:
+                                        elif join == spot_grain_join and qgrain_id not in lspag_selects:
                                             # Add to the beginning of the list
-                                            lspag_selects.append(SQLUtils.qgrain_id)
+                                            lspag_selects.append(qgrain_id)
                                             lspag_joins.insert(0, join)
                                         else:
                                             lspag_joins.append(join)
                                             if f'ON UPbAnalyses.' in join and spot_upb_join_str not in lspag_joins:
                                                 lspag_joins.insert(0, spot_upb_join_str)
-                                                if SQLUtils.qupb_id not in lspag_selects:
-                                                    lspag_selects.append(SQLUtils.qupb_id)
+                                                if qupb_id not in lspag_selects:
+                                                    lspag_selects.append(qupb_id)
                                             if 'ON GeoChemicalAnalyses.' in join and spot_geochem_join_str not in lspag_joins:
                                                 lspag_joins.insert(0, spot_geochem_join_str)
-                                                if SQLUtils.qgeochem_id not in lspag_selects:
-                                                    lspag_selects.append(SQLUtils.qgeochem_id)
+                                                if qgeochem_id not in lspag_selects:
+                                                    lspag_selects.append(qgeochem_id)
                                             if 'ON Grains.' in join and 'LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID' not in lspag_joins:
                                                 lspag_joins.insert(0, 'LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID')
-                                                if SQLUtils.qgrain_id not in lspag_selects:
-                                                    lspag_selects.append(SQLUtils.qgrain_id)
-                if where_header == SQLUtils.qupb_id and SQLUtils.qupb_id not in lspag_selects:
-                    lspag_selects.append(SQLUtils.qupb_id)
+                                                if qgrain_id not in lspag_selects:
+                                                    lspag_selects.append(qgrain_id)
+                if where_header == qupb_id and qupb_id not in lspag_selects:
+                    lspag_selects.append(qupb_id)
                     if spot_upb_join_str not in lspag_joins:
                         lspag_joins.insert(0, spot_upb_join_str)
-                elif where_header == SQLUtils.qgeochem_id and SQLUtils.qgeochem_id not in lspag_selects:
-                    lspag_selects.append(SQLUtils.qgeochem_id)
+                elif where_header == qgeochem_id and qgeochem_id not in lspag_selects:
+                    lspag_selects.append(qgeochem_id)
                     if spot_geochem_join_str not in lspag_joins:
                         lspag_joins.insert(0, spot_geochem_join_str)
 
             elif self.table == 'Spots':
                 lspag_from_table = 'Spots'
                 lsa_from_table = 'Aliquots'
-                lspag_selects = [SQLUtils.qspot_id]
+                lspag_selects = [qspot_id]
                 lsa_table_joins.append(f'{self.join_type} JOIN Samples ON Aliquots.SampleID = Samples.SampleID')
                 if 'UPbAnalyses' in settings.value('display_analyses'):
                     lspag_table_joins.append(spot_upb_join_str)
@@ -961,14 +962,14 @@ class ViewQuery:
                 for col in lspag_select_cols:
                     as_name = col.split(' AS ')[1] if ' AS ' in col else ''
                     if ((as_name and as_name in self.show_columns) or
-                            (col in [SQLUtils.qspot_id, SQLUtils.qupb_id, SQLUtils.qgeochem_id, SQLUtils.qgrain_id]) or
+                            (col in [qspot_id, qupb_id, qgeochem_id, qgrain_id]) or
                             (as_name in self.order_col or as_name in self.group_col or as_name in self.where) or
                             ('ID' in col and not as_name)):
                         if col not in lspag_selects:
                             lspag_selects.append(col)
                             if (any('Rejected' in show_col for show_col in self.show_columns)
-                                    and SQLUtils.qupb_rejected not in lspag_selects):
-                                lspag_selects.append(SQLUtils.qupb_rejected)
+                                    and qupb_rejected not in lspag_selects):
+                                lspag_selects.append(qupb_rejected)
                             if 'Spots.GrainID AS GrainID' not in lspag_selects:
                                 lspag_selects.insert(1, 'Spots.GrainID AS GrainID')
                             if 'Spots.AliquotID AS AliquotID' not in lspag_selects:
@@ -977,38 +978,38 @@ class ViewQuery:
                             for join in lspag_table_joins:
                                 if f'JOIN {col.split(".")[0].split(" ")[-1]}' in join or f' AS {col.split(".")[0].split(" ")[-1]}' in join:
                                     if join not in lspag_joins:
-                                        if join == spot_upb_join_str and SQLUtils.qupb_id not in lspag_selects:
+                                        if join == spot_upb_join_str and qupb_id not in lspag_selects:
                                             # Add to the beginning of the list
-                                            lspag_selects.append(SQLUtils.qupb_id)
+                                            lspag_selects.append(qupb_id)
                                             lspag_joins.insert(0, join)
-                                        elif join == spot_geochem_join_str and SQLUtils.qgeochem_id not in lspag_selects:
+                                        elif join == spot_geochem_join_str and qgeochem_id not in lspag_selects:
                                             # Add to the beginning of the list
-                                            lspag_selects.append(SQLUtils.qgeochem_id)
+                                            lspag_selects.append(qgeochem_id)
                                             lspag_joins.insert(0, join)
-                                        elif join == 'LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID' and SQLUtils.qgrain_id not in lspag_selects:
+                                        elif join == 'LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID' and qgrain_id not in lspag_selects:
                                             # Add to the beginning of the list
-                                            lspag_selects.append(SQLUtils.qgrain_id)
+                                            lspag_selects.append(qgrain_id)
                                             lspag_joins.insert(0, join)
                                         else:
                                             lspag_joins.append(join)
                                             if 'ON UPbAnalyses.' in join and spot_upb_join_str not in lspag_joins:
                                                 lspag_joins.insert(0, spot_upb_join_str)
-                                                if SQLUtils.qupb_id not in lspag_selects:
-                                                    lspag_selects.append(SQLUtils.qupb_id)
+                                                if qupb_id not in lspag_selects:
+                                                    lspag_selects.append(qupb_id)
                                             if 'ON GeoChemicalAnalyses.' in join and spot_geochem_join_str not in lspag_joins:
                                                 lspag_joins.insert(0, spot_geochem_join_str)
-                                                if SQLUtils.qgeochem_id not in lspag_selects:
-                                                    lspag_selects.append(SQLUtils.qgeochem_id)
+                                                if qgeochem_id not in lspag_selects:
+                                                    lspag_selects.append(qgeochem_id)
                                             if 'ON Grains.' in join and 'LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID' not in lspag_joins:
                                                 lspag_joins.insert(0, 'LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID')
-                                                if SQLUtils.qgrain_id not in lspag_selects:
-                                                    lspag_selects.append(SQLUtils.qgrain_id)
-                if where_header == SQLUtils.qupb_id and SQLUtils.qupb_id not in lspag_selects:
-                    lspag_selects.append(SQLUtils.qupb_id)
+                                                if qgrain_id not in lspag_selects:
+                                                    lspag_selects.append(qgrain_id)
+                if where_header == qupb_id and qupb_id not in lspag_selects:
+                    lspag_selects.append(qupb_id)
                     if spot_upb_join_str not in lspag_joins:
                         lspag_joins.insert(0, spot_upb_join_str)
-                elif where_header == SQLUtils.qgeochem_id and SQLUtils.qgeochem_id not in lspag_selects:
-                    lspag_selects.append(SQLUtils.qgeochem_id)
+                elif where_header == qgeochem_id and qgeochem_id not in lspag_selects:
+                    lspag_selects.append(qgeochem_id)
                     if spot_geochem_join_str not in lspag_joins:
                         lspag_joins.insert(0, spot_geochem_join_str)
                 lsa_selects, lsa_joins = self.get_lsa_from_aliquots(lsa_select_cols, lsa_table_joins, lsa_selects)
@@ -1022,7 +1023,7 @@ class ViewQuery:
             elif self.table == 'UPbAnalyses':
                 lspag_from_table = 'UPbAnalyses'
                 lsa_from_table = 'Aliquots'
-                lspag_selects = [SQLUtils.qupb_id]
+                lspag_selects = [qupb_id]
                 lsa_table_joins.append(f'{self.join_type} JOIN Samples ON Aliquots.SampleID = Samples.SampleID')
                 lspag_table_joins.append(f'{self.join_type} JOIN Spots ON UPbAnalyses.SpotID = Spots.SpotID')
                 lspag_table_joins.append('LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID')
@@ -1030,7 +1031,7 @@ class ViewQuery:
                     as_name = col.split(' AS ')[1] if ' AS ' in col else ''
                     quoted_show_columns = [f'"{col}"' for col in self.show_columns]
                     if ((as_name and as_name in self.show_columns) or ('"' in as_name and as_name in quoted_show_columns) or
-                            (col in [SQLUtils.qspot_id, SQLUtils.qupb_id, SQLUtils.qgrain_id]) or
+                            (col in [qspot_id, qupb_id, qgrain_id]) or
                             (as_name in self.order_col or as_name in self.group_col or as_name in self.where) or
                             ('ID' in col and not as_name)):
                         if col not in lspag_selects:
@@ -1053,7 +1054,7 @@ class ViewQuery:
                                                 col.split(".")[0].split(" ")[-1] == 'Spots'):
                                             # Add to the beginning of the list
                                             lspag_joins.insert(0, join)
-                                        elif join == SQLUtils.spot_grain_join and col.split(".")[0].split(" ")[-1] == 'Grains':
+                                        elif join == spot_grain_join and col.split(".")[0].split(" ")[-1] == 'Grains':
                                             if 'Spots.GrainID AS GrainID' not in lspag_selects:
                                                 lspag_selects.insert(1, 'Spots.GrainID AS GrainID')
                                             # Add to the beginning of the list
@@ -1065,14 +1066,14 @@ class ViewQuery:
                                             if 'ON Spots.' in join and f'{self.join_type} JOIN Spots ON UPbAnalyses.SpotID = Spots.SpotID' not in lspag_joins:
                                                 lspag_joins.insert(0,
                                                                     f'{self.join_type} JOIN Spots ON UPbAnalyses.SpotID = Spots.SpotID')
-                                                if SQLUtils.qspot_id not in lspag_selects:
-                                                    lspag_selects.append(SQLUtils.qupb_id)
-                                            if 'ON Grains.' in join and SQLUtils.spot_grain_join not in lspag_joins:
+                                                if qspot_id not in lspag_selects:
+                                                    lspag_selects.append(qupb_id)
+                                            if 'ON Grains.' in join and spot_grain_join not in lspag_joins:
                                                 if f'{self.join_type} JOIN Spots ON UPbAnalyses.SpotID = Spots.SpotID' not in lspag_joins:
                                                     lspag_joins.insert(0, f'{self.join_type} JOIN Spots ON UPbAnalyses.SpotID = Spots.SpotID')
-                                                lspag_joins.insert(1, SQLUtils.spot_grain_join)
-                if where_header == 'GrainID' and SQLUtils.qgrain_id not in lspag_selects:
-                    lspag_selects.append(SQLUtils.qgrain_id)
+                                                lspag_joins.insert(1, spot_grain_join)
+                if where_header == 'GrainID' and qgrain_id not in lspag_selects:
+                    lspag_selects.append(qgrain_id)
                     if 'LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID' not in lspag_joins:
                         lspag_joins.insert(0, 'LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID')
                         if f'{self.join_type} JOIN Spots ON UPbAnalyses.SpotID = Spots.SpotID' not in lspag_joins:
@@ -1080,19 +1081,19 @@ class ViewQuery:
                 lsa_selects, lsa_joins = self.get_lsa_from_aliquots(lsa_select_cols, lsa_table_joins, lsa_selects)
                 if where_header == 'SampleID' and 'Aliquots.SampleID AS SampleID' not in lsa_selects:
                     lsa_selects.append('Aliquots.SampleID AS SampleID')
-                    if SQLUtils.qaliquot_id not in lsa_selects:
-                        lsa_selects.append(SQLUtils.qaliquot_id)
+                    if qaliquot_id not in lsa_selects:
+                        lsa_selects.append(qaliquot_id)
                     if 'Spots.AliquotID AS AliquotID' not in lspag_selects:
                         lspag_selects.append('Spots.AliquotID AS AliquotID')
-                elif where_header == 'AliquotID' and SQLUtils.qaliquot_id not in lsa_selects:
-                    lsa_selects.append(SQLUtils.qaliquot_id)
+                elif where_header == 'AliquotID' and qaliquot_id not in lsa_selects:
+                    lsa_selects.append(qaliquot_id)
                     if 'Spots.AliquotID AS AliquotID' not in lspag_selects:
                         lspag_selects.append('Spots.AliquotID AS AliquotID')
 
             elif self.table == 'GeoChemicalAnalyses':
                 lspag_from_table = 'GeoChemicalAnalyses'
                 lsa_from_table = 'Aliquots'
-                lspag_selects = [SQLUtils.qgeochem_id]
+                lspag_selects = [qgeochem_id]
                 lsa_table_joins.append(f'{self.join_type} JOIN Samples ON Aliquots.SampleID = Samples.SampleID')
                 lspag_table_joins.append(f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID')
                 lspag_table_joins.append('LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID')
@@ -1101,7 +1102,7 @@ class ViewQuery:
                     as_name = col.split(' AS ')[1] if ' AS ' in col else ''
                     quoted_show_columns = [f'"{c}"' for c in self.show_columns]
                     if ((as_name and as_name in self.show_columns) or ('"' in as_name and as_name in quoted_show_columns) or
-                            (col in [SQLUtils.qspot_id, SQLUtils.qgeochem_id, SQLUtils.qgrain_id]) or
+                            (col in [qspot_id, qgeochem_id, qgrain_id]) or
                             (as_name in self.order_col or as_name in self.group_col or as_name in self.where) or
                             ('ID' in col and not as_name)):
                         if col not in lspag_selects:
@@ -1125,7 +1126,7 @@ class ViewQuery:
                                         if (join == f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID' and
                                                 col.split(".")[0].split(" ")[-1] == 'Spots'):
                                             lspag_joins.insert(0, join)
-                                        elif join == SQLUtils.spot_grain_join and col.split(".")[0].split(" ")[-1] == 'Grains':
+                                        elif join == spot_grain_join and col.split(".")[0].split(" ")[-1] == 'Grains':
                                             if 'Spots.GrainID AS GrainID' not in lspag_selects:
                                                 lspag_selects.insert(1, 'Spots.GrainID AS GrainID')
                                             if f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID' not in lspag_joins:
@@ -1136,18 +1137,18 @@ class ViewQuery:
                                             if 'ON Spots.' in join and f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID' not in lspag_joins:
                                                 lspag_joins.insert(0,
                                                                     f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID')
-                                                if SQLUtils.qspot_id not in lspag_selects:
-                                                    lspag_selects.append(SQLUtils.qgeochem_id)
-                                            if 'ON Grains.' in join and SQLUtils.spot_grain_join not in lspag_joins:
+                                                if qspot_id not in lspag_selects:
+                                                    lspag_selects.append(qgeochem_id)
+                                            if 'ON Grains.' in join and spot_grain_join not in lspag_joins:
                                                 if f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID' not in lspag_joins:
                                                     lspag_joins.insert(0, f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID')
-                                                lspag_joins.insert(1, SQLUtils.spot_grain_join)
+                                                lspag_joins.insert(1, spot_grain_join)
                                             if 'ON GeoChemicalAnalysisValues.' in join and geochem_value_join_str not in lspag_joins:
                                                 lspag_joins.insert(0, geochem_value_join_str)
-                                                if SQLUtils.qgeochem_id not in lspag_selects:
-                                                    lspag_selects.append(SQLUtils.qgeochem_id)
-                if where_header == 'GrainID' and SQLUtils.qgrain_id not in lspag_selects:
-                    lspag_selects.append(SQLUtils.qgrain_id)
+                                                if qgeochem_id not in lspag_selects:
+                                                    lspag_selects.append(qgeochem_id)
+                if where_header == 'GrainID' and qgrain_id not in lspag_selects:
+                    lspag_selects.append(qgrain_id)
                     if 'LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID' not in lspag_joins:
                         lspag_joins.insert(0, 'LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID')
                         if f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID' not in lspag_joins:
@@ -1156,16 +1157,16 @@ class ViewQuery:
                 if where_header == 'SampleID':
                     if 'Aliquots.SampleID AS SampleID' not in lsa_selects:
                         lsa_selects.append('Aliquots.SampleID AS SampleID')
-                    if SQLUtils.qaliquot_id not in lsa_selects:
-                        lsa_selects.append(SQLUtils.qaliquot_id)
+                    if qaliquot_id not in lsa_selects:
+                        lsa_selects.append(qaliquot_id)
                     if 'Spots.AliquotID AS AliquotID' not in lspag_selects:
                         lspag_selects.append('Spots.AliquotID AS AliquotID')
                     if f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID' not in lspag_joins:
                         lspag_joins.insert(0,
                                            f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID')
                 elif where_header == 'AliquotID':
-                    if SQLUtils.qaliquot_id not in lsa_selects:
-                        lsa_selects.append(SQLUtils.qaliquot_id)
+                    if qaliquot_id not in lsa_selects:
+                        lsa_selects.append(qaliquot_id)
                     if 'Spots.AliquotID AS AliquotID' not in lspag_selects:
                         lspag_selects.append('Spots.AliquotID AS AliquotID')
                     if f'{self.join_type} JOIN Spots ON GeoChemicalAnalyses.SpotID = Spots.SpotID' not in lspag_joins:
@@ -1176,7 +1177,7 @@ class ViewQuery:
                 group_lspag = ''
                 lspag_from_table = 'Grains'
                 lsa_from_table = 'Aliquots'
-                lspag_selects = [SQLUtils.qgrain_id]
+                lspag_selects = [qgrain_id]
                 lsa_table_joins.append(f'{self.join_type} JOIN Samples ON Aliquots.SampleID = Samples.SampleID')
                 lspag_table_joins.append(f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID')
                 if 'UPbAnalyses' in settings.value('display_analyses'):
@@ -1186,35 +1187,35 @@ class ViewQuery:
                 for col in lspag_select_cols:
                     as_name = col.split(' AS ')[1] if ' AS ' in col else ''
                     if ((as_name and as_name in self.show_columns) or
-                            (col in [SQLUtils.qspot_id, SQLUtils.qupb_id, SQLUtils.qgeochem_id, SQLUtils.qgrain_id]) or
+                            (col in [qspot_id, qupb_id, qgeochem_id, qgrain_id]) or
                             (as_name in self.order_col or as_name in self.group_col or as_name in self.where) or
                             ('ID' in col and not as_name)):
                         if col not in lspag_selects:
                             lspag_selects.append(col)
                             if (any('Rejected' in show_col for show_col in self.show_columns)
-                                    and SQLUtils.qupb_rejected not in lspag_selects):
-                                lspag_selects.append(SQLUtils.qupb_rejected)
+                                    and qupb_rejected not in lspag_selects):
+                                lspag_selects.append(qupb_rejected)
                             if 'Spots.AliquotID AS AliquotID' not in lspag_selects:
                                 lspag_selects.append('Spots.AliquotID AS AliquotID')
                         if col.split(".")[0].split(" ")[-1] != 'Grains':
                             for join in lspag_table_joins:
                                 if f'JOIN {col.split(".")[0].split(" ")[-1]}' in join or f' AS {col.split(".")[0].split(" ")[-1]}' in join:
                                     if join not in lspag_joins:
-                                        if join == f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID' and SQLUtils.qspot_id not in lspag_selects:
+                                        if join == f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID' and qspot_id not in lspag_selects:
                                             # Add to the beginning of the list
-                                            lspag_selects.append(SQLUtils.qgrain_id)
+                                            lspag_selects.append(qgrain_id)
                                             lspag_joins.insert(0, join)
-                                        elif join == spot_upb_join_str and SQLUtils.qupb_id not in lspag_selects:
+                                        elif join == spot_upb_join_str and qupb_id not in lspag_selects:
                                             # Add to the beginning of the list
                                             if f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID' not in lspag_joins:
                                                 lspag_joins.insert(0, f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID')
-                                            lspag_selects.append(SQLUtils.qupb_id)
+                                            lspag_selects.append(qupb_id)
                                             lspag_joins.insert(1, join)
-                                        elif join == spot_geochem_join_str and SQLUtils.qgeochem_id not in lspag_selects:
+                                        elif join == spot_geochem_join_str and qgeochem_id not in lspag_selects:
                                             # Add to the beginning of the list
                                             if f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID' not in lspag_joins:
                                                 lspag_joins.insert(0, f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID')
-                                            lspag_selects.append(SQLUtils.qgeochem_id)
+                                            lspag_selects.append(qgeochem_id)
                                             lspag_joins.insert(1, join)
                                         else:
                                             lspag_joins.append(join)
@@ -1223,62 +1224,62 @@ class ViewQuery:
                                                     lspag_joins.insert(0,
                                                                         f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID')
                                                 lspag_joins.insert(1, spot_upb_join_str)
-                                                if SQLUtils.qupb_id not in lspag_selects:
-                                                    lspag_selects.append(SQLUtils.qupb_id)
+                                                if qupb_id not in lspag_selects:
+                                                    lspag_selects.append(qupb_id)
                                             if 'ON GeoChemicalAnalyses.' in join and spot_geochem_join_str not in lspag_joins:
                                                 if f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID' not in lspag_joins:
                                                     lspag_joins.insert(0,
                                                                        f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID')
                                                 lspag_joins.insert(1, spot_geochem_join_str)
-                                                if SQLUtils.qgeochem_id not in lspag_selects:
-                                                    lspag_selects.append(SQLUtils.qgeochem_id)
+                                                if qgeochem_id not in lspag_selects:
+                                                    lspag_selects.append(qgeochem_id)
                                             if 'ON Spots.' in join and f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID' not in lspag_joins:
                                                 lspag_joins.insert(0, f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID')
                                                 if 'Spots.AliquotID AS AliquotID' not in lspag_selects:
                                                     lspag_selects.append('Spots.AliquotID AS AliquotID')
                 if 'Spots.AliquotID AS AliquotID' in lspag_selects and f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID' not in lspag_joins:
                     lspag_joins.insert(0, f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID')
-                if where_header == SQLUtils.qupb_id and SQLUtils.qupb_id not in lspag_selects:
-                    lspag_selects.append(SQLUtils.qupb_id)
+                if where_header == qupb_id and qupb_id not in lspag_selects:
+                    lspag_selects.append(qupb_id)
                     if spot_upb_join_str not in lspag_joins:
                         if f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID' not in lspag_joins:
                             lspag_joins.insert(0, f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID')
                         lspag_joins.insert(1, spot_upb_join_str)
-                elif where_header == SQLUtils.qgeochem_id and SQLUtils.qgeochem_id not in lspag_selects:
-                    lspag_selects.append(SQLUtils.qgeochem_id)
+                elif where_header == qgeochem_id and qgeochem_id not in lspag_selects:
+                    lspag_selects.append(qgeochem_id)
                     if spot_geochem_join_str not in lspag_joins:
                         if f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID' not in lspag_joins:
                             lspag_joins.insert(0, f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID')
                         lspag_joins.insert(1, spot_geochem_join_str)
-                elif where_header == 'SpotID' and SQLUtils.qspot_id not in lspag_selects:
-                    lspag_selects.append(SQLUtils.qspot_id)
+                elif where_header == 'SpotID' and qspot_id not in lspag_selects:
+                    lspag_selects.append(qspot_id)
                     if f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID' not in lspag_joins:
                         lspag_joins.insert(0, f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID')
-                if SQLUtils.qupb_count.split('AS ')[1].split('"')[1] in self.show_columns:
-                    if SQLUtils.qspot_id not in lspag_selects:
-                        lspag_selects.append(SQLUtils.qspot_id)
-                    if SQLUtils.qupb_id not in lspag_selects:
-                        lspag_selects.append(SQLUtils.qupb_id)
-                if SQLUtils.qgeochem_count.split('AS ')[1].split('"')[1] in self.show_columns:
-                    if SQLUtils.qspot_id not in lspag_selects:
-                        lspag_selects.append(SQLUtils.qspot_id)
-                    if SQLUtils.qgeochem_id not in lspag_selects:
-                        lspag_selects.append(SQLUtils.qgeochem_id)
+                if qupb_count.split('AS ')[1].split('"')[1] in self.show_columns:
+                    if qspot_id not in lspag_selects:
+                        lspag_selects.append(qspot_id)
+                    if qupb_id not in lspag_selects:
+                        lspag_selects.append(qupb_id)
+                if qgeochem_count.split('AS ')[1].split('"')[1] in self.show_columns:
+                    if qspot_id not in lspag_selects:
+                        lspag_selects.append(qspot_id)
+                    if qgeochem_id not in lspag_selects:
+                        lspag_selects.append(qgeochem_id)
                 lsa_selects, lsa_joins = self.get_lsa_from_aliquots(lsa_select_cols, lsa_table_joins, lsa_selects)
-                if lsa_selects and SQLUtils.qspot_id not in lspag_selects:
-                    lspag_selects.append(SQLUtils.qspot_id)
+                if lsa_selects and qspot_id not in lspag_selects:
+                    lspag_selects.append(qspot_id)
                     if f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID' not in lspag_joins:
                         lspag_joins.insert(0, f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID')
                 if where_header == 'SampleID' and 'Aliquots.SampleID AS SampleID' not in lsa_selects:
                     lsa_selects.append('Aliquots.SampleID AS SampleID')
-                    if SQLUtils.qaliquot_id not in lsa_selects:
-                        lsa_selects.append(SQLUtils.qaliquot_id)
+                    if qaliquot_id not in lsa_selects:
+                        lsa_selects.append(qaliquot_id)
                     if 'Spots.AliquotID AS AliquotID' not in lspag_selects:
                         lspag_selects.append('Spots.AliquotID AS AliquotID')
                         if f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID' not in lspag_joins:
                             lspag_joins.insert(0, f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID')
-                elif where_header == 'AliquotID' and SQLUtils.qaliquot_id not in lsa_selects:
-                    lsa_selects.append(SQLUtils.qaliquot_id)
+                elif where_header == 'AliquotID' and qaliquot_id not in lsa_selects:
+                    lsa_selects.append(qaliquot_id)
                     if 'Spots.AliquotID AS AliquotID' not in lspag_selects:
                         lspag_selects.append('Spots.AliquotID AS AliquotID')
                         if f'{self.join_type} JOIN Spots ON Grains.GrainID = Spots.GrainID' not in lspag_joins:
@@ -1547,13 +1548,13 @@ WITH RECURSIVE ''')
         for col in lsa_select_cols:
             as_name = col.split(' AS ')[1] if ' AS ' in col else ''
             if ((as_name and as_name in self.show_columns) or
-                    (col in [SQLUtils.qaliquot_id]) or (as_name in self.order_col or as_name in self.group_col
+                    (col in [qaliquot_id]) or (as_name in self.order_col or as_name in self.group_col
                                                         or as_name in self.where) or (
                             'ID' in col and not as_name)):
                 if col not in lsa_selects:
                     lsa_selects.append(col)
-                    if SQLUtils.qaliquot_id not in lsa_selects:
-                        lsa_selects.append(SQLUtils.qaliquot_id)
+                    if qaliquot_id not in lsa_selects:
+                        lsa_selects.append(qaliquot_id)
                 if col.split('.')[0].split(" ")[-1] != 'Aliquots':
                     for join in lsa_table_joins:
                         if f'JOIN {col.split(".")[0].split(" ")[-1]}' in join or f' AS {col.split(".")[0].split(" ")[-1]}' in join:
@@ -1568,8 +1569,8 @@ WITH RECURSIVE ''')
                                                      f'{self.join_type} JOIN Samples ON Aliquots.SampleID = Samples.SampleID')
                                     if 'Aliquots.SampleID' in lsa_selects:
                                         lsa_selects.remove('Aliquots.SampleID')
-                                    if SQLUtils.qsample_id not in lsa_selects:
-                                        lsa_selects.append(SQLUtils.qsample_id)
+                                    if qsample_id not in lsa_selects:
+                                        lsa_selects.append(qsample_id)
         return lsa_selects, lsa_joins
 
     def get_group_order_clauses(self):

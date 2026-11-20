@@ -13,16 +13,15 @@ from PyQt6.QtWebEngineCore import QWebEngineSettings
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QApplication, QWidget
 
-import util.gps_conversions as GPS
-from util.database.defined_queries import *
-from util.database.database_helper import get_join_from_table
-
-import util.Text_manipulations as TxM
 import logger_setup
+import util.Text_manipulations as TxM
+import util.gps_conversions as GPS
 from Functions.Settings_manager import SettingsManager
 from ui.PlotDialog import PlotDialog
 from ui.SampleInformation import SampleInformation
 from ui.SampleMapDialogs import SAMPLE_TAG_TABLES, MapAddSampleDialog, BulkTagDialog
+from util.database.database_helper import get_join_from_table
+from util.database.defined_queries import *
 
 settings = SettingsManager().settings
 

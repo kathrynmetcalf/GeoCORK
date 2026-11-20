@@ -2,8 +2,8 @@ from PyQt6 import QtWidgets
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QDialogButtonBox
 
-from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 import logger_setup
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 
 
 class NewReference(QtWidgets.QDialog):
@@ -69,12 +69,13 @@ class NewReference(QtWidgets.QDialog):
         description = self.description_lineEdit.text()
 
         query = QSqlQuery()
-        query.prepare('SELECT * FROM "References" WHERE Authors = ? AND Year = ? AND Title = ? AND Source = ? AND DOI = ?')
-        query.addBindValue(None if authors=='' else authors)
-        query.addBindValue(None if year=='' else year)
-        query.addBindValue(None if title=='' else title)
-        query.addBindValue(None if source=='' else source)
-        query.addBindValue(None if doi=='' else doi)
+        query.prepare(
+            'SELECT * FROM "References" WHERE Authors = ? AND Year = ? AND Title = ? AND Source = ? AND DOI = ?')
+        query.addBindValue(None if authors == '' else authors)
+        query.addBindValue(None if year == '' else year)
+        query.addBindValue(None if title == '' else title)
+        query.addBindValue(None if source == '' else source)
+        query.addBindValue(None if doi == '' else doi)
         if not query.exec():
             logger_setup.get_logger().critical('Error checking for duplicate reference')
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
@@ -84,13 +85,14 @@ class NewReference(QtWidgets.QDialog):
         if query.next():
             logger_setup.get_logger().info('Reference already exists')
             return
-        query.prepare('INSERT INTO "References" (Authors, Year, Title, Source, DOI, ReferenceDescription) VALUES (?, ?, ?, ?, ?, ?)')
-        query.addBindValue(None if authors=='' else authors)
-        query.addBindValue(None if year=='' else year)
-        query.addBindValue(None if title=='' else title)
-        query.addBindValue(None if source=='' else source)
-        query.addBindValue(None if doi=='' else doi)
-        query.addBindValue(None if description=='' else description)
+        query.prepare(
+            'INSERT INTO "References" (Authors, Year, Title, Source, DOI, ReferenceDescription) VALUES (?, ?, ?, ?, ?, ?)')
+        query.addBindValue(None if authors == '' else authors)
+        query.addBindValue(None if year == '' else year)
+        query.addBindValue(None if title == '' else title)
+        query.addBindValue(None if source == '' else source)
+        query.addBindValue(None if doi == '' else doi)
+        query.addBindValue(None if description == '' else description)
         if not query.exec():
             logger_setup.get_logger().critical('Error adding reference')
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')

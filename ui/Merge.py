@@ -1,12 +1,12 @@
-from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtSql as QtS
+from PyQt6 import QtWidgets as QtW
 
-from Functions.Widget_classes import get_name_from_id, get_headers, get_name_column, get_id_from_name
-from Functions import SQLUtils
 import logger_setup
+from Functions import SQLUtils
+from Functions.Widget_classes import get_name_from_id, get_headers, get_name_column, get_id_from_name
 from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
-
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
+
 
 class MergeDialog(QtW.QDialog):
     def __init__(self, table, merge_ids, parent=None):
@@ -185,7 +185,8 @@ class MergeDialog(QtW.QDialog):
             parent_id = None
             parent_row = None
             if self.table in SQLUtils.user_viewable_trees:
-                query.prepare(f'SELECT {self.headers[1]}, {self.headers[2]} FROM "{self.table}" WHERE {self.id_header} = {overwrite_id}')
+                query.prepare(
+                    f'SELECT {self.headers[1]}, {self.headers[2]} FROM "{self.table}" WHERE {self.id_header} = {overwrite_id}')
                 if not query.exec():
                     logger_setup.get_logger().critical(f"Error merging {self.table}")
                     logger_setup.get_logger().debug(f"Error finding parent info during merge")
@@ -196,7 +197,8 @@ class MergeDialog(QtW.QDialog):
                     self.reject()
                 if not query.next():
                     logger_setup.get_logger().critical(f"Error merging {self.table}")
-                    logger_setup.get_logger().debug(f"Error finding parent info during merge, no record found with id {overwrite_id}")
+                    logger_setup.get_logger().debug(
+                        f"Error finding parent info during merge, no record found with id {overwrite_id}")
                     logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
                     rollback_savepoint(f"before_merge")
                     close_loading_dialog('Merging', f'Merging {len(self.merge_ids)} {self.table}...')
@@ -250,5 +252,3 @@ class MergeDialog(QtW.QDialog):
         release_savepoint(f"before_merge")
         QtW.QMessageBox.information(self, "Success", f"Successfully merged {len(self.merge_ids)} {self.table}.")
         self.accept()
-
-

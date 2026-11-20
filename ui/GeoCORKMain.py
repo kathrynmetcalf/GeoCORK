@@ -13,25 +13,23 @@ from tzlocal import get_localzone
 import logger_setup
 import ui.ImportWizard
 import ui.New_reference
-from util.database import Savepoint_manager
-from util.database.backup.BackupDatabase import BackupThread
 from Functions.Database_manager import update_database, turn_on_foreign_keys
-from util.database.Savepoint_manager import SavepointManager
 from Functions.Settings_manager import SettingsManager
-from ui.SampleMap import SampleMapWindow
-
-from util.Text_manipulations import shrink_home, expand_home
 from Functions.Widget_classes import get_name_from_id
-from util.widgets.tabs.PartiallyCloseableTabWidget import PartiallyCloseableTabWidget
 from ui.DisplayTables import DisplayTables
+from ui.SampleInformation import SampleInformation
+from ui.SampleMap import SampleMapWindow
+from ui.ViewDataTab import ViewDataTab
 from ui.exporter.ExportTab import ExportTab
 from ui.filters.FiltersTab import FiltersTab
-from ui.SampleInformation import SampleInformation
 from ui.settings.Settings import SettingsDialog
-from ui.ViewDataTab import ViewDataTab
 from ui.settings.SettingsCore import default_settings
-
+from util.Text_manipulations import shrink_home, expand_home
+from util.database import Savepoint_manager
+from util.database.Savepoint_manager import SavepointManager
+from util.database.backup.BackupDatabase import BackupThread
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
+from util.widgets.tabs.PartiallyCloseableTabWidget import PartiallyCloseableTabWidget
 
 settings = SettingsManager().settings
 

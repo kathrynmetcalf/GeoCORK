@@ -2,45 +2,37 @@ import os
 import sys
 import time
 
-# import pandas as pd
-from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
+from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import QSortFilterProxyModel
-
 from PyQt6.uic import loadUi
 
-import logger_setup
-
 import Functions.SQLUtils as SQLUtils
-
+import logger_setup
+from Functions.Check_triggers import update_modified_timestamp
+from Functions.Database_views import ViewQuery
+from Functions.Settings_manager import SettingsManager
 from Functions.Widget_classes import (
     get_name_column, find_current_sub_items, add_tree_popup,
     find_tree_model, save_expanded_state,
     get_name_from_id, get_view_from_table
 )
-from util.database.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
-from Functions.Check_triggers import update_modified_timestamp
-from Functions.Settings_manager import SettingsManager
-from ui.EditView import EditView
-
-
-from Functions.Database_views import ViewQuery
-from ui.New_reference import NewReference
 from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags
 from ui.EditTable import EditTable
-
 from ui.EditTree import EditTree
-
+from ui.EditView import EditView
+from ui.New_reference import NewReference
+from util.database.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.populate_models import populate_many_combo_checks, populate_model_checks, populate_combo_box
 from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
 from util.widgets.models.tree_models import TreeModel
 
-from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
-
 settings = SettingsManager().settings
+
 
 class EditUPbTags(QtW.QDialog):
     def __init__(self, parent_window, sample_id_list: list | None):
@@ -86,7 +78,8 @@ class EditUPbTags(QtW.QDialog):
         self.connect_signals()
 
         close_loading_dialog("Loading", "Showing U-Pb analysis edit dialog")
-        logger_setup.get_logger().info("U-Pb analysis edit dialog initialized in {} seconds".format(time.time() - start_init_time))
+        logger_setup.get_logger().info(
+            "U-Pb analysis edit dialog initialized in {} seconds".format(time.time() - start_init_time))
 
     def populate_dropdowns(self):
         self.reference_comboBox.model_modifiable = True
@@ -95,7 +88,8 @@ class EditUPbTags(QtW.QDialog):
         query_args = {'show_columns': reference_columns}
         view_query = ViewQuery('References', False, **query_args)
         table_query = view_query.table_query
-        populate_combo_box(self.reference_comboBox, **{'table': 'References', 'query': table_query, 'column': 'ReferenceDisplay'})
+        populate_combo_box(self.reference_comboBox,
+                           **{'table': 'References', 'query': table_query, 'column': 'ReferenceDisplay'})
         self.analysis_method_comboBox.model_modifiable = True
         self.analysis_method_comboBox.enable_context_menu(True)
         populate_combo_box(self.analysis_method_comboBox, **{'table': 'UPbAnalysisMethods'})
@@ -108,11 +102,15 @@ class EditUPbTags(QtW.QDialog):
         self.analysis_context_comboBox.model_modifiable = True
         self.analysis_context_comboBox.enable_context_menu(True)
         populate_combo_box(self.analysis_context_comboBox, **{'table': 'UPbAnalysisContexts'})
-        populate_combo_box(self.ratio_error_format_comboBox, **{'table': 'ErrorFormats', 'column': 'ErrorFormatAbbreviation'})
-        populate_combo_box(self.age_error_format_comboBox, **{'table': 'ErrorFormats', 'column': 'ErrorFormatAbbreviation'})
+        populate_combo_box(self.ratio_error_format_comboBox,
+                           **{'table': 'ErrorFormats', 'column': 'ErrorFormatAbbreviation'})
+        populate_combo_box(self.age_error_format_comboBox,
+                           **{'table': 'ErrorFormats', 'column': 'ErrorFormatAbbreviation'})
         populate_combo_box(self.age_unit_comboBox, **{'table': 'AgeUnits', 'column': 'AgeUnitAbbreviation'})
-        populate_combo_box(self.concordance_format_comboBox, **{'table': 'ConcordanceFormats', 'column': 'ConcordanceFormatAbbreviation'})
-        populate_combo_box(self.spot_size_unit_comboBox, **{'table': 'DistanceUnits', 'column': 'DistanceUnitAbbreviation'})
+        populate_combo_box(self.concordance_format_comboBox,
+                           **{'table': 'ConcordanceFormats', 'column': 'ConcordanceFormatAbbreviation'})
+        populate_combo_box(self.spot_size_unit_comboBox,
+                           **{'table': 'DistanceUnits', 'column': 'DistanceUnitAbbreviation'})
 
     def connect_signals(self):
         logger_setup.get_logger().info("Connecting signals")
@@ -141,8 +139,9 @@ class EditUPbTags(QtW.QDialog):
         self.age_unit_comboBox.closing.connect(lambda: self.update_subfield_id('AgeUnitID'))
         self.concordance_format_comboBox.closing.connect(lambda: self.update_subfield_id('ConcordanceFormatID'))
         self.spot_size_unit_comboBox.closing.connect(lambda: self.update_subfield_id('SpotSizeUnitID'))
-        self.spot_size_lineEdit.editingFinished.connect(lambda: self.update_subfield('SpotSize', self.spot_size_lineEdit.text()))
-        
+        self.spot_size_lineEdit.editingFinished.connect(
+            lambda: self.update_subfield('SpotSize', self.spot_size_lineEdit.text()))
+
         logger_setup.get_logger().info("Signals connected")
 
     def populate_fields(self):
@@ -152,23 +151,29 @@ class EditUPbTags(QtW.QDialog):
 
         populate_model_checks(self.reference_comboBox.model(), self.upb_analysis_ids, 'UPbAnalyses', 'ReferenceID')
         self.reference_comboBox.set_single_click(True)
-        populate_model_checks(self.analysis_method_comboBox.model(), self.upb_analysis_ids, 'UPbAnalyses', 'UPbAnalysisMethodID')
+        populate_model_checks(self.analysis_method_comboBox.model(), self.upb_analysis_ids, 'UPbAnalyses',
+                              'UPbAnalysisMethodID')
         self.analysis_method_comboBox.set_single_click(True)
         populate_model_checks(self.lab_facility_comboBox.model(), self.upb_analysis_ids, 'UPbAnalyses', 'LabFacilityID')
         self.lab_facility_comboBox.set_single_click(True)
         populate_model_checks(self.instrument_comboBox.model(), self.upb_analysis_ids, 'UPbAnalyses', 'InstrumentID')
         self.instrument_comboBox.set_single_click(True)
-        populate_model_checks(self.ratio_error_format_comboBox.model(), self.upb_analysis_ids, 'UPbAnalyses', 'RatioErrorFormatID')
+        populate_model_checks(self.ratio_error_format_comboBox.model(), self.upb_analysis_ids, 'UPbAnalyses',
+                              'RatioErrorFormatID')
         self.ratio_error_format_comboBox.set_single_click(True)
-        populate_model_checks(self.age_error_format_comboBox.model(), self.upb_analysis_ids, 'UPbAnalyses', 'AgeErrorFormatID')
+        populate_model_checks(self.age_error_format_comboBox.model(), self.upb_analysis_ids, 'UPbAnalyses',
+                              'AgeErrorFormatID')
         self.age_error_format_comboBox.set_single_click(True)
         populate_model_checks(self.age_unit_comboBox.model(), self.upb_analysis_ids, 'UPbAnalyses', 'AgeUnitID')
         self.age_unit_comboBox.set_single_click(True)
-        populate_model_checks(self.concordance_format_comboBox.model(), self.upb_analysis_ids, 'UPbAnalyses', 'ConcordanceFormatID')
+        populate_model_checks(self.concordance_format_comboBox.model(), self.upb_analysis_ids, 'UPbAnalyses',
+                              'ConcordanceFormatID')
         self.concordance_format_comboBox.set_single_click(True)
-        populate_model_checks(self.spot_size_unit_comboBox.model(), self.upb_analysis_ids, 'UPbAnalyses', 'SpotSizeUnitID')
+        populate_model_checks(self.spot_size_unit_comboBox.model(), self.upb_analysis_ids, 'UPbAnalyses',
+                              'SpotSizeUnitID')
         self.spot_size_unit_comboBox.set_single_click(True)
-        populate_many_combo_checks('UPbAnalyses_UPbAnalysisContexts', self.analysis_context_comboBox, self.upb_analysis_ids)
+        populate_many_combo_checks('UPbAnalyses_UPbAnalysisContexts', self.analysis_context_comboBox,
+                                   self.upb_analysis_ids)
         self.analysis_context_comboBox.set_single_click(False)
 
         close_loading_dialog("Loading", "Populating fields")
@@ -252,30 +257,35 @@ class EditUPbTags(QtW.QDialog):
             # logger_setup.get_logger().info(f"Updated {field} to Null for {len(self.upb_analysis_ids)} UPb Analyses")
             release_savepoint('before_upb_update')
         close_loading_dialog("Updating", f"Updating {field.split('ID')[0]}...")
-            
+
     def update_subfield(self, field: str, text: str):
         logger_setup.get_logger().info(f"Update field called with {field} and {text}")
         show_loading_dialog("Updating", f"Updating {field}...")
         start_update_field_time = time.time()
         if text != "-":
             if len(self.upb_analysis_ids) > 0:
-                logger_setup.get_logger().info(f"Updating {field} to {text} for {len(self.sample_name_list)} samples and {len(self.upb_analysis_ids)} UPb Analyses")
+                logger_setup.get_logger().info(
+                    f"Updating {field} to {text} for {len(self.sample_name_list)} samples and {len(self.upb_analysis_ids)} UPb Analyses")
                 query = QtS.QSqlQuery()
                 create_savepoint('before_upb_update')
                 for upb_analysis_id in self.upb_analysis_ids:
                     if not query.exec(f"SELECT {field} FROM UPbAnalyses WHERE UPbAnalysisID = {upb_analysis_id}"):
-                        logger_setup.get_logger().critical(f"Failed to select {field} for {len(self.upb_analysis_ids)} UPb Analyses")
+                        logger_setup.get_logger().critical(
+                            f"Failed to select {field} for {len(self.upb_analysis_ids)} UPb Analyses")
                         logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
                         logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
                         close_loading_dialog("Updating", f"Updating {field}...")
                         return
                     query.next()
                     if query.value(0) != text:
-                        logger_setup.get_logger().info(f"Updating {field} to {text} for UPbAnalysisID {upb_analysis_id}")
+                        logger_setup.get_logger().info(
+                            f"Updating {field} to {text} for UPbAnalysisID {upb_analysis_id}")
                         if text is None or text == '':
                             text = 'Null'
-                        if not query.exec(f"UPDATE UPbAnalyses SET {field} = {text} WHERE UPbAnalysisID = {upb_analysis_id}"):
-                            logger_setup.get_logger().critical(f"Failed to update {field} to {text} for {len(self.upb_analysis_ids)} UPb Analyses")
+                        if not query.exec(
+                                f"UPDATE UPbAnalyses SET {field} = {text} WHERE UPbAnalysisID = {upb_analysis_id}"):
+                            logger_setup.get_logger().critical(
+                                f"Failed to update {field} to {text} for {len(self.upb_analysis_ids)} UPb Analyses")
                             logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
                             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
                             rollback_savepoint('before_upb_update')
@@ -286,7 +296,8 @@ class EditUPbTags(QtW.QDialog):
                 end_update_field_time = time.time()
                 logger_setup.get_logger().info(
                     f"Updated field in {end_update_field_time - start_update_field_time} seconds")
-                logger_setup.get_logger().info(f"Updated {field} to {text} for {len(self.upb_analysis_ids)} UPb analyses")
+                logger_setup.get_logger().info(
+                    f"Updated {field} to {text} for {len(self.upb_analysis_ids)} UPb analyses")
                 release_savepoint('before_upb_update')
             else:
                 logger_setup.get_logger().info("No samples selected")
@@ -310,7 +321,8 @@ class EditUPbTags(QtW.QDialog):
         many_table = 'UPbAnalyses_UPbAnalysisContexts'
         update = model.update_many_table(many_table, self.upb_analysis_ids)
         if update == 'False':
-            logger_setup.get_logger().critical(f"Failed to update {field.split('ID')[0]} for {len(self.upb_analysis_ids)} UPb Analyses")
+            logger_setup.get_logger().critical(
+                f"Failed to update {field.split('ID')[0]} for {len(self.upb_analysis_ids)} UPb Analyses")
             close_loading_dialog("Updating", f"Updating {field.split('ID')[0]}...")
             return
         elif update == 'No':
@@ -333,7 +345,8 @@ class EditUPbTags(QtW.QDialog):
         # Fill in information based on selected samples
         self.populate_dropdowns()
         self.populate_fields()
-        self.spot_size_lineEdit.editingFinished.connect(lambda: self.update_subfield('SpotSize', self.spot_size_lineEdit.text()))
+        self.spot_size_lineEdit.editingFinished.connect(
+            lambda: self.update_subfield('SpotSize', self.spot_size_lineEdit.text()))
 
     def add_popup(self, action: QtG.QAction | None = None):
         combo = self.sender()
@@ -384,7 +397,7 @@ class EditUPbTags(QtW.QDialog):
                 view_query = ViewQuery(table, False, **query_args)
                 table_query = view_query.table_query
                 name_header = show_columns[get_name_column(get_view_from_table(table))]
-                populate_combo_box(combo, **{'table': table, 'query': table_query,'column': name_header})
+                populate_combo_box(combo, **{'table': table, 'query': table_query, 'column': name_header})
             else:
                 populate_combo_box(combo, **{'table': table})
 

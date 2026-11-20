@@ -9,14 +9,14 @@ from PyQt6.uic import loadUi
 import logger_setup
 from Functions import SQLUtils
 from Functions.Settings_manager import SettingsManager
+from Functions.Widget_classes import get_name_column
 from ui.settings import SettingsCore
 from util.widgets.models.item_models import ColumnItemModel
 from util.widgets.models.proxy_models import ColumnListProxyModel
 from util.widgets.views.list_views import ReorderListView
 
-from Functions.Widget_classes import get_name_column
-
 settings = SettingsManager().settings
+
 
 class SelectColumns(QWidget):
     def __init__(self, parent=None):
@@ -41,7 +41,8 @@ class SelectColumns(QWidget):
             self.show_missing_checkBox.setCheckState(QtCore.Qt.CheckState.Checked)
         else:
             self.show_missing_checkBox.setCheckState(QtCore.Qt.CheckState.Unchecked)
-        self.show_missing_checkBox.setToolTip(f'Show samples, aliquots, grain, and spots that are missing aliquots, grains, spots, or analyses.\nSlows down GeoCORK when enabled.')
+        self.show_missing_checkBox.setToolTip(
+            f'Show samples, aliquots, grain, and spots that are missing aliquots, grains, spots, or analyses.\nSlows down GeoCORK when enabled.')
         self.reset_table_pushButton.clicked.connect(self.reset_table_columns)
         self.columnselection_comboBox.addItems(self.view_dict.keys())
         self.load_list_states()
@@ -205,6 +206,6 @@ class SelectColumns(QWidget):
         else:
             settings.setValue('show_items_missing_data', 'false')
             msg = QMessageBox(QMessageBox.Icon.Warning, 'Data Hidden Warning',
-            'Only data with complete sample, aliquot, grain, spot, and analysis records will be shown in windows but can still be selected in dropdown menus.\nThis can speed up GeoCORK for large databases.',
+                              'Only data with complete sample, aliquot, grain, spot, and analysis records will be shown in windows but can still be selected in dropdown menus.\nThis can speed up GeoCORK for large databases.',
                               QMessageBox.StandardButton.Ok)
             msg.exec()
