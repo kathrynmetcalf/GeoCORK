@@ -17,7 +17,7 @@ from Functions.Widget_classes import (
     get_headers, get_total_records, get_record_row, columns_as_list,
     TableToolTipModel, get_id_from_name, scroll_to_record, get_view_from_table
 )
-import Functions.Text_manipulations as TxM
+import util.Text_manipulations as TxM
 from Functions import SQLUtils
 from util.database import Savepoint_manager
 from Functions.Database_manager import update_database

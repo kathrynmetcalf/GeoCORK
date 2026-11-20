@@ -7,7 +7,7 @@ from PyQt6 import QtSql as QtS
 from PyQt6.QtCore import QPoint, QSize, QSortFilterProxyModel
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QCompleter, QLabel, QComboBox, QDialogButtonBox
-import Functions.Text_manipulations as TxM
+import util.Text_manipulations as TxM
 import logger_setup
 from Functions.Check_triggers import validate_update
 from Functions.Widget_classes import (

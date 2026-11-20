@@ -19,7 +19,7 @@ from Functions.Settings_manager import SettingsManager
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 
 settings = SettingsManager().settings
-from Functions.Text_manipulations import shrink_home, expand_home
+from util.Text_manipulations import shrink_home, expand_home
 from ui.MergeDatabaseUI import MergeDatabaseDialog
 from ui.settings.SettingsCore import update_stylesheet
 

@@ -1,7 +1,7 @@
 import time
 
 from PyQt6 import QtCore, QtWidgets, QtGui
-import Functions.Text_manipulations as TxM
+import util.Text_manipulations as TxM
 
 import logger_setup
 from Functions.Widget_classes import get_name_column, get_view_from_table, show_column

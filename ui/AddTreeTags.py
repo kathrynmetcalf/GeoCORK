@@ -8,7 +8,7 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import QPoint, QSize
 from PyQt6.uic import loadUi
 
-import Functions.Text_manipulations as TxM
+import util.Text_manipulations as TxM
 import logger_setup
 from Functions.Database_manager import update_database
 from util.database.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint

@@ -20,7 +20,7 @@ from util.database.Savepoint_manager import SavepointManager
 from Functions.Settings_manager import SettingsManager
 from ui.SampleMap import SampleMapWindow
 
-from Functions.Text_manipulations import shrink_home, expand_home
+from util.Text_manipulations import shrink_home, expand_home
 from Functions.Widget_classes import get_name_from_id
 from util.widgets.tabs.PartiallyCloseableTabWidget import PartiallyCloseableTabWidget
 from ui.DisplayTables import DisplayTables

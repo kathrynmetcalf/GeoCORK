@@ -3,21 +3,18 @@ import sys
 
 from PyQt6 import QtCore
 from PyQt6.QtGui import QStandardItem
-from PyQt6.QtWidgets import (
-    QWidget, QListView, QMessageBox
-)
+from PyQt6.QtWidgets import QWidget, QListView, QMessageBox
 from PyQt6.uic import loadUi
 
 import logger_setup
 from Functions import SQLUtils
 from Functions.Settings_manager import SettingsManager
 from ui.settings import SettingsCore
+from util.widgets.views.list_views import ReorderListView
+
+from Functions.Widget_classes import ColumnListProxyModel, ColumnItemModel, get_name_column
 
 settings = SettingsManager().settings
-from Functions.Widget_classes import (
-    ColumnListProxyModel, ColumnItemModel, get_name_column, ReorderListView
-)
-
 
 class SelectColumns(QWidget):
     def __init__(self, parent=None):

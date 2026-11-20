@@ -7,7 +7,7 @@ from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6.QtCore import QPoint, QSize, QSortFilterProxyModel
 from PyQt6.uic import loadUi
-import Functions.Text_manipulations as TxM
+import util.Text_manipulations as TxM
 import logger_setup
 from Functions.Widget_classes import (
     get_headers, get_name_column, set_table, get_columns, get_readable_header, find_current_sub_items, get_id_from_name,

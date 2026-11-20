@@ -4,7 +4,7 @@ from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
 
 import Functions.SQLUtils as SQLUtils
-import Functions.Text_manipulations as TxM
+import util.Text_manipulations as TxM
 import logger_setup
 from Functions.Alter_database import convert_gps_location
 from Functions.Check_triggers import validate_insert, update_modified_timestamp

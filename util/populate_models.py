@@ -3,7 +3,7 @@ import time
 from PyQt6 import QtWidgets, QtCore, QtSql
 from PyQt6.QtCore import QSortFilterProxyModel
 
-import Functions.Text_manipulations as TxM
+import util.Text_manipulations as TxM
 import logger_setup
 from Functions import SQLUtils
 from Functions.Database_views import ViewQuery

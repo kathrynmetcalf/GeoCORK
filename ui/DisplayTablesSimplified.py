@@ -9,7 +9,7 @@ from PyQt6.QtSql import QSqlDatabase
 from PyQt6.QtWidgets import QTreeView
 from PyQt6.uic import loadUi
 
-import Functions.Text_manipulations as TxM
+import util.Text_manipulations as TxM
 
 from Functions import SQLUtils
 from Functions.Settings_manager import SettingsManager

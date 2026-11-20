@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (QWidget, QComboBox, QPushButton, QMessageBox, QComp
                              QVBoxLayout, QSplitter)
 from PyQt6.QtGui import QAction
 
-import Functions.Text_manipulations as TxM
+import util.Text_manipulations as TxM
 
 from Functions.Database_manager import update_database
 from Functions import SQLUtils

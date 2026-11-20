@@ -5,7 +5,7 @@ from PyQt6.QtCore import QRegularExpression, QPoint, QSize
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QLabel, QComboBox, QDialogButtonBox
 
-import Functions.Text_manipulations as TxM
+import util.Text_manipulations as TxM
 import logger_setup
 from Functions.Database_manager import update_database
 from util.database.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint

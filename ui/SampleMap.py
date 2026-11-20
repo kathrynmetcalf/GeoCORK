@@ -17,7 +17,7 @@ import util.gps_conversions as GPS
 from util.database.defined_queries import *
 from util.database.database_helper import get_join_from_table
 
-import Functions.Text_manipulations as TxM
+import util.Text_manipulations as TxM
 import logger_setup
 from Functions.Settings_manager import SettingsManager
 from ui.PlotDialog import PlotDialog

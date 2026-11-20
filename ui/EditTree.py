@@ -5,7 +5,7 @@ from PyQt6.QtCore import QPoint, QSize
 from PyQt6.QtCore import QRegularExpression
 from PyQt6.QtWidgets import QDialogButtonBox
 
-import Functions.Text_manipulations as TxM
+import util.Text_manipulations as TxM
 from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 from ui.Merge import MergeDialog
