@@ -96,7 +96,7 @@
         </widget>
        </item>
        <item>
-        <widget class="CheckableTreeCombobox" name="analysis_method_comboBox"/>
+        <widget class="CheckableTreeComboBox" name="analysis_method_comboBox"/>
        </item>
       </layout>
      </item>
@@ -264,7 +264,7 @@
         </widget>
        </item>
        <item>
-        <widget class="CheckableTreeCombobox" name="analysis_context_comboBox"/>
+        <widget class="CheckableTreeComboBox" name="analysis_context_comboBox"/>
        </item>
       </layout>
      </item>
@@ -305,7 +305,7 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>CheckableTreeCombobox</class>
+   <class>CheckableTreeComboBox</class>
    <extends>QComboBox</extends>
    <header>util/widgets/ComboBoxes/CheckableTreeComboBox.h</header>
   </customwidget>
