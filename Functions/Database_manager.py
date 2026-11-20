@@ -126,7 +126,7 @@ def update_database(database=None) -> bool:
 
     from Functions import Create_indexes
     from util.database.create import Create_database as Create_db
-    from Functions import Alter_database as Alter_db
+    from util.database import alter_database as Alter_db
 
     # Update database schema
     if not query.exec('SELECT Version FROM About WHERE AboutID = 1'):

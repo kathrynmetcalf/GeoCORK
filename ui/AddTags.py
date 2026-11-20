@@ -15,7 +15,7 @@ from Functions.Settings_manager import SettingsManager
 from util.widgets.models.proxy_models import ReadableProxyModel
 
 settings = SettingsManager().settings
-from Functions.Widget_classes import set_table, get_headers, get_name_column, get_description_column
+from util.database.database_helper import set_table, get_headers, get_name_column, get_description_column
 
 from util.loading_dialog_manager import close_loading_dialog
 

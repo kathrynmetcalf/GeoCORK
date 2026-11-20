@@ -5,7 +5,7 @@ import typing
 import numpy as np
 import pandas as pd
 import qtawesome
-from PyQt6 import QtCore, QtGui, QtSql
+from PyQt6 import QtCore, QtGui, QtSql, QtWidgets
 from PyQt6.QtCore import QAbstractTableModel, QModelIndex
 from PyQt6.QtGui import QFont, QBrush, QColor
 from PyQt6.QtSql import QSqlQuery, QSqlDatabase
@@ -14,13 +14,63 @@ from PyQt6.QtWidgets import QApplication, QProgressDialog
 import logger_setup
 from Functions.Database_views import ViewQuery
 from Functions.Settings_manager import SettingsManager
-from Functions.Widget_classes import get_name_column, get_view_from_table, get_headers, update_other_table_with_checks, \
-    get_total_records, get_name_from_id, update_many_table_with_checks, strip_strings
+from util.Text_manipulations import strip_strings
+from util.database.database_helper import get_name_column, get_headers, get_view_from_table, \
+    update_other_table_with_checks, get_name_from_id, update_many_table_with_checks, get_total_records
 from util.display_formatting import display_value_with_error, display_gps, display_age, return_rounded
 from util.loading_dialog_manager import close_loading_dialog, show_loading_dialog, LoadingDialogManager
 from util.widgets.models.query_models import CheckableSqlQueryModel
 
 settings = SettingsManager().settings
+
+
+def scroll_to_record(record_id: int, view: QtWidgets.QTableView):
+    """
+    Scroll to a specific record in the view.
+    :param record_id: id of record
+    :param view: view to scroll
+    """
+    model = view.model()
+    if model is None or isinstance(view, QtWidgets.QTreeView):
+        return
+    view_index = QtCore.QModelIndex()
+    for row in range(model.rowCount()):
+        if model.index(row, 0).data(QtCore.Qt.ItemDataRole.DisplayRole) == record_id:
+            logger_setup.get_logger().info(f'Scrolling to record ID: {record_id}')
+            view_index = model.index(row, 0)
+            break
+    if not view_index.isValid():
+        logger_setup.get_logger().critical(f'Error scrolling to record')
+        logger_setup.get_logger().debug(f'Invalid index for ID {record_id} in scroll_to_record')
+        return
+    max_view_index = model.index(view_index.row(), model.columnCount()-1)
+
+    # view.verticalScrollBar().setValue(view_index.row())
+
+    def update_view():
+        view.setCurrentIndex(view_index)
+        view.scrollTo(view_index, QtWidgets.QAbstractItemView.ScrollHint.PositionAtCenter)
+        selection_model = view.selectionModel()
+        if selection_model is None:
+            view.selectRow(view_index.row())
+            view.setCurrentIndex(view_index)
+        else:
+            selection_model.clearSelection()
+            selection_flags = (
+                        QtCore.QItemSelectionModel.SelectionFlag.Select | QtCore.QItemSelectionModel.SelectionFlag.Rows)
+            selection = QtCore.QItemSelection(view_index, max_view_index)
+            selection_model.select(selection, selection_flags)
+            # selection_model.setCurrentIndex(view_index, QtCore.QItemSelectionModel.SelectionFlag.Current)
+        # view.updateGeometry()
+        view.viewport().update()
+        from util.widgets.views.frozen_views import FrozenTableView
+        if isinstance(view, FrozenTableView):
+            view.frozen_table_view.viewport().update()
+        view.setFocus()
+        QtWidgets.QApplication.processEvents()
+
+    QtCore.QTimer.singleShot(0, update_view)
+
 
 
 class SQLiteTableModel(QAbstractTableModel):

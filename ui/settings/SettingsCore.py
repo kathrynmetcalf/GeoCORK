@@ -10,7 +10,6 @@ from PyQt6.QtSql import QSqlQueryModel, QSqlQuery
 from PyQt6.QtWidgets import QColorDialog
 
 import logger_setup
-import Functions.SQLUtils as SQLUtils
 from Functions.Settings_manager import SettingsManager
 from util.database.views import view_attributes_dict
 

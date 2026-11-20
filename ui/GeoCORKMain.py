@@ -15,7 +15,7 @@ import ui.ImportWizard
 import ui.New_reference
 from Functions.Database_manager import update_database, turn_on_foreign_keys
 from Functions.Settings_manager import SettingsManager
-from Functions.Widget_classes import get_name_from_id
+from util.database.database_helper import get_name_from_id
 from ui.DisplayTables import DisplayTables
 from ui.SampleInformation import SampleInformation
 from ui.SampleMap import SampleMapWindow

@@ -14,13 +14,14 @@ import util.Text_manipulations as TxM
 from Functions import SQLUtils
 from Functions.Database_views import ViewQuery
 from Functions.Settings_manager import SettingsManager
-from Functions.Widget_classes import save_expanded_state, get_view_from_table
+from util.database.database_helper import get_view_from_table
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.widgets.models.proxy_models import ReadableProxyModel, TreeSortFilterProxyModel
 from util.widgets.models.query_models import DisplayRoundedQueryModel
 from util.widgets.models.table_models import DisplayRoundedTableModel, SQLiteTableModel
 from util.widgets.models.tree_models import TreeModel
 from util.widgets.views.frozen_views import FrozenTableView
+from util.widgets.views.tree_views import save_expanded_state
 
 settings = SettingsManager().settings
 

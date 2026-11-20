@@ -229,7 +229,7 @@ class FiltersTab(QWidget):
             elif reply == new_button:
                 filter_id = None
             elif reply == update_button:
-                from Functions.Widget_classes import get_id_from_name
+                from util.database.database_helper import get_id_from_name
                 filter_id = get_id_from_name('FilterGroups', filter_name)
             SaveFilterDialog(self.querybuilder.main_group_box.get_structure(), update_id=filter_id, parent=self).exec()
         else:

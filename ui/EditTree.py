@@ -5,25 +5,19 @@ from PyQt6.QtCore import QPoint, QSize
 from PyQt6.QtCore import QRegularExpression
 from PyQt6.QtWidgets import QDialogButtonBox
 
-import util.Text_manipulations as TxM
-from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
-from Functions.Settings_manager import SettingsManager
-from ui.Merge import MergeDialog
-
-from Functions.Widget_classes import (
-    set_table, get_selected_tree_ids, expand_collapse, save_expanded_state,
-    add_tree_popup,
-    restore_expanded_state
-)
-from ui.AddTreeTags import AddTreeTags
-
 import logger_setup
-from util.widgets.context_menus import TreeContextMenu
-from util.widgets.views.tree_views import TrackExpandedTreeView
-from util.widgets.models.tree_models import TreeModel
-from util.widgets.models.proxy_models import TreeSortFilterProxyModel
-
+import util.Text_manipulations as TxM
+from Functions.Settings_manager import SettingsManager
+from ui.AddTreeTags import AddTreeTags
+from ui.Merge import MergeDialog
+from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from util.database.database_helper import set_table, get_selected_tree_ids, add_tree_popup
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
+from util.widgets.context_menus import TreeContextMenu
+from util.widgets.models.proxy_models import TreeSortFilterProxyModel
+from util.widgets.models.tree_models import TreeModel
+from util.widgets.views.tree_views import TrackExpandedTreeView, expand_collapse, save_expanded_state, \
+    restore_expanded_state
 
 settings = SettingsManager().settings
 
@@ -151,7 +145,7 @@ class EditTree(QtWidgets.QDialog):
         self.search_lineEdit: QtWidgets.QLineEdit
         self.tree_proxy_model.setRecursiveFilteringEnabled(True)
         search_expression = QtCore.QRegularExpression(self.search_lineEdit.text(),
-                                                   options=QRegularExpression.PatternOption.CaseInsensitiveOption)
+                                                      options=QRegularExpression.PatternOption.CaseInsensitiveOption)
         self.tree_proxy_model.setFilterRegularExpression(search_expression)
         if self.search_lineEdit.text() != '':
             self.edit_treeView.expandAll()
@@ -304,7 +298,8 @@ class EditTree(QtWidgets.QDialog):
             msg_box = QtWidgets.QMessageBox()
             msg_box.setIcon(QtWidgets.QMessageBox.Icon.Question)
             msg_box.setText('Are you sure you want to discard all changes?')
-            msg_box.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No)
+            msg_box.setStandardButtons(
+                QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No)
             msg_box.setDefaultButton(QtWidgets.QMessageBox.StandardButton.No)
             response = msg_box.exec()
             if response == QtWidgets.QMessageBox.StandardButton.Yes:

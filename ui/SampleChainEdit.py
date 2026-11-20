@@ -4,12 +4,13 @@ from PyQt6 import QtWidgets as QtW
 
 import logger_setup
 from Functions import SQLUtils
+from Functions.Check_triggers import update_modified_timestamp
 from Functions.Database_views import ViewQuery
 from Functions.Settings_manager import SettingsManager
-from Functions.Widget_classes import (
-    find_current_sub_items, get_name_from_id,
-    find_tree_model, find_child_ids, update_modified_timestamp)
 from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from util.database.database_helper import (
+    find_current_sub_items, get_name_from_id,
+    find_tree_model, find_child_ids)
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.populate_models import populate_combo_box
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox

@@ -6,7 +6,7 @@ from PyQt6 import QtWidgets as QtW
 import Functions.SQLUtils as SQLUtils
 import logger_setup
 import util.Text_manipulations as TxM
-from Functions.Alter_database import convert_gps_location
+from util.database.alter_database import convert_gps_location
 from Functions.Check_triggers import validate_insert, update_modified_timestamp
 from Functions.Database_manager import update_database
 from ui.AddTreeTags import AddTreeTags

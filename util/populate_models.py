@@ -8,7 +8,7 @@ import util.Text_manipulations as TxM
 from Functions import SQLUtils
 from Functions.Database_views import ViewQuery
 from Functions.Settings_manager import SettingsManager
-from Functions.Widget_classes import get_view_from_table, get_name_column, \
+from util.database.database_helper import get_view_from_table, get_name_column, \
     get_headers, set_table, show_column, get_edit_column, get_name_from_id
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox

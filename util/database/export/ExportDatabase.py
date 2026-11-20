@@ -1,7 +1,6 @@
 from typing import List, Dict, Any, Set, Optional, Tuple
 
-import PyQt6.QtWidgets as QtW
-import PyQt6.QtCore as QtC
+from PyQt6 import QtWidgets, QtCore
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 
 from Functions import SQLUtils
@@ -141,15 +140,15 @@ def insert_rows(database: QSqlDatabase, table_name: str, rows: list[tuple], inse
         progress_parent = None
 
     logger_setup.get_logger().debug(f'SQL query: {insert_stmt}')
-    progress_dialog = QtW.QProgressDialog(f'Inserting {len(rows)} {table_name}...', 'Cancel', 0, len(rows), progress_parent)
-    progress_dialog.setWindowModality(QtC.Qt.WindowModality.WindowModal)
+    progress_dialog = QtWidgets.QProgressDialog(f'Inserting {len(rows)} {table_name}...', 'Cancel', 0, len(rows), progress_parent)
+    progress_dialog.setWindowModality(QtCore.Qt.WindowModality.WindowModal)
     exported_count = 0
     for row in rows:
         exported_count += 1
         progress_dialog.setValue(exported_count)
         progress_dialog.setLabelText(f'Inserting {exported_count}/{len(rows)} {table_name}...')
         # Let the event loop process the dialog's updates
-        QtW.QApplication.processEvents()
+        QtWidgets.QApplication.processEvents()
         if progress_dialog.wasCanceled():
             logger_setup.get_logger().info('User cancelled the export operation')
             return False
@@ -1109,8 +1108,8 @@ def subset_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase, ids_to
     return True
 
 
-class SelectExportMetadata(QtW.QDialog):
-    def __init__(self, parent_window, widget: QtW.QWidget):
+class SelectExportMetadata(QtWidgets.QDialog):
+    def __init__(self, parent_window, widget: QtWidgets.QWidget):
         super().__init__(parent=parent_window)
         self.setWindowTitle('Set selected values')
         self.setModal(True)
@@ -1118,19 +1117,19 @@ class SelectExportMetadata(QtW.QDialog):
 
         self.widget = widget
         self.widget.setVisible(True)
-        self.widget.setSizePolicy(QtW.QSizePolicy.Policy.Expanding, QtW.QSizePolicy.Policy.Expanding)
-        if isinstance(self.widget, QtW.QComboBox):
-            self.widget.setSizeAdjustPolicy(QtW.QComboBox.SizeAdjustPolicy.AdjustToContents)
-        self.export_button = QtW.QPushButton('Export')
-        self.cancel_button = QtW.QPushButton('Cancel')
+        self.widget.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Expanding)
+        if isinstance(self.widget, QtWidgets.QComboBox):
+            self.widget.setSizeAdjustPolicy(QtWidgets.QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.export_button = QtWidgets.QPushButton('Export')
+        self.cancel_button = QtWidgets.QPushButton('Cancel')
         self.export_button.autoDefault()
         self.export_button.clicked.connect(self.commit)
         self.cancel_button.clicked.connect(self.cancel)
 
-        button_layout = QtW.QHBoxLayout()
+        button_layout = QtWidgets.QHBoxLayout()
         button_layout.addWidget(self.cancel_button)
         button_layout.addWidget(self.export_button)
-        main_layout = QtW.QVBoxLayout()
+        main_layout = QtWidgets.QVBoxLayout()
         main_layout.addWidget(self.widget)
         main_layout.addLayout(button_layout)
         self.setLayout(main_layout)

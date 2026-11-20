@@ -1,8 +1,8 @@
 from PyQt6 import QtSql
 
 import logger_setup
+import util.Text_manipulations as TxM
 from Functions.Settings_manager import SettingsManager
-from Functions.Widget_classes import get_name_from_id
 
 settings = SettingsManager().settings
 
@@ -15,6 +15,7 @@ def display_age(string: str) -> str:
     :return: Age formatted to the current rounding setting.
     """
     # split string on commas
+    from util.database.database_helper import get_name_from_id
     if ',' not in string:
         return ''
     else:
@@ -224,3 +225,107 @@ def return_number(value: str | float | int):
     else:
         logger_setup.get_logger().info(f"Invalid value type: {type(value)}. Expected str, float, or int.")
         return value
+
+
+def get_readable_header(header: str):
+    """
+    For a given header/col name it will convert to a user readable header format by removing spaces, abbreviations, and
+    adding units from the settings where appropriate. This method MUST work for all viewable columns and tables.
+    :param header: header to convert
+    :return: converted header
+    """
+    header = TxM.remove_spaces(header)
+    if 'ID' in header or 'Abbreviation' in header:
+        if 'Elev' in header:
+            header = 'Elevation Unit'
+        elif 'AgeUnit' in header:
+            header = 'Age Unit'
+        elif 'RatioErrorFormat' in header:
+            header = 'Ratio Error Format'
+        elif 'AgeErrorFormat' in header:
+            header = 'Age Error Format'
+        elif 'Height' in header:
+            header = 'Height/Depth Unit'
+        elif 'GPSFormat' in header:
+            header = 'GPS Format'
+        elif 'SpotSize' in header:
+            header = 'Spot Size Unit'
+        elif 'ConcordanceFormat' in header:
+            header = 'Concordance Format'
+    if 'GPSLocationConverted' in header:
+        header = 'Converted GPS Location'
+    elif 'GPSLocationDisplay' in header:
+        header = 'GPS Location'
+    elif 'SampleElevationCalculated' in header:
+        header = f'Calculated Sample Elevation ({settings.value('elevation_unit_abbreviation')})'
+    elif 'SampleElevation' in header:
+        header = f'Sample Elevation'
+    elif 'ColumnElevationCalculated' in header:
+        header = f'Calculated Column Elevation ({settings.value('elevation_unit_abbreviation')})'
+    elif 'ColumnElevation' in header:
+        header = f'Column Elevation'
+    elif 'GPSElev' in header:
+        header += f' ({settings.value("elevation_unit_abbreviation")})'
+    elif 'TotalHeightDepthCalculated' in header:
+        header = f'Calculated Total Height/Depth ({settings.value('heightdepth_unit_abbreviation')})'
+    elif 'TotalHeightDepth' in header:
+        header = f'Total Height/Depth'
+    elif 'HeightDepthCalculated' in header or 'CalculatedHeightDepth' in header:
+        header = f'Calculated Height/Depth ({settings.value('heightdepth_unit_abbreviation')})'
+    elif 'HeightDepth' in header:
+        header = header.replace('HeightDepth', 'Height/Depth')
+    elif 'AgeError' in header and 'Calculated' in header:
+        header += f' ({settings.value("age_error_format_abbreviation")})'
+    elif 'CalculatedSpotSize' in header:
+        header = f'Calculated Spot Size ({settings.value('spotsize_unit_abbreviation')})'
+    elif 'CalculatedConcordance_206Pb/238Uv207Pb/206Pb' in header:
+        header = f'Calculated Concordance 206Pb/238Uv207Pb/206Pb ({settings.value('concordance_format_abbreviation')})'
+    elif 'CalculatedConcordance_206Pb/238Uv207Pb/235U' in header:
+        header = f'Calculated Concordance 206Pb/238Uv207Pb/235U ({settings.value('concordance_format_abbreviation')})'
+    elif ('Age' in header and 'Calculated' in header
+          and not any(
+                s in header for s in ['Name', 'Description', 'Reference', 'Unit', 'Format', 'Created', 'Modified'])):
+        header += f' ({settings.value("age_unit_abbreviation")})'
+    elif 'Error' in header and 'Calculated' in header:
+        if 'Corr/Rho' in header:
+            header += f' ({settings.value("ratio_error_format_abbreviation")})'
+        else:
+            header = header.replace('Error', f' Error ({settings.value("ratio_error_format_abbreviation")})')
+    if 'Name' in header and header not in ('SampleName', 'Sample Name', 'AliquotName', 'Aliquot Name', 'SpotName',
+                                           'Spot Name', 'GrainName', 'Grain Name', 'UPbAnalysisName',
+                                           'U-Pb Analysis Name'):
+        header = header.replace('Name', '')
+        if header.endswith('y'):
+            header = header[:-1] + 'ies'
+        elif header.endswith('is'):
+            header = header[:-2] + 'es'
+        else:
+            header += 's'
+    if 'Display' in header:
+        header = header.replace('Display', '')
+    if 'Calculated' in header:
+        header = header.replace('Calculated', 'Converted ')
+    if 'ppm' in header:
+        header = header.replace('ppm', '(ppm)')
+    if 'cps' in header:
+        header = header.replace('cps', '(cps)')
+    if '"' in header:
+        header = header.replace('"', '')
+    header = TxM.add_spaces_camel(header)
+    if 'U Pb' in header:
+        header = header.replace('U Pb', 'U-Pb')
+    if ' Pb/' in header:
+        header = header.replace(' Pb/', 'Pb/')
+    if '8 U' in header:
+        header = header.replace('8 U', '8U')
+    if '5 U' in header:
+        header = header.replace('5 U', '5U')
+    if '2 Th' in header:
+        header = header.replace('2 Th', '2Th')
+    if ' Pb' in header:
+        header = header.replace(' Pb', 'Pb')
+    if ' U ' in header:
+        header = header.replace(' U ', 'U ')
+    if '(' in header and ' (' not in header:
+        header = header.replace('(', ' (')
+    return header

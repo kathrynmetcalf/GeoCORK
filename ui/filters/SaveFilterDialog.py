@@ -2,7 +2,7 @@ from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QHBoxLayout, QTextEdit, QMessageBox
 
 import logger_setup
-from Functions.Widget_classes import get_name_from_id, get_id_from_name
+from util.database.database_helper import get_name_from_id, get_id_from_name
 
 
 class SaveFilterDialog(QDialog):

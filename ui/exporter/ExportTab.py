@@ -20,12 +20,11 @@ from openpyxl import Workbook
 
 import logger_setup
 from Functions.Database_manager import update_database
-from util.database.database_helper import get_join_from_table
+from util.database.database_helper import get_join_from_table, columns_as_list, get_total_records, find_parent_items
 from util.database.export import ExportDatabase
 from Functions import SQLUtils
 from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
 from Functions.Database_views import ViewQuery
-from Functions.Widget_classes import find_parent_items, columns_as_list, get_total_records
 from Functions.Settings_manager import SettingsManager
 from ui.filters import FilterHelpers
 from ui.filters.FiltersTab import FiltersTab

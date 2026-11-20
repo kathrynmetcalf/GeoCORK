@@ -2502,7 +2502,7 @@ def update_schema_v101(database: QtS.QSqlDatabase = None) -> bool:
         return False
 
     # Copy data from old Spots table to new Spots table
-    from Functions.Alter_database import get_columns
+    from util.database.alter_database import get_columns
     query, virtual, stored, columns = get_columns('Spots_new', database)
     column_str = ', '.join(columns)
     insert_new_table = f'INSERT INTO Spots_new SELECT {column_str} FROM Spots'
@@ -2658,7 +2658,7 @@ def update_schema_v101(database: QtS.QSqlDatabase = None) -> bool:
         return False
 
     # Copy data from old UPbAnalyses table to new UPbAnalyses table
-    from Functions.Alter_database import get_columns
+    from util.database.alter_database import get_columns
     query, virtual, stored, columns = get_columns('UPbAnalyses_new', database)
     column_str = ', '.join(columns)
     insert_new_table = f'INSERT INTO UPbAnalyses_new SELECT {column_str} FROM UPbAnalyses'
@@ -2799,7 +2799,7 @@ def update_schema_v103(database: QtS.QSqlDatabase = None) -> bool:
         return False
 
     # Copy data from old UPbAnalyses table to new UPbAnalyses table
-    from Functions.Alter_database import get_columns
+    from util.database.alter_database import get_columns
     query, virtual, stored, columns = get_columns('UPbAnalyses_new', database)
     column_str = ', '.join(columns)
     insert_new_table = f'INSERT INTO UPbAnalyses_new SELECT {column_str} FROM UPbAnalyses'
@@ -3120,7 +3120,7 @@ def update_schema_v104(database: QtS.QSqlDatabase = None) -> bool:
     show_loading_dialog('Updating', 'Moving data to new columns...')
     logger_setup.get_logger().info('Moving data to new columns...')
     # Copy data from old UPbAnalyses table to new UPbAnalyses table
-    from Functions.Alter_database import get_columns
+    from util.database.alter_database import get_columns
     query, virtual, stored, columns = get_columns('UPbAnalyses_new', database)
     column_str = ', '.join(columns)
     insert_new_table = f'INSERT INTO UPbAnalyses_new SELECT {column_str} FROM UPbAnalyses'

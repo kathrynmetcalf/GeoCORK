@@ -14,11 +14,6 @@ import logger_setup
 from Functions.Check_triggers import update_modified_timestamp
 from Functions.Database_views import ViewQuery
 from Functions.Settings_manager import SettingsManager
-from Functions.Widget_classes import (
-    get_name_column, find_current_sub_items, add_tree_popup,
-    find_tree_model, save_expanded_state,
-    get_name_from_id, get_view_from_table
-)
 from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags
 from ui.EditTable import EditTable
@@ -26,10 +21,15 @@ from ui.EditTree import EditTree
 from ui.EditView import EditView
 from ui.New_reference import NewReference
 from util.database.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from util.database.database_helper import (
+    get_name_column, find_current_sub_items, add_tree_popup,
+    find_tree_model, get_name_from_id, get_view_from_table
+)
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.populate_models import populate_many_combo_checks, populate_model_checks, populate_combo_box
 from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
 from util.widgets.models.tree_models import TreeModel
+from util.widgets.views.tree_views import save_expanded_state
 
 settings = SettingsManager().settings
 

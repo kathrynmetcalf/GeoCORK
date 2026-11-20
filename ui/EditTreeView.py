@@ -12,15 +12,9 @@ from PyQt6.uic import loadUi
 import logger_setup
 import util.Text_manipulations as TxM
 from Functions import SQLUtils
+from Functions.Check_triggers import update_modified_timestamp
 from Functions.Database_views import ViewQuery
 from Functions.Settings_manager import SettingsManager
-from Functions.Widget_classes import find_tree_model
-from Functions.Widget_classes import (
-    get_headers, get_name_column, set_table, get_columns, get_readable_header, find_current_sub_items, get_id_from_name,
-    add_tree_popup, save_expanded_state, restore_expanded_state, get_selected_tree_ids,
-    expand_collapse, get_name_from_id, get_view_from_table, columns_as_list_current,
-    delete_data, delete_query, update_modified_timestamp
-)
 from ui.AddDataItem import AddDataItem
 from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags
@@ -31,6 +25,11 @@ from ui.Merge import MergeDialog
 from ui.New_reference import NewReference
 from ui.SampleChainEdit import SampleChainEdit
 from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from util.database.database_helper import (
+    get_headers, get_name_column, set_table, get_columns, get_readable_header, find_current_sub_items, get_id_from_name,
+    add_tree_popup, get_selected_tree_ids, get_name_from_id, get_view_from_table, columns_as_list_current,
+    delete_data, delete_query, find_tree_model
+)
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.populate_models import populate_many_combo_checks, populate_model_checks, populate_combo_box
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
@@ -40,6 +39,7 @@ from util.widgets.models.proxy_models import TreeSortFilterProxyModel
 from util.widgets.models.query_models import CheckableSqlQueryModel
 from util.widgets.models.table_models import CheckableSqlTableModel, SQLiteTableModel
 from util.widgets.models.tree_models import CheckableTreeModel, TreeModel
+from util.widgets.views.tree_views import save_expanded_state, restore_expanded_state, expand_collapse
 
 settings = SettingsManager().settings
 

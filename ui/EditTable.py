@@ -14,12 +14,12 @@ from ui.settings import SettingsCore
 from util.widgets.models.query_models import EditableSqlQueryModel
 from util.widgets.models.proxy_models import ReadableProxyModel
 
-from Functions.Widget_classes import (get_headers,
-                                      get_name_column, get_total_records,
-                                      get_id_from_name, get_record_row, delete_data,
-                                      scroll_to_record)
+from util.database.database_helper import (get_headers,get_name_column, get_total_records,
+                                           get_id_from_name, get_record_row, delete_data)
+
 from ui.AddTags import AddTags
 from ui.Merge import MergeDialog
+from util.widgets.models.table_models import scroll_to_record
 from util.widgets.views.frozen_views import FrozenTableView
 
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog

@@ -16,10 +16,10 @@ from Functions.Settings_manager import SettingsManager
 from util.widgets.context_menus import TreeContextMenu
 from util.widgets.models.tree_models import TreeModel
 from util.widgets.models.proxy_models import TreeSortFilterProxyModel
+from util.widgets.views.tree_views import save_expanded_state, restore_expanded_state, expand_collapse
 
 settings = SettingsManager().settings
-from Functions.Widget_classes import (expand_collapse, save_expanded_state,
-                                      restore_expanded_state, get_headers, set_table, get_id_from_name)
+from util.database.database_helper import get_headers, set_table, get_id_from_name
 
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 

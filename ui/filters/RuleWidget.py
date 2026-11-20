@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import QWidget, QHBoxLayout, QSizePolicy, QLineEdit, QPushB
 
 import logger_setup
 from Functions import SQLUtils
-from Functions.Widget_classes import get_name_column
+from util.database.database_helper import get_name_column
 from util.widgets.ComboBoxes.FocusWheelComboBox import FocusWheelComboBox
 from util.widgets.models.item_models import TableToolTipModel
 

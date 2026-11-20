@@ -2,38 +2,36 @@ import os
 import sys
 import time
 
-from PyQt6 import QtWidgets as QtW
-from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
+from PyQt6 import QtSql as QtS
+from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import Qt, QSortFilterProxyModel
 from PyQt6.uic import loadUi
-from Functions.Widget_classes import (
+
+import logger_setup
+from Functions import SQLUtils
+from Functions.Check_triggers import validate_update, update_modified_timestamp
+from Functions.Database_views import ViewQuery
+from Functions.Settings_manager import SettingsManager
+from ui.AddTags import AddTags
+from ui.AddTreeTags import AddTreeTags
+from ui.EditTable import EditTable
+from ui.EditTree import EditTree
+from ui.New_reference import NewReference
+from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from util.database.database_helper import (
     set_table, delete_data, get_name_column, get_view_from_table,
-    find_tree_model, get_headers, add_tree_popup, save_expanded_state,
+    find_tree_model, get_headers, add_tree_popup,
     get_id_from_name, get_name_from_id
 )
-
-from Functions import SQLUtils
-from Functions.Settings_manager import SettingsManager
-from ui.New_reference import NewReference
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.populate_models import populate_combo_box, populate_tree_model_checks, populate_many_combo_checks
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
 from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
 from util.widgets.GroupBoxes.FocusGroupBox import FocusGroupBox
 from util.widgets.models.tree_models import TreeModel, CheckableTreeModel
-
-from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
-from Functions.Check_triggers import validate_update, update_modified_timestamp
-from Functions.Database_views import ViewQuery
-from ui.EditTree import EditTree
-from ui.EditTable import EditTable
-from ui.AddTreeTags import AddTreeTags
-from ui.AddTags import AddTags
-
-from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
-
-import logger_setup
+from util.widgets.views.tree_views import save_expanded_state
 
 settings = SettingsManager().settings
 

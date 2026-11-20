@@ -1,14 +1,178 @@
 import time
 
-from PyQt6 import QtWidgets, QtCore
+from PyQt6 import QtWidgets, QtCore, QtGui
 from PyQt6.QtCore import QSortFilterProxyModel
 
 import logger_setup
+from Functions import SQLUtils
 from Functions.Settings_manager import SettingsManager
-from Functions.Widget_classes import find_tree_model, map_from_tree_model
+from util.database.database_helper import find_tree_model, map_from_tree_model
+from util.loading_dialog_manager import close_loading_dialog, show_loading_dialog
 from util.widgets.models.tree_models import CheckableTreeModel
 
 settings = SettingsManager().settings
+
+def save_expanded_state(table: str, tree_view: QtWidgets.QTreeView):
+    """
+    Save the expanded state of the tree view to the settings
+    :param table: Name of table with parent-child relationships
+    :param tree_view: The view displaying the model
+    :return:
+    """
+    if table not in SQLUtils.user_viewable_tables and table != 'Aliquots' and table != 'Ages':
+        return
+    show_loading_dialog('Saving expanded state', f'Saving the expanded state of {table}...')
+    logger_setup.get_logger().info(f'Saving the expanded state of {table}...')
+    start_save_expanded_time = time.time()
+    if isinstance(tree_view, TrackExpandedTreeView):
+        expanded_ids = tree_view.expanded_ids
+    else:
+        expanded_ids = set()
+        model = tree_view.model()
+        def save_state(index):
+            if index.isValid() and tree_view.isExpanded(index):
+                item_id = model.data(index.siblingAtColumn(1), QtCore.Qt.ItemDataRole.DisplayRole)
+                expanded_ids.add(item_id)
+            row_count = model.rowCount(index)
+            for i in range(row_count):
+                save_state(model.index(i, 0, index))
+
+        root_index = QtCore.QModelIndex()
+        root_row_count = model.rowCount(root_index)
+        for i in range(root_row_count):
+            save_state(model.index(i, 0, root_index))
+
+    settings.setValue(f'expanded_ids_{table}', expanded_ids)
+    logger_setup.get_logger().debug(f'Expanded state saved for {table} table in {time.time() - start_save_expanded_time} seconds')
+    close_loading_dialog('Saving expanded state', f'Saving the expanded state of {table}...')
+
+def restore_expanded_state(table: str, tree_view: QtWidgets.QTreeView):
+    """
+    Restore the expanded state of the tree view from the set of expanded ids stored in settings
+    :param table: Name of table with parent-child relationships
+    :param tree_view: The view to display the model
+    :return:
+    """
+    # logger_setup.get_logger().info(f'Restoring expanded state for {table} table')
+    show_loading_dialog('Restoring expanded state', f'Restoring the expanded state of {table}...')
+    logger_setup.get_logger().info(f'Restoring the expanded state of {table}...')
+    start_expand_tree_time = time.time()
+    expanded_ids = settings.value(f'expanded_ids_{table}', set())
+    if isinstance(tree_view, TrackExpandedTreeView):
+        tree_view.expanded_ids = expanded_ids
+        tree_view.expand_from_ids()
+    else:
+        model = tree_view.model()
+        from util.widgets.models.tree_models import LazyCheckableTreeModel
+        if isinstance(model, LazyCheckableTreeModel):
+            model.load_id_list(list(expanded_ids))
+        def restore_state(index):
+            if index.isValid():
+                item_id = model.data(index.siblingAtColumn(1), QtCore.Qt.ItemDataRole.DisplayRole)
+                if item_id in expanded_ids and not tree_view.isExpanded(index):
+                    tree_view.setExpanded(index, True)
+                elif item_id not in expanded_ids and tree_view.isExpanded(index):
+                    tree_view.setExpanded(index, False)
+            row_count = model.rowCount(index)
+            for row in range(row_count):
+                restore_state(model.index(row, 0, index))
+        restore_state(QtCore.QModelIndex())
+
+    logger_setup.get_logger().info(f'Expanded state restored in {time.time() - start_expand_tree_time} seconds')
+    close_loading_dialog('Restoring expanded state', f'Restoring the expanded state of {table}...')
+
+def expand_all_children(tree_view: QtWidgets.QTreeView, parent_index: QtCore.QModelIndex):
+    """
+    Expand all children of the given parent index in the tree view. This method recursively expands all child items
+    of the specified parent index in the tree view. It ensures that all child items are expanded, allowing the user
+    to view the entire hierarchy of items under the specified parent. If the parent index is invalid, it defaults to
+    the root index. If the parent index does not have column 0, it is adjusted to ensure that the correct column is used
+    for expanding children. The method iterates through all rows of the model under the parent index and recursively
+    calls itself for each child index. After expanding all children, it also expands the parent index itself if it is not
+    already expanded. This is useful for ensuring that the parent item's children are visible in the tree view after
+    expanding them.
+    :param tree_view: the tree view to expand children in
+    :param parent_index: the parent index whose children should be expanded
+    :return:
+    """
+    show_loading_dialog('Expanding children', 'Expanding all children in the tree view...')
+    # make sure the parent_index has column 0
+    if not parent_index.isValid():
+        parent_index = QtCore.QModelIndex()  # parent is root
+    if parent_index.column() != 0:
+        parent_index = parent_index.siblingAtColumn(0)
+
+    model = tree_view.model()
+    for row in range(model.rowCount(parent_index)):
+        child_index = model.index(row, 0, parent_index)
+        expand_all_children(tree_view, child_index)
+    if not tree_view.isExpanded(parent_index):
+        tree_view.expand(parent_index)
+    close_loading_dialog('Expanding children', 'Expanding all children in the tree view...')
+
+def collapse_all_children(tree_view: QtWidgets.QTreeView, parent_index: QtCore.QModelIndex):
+    """
+    Collapse all children of the given parent index in the tree view. This method recursively collapses all child items
+    of the specified parent index in the tree view. It ensures that all child items are collapsed, hiding their details
+    from the view. If the parent index is invalid, it defaults to the root index. If the parent index does not have
+    column 0, it is adjusted to ensure that the correct column is used for collapsing children. The method iterates
+    through all rows of the model under the parent index and recursively calls itself for each child index. After collapsing
+    all children, it also collapses the parent index itself if it is currently expanded. This is useful for ensuring
+    that the parent item's children are hidden in the tree view after collapsing them.
+    :param tree_view: the tree view to collapse children in
+    :param parent_index: the parent index whose children should be collapsed
+    :return:
+    """
+    show_loading_dialog('Collapsing children', 'Collapsing all children in the tree view...')
+    # make sure the parent_index has column 0
+    if not parent_index.isValid():
+        parent_index = QtCore.QModelIndex()  # parent is root
+    if parent_index.column() != 0:
+        parent_index = parent_index.siblingAtColumn(0)
+
+    model = tree_view.model()
+    for row in range(model.rowCount(parent_index)):
+        child_index = model.index(row, 0, parent_index)
+        collapse_all_children(tree_view, child_index)
+    if tree_view.isExpanded(parent_index):
+        tree_view.collapse(parent_index)
+    close_loading_dialog('Collapsing children', 'Collapsing all children in the tree view...')
+
+def expand_collapse(tree_view: QtWidgets.QTreeView, action: QtGui.QAction):
+    """
+    Handles TreContextMenu actions for expanding and collapsing items in a tree view. This method checks the text of the
+    action and performs the corresponding operation on the selected indexes in the tree view. It can expand or collapse
+    children, expand or collapse all children, expand or collapse all items, and save the expanded state of the tree
+    view after performing the action.
+    :param tree_view: QTreeView to perform the action on
+    :param action: QAction selected from a TreeContextMenu
+    :return:
+    """
+    if action.text() == 'Expand children':
+        if not tree_view.selectedIndexes() or len(tree_view.selectedIndexes()) == 0:
+            return
+        tree_view.expand(tree_view.selectedIndexes()[0])
+    elif action.text() == 'Expand all children':
+        for index in tree_view.selectedIndexes():
+            expand_all_children(tree_view, index)
+    elif action.text() == 'Expand all':
+        tree_view.expandAll()
+    elif action.text() == 'Collapse children':
+        if not tree_view.selectedIndexes() or len(tree_view.selectedIndexes()) == 0:
+            return
+        tree_view.collapse(tree_view.selectedIndexes()[0])
+    elif action.text() == 'Collapse all children':
+        for index in tree_view.selectedIndexes():
+            collapse_all_children(tree_view, index)
+    elif action.text() == 'Collapse all':
+        tree_view.collapseAll()
+    tree_model = find_tree_model(tree_view.model(), [])[0]
+    try:
+        table = tree_model.tableName()
+    except AttributeError:
+        logger_setup.get_logger().error('Error saving expanded state')
+        return
+    save_expanded_state(table, tree_view)
 
 
 class TrackExpandedTreeView(QtWidgets.QTreeView):

@@ -1,5 +1,5 @@
 import sqlite3
-from Functions.Widget_classes import get_name_column
+from util.database.database_helper import get_name_column
 
 import Functions.SQLUtils as SQLUtils
 import logger_setup

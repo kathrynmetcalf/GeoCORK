@@ -2,12 +2,11 @@ from PyQt6 import QtCore, QtWidgets, QtGui
 from PyQt6.QtGui import QAction
 
 import logger_setup
-from Functions.Widget_classes import expand_collapse, save_expanded_state
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.widgets.ComboBoxes.TreeComboBox import TreeComboBox
 from util.widgets.context_menus import TreeContextMenu
 from util.widgets.models.tree_models import CheckableTreeModel
-from util.widgets.views.tree_views import CheckableTreeView
+from util.widgets.views.tree_views import CheckableTreeView, save_expanded_state, expand_collapse
 
 
 class CheckableTreeComboBox(TreeComboBox):

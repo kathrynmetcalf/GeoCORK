@@ -2,6 +2,7 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtSql as QtS
 
 import logger_setup
+from util.database.database_helper import get_headers, get_name_from_id
 
 
 def update_modified_timestamp(table: str, record_ids: list):
@@ -15,7 +16,7 @@ def update_modified_timestamp(table: str, record_ids: list):
         logger_setup.get_logger().error('No record ids or table given for updating modified timestamp')
         return
     # Get the header for the first column, the ID column
-    from Functions.Widget_classes import get_headers
+
     headers = get_headers(table)
     modified_header = None
     for header in headers:
@@ -397,7 +398,6 @@ def check_update_pairs(all_records: list, column1, column2):
 
 
 def check_insert_age_range(pairs: list, old_column: str, young_column: str):
-    from Functions.Widget_classes import get_headers
     if not pairs or not old_column or not young_column:
         return 'Incomplete data given for age range'
     age_model = None
@@ -437,8 +437,6 @@ def check_insert_age_range(pairs: list, old_column: str, young_column: str):
 
 
 def check_update_age_range(all_records: list, old_column: str, young_column: str, direct_column: str):
-    from Functions.Widget_classes import get_headers
-
     if not all_records or not old_column or not young_column:
         return 'Incomplete data given for age range'
     age_model = None
@@ -538,7 +536,6 @@ def check_gps_format_insert(pairs: list, format_id: int):
     gps_format_model.select()
     while gps_format_model.canFetchMore():
         gps_format_model.fetchMore()
-    from Functions.Widget_classes import get_name_from_id
     gps_format_abbreviation = get_name_from_id('GPSFormats', format_id)
     for pair in pairs:
         if pair[0] == 'GPSLatDeg':
@@ -718,7 +715,6 @@ def check_gps_format_update(all_records: list, new_format_id: int):
     gps_format_model.select()
     while gps_format_model.canFetchMore():
         gps_format_model.fetchMore()
-    from Functions.Widget_classes import get_name_from_id
     gps_format_abbreviation = get_name_from_id('GPSFormats', new_format_id)
     for record in all_records:
         if record[0] == 'GPSLatDeg':

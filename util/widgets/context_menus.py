@@ -1,7 +1,7 @@
 from PyQt6 import QtWidgets
 
 import logger_setup
-from Functions.Widget_classes import find_tree_model, get_selected_tree_ids
+from util.database.database_helper import find_tree_model, get_selected_tree_ids
 from util.widgets.views.tree_views import CheckableTreeView
 
 

@@ -3,7 +3,7 @@ from PyQt6 import QtWidgets as QtW
 
 import logger_setup
 from Functions import SQLUtils
-from Functions.Widget_classes import get_name_from_id, get_headers, get_name_column, get_id_from_name
+from util.database.database_helper import get_name_from_id, get_headers, get_name_column, get_id_from_name
 from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 

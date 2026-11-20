@@ -7,7 +7,7 @@ from PyQt6.QtSql import QSqlQueryModel, QSqlTableModel, QSqlDatabase
 from PyQt6.QtCore import QModelIndex
 
 from Functions.Database_views import ViewQuery
-from Functions.Widget_classes import update_other_table_with_checks, get_name_from_id, update_many_table_with_checks, \
+from util.database.database_helper import update_other_table_with_checks, get_name_from_id, update_many_table_with_checks, \
     bulk_update_parent_row, delete_data
 import logger_setup
 from Functions.Check_triggers import update_modified_timestamp
@@ -16,6 +16,16 @@ from util.loading_dialog_manager import show_loading_dialog, close_loading_dialo
 from util.widgets.models.query_models import DisplayRoundedQueryModel
 from util.widgets.models.table_models import SQLiteTableModel
 
+'''
+Editable tree model example:
+https://doc.qt.io/qt-6/qtwidgets-itemviews-editabletreemodel-example.html
+
+qsqltablemodel source code:
+https://github.com/openwebos/qt/blob/master/src/sql/models/qsqltablemodel.cpp
+
+qsortfilterproxymodel source code:
+https://github.com/openwebos/qt/blob/92fde5feca3d792dfd775348ca59127204ab4ac0/src/gui/itemviews/qsortfilterproxymodel.cpp#L143
+'''
 
 class TreeItem:
     def __init__(self, itemData: QtSql.QSqlRecord | SQLiteTableModel.MockRecord, parent_item):

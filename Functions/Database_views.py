@@ -587,7 +587,7 @@ class ViewQuery:
         Updates the limited hierarchy query clause, the where clause to use in the main query, and the limit clause to
         use in the main query.
         """
-        from Functions.Widget_classes import get_headers
+        from util.database.database_helper import get_headers
 
         headers = get_headers(self.table)
         table_abbreviation_dict = SQLUtils.limited_table_abbreviations.copy()
@@ -1574,7 +1574,7 @@ WITH RECURSIVE ''')
         return lsa_selects, lsa_joins
 
     def get_group_order_clauses(self):
-        from Functions.Widget_classes import get_headers
+        from util.database.database_helper import get_headers
 
         table_abbreviation_dict = SQLUtils.limited_table_abbreviations.copy()
         if self.table not in table_abbreviation_dict or self.table not in self.limited_tag_joins:
@@ -1609,7 +1609,7 @@ WITH RECURSIVE ''')
         self.lsa_columns = []
         self.lspag_columns = []
         geochem_analyte_abbreviations = []
-        from Functions.Widget_classes import (get_view_from_table, get_edit_view_from_table)
+        from util.database.database_helper import get_view_from_table, get_edit_view_from_table
         if not self.edit_view:
             view_name = get_view_from_table(table=self.table)
         else:

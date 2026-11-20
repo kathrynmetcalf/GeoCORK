@@ -11,21 +11,20 @@ import logger_setup
 from Functions.Database_manager import update_database
 from Functions.Database_views import ViewQuery
 from Functions.Settings_manager import SettingsManager
-from Functions.Widget_classes import (expand_collapse, get_name_column, get_headers,
+from util.database.database_helper import (get_name_column, get_headers,
                                       get_view_from_table, get_readable_header,
                                       get_record_row,
-                                      get_id_from_name, columns_as_list, save_expanded_state,
-                                      scroll_to_record)
+                                      get_id_from_name, columns_as_list)
 from ui.EditTreeView import EditTreeView
 from ui.EditView import EditView
 from ui.settings import SettingsCore
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.widgets.context_menus import TreeContextMenu
 from util.widgets.models.proxy_models import TreeSortFilterProxyModel, ReadableProxyModel
-from util.widgets.models.table_models import SQLiteTableModel
+from util.widgets.models.table_models import SQLiteTableModel, scroll_to_record
 from util.widgets.models.tree_models import TreeModel
 from util.widgets.views.frozen_views import FrozenTableView
-from util.widgets.views.tree_views import TrackExpandedTreeView
+from util.widgets.views.tree_views import TrackExpandedTreeView, expand_collapse, save_expanded_state
 
 settings = SettingsManager().settings
 

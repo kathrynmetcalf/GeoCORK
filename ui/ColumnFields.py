@@ -1,31 +1,28 @@
 import time
 
-from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
-
-from Functions.Widget_classes import (
-    get_headers, add_tree_popup,
-    save_expanded_state, get_name_from_id, find_tree_model, get_view_from_table, set_comboBox_text, update_modified_timestamp
-)
-from Functions import SQLUtils
-from Functions.Settings_manager import SettingsManager
-
-from Functions.Database_views import ViewQuery
-from Functions.Check_triggers import validate_update
-from ui.EditTable import EditTable
-from ui.EditTree import EditTree
-from ui.AddTags import AddTags
-from ui.AddTreeTags import AddTreeTags
+from PyQt6 import QtWidgets as QtW
 
 import logger_setup
+from Functions import SQLUtils
+from Functions.Check_triggers import validate_update, update_modified_timestamp
+from Functions.Database_views import ViewQuery
+from Functions.Settings_manager import SettingsManager
+from ui.AddTags import AddTags
+from ui.AddTreeTags import AddTreeTags
+from ui.EditTable import EditTable
+from ui.EditTree import EditTree
+from util.database.database_helper import (
+    get_headers, add_tree_popup, get_name_from_id, find_tree_model,
+    get_view_from_table, set_comboBox_text)
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.populate_models import populate_combo_box, populate_many_combo_checks
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
 from util.widgets.GroupBoxes.FocusGroupBox import FocusGroupBox
 from util.widgets.models.tree_models import TreeModel
-
-from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
+from util.widgets.views.tree_views import save_expanded_state
 
 settings = SettingsManager().settings
 

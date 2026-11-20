@@ -4,7 +4,7 @@ from PyQt6.QtSql import QSqlQueryModel, QSqlDatabase
 import logger_setup
 from Functions.Check_triggers import update_modified_timestamp
 from Functions.Settings_manager import SettingsManager
-from Functions.Widget_classes import update_other_table_with_checks, get_name_column, get_view_from_table, \
+from util.database.database_helper import update_other_table_with_checks, get_name_column, get_view_from_table, \
     get_name_from_id, update_many_table_with_checks, get_total_records, delete_data
 from util.display_formatting import return_rounded, display_value_with_error, display_gps, display_age
 

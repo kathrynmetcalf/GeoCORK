@@ -15,12 +15,11 @@ from Functions import SQLUtils
 from Functions.Check_triggers import validate_update
 from Functions.Database_views import ViewQuery
 from Functions.Settings_manager import SettingsManager
-from Functions.Widget_classes import (
-    delete_data, scroll_to_record, get_columns, get_table_from_view,
-    find_current_sub_items, get_record_row, get_id_from_name, add_tree_popup, save_expanded_state, get_readable_header,
+from util.database.database_helper import (
+    delete_data, get_columns, get_table_from_view,
+    find_current_sub_items, get_record_row, get_id_from_name, add_tree_popup, get_readable_header,
     get_name_from_id, find_tree_model, get_view_from_table,
-    columns_as_list,
-    get_edit_view_from_table, common_strings, get_headers, get_name_column
+    columns_as_list, get_edit_view_from_table, get_headers, get_name_column
 )
 from ui.AddDataItem import AddDataItem
 from ui.AddTags import AddTags
@@ -43,10 +42,11 @@ from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
 from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
 from util.widgets.models.proxy_models import ReadableProxyModel, TreeSortFilterProxyModel
 from util.widgets.models.query_models import CheckableSqlQueryModel
-from util.widgets.models.table_models import CheckableSQLiteTableModel, CheckableSqlTableModel, SQLiteTableModel
+from util.widgets.models.table_models import CheckableSQLiteTableModel, CheckableSqlTableModel, SQLiteTableModel, \
+    scroll_to_record
 from util.widgets.models.tree_models import CheckableTreeModel, TreeModel
 from util.widgets.views.frozen_views import FrozenTableView
-from util.widgets.views.tree_views import CheckableTreeView
+from util.widgets.views.tree_views import CheckableTreeView, save_expanded_state
 
 settings = SettingsManager().settings
 
@@ -768,7 +768,7 @@ class EditView(QtW.QDialog):
                     view_model = self.edit_view.model()
                     current_values = [view_model.index(row, self.name_column).data(QtC.Qt.ItemDataRole.DisplayRole) for
                                       row in selected_rows]
-                    common_edit_string = common_strings(current_values)
+                    common_edit_string = TxM.common_strings(current_values)
                     if common_edit_string != '-':
                         self.common_edit_string = common_edit_string
                         self.lineEdit.setText(self.common_edit_string)

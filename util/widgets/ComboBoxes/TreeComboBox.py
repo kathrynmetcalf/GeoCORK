@@ -5,13 +5,13 @@ from PyQt6.QtCore import QSortFilterProxyModel
 from PyQt6.QtGui import QAction
 
 import logger_setup
-from Functions.Widget_classes import find_tree_model, restore_expanded_state, save_expanded_state, \
-    expand_collapse, show_column
+from util.database.database_helper import find_tree_model, show_column
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.widgets.context_menus import TreeContextMenu
 from util.widgets.models.proxy_models import TreeSortFilterProxyModel
 from util.widgets.models.tree_models import CheckableTreeModel
-from util.widgets.views.tree_views import CheckableTreeView, TrackExpandedTreeView
+from util.widgets.views.tree_views import CheckableTreeView, TrackExpandedTreeView, expand_collapse, \
+    restore_expanded_state, save_expanded_state
 
 
 class TreeComboBox(QtWidgets.QComboBox):

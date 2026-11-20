@@ -2,7 +2,7 @@ from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtCore import QSortFilterProxyModel
 
 import logger_setup
-from Functions.Widget_classes import get_name_column
+from util.database.database_helper import get_name_column
 from util.widgets.models.query_models import CheckableSqlQueryModel
 from util.widgets.models.table_models import CheckableSqlTableModel
 

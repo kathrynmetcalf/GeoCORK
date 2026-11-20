@@ -4,7 +4,7 @@ from PyQt6 import QtCore, QtWidgets, QtGui
 
 import logger_setup
 import util.Text_manipulations as TxM
-from Functions.Widget_classes import get_name_column, get_view_from_table, show_column
+from util.database.database_helper import get_name_column, get_view_from_table, show_column
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.widgets.context_menus import TreeContextMenu
 from util.widgets.models.proxy_models import ReadableProxyModel

@@ -1,12 +1,11 @@
-from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtGui as QtG
-
-from util.loading_dialog_manager import close_loading_dialog
-from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
-from Functions.Settings_manager import SettingsManager
-import ui.ColumnFields
+from PyQt6 import QtWidgets as QtW
 
 import logger_setup
+import ui.ColumnFields
+from Functions.Settings_manager import SettingsManager
+from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from util.loading_dialog_manager import close_loading_dialog
 
 settings = SettingsManager().settings
 

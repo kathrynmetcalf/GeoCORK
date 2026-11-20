@@ -108,7 +108,7 @@ class SettingsDialog(QtW.QDialog):
         Updates the settings to current values within each tab. Updates the database with new values of the About table.
         """
         # No longer using default settings
-        from Functions.Widget_classes import show_loading_dialog, close_loading_dialog
+        from util.database.database_helper import show_loading_dialog, close_loading_dialog
         logger_setup.get_logger().info('Updating settings')
         show_loading_dialog('Updating', 'Updating settings...')
         settings.setValue('default_settings', 'false')
@@ -135,7 +135,7 @@ class SettingsDialog(QtW.QDialog):
         """
         Restores the default settings for the application. This is called when the user clicks the Restore Defaults
         """
-        from Functions.Widget_classes import show_loading_dialog, close_loading_dialog
+        from util.database.database_helper import show_loading_dialog, close_loading_dialog
         show_loading_dialog('Restoring Default Settings', 'Currently updating settings...')
         logger_setup.get_logger().info('Restoring default settings')
         settings.setValue('default_settings', 'true')

@@ -12,8 +12,8 @@ import Functions.SQLUtils as SQLUtils
 import logger_setup
 from Functions.Check_triggers import update_modified_timestamp
 from Functions.Settings_manager import SettingsManager
-from Functions.Widget_classes import (
-    set_table, save_expanded_state,
+from util.database.database_helper import (
+    set_table,
     delete_data, find_tree_model, get_headers, add_tree_popup,
     get_view_from_table,
     get_id_from_name, get_name_column
@@ -36,6 +36,7 @@ from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
 from util.widgets.models.proxy_models import ReadableProxyModel
 from util.widgets.models.table_models import CheckableSqlTableModel, SQLiteTableModel
 from util.widgets.models.tree_models import TreeModel
+from util.widgets.views.tree_views import save_expanded_state
 
 settings = SettingsManager().settings
 

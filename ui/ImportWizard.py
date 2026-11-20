@@ -25,11 +25,6 @@ from Functions import SQLUtils
 from Functions.Check_triggers import validate_insert, validate_update
 from Functions.Database_manager import update_database
 from Functions.Settings_manager import SettingsManager
-from Functions.Widget_classes import (
-    save_expanded_state, get_name_column, add_tree_popup, get_id_from_name, get_name_from_id,
-    get_headers,
-    get_view_from_table,
-    search_dictionary, delete_data, find_tree_model)
 from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags
 from ui.EditTable import EditTable
@@ -38,8 +33,12 @@ from ui.EditView import EditView
 from ui.New_reference import NewReference
 from ui.settings.SettingsCore import get_importer_brushes
 from util.database.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
+from util.database.database_helper import (
+    get_name_column, add_tree_popup, get_id_from_name, get_name_from_id,
+    get_headers, get_view_from_table, delete_data, find_tree_model, get_columns)
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.populate_models import populate_combo_box
+from util.python_helpers import search_dictionary
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
 from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
 from util.widgets.ComboBoxes.SearchableComboBox import SearchableComboBox
@@ -50,6 +49,7 @@ from util.widgets.models.proxy_models import TreeSortFilterProxyModel
 from util.widgets.models.query_models import CheckableSqlQueryModel
 from util.widgets.models.table_models import CheckableSQLiteTableModel, CheckableSqlTableModel, ImportSheetTableModel
 from util.widgets.models.tree_models import CheckableTreeModel
+from util.widgets.views.tree_views import save_expanded_state
 
 settings = SettingsManager().settings
 
@@ -5961,8 +5961,6 @@ class ImportWizardDialog(QWidget):
         :param analysis_data: True if analysis_data imported, false if not
         :return:
         """
-
-        from Functions.Widget_classes import get_columns
 
         def name_column_header(tbl):
             """Return the name column header for tbl, or None if the table has no name column

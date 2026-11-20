@@ -5,7 +5,7 @@ from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtCore import QStringListModel
 from PyQt6.QtGui import QBrush, QColor, QFont
 
-from Functions.Widget_classes import get_readable_header, get_name_column, find_tree_model
+from util.database.database_helper import get_readable_header, get_name_column, find_tree_model
 from util.display_formatting import display_age
 
 from util.widgets.views.tree_views import TrackExpandedTreeView
@@ -196,8 +196,8 @@ class SampleAgeProxyModel(QtCore.QSortFilterProxyModel):
         if role == QtCore.Qt.ItemDataRole.DisplayRole:
             name_col = get_name_column('SampleAges')
             if index.column() == name_col:
-                from Functions.Alter_database import return_sample_age_display
-                from Functions.Alter_database import return_sample_age_converted
+                from util.database.alter_database import return_sample_age_display
+                from util.database.alter_database import return_sample_age_converted
                 id = self.sourceModel().index(index.row(), 0).data(QtCore.Qt.ItemDataRole.DisplayRole)
                 if id is not None:
                     # get the updated sample age display calculated from the database

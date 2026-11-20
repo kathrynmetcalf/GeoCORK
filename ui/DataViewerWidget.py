@@ -16,11 +16,9 @@ import util.Text_manipulations as TxM
 from Functions.Database_manager import update_database
 from Functions import SQLUtils
 from Functions.Database_views import ViewQuery
-from Functions.Widget_classes import (
+from util.database.database_helper import (
     get_name_column,
-    get_id_from_name, get_record_row, columns_as_list, get_view_from_table, find_current_sub_items,
-    expand_collapse, scroll_to_record)
-from Functions.Widget_classes import get_headers
+    get_id_from_name, get_record_row, columns_as_list, get_view_from_table, find_current_sub_items, get_headers)
 
 from Functions.Settings_manager import SettingsManager
 from util.database.database_helper import get_join_from_table
@@ -39,8 +37,8 @@ from ui.EditTreeView import EditTreeView
 
 import logger_setup
 from util.widgets.models.proxy_models import ReadableProxyModel, TreeSortFilterProxyModel
-from util.widgets.models.table_models import SQLiteTableModel
-from util.widgets.views.tree_views import TrackExpandedTreeView
+from util.widgets.models.table_models import SQLiteTableModel, scroll_to_record
+from util.widgets.views.tree_views import TrackExpandedTreeView, expand_collapse
 from util.widgets.models.tree_models import TreeModel
 from util.widgets.views.frozen_views import FrozenTableView
 

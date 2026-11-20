@@ -1,26 +1,25 @@
 import time
 
-from PyQt6 import QtCore as QtC
-from PyQt6 import QtSql as QtS
-from PyQt6.QtWidgets import QProgressDialog, QApplication
-
-import util.database.create.Create_database as Create_db
-import logger_setup
-from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
-from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
-from Functions.Settings_manager import SettingsManager
-settings = SettingsManager().settings
-from util.loading_dialog_manager import LoadingDialogManager
-loading_manager = LoadingDialogManager.get_instance()
-from Functions.Widget_classes import set_table, get_columns, get_headers, bulk_update_parent_row
-
-
 # the below imports are required for GPS conversions, pycharm detects no usage do not remove
 # below comments are for pycharm to ignore issues
 # noinspection PyUnresolvedReferences
 import pyproj
+from PyQt6 import QtCore as QtC
+from PyQt6 import QtSql as QtS
+from PyQt6.QtWidgets import QProgressDialog, QApplication
+
+import logger_setup
+import util.database.create.Create_database as Create_db
 # noinspection PyUnresolvedReferences
 import util.gps_conversions as GPS
+from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
+from Functions.Settings_manager import SettingsManager
+from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from util.database.database_helper import set_table, get_columns, get_headers, bulk_update_parent_row
+from util.loading_dialog_manager import LoadingDialogManager
+
+settings = SettingsManager().settings
+loading_manager = LoadingDialogManager.get_instance()
 
 
 def settings_reset(database: QtS.QSqlDatabase = None) -> bool:
@@ -50,7 +49,9 @@ def settings_reset(database: QtS.QSqlDatabase = None) -> bool:
     else:
         return False
 
-def drop_virtual_columns(tables_affected: list[list[str]], edit_table: str = None, database: QtS.QSqlDatabase = None) -> bool:
+
+def drop_virtual_columns(tables_affected: list[list[str]], edit_table: str = None,
+                         database: QtS.QSqlDatabase = None) -> bool:
     """
      Function to drop virtual columns from tables and regenerate them. Function creates new table with no virtual columns,
     copies data from old table, deletes old table, and renames the new table to the old table.
@@ -63,7 +64,7 @@ def drop_virtual_columns(tables_affected: list[list[str]], edit_table: str = Non
     start_time = time.time()
     if not turn_off_foreign_keys():
         return False
-    drop_count = len(tables_affected)+1
+    drop_count = len(tables_affected) + 1
     drop_progress = QProgressDialog("Resetting calculations...", "Cancel", 0, drop_count, loading_manager.dialog)
     drop_progress.setMinimumDuration(0)
     table_idx = 0
@@ -178,7 +179,7 @@ def drop_virtual_columns(tables_affected: list[list[str]], edit_table: str = Non
 
     release_savepoint('before_drop')
     end_time = time.time()
-    logger_setup.get_logger().info(f'Dropped virtual columns: {end_time-start_time} seconds')
+    logger_setup.get_logger().info(f'Dropped virtual columns: {end_time - start_time} seconds')
     if not turn_on_foreign_keys():
         return False
     return True
@@ -196,7 +197,8 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
     logger_setup.get_logger().info('Populating generated columns...')
     populate_count = 0
     total_steps = 12
-    populate_progress = QProgressDialog('Recalculating from settings...', 'Cancel', 0, total_steps, loading_manager.dialog)
+    populate_progress = QProgressDialog('Recalculating from settings...', 'Cancel', 0, total_steps,
+                                        loading_manager.dialog)
     populate_progress.setMinimumDuration(0)
 
     populate_progress.setValue(populate_count + 1)
@@ -228,7 +230,8 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
     gps_unit_affected = [['GPSLocations', 'GPSFormatID', 'GPSLocationDisplay']]
     heightdepth_unit_affected = [['Samples', 'HeightDepthUnitID', 'HeightDepth', 'HeightDepthError'],
                                  ['Columns', 'ColumnTotalHeightDepthUnitID', 'ColumnTotalHeightDepth']]
-    spotsize_unit_affected = [['UPbAnalyses', 'SpotSizeUnitID', 'SpotSize'], ['GeoChemicalAnalyses', 'SpotSizeUnitID', 'SpotSize']]
+    spotsize_unit_affected = [['UPbAnalyses', 'SpotSizeUnitID', 'SpotSize'],
+                              ['GeoChemicalAnalyses', 'SpotSizeUnitID', 'SpotSize']]
     concordance_format_affected = [['UPbAnalyses', 'ConcordanceFormatID', 'Concordance_206Pb/238Uv207Pb/206Pb',
                                     'Concordance_206Pb/238Uv207Pb/235U']]
     geochem_format_affected = [['GeoChemicalAnalyses', 'GeoChemAnalyteErrorFormatID', 'GeoChemAnalyteError']]
@@ -415,7 +418,7 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
     populate_count += 1
     release_savepoint('before_populate')
     end_time = time.time()
-    logger_setup.get_logger().info(f'Populated virtual columns: {end_time-start_time} seconds')
+    logger_setup.get_logger().info(f'Populated virtual columns: {end_time - start_time} seconds')
     return True
 
 
@@ -442,27 +445,32 @@ def convert_columns(affected: list[list[str]], conversion_table: list[str], id_h
             affected_column_names = table_list
 
             try:
-                conversions = retrieve_conversions(conversion_table[0], id_header_base[0], selected_id[0], database=database)
+                conversions = retrieve_conversions(conversion_table[0], id_header_base[0], selected_id[0],
+                                                   database=database)
             except NotImplementedError:
                 return False
             if len(conversion_table) > 1:
                 try:
-                    age_conversions = retrieve_conversions(conversion_table[1], id_header_base[1], selected_id[1], database=database)
+                    age_conversions = retrieve_conversions(conversion_table[1], id_header_base[1], selected_id[1],
+                                                           database=database)
                 except NotImplementedError:
                     return False
                 if not generate_age_error_columns(affected_column_names, table, table_id_headers, selected_id,
                                                   conversions, age_conversions, database=database):
                     return False
             elif id_header_base[0] == 'GPSFormat':
-                if not generate_gps_column(affected_column_names, table, table_id_header, selected_id[0], conversions, database=database):
+                if not generate_gps_column(affected_column_names, table, table_id_header, selected_id[0], conversions,
+                                           database=database):
                     return False
             else:
-                if not generate_columns(affected_column_names, table, table_id_header, selected_id[0], conversions, database=database):
+                if not generate_columns(affected_column_names, table, table_id_header, selected_id[0], conversions,
+                                        database=database):
                     return False
     return True
 
 
-def retrieve_conversions(conversion_table: str, id_header_base: str, selected_id: int, database: QtS.QSqlDatabase = None) -> list[tuple[any, any]]:
+def retrieve_conversions(conversion_table: str, id_header_base: str, selected_id: int,
+                         database: QtS.QSqlDatabase = None) -> list[tuple[any, any]]:
     """
     Function to retrieve the conversion logic from the database for a given format ID.
     :param str conversion_table: Table in the database which stores conversion information.
@@ -545,14 +553,14 @@ def generate_columns(affected_column_names: list[str], table: str, table_id_head
             # If the inverse error is an absolute error, we need to calculate it
             inverse_error_ratio = f'{inverse_column}/"Calculated{inverse_column.replace("Error", "").replace('"', '')}"'
             inverse_error = f'(({inverse_error_ratio})*{calc_column_name.replace("Error", "")})'
-            if selected_id in (3,4):
+            if selected_id in (3, 4):
                 # The ratio error is a percent, so the inverse error is the same percentage
                 sql_alter += f' WHEN {table_id_header}={selected_id} AND {column} IS NULL THEN {inverse_column}'
             else:
                 # The inverse error is an absolute error, so we need to calculate it
                 sql_alter += f' WHEN {table_id_header}={selected_id} AND {column} IS NULL THEN {inverse_error}'
             for conversion in conversions:
-                if conversion[0] in (3,4):
+                if conversion[0] in (3, 4):
                     # The ratio error is a percent, so the inverse error is the same percentage
                     inverse_replace = inverse_column
                 else:
@@ -668,6 +676,7 @@ def generate_age_error_columns(affected_column_names: list[str], table: str, tab
         logger_setup.get_logger().info(f'Successfully updated {err_column}')
     return True
 
+
 def generate_best_age_fill_columns(database: QtS.QSqlDatabase = None) -> bool:
     """
     Generate virtual columns in the UPbAnalyses table to fill missing BestAge values based on user settings.
@@ -726,6 +735,7 @@ def generate_best_age_fill_columns(database: QtS.QSqlDatabase = None) -> bool:
         rollback_savepoint('before_populate')
         return False
     return True
+
 
 def generate_gps_column(affected_column_names: list[str], table: str, table_id_header: str, selected_id: int,
                         conversions: list, database: QtS.QSqlDatabase = None) -> bool:
@@ -820,7 +830,8 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
                             if 'Display' in sql_gps_alter:
                                 continue
                             gps_column = sql_gps_alter.split('COLUMN ')[1].split(" VIRTUAL")[0]
-                            update_query.prepare(f'UPDATE {table} SET {gps_column}=:value WHERE "GPSLocationID"={gps_id}')
+                            update_query.prepare(
+                                f'UPDATE {table} SET {gps_column}=:value WHERE "GPSLocationID"={gps_id}')
                             update_query.bindValue(':value', float(gps_elements[sql_gps_alters.index(sql_gps_alter)]))
                             if not update_query.exec():
                                 logger_setup.get_logger().critical(
@@ -856,7 +867,8 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
                             if 'Display' in sql_gps_alter:
                                 continue
                             gps_column = sql_gps_alter.split('COLUMN ')[1].split(" VIRTUAL")[0]
-                            update_query.prepare(f'UPDATE {table} SET {gps_column}=:value WHERE "GPSLocationID"={gps_id}')
+                            update_query.prepare(
+                                f'UPDATE {table} SET {gps_column}=:value WHERE "GPSLocationID"={gps_id}')
                             calculated_value = gps_elements[sql_gps_alters.index(sql_gps_alter)]
                             if 'Zone' not in gps_column:
                                 for char in gps_elements[sql_gps_alters.index(sql_gps_alter)]:
@@ -964,7 +976,7 @@ def update_generated_columns(table: str, database: QtS.QSqlDatabase = None) -> b
             return False
 
         if not convert_columns(age_error_type_affected, ['ErrorFormatConversions', 'AgeUnitConversions'],
-                               ['ErrorFormat', 'AgeUnit'],[age_error_type_id, age_unit_id], database=database):
+                               ['ErrorFormat', 'AgeUnit'], [age_error_type_id, age_unit_id], database=database):
             return False
         release_savepoint('before_populate')
     elif table == 'UPbAnalyses':
@@ -1144,6 +1156,7 @@ def convert_gps_location(gps_id: int, database: QtS.QSqlDatabase = None) -> bool
     release_savepoint('before_populate_gps')
     return True
 
+
 def return_sample_age_converted(sample_age_id: int, database: QtS.QSqlDatabase = None) -> str:
     """
     Convert a sample age to its display format based on the AgeUnitConversions and ErrorFormatConversions tables.
@@ -1187,7 +1200,8 @@ def return_sample_age_converted(sample_age_id: int, database: QtS.QSqlDatabase =
     local_vars = {name: locals()[name] for name in variables}
     try:
         age_conversions = retrieve_conversions('AgeUnitConversions', 'AgeUnit', selected_age_unit_id, database=database)
-        error_conversions = retrieve_conversions('ErrorFormatConversions', 'ErrorFormat', selected_error_type_id, database=database)
+        error_conversions = retrieve_conversions('ErrorFormatConversions', 'ErrorFormat', selected_error_type_id,
+                                                 database=database)
     except NotImplementedError:
         return ''
     calc_age_columns = ['DirectAge', 'DirectAgeError', 'OldestDirectAge', 'YoungestDirectAge', 'SampleAgeDisplay']
@@ -1230,6 +1244,7 @@ def return_sample_age_converted(sample_age_id: int, database: QtS.QSqlDatabase =
     age_converted = f'{calc_age_values[0]}±{calc_age_values[1]}, {calc_age_values[2]}-{calc_age_values[3]}, {OldestAgeID}-{YoungestAgeID}'
     return age_converted
 
+
 def return_sample_age_display(sample_age_id: int, database: QtS.QSqlDatabase = None) -> str:
     """
     Return a sample age display string from the database.
@@ -1256,6 +1271,7 @@ def return_sample_age_display(sample_age_id: int, database: QtS.QSqlDatabase = N
     YoungestAgeID = sample_age_model.record(0).value('YoungestAgeID')
     age_display = f'{DirectAge}±{DirectAgeError}, {OldestDirectAge}-{YoungestDirectAge}, {OldestAgeID}-{YoungestAgeID}'
     return age_display
+
 
 def convert_sample_age(sample_age_id: int, database: QtS.QSqlDatabase = None) -> bool:
     """
@@ -1296,7 +1312,8 @@ def convert_sample_age(sample_age_id: int, database: QtS.QSqlDatabase = None) ->
     local_vars = {name: locals()[name] for name in variables}
     try:
         age_conversions = retrieve_conversions('AgeUnitConversions', 'AgeUnit', DirectAgeUnitID, database=database)
-        error_conversions = retrieve_conversions('ErrorFormatConversions', 'ErrorFormat', DirectAgeErrorFormatID, database=database)
+        error_conversions = retrieve_conversions('ErrorFormatConversions', 'ErrorFormat', DirectAgeErrorFormatID,
+                                                 database=database)
     except NotImplementedError:
         return False
     create_savepoint('before_populate_age')
@@ -1332,7 +1349,8 @@ def convert_sample_age(sample_age_id: int, database: QtS.QSqlDatabase = None) ->
     age_display = f'{calc_age_values[0]}±{calc_age_values[1]}, {calc_age_values[2]}-{calc_age_values[3]}, {OldestAgeID}-{YoungestAgeID}'
     calc_age_values.append(age_display)
     sql_placeholders = ", ".join('?' * len(calc_age_values))
-    if not query.prepare(f'UPDATE SampleAges SET ({', '.join(calc_age_columns)}) = ({sql_placeholders}) WHERE "SampleAgeID"={sample_age_id}'):
+    if not query.prepare(
+            f'UPDATE SampleAges SET ({', '.join(calc_age_columns)}) = ({sql_placeholders}) WHERE "SampleAgeID"={sample_age_id}'):
         logger_setup.get_logger().error(
             f'Error updating the age display. Displays will update on returning to main page')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
@@ -1352,6 +1370,7 @@ def convert_sample_age(sample_age_id: int, database: QtS.QSqlDatabase = None) ->
     logger_setup.get_logger().info(f'Successfully updated SampleAge display')
     release_savepoint('before_populate_age')
     return True
+
 
 def check_tree_structure(table: str, database: QtS.QSqlDatabase = None) -> bool:
     """
@@ -1416,7 +1435,8 @@ def check_tree_structure(table: str, database: QtS.QSqlDatabase = None) -> bool:
             problem_parent_text = f'IS NULL OR "{parent_id_header}" IN ({", ".join(str(parent) for parent in problem_parents if parent != "NULL")})'
         else:
             problem_parent_text = f'IN ({", ".join(str(parent) for parent in problem_parents)})'
-        if not query.exec(f'SELECT "{id_header}", "{parent_id_header}", "{parent_row_header}" FROM "{table}" WHERE "{parent_id_header}" {problem_parent_text}'):
+        if not query.exec(
+                f'SELECT "{id_header}", "{parent_id_header}", "{parent_row_header}" FROM "{table}" WHERE "{parent_id_header}" {problem_parent_text}'):
             logger_setup.get_logger().critical(f'Error selecting from {table}')
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
             logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')

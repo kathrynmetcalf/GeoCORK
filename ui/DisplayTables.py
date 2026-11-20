@@ -15,11 +15,10 @@ import util.Text_manipulations as TxM
 from Functions import SQLUtils
 from Functions.Database_manager import update_database
 from Functions.Settings_manager import SettingsManager
-from Functions.Widget_classes import (
-    save_expanded_state,
-    expand_collapse, add_tree_popup, get_name_column,
+from util.database.database_helper import (
+    add_tree_popup, get_name_column,
     get_headers, get_total_records, get_record_row, columns_as_list,
-    get_id_from_name, scroll_to_record, get_view_from_table
+    get_id_from_name, get_view_from_table
 )
 from ui.SampleMap import SampleMapWindow
 from ui.settings import SettingsCore
@@ -28,10 +27,10 @@ from util.widgets.context_menus import TreeContextMenu
 from util.widgets.models.item_models import TableToolTipModel
 from util.widgets.models.proxy_models import ReadableProxyModel, TreeSortFilterProxyModel
 from util.widgets.models.query_models import DisplayRoundedQueryModel
-from util.widgets.models.table_models import DisplayRoundedTableModel, SQLiteTableModel
+from util.widgets.models.table_models import DisplayRoundedTableModel, SQLiteTableModel, scroll_to_record
 from util.widgets.models.tree_models import TreeModel
 from util.widgets.views.frozen_views import FrozenTableView
-from util.widgets.views.tree_views import TrackExpandedTreeView
+from util.widgets.views.tree_views import TrackExpandedTreeView, save_expanded_state, expand_collapse
 
 settings = SettingsManager().settings
 from Functions.Database_views import ViewQuery

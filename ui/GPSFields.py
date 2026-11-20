@@ -9,13 +9,13 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6.uic import loadUi
 
 import logger_setup
-from Functions.Alter_database import convert_gps_location
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
 from Functions.Settings_manager import SettingsManager
-from Functions.Widget_classes import (set_table, set_comboBox_text, get_headers,
-                                      delete_data,
-                                      get_id_from_name)
 from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from util.database.alter_database import convert_gps_location
+from util.database.database_helper import (set_table, set_comboBox_text, get_headers,
+                                           delete_data,
+                                           get_id_from_name)
 from util.display_formatting import return_number
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.populate_models import populate_combo_box
