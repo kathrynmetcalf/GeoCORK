@@ -1,4 +1,5 @@
 from PyQt6 import QtWidgets, QtCore
+from PyQt6.QtCore import QModelIndex
 
 from util import geocork_logger
 from util.widgets.delegates import ActiveSelectionDelegate
@@ -6,17 +7,18 @@ from util.widgets.views.tree_views import TrackExpandedTreeView
 
 
 class FrozenTableView(QtWidgets.QTableView):
-    """
-    Custom QTableView subclass that allows freezing the first column of the table. This class extends QTableView to
-    provide functionality for freezing the first column of the table, allowing it to remain visible while scrolling
-    horizontally. The frozen column is displayed in a separate QTableView that is stacked over the main table view.
-    The frozen table view is updated whenever the model is set or when the section sizes change. It also synchronizes
-    the vertical scroll bar with the main table view to ensure that both views scroll together. The frozen column
-    is updated whenever the section sizes change, and the geometry of the frozen table view is adjusted to match the
-    main table view's geometry.
-    """
 
     def __init__(self, parent=None):
+        """
+        Custom QTableView subclass that allows freezing the first column of the table. This class extends QTableView to
+        provide functionality for freezing the first column of the table, allowing it to remain visible while scrolling
+        horizontally. The frozen column is displayed in a separate QTableView that is stacked over the main table view.
+        The frozen table view is updated whenever the model is set or when the section sizes change. It also synchronizes
+        the vertical scroll bar with the main table view to ensure that both views scroll together. The frozen column
+        is updated whenever the section sizes change, and the geometry of the frozen table view is adjusted to match the
+        main table view's geometry.
+        :param parent:
+        """
         super().__init__(parent)
         self.frozen_table_view = QtWidgets.QTableView(self)
         self.frozen_table_view.setFocusPolicy(QtCore.Qt.FocusPolicy.ClickFocus)
@@ -196,7 +198,7 @@ class FrozenTableView(QtWidgets.QTableView):
 
         self.frozen_table_view.setUpdatesEnabled(True)
 
-    def resizeEvent(self, event):
+    def resizeEvent(self, event) -> None:
         """
         Handle the resize event for the frozen table view. This method is called whenever the main table view is resized.
         It updates the geometry of the frozen table view to match the new size of the main table view. The frozen table
@@ -207,7 +209,7 @@ class FrozenTableView(QtWidgets.QTableView):
         super().resizeEvent(event)
         self.geometry_timer_start()
 
-    def moveCursor(self, cursorAction, modifiers):
+    def moveCursor(self, cursorAction, modifiers) -> QModelIndex:
         """
         Move the cursor in the frozen table view based on the cursor action and modifiers. This method overrides the
         QTableView moveCursor method to handle the case where the cursor is moved left and the current column is greater
@@ -228,7 +230,7 @@ class FrozenTableView(QtWidgets.QTableView):
             self.horizontalScrollBar().setValue(new_value)
         return current
 
-    def scrollTo(self, index, hint=...):
+    def scrollTo(self, index, hint=...) -> None:
         """
         Scroll to the specified index in the frozen table view. This method overrides the QTableView scrollTo method
         to handle the case where the index is in a column greater than the frozen column. If that happens, it
@@ -246,10 +248,10 @@ class FrozenTableView(QtWidgets.QTableView):
             frozen_index = self.model().index(index.row(), self.frozen_column)
             super().scrollTo(frozen_index, hint)
 
-    def geometry_timer_start(self):
+    def geometry_timer_start(self) -> None:
         self.geometry_timer.start(151)
 
-    def update_frozen_table_geometry(self):
+    def update_frozen_table_geometry(self) -> None:
         """
         Update the geometry of the frozen table view to match the main table view's geometry. This method is called
         whenever the model is set or when the section sizes change. It adjusts the geometry of the frozen table view
@@ -280,17 +282,18 @@ class FrozenTableView(QtWidgets.QTableView):
 
 
 class FrozenTreeView(TrackExpandedTreeView):
-    """
-    Custom TrackExpandedTreeView subclass that allows freezing the first column of the tree. This class extends QTreeView to
-    provide functionality for freezing the first column of the tree, allowing it to remain visible while scrolling
-    horizontally. The frozen column is displayed in a separate TrackExpandedTreeView that is stacked over the main tree view.
-    The frozen tree view is updated whenever the model is set or when the section sizes change. It also synchronizes
-    the vertical scroll bar with the main tree view to ensure that both views scroll together. The frozen column
-    is updated whenever the section sizes change, and the geometry of the frozen tree view is adjusted to match the
-    main tree view's geometry.
-    """
 
     def __init__(self, parent=None):
+        """
+        Custom TrackExpandedTreeView subclass that allows freezing the first column of the tree. This class extends QTreeView to
+        provide functionality for freezing the first column of the tree, allowing it to remain visible while scrolling
+        horizontally. The frozen column is displayed in a separate TrackExpandedTreeView that is stacked over the main tree view.
+        The frozen tree view is updated whenever the model is set or when the section sizes change. It also synchronizes
+        the vertical scroll bar with the main tree view to ensure that both views scroll together. The frozen column
+        is updated whenever the section sizes change, and the geometry of the frozen tree view is adjusted to match the
+        main tree view's geometry.
+        :param parent:
+        """
         super().__init__(parent)
         self.frozen_tree_view = TrackExpandedTreeView(self)
         self.frozen_tree_view.setFocusPolicy(QtCore.Qt.FocusPolicy.ClickFocus)
@@ -320,7 +323,7 @@ class FrozenTreeView(TrackExpandedTreeView):
         self.verticalScrollBar().valueChanged.connect(self.frozen_tree_view.verticalScrollBar().setValue)
         self.frozen_tree_view.verticalScrollBar().valueChanged.connect(self.verticalScrollBar().setValue)
 
-    def setModel(self, model):
+    def setModel(self, model) -> None:
         """
         Set the model for the frozen table view and the main table view. This method overrides the QTableView setModel
         method to ensure that both the main table view and the frozen table view are set to the same model. It also
@@ -362,7 +365,7 @@ class FrozenTreeView(TrackExpandedTreeView):
         except Exception:
             pass
 
-    def update_section_height(self, logicalIndex):
+    def update_section_height(self, logicalIndex) -> None:
         """
         Update the height of the frozen tree view's row based on the logical index. This method is called whenever
         the height of a section in the main tree view changes. It sets the row height of the frozen tree view to
@@ -373,7 +376,7 @@ class FrozenTreeView(TrackExpandedTreeView):
         """
         self.frozen_tree_view.setRowHeight(logicalIndex, self.rowHeight(logicalIndex))
 
-    def update_section_width(self, logicalIndex):
+    def update_section_width(self, logicalIndex) -> None:
         """
         Update the width of the frozen tree view's column based on the logical index. This method is called whenever
         the width of a section in the main tree view changes. It sets the column width of the frozen tree view to
@@ -405,7 +408,7 @@ class FrozenTreeView(TrackExpandedTreeView):
 
         self.frozen_tree_view.setUpdatesEnabled(True)
 
-    def resizeEvent(self, event):
+    def resizeEvent(self, event) -> None:
         """
         Handle the resize event for the frozen table view. This method is called whenever the main table view is resized.
         It updates the geometry of the frozen table view to match the new size of the main table view. The frozen table
@@ -416,7 +419,7 @@ class FrozenTreeView(TrackExpandedTreeView):
         super().resizeEvent(event)
         self.geometry_timer_start()
 
-    def moveCursor(self, cursorAction, modifiers):
+    def moveCursor(self, cursorAction, modifiers) -> QModelIndex:
         """
         Move the cursor in the frozen tree view based on the cursor action and modifiers. This method overrides the
         QTableView moveCursor method to handle the case where the cursor is moved left and the current column is greater
@@ -437,7 +440,7 @@ class FrozenTreeView(TrackExpandedTreeView):
             self.horizontalScrollBar().setValue(new_value)
         return current
 
-    def scrollTo(self, index, hint=...):
+    def scrollTo(self, index, hint=...) -> None:
         """
         Scroll to the specified index in the frozen table view. This method overrides the QTableView scrollTo method
         to handle the case where the index is in a column greater than the frozen column. If that happens, it
