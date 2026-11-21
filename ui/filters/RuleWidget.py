@@ -4,7 +4,7 @@ from PyQt6.QtGui import QDoubleValidator, QRegularExpressionValidator
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QSizePolicy, QLineEdit, QPushButton
 
-import logger_setup
+from util import logger
 from Functions import SQLUtils
 from util.database.database_helper import get_name_column
 from util.widgets.ComboBoxes.FocusWheelComboBox import FocusWheelComboBox
@@ -113,7 +113,7 @@ class RuleWidget(QWidget):
                                            'SampleAgeDescription', 'SampleAgeCreated', 'SampleAgeModified'])
         elif self.table_combo.currentText() == 'GPSLocations':
             gps_fields = SQLUtils.table_attributes_dict[self.table_combo.currentText()]
-            if logger_setup.settings.value('gps_format_id') == 7:
+            if logger.settings.value('gps_format_id') == 7:
                 # UTM format, remove Lat and Lon fields
                 gps_fields = [field for field in gps_fields if not any(latlon in field for latlon in ['Lat', 'Lon'])]
             else:
@@ -362,9 +362,9 @@ class RuleWidget(QWidget):
                 sql_query = "SELECT AgeName FROM Ages"
 
             if not query.exec(sql_query):
-                logger_setup.get_logger().critical('Error creating the completer for input')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+                logger.get_logger().critical('Error creating the completer for input')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL command: {sql_query}')
 
             values = set()
             while query.next():

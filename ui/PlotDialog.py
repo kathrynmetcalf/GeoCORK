@@ -7,8 +7,8 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolb
 from matplotlib.colors import to_hex
 from matplotlib.figure import Figure
 
-import logger_setup
-from Functions.Settings_manager import SettingsManager
+from util import logger
+from util.settings_manager import SettingsManager
 from util.plotting.Plot_data import DATA_PROVIDERS, Option
 from util.plotting.Plot_types import PLOT_TYPES
 
@@ -226,7 +226,7 @@ class PlotDialog(QtW.QDialog):
                     message = self.plot.draw(self.figure, self.frame,
                                              self.options_for(self.plot.name, self.plot.options))
             except Exception as error:  # a plot failing (e.g. optimized bandwidth on one grain) must not close the window
-                logger_setup.get_logger().exception(f'Error drawing {self.plot.name}')
+                logger.get_logger().exception(f'Error drawing {self.plot.name}')
                 self.figure.clear()
                 message = f'Could not draw {self.plot.name}: {error}'
         self.apply_legend()

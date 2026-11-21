@@ -7,7 +7,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QVBoxLayout, QScrollArea, QSizePolicy, QWidget, QListWidgetItem, QMessageBox, QLabel
 
-import logger_setup
+from util import logger
 from Functions import SQLUtils
 
 from ui.filters.FilterHelpers import process_group
@@ -60,7 +60,7 @@ class FilterQueryBuilder(QWidget):
             """
         query.prepare(sql_query)
         query.bindValue(":filter_name", filter_name)
-        logger_setup.get_logger().info(f'Populating QueryBuilder from stored filter: {filter_name}')
+        logger.get_logger().info(f'Populating QueryBuilder from stored filter: {filter_name}')
 
         if query.exec():
             if query.next():
@@ -75,14 +75,14 @@ class FilterQueryBuilder(QWidget):
                 self.scrollarea.setWidget(self.main_group_box)
                 self.show()
             else:
-                logger_setup.get_logger().error(
+                logger.get_logger().error(
                     f'No matching filter group for: {filter_name}')
         else:
-            logger_setup.get_logger().critical(
+            logger.get_logger().critical(
                 f'Error in populating existing Filters')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL command: {sql_query}')
-            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL command: {sql_query}')
+            logger.get_logger().debug(f'Bound values: {query.boundValues()}')
         close_loading_dialog('Loading', f'Populating from {filter_name}...')
 
 
@@ -114,7 +114,7 @@ class FilterQueryBuilder(QWidget):
         filter_start = time.time()
         show_loading_dialog('Filtering', f'Filtering {type} based on current criteria...\n\nThis may take minutes for complex filters or large databases.')
         sql_query = self.get_sql(type)
-        database = logger_setup.settings.value('db_file', type=str)
+        database = logger.settings.value('db_file', type=str)
         uri = f'file:{database}?mode=ro&immutable=1'
         try:
             conn = sqlite3.connect(uri, uri=True)
@@ -126,14 +126,14 @@ class FilterQueryBuilder(QWidget):
             conn.commit()
             conn.close()
         except sqlite3.Error as e:
-            logger_setup.get_logger().critical("Error filtering data")
-            logger_setup.get_logger().debug(f"Failed to get filtered ids")
-            logger_setup.get_logger().debug(f"Error: {e}")
-            logger_setup.get_logger().debug(f"SQL query: {sql_query}")
+            logger.get_logger().critical("Error filtering data")
+            logger.get_logger().debug(f"Failed to get filtered ids")
+            logger.get_logger().debug(f"Error: {e}")
+            logger.get_logger().debug(f"SQL query: {sql_query}")
             close_loading_dialog('Filtering', f'Filtering {type} based on current criteria...\n\nThis may take minutes for complex filters or large databases.')
             return None
-        logger_setup.get_logger().debug(f'Filtered ids: {results}')
-        logger_setup.get_logger().info('Gathered filtered ids successfully in {:.2f} seconds'.format(time.time() - filter_start))
+        logger.get_logger().debug(f'Filtered ids: {results}')
+        logger.get_logger().info('Gathered filtered ids successfully in {:.2f} seconds'.format(time.time() - filter_start))
         close_loading_dialog('Filtering', f'Filtering {type} based on current criteria...\n\nThis may take minutes for complex filters or large databases.')
         return results if results else None
 
@@ -157,9 +157,9 @@ class FilterQueryBuilder(QWidget):
 
         # gathers the join statements with found tables
         join = get_join_from_table("", self.main_group_box.get_tables())
-        logger_setup.get_logger().debug(f'SQL Join: {join}')
+        logger.get_logger().debug(f'SQL Join: {join}')
         selects = self.main_group_box.get_selects()
-        logger_setup.get_logger().debug(f'SQL Selects: {selects}')
+        logger.get_logger().debug(f'SQL Selects: {selects}')
 
         def extract_as_tables(join):
             as_tables = None
@@ -270,10 +270,10 @@ class FilterQueryBuilder(QWidget):
                 WHERE UPbAnalysisID IS NOT NULL;"""
 
         else:
-            logger_setup.get_logger().critical(f'Unknown Type Given: {type}')
+            logger.get_logger().critical(f'Unknown Type Given: {type}')
             return None
 
-        logger_setup.get_logger().debug(f'Filtered SQL command: {sql_query}')
+        logger.get_logger().debug(f'Filtered SQL command: {sql_query}')
 
         return sql_query
 

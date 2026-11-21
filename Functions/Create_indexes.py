@@ -4,7 +4,7 @@ import time
 from PyQt6 import QtSql
 from PyQt6.QtWidgets import QProgressDialog, QApplication
 
-import logger_setup
+from util import logger
 from util.loading_dialog_manager import LoadingDialogManager
 
 '''Commands to create the database indexes'''
@@ -204,14 +204,14 @@ def create_indexes(database=None) -> bool:
     # if not drop_all_indexes(database):
     #     return False
 
-    logger_setup.get_logger().info('Creating database indexes')
+    logger.get_logger().info('Creating database indexes')
     if database is None:
         query = QtSql.QSqlQuery()
     else:
         query = QtSql.QSqlQuery(database)
 
     total_indexes = len(create_indexes_sql)
-    logger_setup.get_logger().debug(f'Total indexes: {total_indexes}')
+    logger.get_logger().debug(f'Total indexes: {total_indexes}')
     index_count = 0
     index_progress = QProgressDialog('Indexing database...', 'Cancel', 0, total_indexes, loading_manager.dialog)
     index_progress.setMinimumDuration(0)
@@ -227,16 +227,16 @@ def create_indexes(database=None) -> bool:
         if not query.exec(index_sql):
             # If the index already exists, ignore the error
             if 'already exists' in query.lastError().text():
-                logger_setup.get_logger().debug(f'{index_name} already exists')
+                logger.get_logger().debug(f'{index_name} already exists')
             else:
-                logger_setup.get_logger().critical(f'Error creating {index_name}')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().critical(f'Error creating {index_name}')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 loading_manager.close_loading_dialog('Loading', 'Indexing database...')
                 return False
 
         index_count += 1
-        logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
+        logger.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
         index_progress.setValue(index_count + 1)
         # Let the event loop process the dialog's updates
         QApplication.processEvents()
@@ -1515,7 +1515,7 @@ def create_indexes(database=None) -> bool:
     # logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
 
     end_time = time.time()
-    logger_setup.get_logger().info(f'Database indexes created in {end_time - start_time} seconds')
+    logger.get_logger().info(f'Database indexes created in {end_time - start_time} seconds')
     loading_manager.close_loading_dialog('Loading', 'Indexing database...')
     return True
 
@@ -1532,7 +1532,7 @@ def drop_all_indexes(database=None) -> bool:
         :rtype: bool
         """
     start_time = time.time()
-    logger_setup.get_logger().info('Dropping all database indexes')
+    logger.get_logger().info('Dropping all database indexes')
     if database is None:
         database = QtSql.QSqlDatabase.database()
 
@@ -1547,9 +1547,9 @@ def drop_all_indexes(database=None) -> bool:
         conn.commit()
         conn.close()
     except sqlite3.Error as e:
-        logger_setup.get_logger().critical(f"Error resetting indexes")
-        logger_setup.get_logger().debug(f'Error retrieving indexes: {e}')
-        logger_setup.get_logger().debug(f'SQL query: {select_indexes}')
+        logger.get_logger().critical(f"Error resetting indexes")
+        logger.get_logger().debug(f'Error retrieving indexes: {e}')
+        logger.get_logger().debug(f'SQL query: {select_indexes}')
         return False
 
     # Drop each index
@@ -1565,11 +1565,11 @@ def drop_all_indexes(database=None) -> bool:
                 cursor.execute(drop_statement)
             conn.commit()
             conn.close()
-            logger_setup.get_logger().info(f'Dropped index {idx_name[0]}')
+            logger.get_logger().info(f'Dropped index {idx_name[0]}')
         except sqlite3.Error as e:
-            logger_setup.get_logger().critical(f"Error resetting indexes")
-            logger_setup.get_logger().debug(f'Error dropping index {idx_name[0]}: {e}')
-            logger_setup.get_logger().debug(f'SQL query: {drop_statement}')
+            logger.get_logger().critical(f"Error resetting indexes")
+            logger.get_logger().debug(f'Error dropping index {idx_name[0]}: {e}')
+            logger.get_logger().debug(f'SQL query: {drop_statement}')
             return False
         # if not query.exec(drop_statement):
         #     logger_setup.get_logger().critical(f"Error dropping index '{idx_name}'")
@@ -1580,5 +1580,5 @@ def drop_all_indexes(database=None) -> bool:
         #     logger_setup.get_logger().debug(f"Successfully dropped index '{idx_name}'")
 
     end_time = time.time()
-    logger_setup.get_logger().info(f'Database indexes dropped in {end_time - start_time} seconds')
+    logger.get_logger().info(f'Database indexes dropped in {end_time - start_time} seconds')
     return True

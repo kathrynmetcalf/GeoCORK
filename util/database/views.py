@@ -1,103 +1,168 @@
+from enum import Enum
+
 from util.database.defined_queries import *
 
-view_attributes_dict = {
-    'SampleView': [qsample_id, qsample_name, qigsn, qsample_description, qgps, qsample_elev, qsample_age,
-                   qsample_age_constraints, qsample_age_interpretations, qsample_age_references, qcolumn_name,
-                   qsample_column_data, qage_signatures, qregions, qrock_types, qsample_contexts, qsampling_methods,
-                   qsettings, qunits, qaliquots, qaliquot_contexts, qgrain_count, qgrain_compositions, qgrain_contexts,
-                   qspot_count, qspot_compositions, qspot_contexts, qupb_count, qupb_lab_facilities, qupb_instruments,
-                   qupb_analysis_methods, qupb_ratio_error_formats, qupb_age_units, qupb_age_error_formats,
-                   qupb_concordance_formats, qupb_spot_sizes, qupb_rejection_reasons, qupb_contexts, qupb_age_interpretations,
-                   qupb_references, qgeochem_count, qgeochem_lab_facilities, qgeochem_instruments, qgeochem_methods,
-                   qgeochem_rejection_reasons, qgeochem_contexts, qgeochem_references, qsample_created, qsample_modified],
-    'SampleEditView': [qsample_id, qsample_name, qigsn, qsample_description, qgps_display, qsample_elev_display,
-                       qsample_age_display, qsample_age_constraints, qsample_age_interpretations,
-                       qsample_age_references, qcolumn_name, qsample_column_height_depth,
-                       qsample_column_height_depth_error, qsample_column_data_unit, qage_signatures, qregions,
-                       qrock_types, qsample_contexts, qsampling_methods, qsettings, qunits, qaliquots, qaliquot_contexts,
-                       qgrain_count, qgrain_compositions, qgrain_contexts, qspot_count, qspot_compositions,
-                       qspot_contexts, qupb_count, qupb_lab_facilities, qupb_instruments, qupb_analysis_methods,
-                       qupb_ratio_error_formats, qupb_age_units, qupb_age_error_formats, qupb_concordance_formats,
-                       qupb_spot_size, qupb_spot_size_unit, qupb_rejection_reasons, qupb_references, qupb_contexts,
-                       qupb_age_interpretations, qgeochem_count, qgeochem_lab_facilities, qgeochem_instruments,
-                       qgeochem_methods, qgeochem_rejection_reasons, qgeochem_contexts, qgeochem_references,
-                       qsample_created, qsample_modified],
-    'ColumnView': [qcolumn_id, qcolumn_name, qcolumn_description, qcolumn_calc_total_height_depth, qcolumn_gps,
-                   qcolumn_elev, qcolumn_created, qcolumn_modified],
-    'ColumnEditView': [qcolumn_id, qcolumn_name, qcolumn_description, qcolumn_total_height_depth,
-                       qcolumn_total_height_depth_unit, qcolumn_gps_display, qcolumn_elev_display, qcolumn_elev_unit,
-                       qcolumn_created, qcolumn_modified],
-    'AliquotView': [qaliquot_id, qaliquot_parent_id, qaliquot_parent_row, qaliquot_name, qaliquot_description,
-                    qsample_id, qaliquot_sample, qaliquot_contexts, qgrain_count, qgrain_compositions, qgrain_contexts,
-                    qspot_count, qspot_compositions, qspot_contexts, qupb_count, qupb_lab_facilities,
-                    qupb_analysis_methods, qupb_instruments, qupb_ratio_error_formats, qupb_age_units,
-                    qupb_age_error_formats, qupb_concordance_formats, qupb_spot_sizes, qupb_rejection_reasons,
-                    qupb_contexts, qupb_age_interpretations, qupb_references, qgeochem_count, qgeochem_lab_facilities,
-                    qgeochem_instruments, qgeochem_methods, qgeochem_rejection_reasons, qgeochem_contexts,
-                    qgeochem_references, qaliquot_created, qaliquot_modified],
-    'AliquotEditView': [qaliquot_id, qaliquot_parent_id, qaliquot_parent_row, qaliquot_name, qaliquot_description,
-                        qsample_id, qaliquot_sample, qaliquot_contexts, qaliquot_created, qaliquot_modified],
-    'GrainView': [qgrain_id, qaliquot_id, qsample_id, qgrain_name, qgrain_description, qaliquot_name, qsample_name,
-                  qspots, qaliquot_name, qsample_name, qgrain_composition, qgrain_contexts, qspot_compositions,
-                  qspot_contexts, qupb_count, qupb_lab_facilities, qupb_instruments, qupb_analysis_methods,
-                  qupb_ratio_error_formats, qupb_age_units, qupb_age_error_formats, qupb_concordance_formats,
-                  qupb_spot_sizes, qupb_rejection_reasons, qupb_contexts, qupb_age_interpretations, qupb_references,
-                  qgeochem_count, qgeochem_lab_facilities, qgeochem_instruments, qgeochem_methods,
-                  qgeochem_rejection_reasons, qgeochem_contexts, qgeochem_references, qgrain_created, qgrain_modified],
-    'GrainEditView': [qgrain_id, qaliquot_id, qsample_id, qgrain_name, qgrain_description, qaliquot_name, qsample_name,
-                      qgrain_composition, qgrain_contexts, qgrain_created, qgrain_modified],
-    'SpotView': [qspot_id, qgrain_id, qaliquot_id, qsample_id, qspot_name, qspot_description, qgrain_name,
-                 qaliquot_name, qsample_name, qspot_compositions, qspot_contexts, qgrain_composition, qgrain_contexts,
-                 qupb_analyses, qupb_count, qupb_lab_facilities, qupb_instruments, qupb_analysis_methods,
+
+class DatabaseViews(Enum):
+    """
+    Enum list of all database views available
+    """
+    SampleView = [qsample_id, qsample_name, qigsn, qsample_description, qgps, qsample_elev, qsample_age,
+                  qsample_age_constraints, qsample_age_interpretations, qsample_age_references, qcolumn_name,
+                  qsample_column_data, qage_signatures, qregions, qrock_types, qsample_contexts, qsampling_methods,
+                  qsettings, qunits, qaliquots, qaliquot_contexts, qgrain_count, qgrain_compositions, qgrain_contexts,
+                  qspot_count, qspot_compositions, qspot_contexts, qupb_count, qupb_lab_facilities, qupb_instruments,
+                  qupb_analysis_methods, qupb_ratio_error_formats, qupb_age_units, qupb_age_error_formats,
+                  qupb_concordance_formats, qupb_spot_sizes, qupb_rejection_reasons, qupb_contexts,
+                  qupb_age_interpretations,
+                  qupb_references, qgeochem_count, qgeochem_lab_facilities, qgeochem_instruments, qgeochem_methods,
+                  qgeochem_rejection_reasons, qgeochem_contexts, qgeochem_references, qsample_created, qsample_modified]
+
+    SampleEditView = [qsample_id, qsample_name, qigsn, qsample_description, qgps_display, qsample_elev_display,
+                      qsample_age_display, qsample_age_constraints, qsample_age_interpretations,
+                      qsample_age_references, qcolumn_name, qsample_column_height_depth,
+                      qsample_column_height_depth_error, qsample_column_data_unit, qage_signatures, qregions,
+                      qrock_types, qsample_contexts, qsampling_methods, qsettings, qunits, qaliquots,
+                      qaliquot_contexts,
+                      qgrain_count, qgrain_compositions, qgrain_contexts, qspot_count, qspot_compositions,
+                      qspot_contexts, qupb_count, qupb_lab_facilities, qupb_instruments, qupb_analysis_methods,
+                      qupb_ratio_error_formats, qupb_age_units, qupb_age_error_formats, qupb_concordance_formats,
+                      qupb_spot_size, qupb_spot_size_unit, qupb_rejection_reasons, qupb_references, qupb_contexts,
+                      qupb_age_interpretations, qgeochem_count, qgeochem_lab_facilities, qgeochem_instruments,
+                      qgeochem_methods, qgeochem_rejection_reasons, qgeochem_contexts, qgeochem_references,
+                      qsample_created, qsample_modified]
+
+    ColumnView = [qcolumn_id, qcolumn_name, qcolumn_description, qcolumn_calc_total_height_depth, qcolumn_gps,
+                  qcolumn_elev, qcolumn_created, qcolumn_modified]
+
+    ColumnEditView = [qcolumn_id, qcolumn_name, qcolumn_description, qcolumn_total_height_depth,
+                      qcolumn_total_height_depth_unit, qcolumn_gps_display, qcolumn_elev_display, qcolumn_elev_unit,
+                      qcolumn_created, qcolumn_modified]
+
+    AliquotView = [qaliquot_id, qaliquot_parent_id, qaliquot_parent_row, qaliquot_name, qaliquot_description,
+                   qsample_id, qaliquot_sample, qaliquot_contexts, qgrain_count, qgrain_compositions, qgrain_contexts,
+                   qspot_count, qspot_compositions, qspot_contexts, qupb_count, qupb_lab_facilities,
+                   qupb_analysis_methods, qupb_instruments, qupb_ratio_error_formats, qupb_age_units,
+                   qupb_age_error_formats, qupb_concordance_formats, qupb_spot_sizes, qupb_rejection_reasons,
+                   qupb_contexts, qupb_age_interpretations, qupb_references, qgeochem_count, qgeochem_lab_facilities,
+                   qgeochem_instruments, qgeochem_methods, qgeochem_rejection_reasons, qgeochem_contexts,
+                   qgeochem_references, qaliquot_created, qaliquot_modified]
+
+    AliquotEditView = [qaliquot_id, qaliquot_parent_id, qaliquot_parent_row, qaliquot_name, qaliquot_description,
+                       qsample_id, qaliquot_sample, qaliquot_contexts, qaliquot_created, qaliquot_modified]
+
+    GrainView = [qgrain_id, qaliquot_id, qsample_id, qgrain_name, qgrain_description, qaliquot_name, qsample_name,
+                 qspots, qaliquot_name, qsample_name, qgrain_composition, qgrain_contexts, qspot_compositions,
+                 qspot_contexts, qupb_count, qupb_lab_facilities, qupb_instruments, qupb_analysis_methods,
                  qupb_ratio_error_formats, qupb_age_units, qupb_age_error_formats, qupb_concordance_formats,
                  qupb_spot_sizes, qupb_rejection_reasons, qupb_contexts, qupb_age_interpretations, qupb_references,
                  qgeochem_count, qgeochem_lab_facilities, qgeochem_instruments, qgeochem_methods,
-                 qgeochem_rejection_reasons, qgeochem_contexts, qgeochem_references, qspot_created, qspot_modified],
-    'SpotEditView': [qspot_id, qgrain_id, qaliquot_id, qsample_id, qspot_name, qspot_description, qgrain_name,
-                     qaliquot_name, qsample_name, qspot_compositions, qspot_contexts, qspot_created, qspot_modified],
-    'UPbView': [qupb_id, qspot_id, qgrain_id, qaliquot_id, qsample_id, qupb_analysis_name, qupb_analysis_description,
-                qspot_name, qgrain_name, qaliquot_name, qsample_name, qupb_reference, qupb_lab_facility,
-                qupb_instrument, qupb_analysis_method, qupb_204cps, qupb_206cps, qupb_207cps, qupb_208cps, qupb_pbcps,
-                qupb_232cps, qupb_235cps, qupb_238cps, qupb_uppm, qupb_thppm, qupb_pbppm, qupb_calc_uth, qupb_calc_thu,
-                qupb_calc_206207, qupb_calc_206207_error, qupb_calc_207206, qupb_calc_207206_error, qupb_calc_207235,
-                qupb_calc_207235_error, qupb_calc_235207, qupb_calc_235207_error, qupb_calc_206238, qupb_calc_206238_error,
-                qupb_calc_238206, qupb_calc_238206_error, qupb_calc_208232, qupb_calc_208232_error, qupb_calc_232208,
-                qupb_calc_232208_error, qupb_calc_238232, qupb_calc_238232_error, qupb_calc_232238, qupb_calc_232238_error,
-                qupb_calc_204238, qupb_calc_204238_error, qupb_calc_238204, qupb_calc_238204_error, qupb_calc_206204,
-                qupb_calc_206204_error, qupb_calc_204206, qupb_calc_204206_error, qupb_calc_207204, qupb_calc_207204_error,
-                qupb_calc_204207, qupb_calc_204207_error, qupb_calc_208204, qupb_calc_208204_error, qupb_calc_204208,
-                qupb_calc_204208_error, qupb_ratio_error_format, qupb_calc_207206_age, qupb_calc_207206_age_error,
-                qupb_calc_206238_age, qupb_calc_206238_age_error, qupb_calc_207235_age, qupb_calc_207235_age_error,
-                qupb_calc_208232_age, qupb_calc_208232_age_error, qupb_calc_best_age, qupb_calc_best_age_error,
-                qupb_calc_best_age_filled, qupb_calc_best_age_filled_error, qupb_age_error_format, qupb_age_unit,
-                qupb_age_interpretation, qupb_calc_spot_size, qupb_calc_concordance_68v76, qupb_error_corr_68v76,
-                qupb_calc_concordance_68v75, qupb_error_corr_68v75, qupb_concordance_format, qupb_minsegdisc,
-                qupb_calc_spot_size, qupb_rejected, qupb_rejection_reasons, qupb_contexts, qupb_created, qupb_modified],
-    'UPbEditView': [qupb_id, qspot_id, qgrain_id, qaliquot_id, qsample_id, qupb_analysis_name, qupb_analysis_description,
-                    qspot_name, qgrain_name, qaliquot_name, qsample_name, qupb_reference, qupb_lab_facility,
-                    qupb_instrument, qupb_analysis_method, qupb_204cps, qupb_206cps, qupb_207cps, qupb_208cps,
-                    qupb_pbcps, qupb_232cps, qupb_235cps, qupb_238cps, qupb_uppm, qupb_thppm, qupb_pbppm, qupb_uth,
-                    qupb_thu, qupb_206207, qupb_206207_error, qupb_207206, qupb_207206_error, qupb_206238,
-                    qupb_206238_error, qupb_238206, qupb_238206_error, qupb_207235, qupb_207235_error, qupb_235207,
-                    qupb_235207_error, qupb_208232, qupb_208232_error, qupb_232208, qupb_232208_error, qupb_238232,
-                    qupb_238232_error, qupb_232238, qupb_232238_error, qupb_204238, qupb_204238_error, qupb_238204,
-                    qupb_238204_error, qupb_206204, qupb_206204_error, qupb_204206, qupb_204206_error, qupb_207204,
-                    qupb_207204_error, qupb_204207, qupb_204207_error, qupb_208204, qupb_208204_error, qupb_204208,
-                    qupb_204208_error, qupb_ratio_error_format, qupb_207206_age, qupb_207206_age_error,
-                    qupb_206238_age, qupb_206238_age_error, qupb_207235_age, qupb_207235_age_error, qupb_208232_age,
-                    qupb_208232_age_error, qupb_best_age, qupb_best_age_error, qupb_best_age_filled,
-                    qupb_best_age_filled_error, qupb_age_error_format, qupb_age_unit, qupb_age_interpretation,
-                    qupb_concordance_68v76, qupb_error_corr_68v76, qupb_concordance_68v75, qupb_error_corr_68v75,
-                    qupb_concordance_format, qupb_minsegdisc, qupb_spot_size, qupb_spot_size_unit, qupb_rejected, qupb_rejection_reasons,
-                    qupb_contexts, qupb_created, qupb_modified],
-    'ReferenceView': [qreference_id, qreference_display, qauthors, qyear, qtitle, qsource, qdoi, qreference_description,
-                      qreference_created, qreference_modified],
-    'GeoChemView': [qgeochem_id, qspot_id, qgrain_id, qaliquot_id, qsample_id, qgeochem_analysis_name,
-                    qspot_name, qgrain_name, qaliquot_name, qsample_name, qgeochem_method, qgeochem_lab_facility,
-                    qgeochem_instrument, qgeochem_reference, qgeochem_rejected, qgeochem_rejection_reasons,
-                    qgeochem_contexts, qgeochem_created, qgeochem_modified],
-    'GeoChemEditView': [qgeochem_id, qspot_id, qgrain_id, qaliquot_id, qsample_id, qgeochem_analysis_name,
-                        qspot_name, qgrain_name, qaliquot_name, qsample_name, qgeochem_method, qgeochem_lab_facility,
-                        qgeochem_instrument, qgeochem_reference, qgeochem_rejected, qgeochem_rejection_reasons,
-                        qgeochem_contexts, qgeochem_created, qgeochem_modified]
+                 qgeochem_rejection_reasons, qgeochem_contexts, qgeochem_references, qgrain_created, qgrain_modified]
+
+    GrainEditView = [qgrain_id, qaliquot_id, qsample_id, qgrain_name, qgrain_description, qaliquot_name, qsample_name,
+                     qgrain_composition, qgrain_contexts, qgrain_created, qgrain_modified]
+
+    SpotView = [qspot_id, qgrain_id, qaliquot_id, qsample_id, qspot_name, qspot_description, qgrain_name,
+                qaliquot_name, qsample_name, qspot_compositions, qspot_contexts, qgrain_composition, qgrain_contexts,
+                qupb_analyses, qupb_count, qupb_lab_facilities, qupb_instruments, qupb_analysis_methods,
+                qupb_ratio_error_formats, qupb_age_units, qupb_age_error_formats, qupb_concordance_formats,
+                qupb_spot_sizes, qupb_rejection_reasons, qupb_contexts, qupb_age_interpretations, qupb_references,
+                qgeochem_count, qgeochem_lab_facilities, qgeochem_instruments, qgeochem_methods,
+                qgeochem_rejection_reasons, qgeochem_contexts, qgeochem_references, qspot_created, qspot_modified]
+
+    SpotEditView = [qspot_id, qgrain_id, qaliquot_id, qsample_id, qspot_name, qspot_description, qgrain_name,
+                    qaliquot_name, qsample_name, qspot_compositions, qspot_contexts, qspot_created, qspot_modified]
+
+    UPbView = [qupb_id, qspot_id, qgrain_id, qaliquot_id, qsample_id, qupb_analysis_name, qupb_analysis_description,
+               qspot_name, qgrain_name, qaliquot_name, qsample_name, qupb_reference, qupb_lab_facility,
+               qupb_instrument, qupb_analysis_method, qupb_204cps, qupb_206cps, qupb_207cps, qupb_208cps, qupb_pbcps,
+               qupb_232cps, qupb_235cps, qupb_238cps, qupb_uppm, qupb_thppm, qupb_pbppm, qupb_calc_uth, qupb_calc_thu,
+               qupb_calc_206207, qupb_calc_206207_error, qupb_calc_207206, qupb_calc_207206_error, qupb_calc_207235,
+               qupb_calc_207235_error, qupb_calc_235207, qupb_calc_235207_error, qupb_calc_206238,
+               qupb_calc_206238_error,
+               qupb_calc_238206, qupb_calc_238206_error, qupb_calc_208232, qupb_calc_208232_error, qupb_calc_232208,
+               qupb_calc_232208_error, qupb_calc_238232, qupb_calc_238232_error, qupb_calc_232238,
+               qupb_calc_232238_error,
+               qupb_calc_204238, qupb_calc_204238_error, qupb_calc_238204, qupb_calc_238204_error, qupb_calc_206204,
+               qupb_calc_206204_error, qupb_calc_204206, qupb_calc_204206_error, qupb_calc_207204,
+               qupb_calc_207204_error,
+               qupb_calc_204207, qupb_calc_204207_error, qupb_calc_208204, qupb_calc_208204_error, qupb_calc_204208,
+               qupb_calc_204208_error, qupb_ratio_error_format, qupb_calc_207206_age, qupb_calc_207206_age_error,
+               qupb_calc_206238_age, qupb_calc_206238_age_error, qupb_calc_207235_age, qupb_calc_207235_age_error,
+               qupb_calc_208232_age, qupb_calc_208232_age_error, qupb_calc_best_age, qupb_calc_best_age_error,
+               qupb_calc_best_age_filled, qupb_calc_best_age_filled_error, qupb_age_error_format, qupb_age_unit,
+               qupb_age_interpretation, qupb_calc_spot_size, qupb_calc_concordance_68v76, qupb_error_corr_68v76,
+               qupb_calc_concordance_68v75, qupb_error_corr_68v75, qupb_concordance_format, qupb_minsegdisc,
+               qupb_calc_spot_size, qupb_rejected, qupb_rejection_reasons, qupb_contexts, qupb_created, qupb_modified]
+
+    UPbEditView = [qupb_id, qspot_id, qgrain_id, qaliquot_id, qsample_id, qupb_analysis_name,
+                   qupb_analysis_description,
+                   qspot_name, qgrain_name, qaliquot_name, qsample_name, qupb_reference, qupb_lab_facility,
+                   qupb_instrument, qupb_analysis_method, qupb_204cps, qupb_206cps, qupb_207cps, qupb_208cps,
+                   qupb_pbcps, qupb_232cps, qupb_235cps, qupb_238cps, qupb_uppm, qupb_thppm, qupb_pbppm, qupb_uth,
+                   qupb_thu, qupb_206207, qupb_206207_error, qupb_207206, qupb_207206_error, qupb_206238,
+                   qupb_206238_error, qupb_238206, qupb_238206_error, qupb_207235, qupb_207235_error, qupb_235207,
+                   qupb_235207_error, qupb_208232, qupb_208232_error, qupb_232208, qupb_232208_error, qupb_238232,
+                   qupb_238232_error, qupb_232238, qupb_232238_error, qupb_204238, qupb_204238_error, qupb_238204,
+                   qupb_238204_error, qupb_206204, qupb_206204_error, qupb_204206, qupb_204206_error, qupb_207204,
+                   qupb_207204_error, qupb_204207, qupb_204207_error, qupb_208204, qupb_208204_error, qupb_204208,
+                   qupb_204208_error, qupb_ratio_error_format, qupb_207206_age, qupb_207206_age_error,
+                   qupb_206238_age, qupb_206238_age_error, qupb_207235_age, qupb_207235_age_error, qupb_208232_age,
+                   qupb_208232_age_error, qupb_best_age, qupb_best_age_error, qupb_best_age_filled,
+                   qupb_best_age_filled_error, qupb_age_error_format, qupb_age_unit, qupb_age_interpretation,
+                   qupb_concordance_68v76, qupb_error_corr_68v76, qupb_concordance_68v75, qupb_error_corr_68v75,
+                   qupb_concordance_format, qupb_minsegdisc, qupb_spot_size, qupb_spot_size_unit, qupb_rejected,
+                   qupb_rejection_reasons,
+                   qupb_contexts, qupb_created, qupb_modified]
+
+    ReferenceView = [qreference_id, qreference_display, qauthors, qyear, qtitle, qsource, qdoi, qreference_description,
+                     qreference_created, qreference_modified]
+
+    GeoChemView = [qgeochem_id, qspot_id, qgrain_id, qaliquot_id, qsample_id, qgeochem_analysis_name,
+                   qspot_name, qgrain_name, qaliquot_name, qsample_name, qgeochem_method, qgeochem_lab_facility,
+                   qgeochem_instrument, qgeochem_reference, qgeochem_rejected, qgeochem_rejection_reasons,
+                   qgeochem_contexts, qgeochem_created, qgeochem_modified]
+
+    GeoChemEditView = [qgeochem_id, qspot_id, qgrain_id, qaliquot_id, qsample_id, qgeochem_analysis_name,
+                       qspot_name, qgrain_name, qaliquot_name, qsample_name, qgeochem_method, qgeochem_lab_facility,
+                       qgeochem_instrument, qgeochem_reference, qgeochem_rejected, qgeochem_rejection_reasons,
+                       qgeochem_contexts, qgeochem_created, qgeochem_modified]
+
+
+views = [member.value for member in DatabaseViews]
+"""List of all views in the database. These views pull information from other tables for a comprehensive view of data
+See Database_views.py for further"""
+
+
+def generate():
+    temp_dict = dict()
+    for member in DatabaseViews:
+        temp_dict[member.name] = member.value
+    temp_dict['GeoChemEditView'] = [qgeochem_id, qspot_id, qgrain_id, qaliquot_id, qsample_id, qgeochem_analysis_name,
+                       qspot_name, qgrain_name, qaliquot_name, qsample_name, qgeochem_method, qgeochem_lab_facility,
+                       qgeochem_instrument, qgeochem_reference, qgeochem_rejected, qgeochem_rejection_reasons,
+                       qgeochem_contexts, qgeochem_created, qgeochem_modified]
+    return temp_dict
+
+
+view_attributes_dict = generate()
+print(view_attributes_dict)
+
+view_setting_dict = {
+    'SampleView': 'sample_view_columns',
+    'SampleEditView': 'sample_edit_columns',
+    'AliquotView': 'aliquot_view_columns',
+    'AliquotEditView': 'aliquot_edit_columns',
+    'GrainView': 'grain_view_columns',
+    'GrainEditView': 'grain_edit_columns',
+    'SpotView': 'spot_view_columns',
+    'SpotEditView': 'spot_edit_columns',
+    'UPbView': 'upb_analysis_view_columns',
+    'UPbEditView': 'upb_analysis_edit_columns',
+    'ColumnView': 'column_view_columns',
+    'ColumnEditView': 'column_edit_columns',
+    'ReferenceView': 'reference_view_columns',
+    'GeoChemView': 'geochem_analysis_view_columns',
+    'GeoChemEditView': 'geochem_analysis_edit_columns'
 }
+

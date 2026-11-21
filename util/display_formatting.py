@@ -1,8 +1,8 @@
 from PyQt6 import QtSql
 
-import logger_setup
+from util import logger
 import util.Text_manipulations as TxM
-from Functions.Settings_manager import SettingsManager
+from util.settings_manager import SettingsManager
 
 settings = SettingsManager().settings
 
@@ -223,7 +223,7 @@ def return_number(value: str | float | int):
     elif isinstance(value, int):
         return value
     else:
-        logger_setup.get_logger().info(f"Invalid value type: {type(value)}. Expected str, float, or int.")
+        logger.get_logger().info(f"Invalid value type: {type(value)}. Expected str, float, or int.")
         return value
 
 

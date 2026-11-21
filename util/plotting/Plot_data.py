@@ -17,8 +17,8 @@ import numpy as np
 import pandas as pd
 from PyQt6 import QtSql as QtS
 
-import logger_setup
-from Functions.Settings_manager import SettingsManager
+from util import logger
+from util.settings_manager import SettingsManager
 from util.database import defined_queries, defined_joins
 from util.database.units import age_units, analytical_units
 
@@ -74,9 +74,9 @@ class DataProvider:
 def query_frame(sql: str) -> pd.DataFrame:
     query = QtS.QSqlQuery()
     if not query.exec(sql):
-        logger_setup.get_logger().critical('Error loading plot data')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical('Error loading plot data')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return pd.DataFrame()
     fields = [query.record().fieldName(i) for i in range(query.record().count())]
     rows = []
@@ -163,8 +163,8 @@ class UPbData(DataProvider):
                    + [column for pair in AGE_COLUMNS.values() for column in pair]
                    + [column for pair in RATIO_PAIRS.values() for ratio in pair for column in ratio]
                    + CONCORDANCE_COLUMNS)
-        sql = (f'SELECT {", ".join(columns)}\nFROM UPbAnalyses\n{defined_queries.upb_spot_join}\n{defined_queries.spot_grain_join}\n'
-               f'{defined_queries.spot_aliquot_join}\n{defined_queries.aliquot_sample_join}\n'
+        sql = (f'SELECT {", ".join(columns)}\nFROM UPbAnalyses\n{defined_joins.upb_spot_join}\n{defined_joins.spot_grain_join}\n'
+               f'{defined_joins.spot_aliquot_join}\n{defined_joins.aliquot_sample_join}\n'
                f'WHERE Samples.SampleID IN ({", ".join(str(int(i)) for i in sample_ids)})')
         return query_frame(sql)
 
@@ -212,20 +212,6 @@ PPM_FACTORS = {'Parts per million': 1, 'Micrograms per gram': 1, 'Milligrams per
 UNIT_TO_PPM = {unit[1]: PPM_FACTORS[unit[0]] for unit in analytical_units if unit[0] in PPM_FACTORS}
 """AnalyticalUnits abbreviation (from defined_queries.analytical_units): factor to ppm"""
 
-GEOCHEM_ANALYTE_JOIN = ('LEFT JOIN GeoChemicalAnalytes '
-                        'ON GeoChemicalAnalysisValues.GeoChemAnalyteID = GeoChemicalAnalytes.GeoChemAnalyteID')
-"""defined_queries.geochem_analyte_join joins on GeoChemicalAnalyses.GeoChemAnalyteID, which is not a column of the current
-GeoChemicalAnalyses table; GeoChemAnalyteID is in GeoChemicalAnalysisValues."""
-
-REFERENCE_COMPOSITIONS = [
-    'Chondrite_PON', 'Chondrite_MS95', 'Chondrite_SM89', 'ChondriteREE_ON', 'PM_PON', 'PM_SM89', 'Pyrolite_MS95',
-    'DMM_WH2005', 'E-DMM_WH2005', 'D-DMM_WH2005', 'DM_SS2004', 'NMORB_Gale2013', 'NMORB_SM89', 'EMORB_Gale2013',
-    'EMORB_SM89', 'DMORB_Gale2013', 'MORB_Gale2013', 'OIB_SM89', 'UCC_McLennan2001', 'UCC_RG2003', 'UCC_RG2014',
-    'MCC_RG2014', 'LCC_McLennan2001', 'LCC_RG2003', 'LCC_RG2014', 'BCC_McLennan2001', 'BCC_RG2003', 'BCC_RG2014',
-    'PAAS_Pourmand2012', 'PAAS_TM1985', 'NASC_Gromet1984', 'EUS_Bau2018', 'PHS_Condie1993', 'PRS_Condie1993',
-    'ARS_Condie1993', 'MUQ_Kamber2005', 'GLOSS_P2014', 'GLOSS2_P2014']
-"""pyrolite.geochem.norm reference compositions offered for normalization"""
-
 
 @register_provider
 class GeoChemData(DataProvider):
@@ -248,9 +234,9 @@ class GeoChemData(DataProvider):
         columns = [defined_queries.qsample_id, defined_queries.qsample_name, defined_queries.qgeochem_id, defined_queries.qgeochem_analysis_name,
                    defined_queries.qgeochem_rejected, defined_queries.qgeochem_analyte_abbreviation, defined_queries.qgeochem_analyte_value,
                    defined_queries.qgeochem_analyte_unit, defined_queries.qgeochem_analyte_error, defined_queries.qgeochem_analyte_error_format]
-        sql = (f'SELECT {", ".join(columns)}\nFROM GeoChemicalAnalyses\n{defined_queries.geochem_spot_join}\n'
-               f'{defined_queries.spot_aliquot_join}\n{defined_joins.aliquot_sample_join}\n{defined_joins.geochem_analyte_value_join}\n'
-               f'{GEOCHEM_ANALYTE_JOIN}\n{defined_joins.geochem_analyte_unit_join}\n{defined_joins.geochem_analyte_error_format_join}\n'
+        sql = (f'SELECT {", ".join(columns)}\nFROM GeoChemicalAnalyses\n{defined_joins.geochem_spot_join}\n'
+               f'{defined_joins.spot_aliquot_join}\n{defined_joins.aliquot_sample_join}\n{defined_joins.geochem_analyte_value_join}\n'
+               f'{defined_joins.geochem_analyte_join}\n{defined_joins.geochem_analyte_unit_join}\n{defined_joins.geochem_analyte_error_format_join}\n'
                f'WHERE Samples.SampleID IN ({", ".join(str(int(i)) for i in sample_ids)})')
         return query_frame(sql)
 
@@ -304,9 +290,9 @@ class UPbHfData(DataProvider):
                    defined_queries.qgeochem_analyte_abbreviation, defined_queries.qgeochem_analyte_value,
                    defined_queries.qgeochem_analyte_error, defined_queries.qgeochem_analyte_error_format]
         analytes = ', '.join(f"'{a}'" for a in HF_ANALYTES)
-        sql = (f'SELECT {", ".join(columns)}\nFROM GeoChemicalAnalyses\n{defined_queries.geochem_spot_join}\n'
-               f'{defined_queries.spot_grain_join}\n{defined_queries.spot_aliquot_join}\n{defined_queries.aliquot_sample_join}\n'
-               f'{defined_queries.geochem_analyte_value_join}\n{GEOCHEM_ANALYTE_JOIN}\n{defined_queries.geochem_analyte_error_format_join}\n'
+        sql = (f'SELECT {", ".join(columns)}\nFROM GeoChemicalAnalyses\n{defined_joins.geochem_spot_join}\n'
+               f'{defined_joins.spot_grain_join}\n{defined_joins.spot_aliquot_join}\n{defined_joins.aliquot_sample_join}\n'
+               f'{defined_joins.geochem_analyte_value_join}\n{defined_joins.geochem_analyte_join}\n{defined_joins.geochem_analyte_error_format_join}\n'
                f'WHERE Samples.SampleID IN ({", ".join(str(int(i)) for i in sample_ids)}) '
                f'AND GeoChemicalAnalytes.GeoChemAnalyteAbbreviation IN ({analytes})')
         return {'upb': DATA_PROVIDERS['upb'].fetch(sample_ids), 'hf': query_frame(sql)}

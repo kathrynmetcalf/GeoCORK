@@ -1,48 +1,40 @@
 import re
 import time
 import webbrowser
-import qtawesome
 
+import qtawesome
 from PyQt6.QtCore import QPoint, QSize, QTimer, Qt, QRegularExpression, QModelIndex, QStringListModel
+from PyQt6.QtGui import QAction
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import (QWidget, QComboBox, QPushButton, QMessageBox, QCompleter, QLineEdit, QStackedWidget,
                              QTableWidgetItem, QAbstractItemView, QAbstractScrollArea, QHeaderView, QInputDialog,
                              QTableView, QMenu, QGroupBox, QHBoxLayout, QLabel, QSizePolicy,
                              QVBoxLayout, QSplitter)
-from PyQt6.QtGui import QAction
 
 import util.Text_manipulations as TxM
-
-from Functions.Database_manager import update_database
 from Functions import SQLUtils
 from Functions.Database_views import ViewQuery
-from util.database.database_helper import (
-    get_name_column,
-    get_id_from_name, get_record_row, columns_as_list, get_view_from_table, find_current_sub_items, get_headers)
-
-from Functions.Settings_manager import SettingsManager
-from util.database.database_helper import get_join_from_table
-from util.widgets.context_menus import TreeContextMenu
-
-from util.widgets.delegates import WordWrapDelegate
-
-from ui.settings import SettingsCore
-
-from ui.SampleInformation import SampleInformation
-
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
-from ui.EditView import EditView
 from ui.EditTreeView import EditTreeView
-
-import logger_setup
+from ui.EditView import EditView
+from ui.SampleInformation import SampleInformation
+from ui.settings import SettingsCore
+from util import logger
+from util.database.database_helper import get_join_from_table
+from util.database.database_helper import (
+    get_name_column, update_database,
+    get_id_from_name, get_record_row, columns_as_list, get_view_from_table, find_current_sub_items, get_headers
+)
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
+from util.settings_manager import SettingsManager
+from util.widgets.context_menus import TreeContextMenu
+from util.widgets.delegates import WordWrapDelegate
 from util.widgets.models.proxy_models import ReadableProxyModel, TreeSortFilterProxyModel
 from util.widgets.models.table_models import SQLiteTableModel, scroll_to_record
-from util.widgets.views.tree_views import TrackExpandedTreeView, expand_collapse
 from util.widgets.models.tree_models import TreeModel
 from util.widgets.views.frozen_views import FrozenTableView
-
-from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
+from util.widgets.views.tree_views import TrackExpandedTreeView, expand_collapse
 
 settings = SettingsManager().settings
 
@@ -166,11 +158,11 @@ class DataViewerWidget(QWidget):
         self.data_table_switcher()
         # self.display_data_table()
 
-        logger_setup.get_logger().info(f'Displaying window for {self.data_table}')
+        logger.get_logger().info(f'Displaying window for {self.data_table}')
         self.show()
         end_time = time.time()
         close_loading_dialog('Loading', f'Loading {len(ids_to_show)} {self.data_table}...')
-        logger_setup.get_logger().info(f'Displayed filtered view in {end_time - start_time} seconds')
+        logger.get_logger().info(f'Displayed filtered view in {end_time - start_time} seconds')
 
     def build_ui(self):
         self.root_layout = QHBoxLayout(self)
@@ -445,7 +437,7 @@ class DataViewerWidget(QWidget):
         self.goto_line_edit.setCompleter(None)
         self.goto_line_edit_2.setCompleter(None)
         if filtered_ids is None:
-            logger_setup.get_logger().error(
+            logger.get_logger().error(
                 f'No matching {new_table} for given filter(s)')
             self.filtered_data_hierarchy_combobox.setCurrentText(self.data_table)
             # close_loading_dialog('Loading', f'Loading {new_table}...')
@@ -481,7 +473,7 @@ class DataViewerWidget(QWidget):
         elif table in SQLUtils.user_viewable_tables or table in SQLUtils.conditionally_editable_tables:
             self.switch_to_table_2(self.db_stackedWidget_2)
         else:
-            logger_setup.get_logger().critical(
+            logger.get_logger().critical(
                 f"Error {self.data_filtered_table}: Tried to switch to a table with no table or tree..Don't know how it got here")
         self.goto_line_edit_2.setCompleter(None)
         self.display_table_with_data_filter()
@@ -515,7 +507,7 @@ class DataViewerWidget(QWidget):
         :return:
         """
         if not self.data_table:
-            logger_setup.get_logger().info(f'No table selected to display')
+            logger.get_logger().info(f'No table selected to display')
             return
 
         if settings.value('show_items_missing_data'):
@@ -544,7 +536,7 @@ class DataViewerWidget(QWidget):
                     table = 'UPbAnalyses'
                     show_cols = settings.value('upb_analysis_view_columns')
                 case _:
-                    logger_setup.get_logger().critical(
+                    logger.get_logger().critical(
                         f"Error {self.data_table}: Tried to switch to a table with no table or tree...")
                     close_loading_dialog('Loading', msg)
                     return
@@ -554,7 +546,7 @@ class DataViewerWidget(QWidget):
             table_query = view_query.table_query
             self.data_table_model = SQLiteTableModel(table_query, view_query=view_query)
             if self.data_table_model.last_error:
-                logger_setup.get_logger().critical(f'Error displaying {self.data_table}')
+                logger.get_logger().critical(f'Error displaying {self.data_table}')
                 close_loading_dialog('Loading', msg)
                 return
             name_column = get_name_column(get_view_from_table(table))
@@ -602,7 +594,7 @@ class DataViewerWidget(QWidget):
         elif self.data_table == 'Aliquots':
             self.total_records_1 = len(self.data_ids_to_show)
             if self.data_table not in SQLUtils.user_viewable_trees:
-                logger_setup.get_logger().critical(f"Error {self.data_table}: Tried to display a table as a tree...")
+                logger.get_logger().critical(f"Error {self.data_table}: Tried to display a table as a tree...")
                 close_loading_dialog('Loading', msg)
                 return
             table = 'Aliquots'
@@ -610,11 +602,12 @@ class DataViewerWidget(QWidget):
             # Otherwise, the tree structure is not maintained
             show_cols = settings.value('aliquot_view_columns')
             sample_ids = \
-            columns_as_list(f'SELECT SampleID FROM Aliquots WHERE AliquotID {self.sql_data_ids_to_show}', ['SampleID'])[
-                0]
+                columns_as_list(f'SELECT SampleID FROM Aliquots WHERE AliquotID {self.sql_data_ids_to_show}',
+                                ['SampleID'])[
+                    0]
             if not sample_ids:
-                logger_setup.get_logger().critical(f'Error displaying Aliquots')
-                logger_setup.get_logger().debug(f'No SampleIDs found for Aliquots: {self.sql_data_ids_to_show}')
+                logger.get_logger().critical(f'Error displaying Aliquots')
+                logger.get_logger().debug(f'No SampleIDs found for Aliquots: {self.sql_data_ids_to_show}')
                 return
             elif len(sample_ids) > 1:
                 if len(sample_ids) > 1000:
@@ -629,8 +622,8 @@ class DataViewerWidget(QWidget):
             table_query = view_query.table_query
             model = SQLiteTableModel(table_query, view_query=view_query)
             if model.last_error:
-                logger_setup.get_logger().critical(f'Error displaying Aliquots')
-                logger_setup.get_logger().debug(f'Error: {model.last_error}')
+                logger.get_logger().critical(f'Error displaying Aliquots')
+                logger.get_logger().debug(f'Error: {model.last_error}')
                 close_loading_dialog('Loading', msg)
                 return
             model.table = table
@@ -654,7 +647,7 @@ class DataViewerWidget(QWidget):
                 self.dbTable_treeView.resizeColumnToContents(column)
             self.page_info_label.setText(f"{self.total_records_1} {self.data_table}")
         else:
-            logger_setup.get_logger().critical(
+            logger.get_logger().critical(
                 f"Error {self.data_table}: Tried to switch to an unknown table...")
             close_loading_dialog('Loading', msg)
             return
@@ -809,7 +802,7 @@ class DataViewerWidget(QWidget):
 
         query = QSqlQuery()
         # Execute the query
-        logger_setup.get_logger().info(
+        logger.get_logger().info(
             f'Displaying table with selection-based filter')
         if query.exec(sql):
             self.data_filtered_ids_to_show = set()
@@ -818,10 +811,10 @@ class DataViewerWidget(QWidget):
                 if row_id is not None and row_id != '':
                     self.data_filtered_ids_to_show.add(row_id)
         else:
-            logger_setup.get_logger().critical(
+            logger.get_logger().critical(
                 f'Error in displaying table with selection-based filter')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL command: {sql}')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL command: {sql}')
 
         # Update the id_condition attribute
 
@@ -851,9 +844,9 @@ class DataViewerWidget(QWidget):
             sql_query = f"""SELECT {sql_columns} FROM {self.data_filtered_table} WHERE {where_sql}"""
             source_model = SQLiteTableModel(sql_query)
             if source_model.last_error:
-                logger_setup.get_logger().critical(f'Error displaying filtered tree')
-                logger_setup.get_logger().debug(f'Error: {source_model.last_error}')
-                logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+                logger.get_logger().critical(f'Error displaying filtered tree')
+                logger.get_logger().debug(f'Error: {source_model.last_error}')
+                logger.get_logger().debug(f'SQL command: {sql_query}')
                 return
             source_model.set_table(self.data_filtered_table)
             self.total_records_2 = source_model.rowCount()
@@ -884,7 +877,7 @@ class DataViewerWidget(QWidget):
 
             self.related_edit_pushButton.clicked.connect(
                 lambda: self.edit_popup(self.dbTable_treeView_2, self.related_data_combobox))
-            logger_setup.get_logger().info(
+            logger.get_logger().info(
                 f'Sucessfully displayed {self.data_filtered_table} with selection-based filter')
 
         elif self.data_filtered_table in SQLUtils.user_viewable_tables:
@@ -914,9 +907,9 @@ class DataViewerWidget(QWidget):
                 # There is no view_query, so just use the table query
                 self.data_filtered_table_model = SQLiteTableModel(sql_query)
             if self.data_filtered_table_model.last_error:
-                logger_setup.get_logger().critical(f'Error displaying filtered table')
-                logger_setup.get_logger().debug(f'Error: {self.data_filtered_table_model.last_error}')
-                logger_setup.get_logger().debug(f'SQL query: {sql_query}')
+                logger.get_logger().critical(f'Error displaying filtered table')
+                logger.get_logger().debug(f'Error: {self.data_filtered_table_model.last_error}')
+                logger.get_logger().debug(f'SQL query: {sql_query}')
                 return
             self.data_filtered_table_model.set_table = self.data_filtered_table
 
@@ -948,7 +941,7 @@ class DataViewerWidget(QWidget):
             self.page_info_label_2.setText(
                 f"Showing records {start_record} - {end_record} of {self.total_records_2}")
 
-            logger_setup.get_logger().info(
+            logger.get_logger().info(
                 f'Sucessfully displayed {self.data_filtered_table} with selection-based filter')
 
         close_loading_dialog('Loading', f'Displaying filtered {self.related_data_combobox.currentText()}...')
@@ -1022,16 +1015,16 @@ class DataViewerWidget(QWidget):
                     query = QSqlQuery()
                     for aliquot_id in self.data_ids_to_show:
                         if not query.exec(f'SELECT SampleID FROM Aliquots WHERE AliquotID = {aliquot_id}'):
-                            logger_setup.get_logger().critical(f'Error fetching SampleID')
-                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            logger.get_logger().critical(f'Error fetching SampleID')
+                            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                             return
                         if query.next():
                             sample_id = query.value(0)
                             if not query.exec(f'SELECT SampleName FROM Samples WHERE SampleID = {sample_id}'):
-                                logger_setup.get_logger().critical(f'Error fetching SampleName')
-                                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                                logger.get_logger().critical(f'Error fetching SampleName')
+                                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                                 return
                             if query.next():
                                 sample_name = query.value(0)
@@ -1041,33 +1034,33 @@ class DataViewerWidget(QWidget):
                     sample_name, ok = QInputDialog.getItem(self, "Select Sample",
                                                            "Edit aliquots of selected sample:", sample_names, 0, False)
                     if not ok:
-                        logger_setup.get_logger().info(f'User cancelled sample selection')
+                        logger.get_logger().info(f'User cancelled sample selection')
                         return
                     if not query.exec(f'SELECT SampleID FROM Samples WHERE SampleName = "{sample_name}"'):
-                        logger_setup.get_logger().critical(f'Error fetching SampleID')
-                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        logger.get_logger().critical(f'Error fetching SampleID')
+                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                         return
                     if not query.next():
-                        logger_setup.get_logger().critical(f'No SampleID found for the selected sample')
-                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        logger.get_logger().critical(f'No SampleID found for the selected sample')
+                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                         return
                     sample_id = query.value(0)
                     if not query.exec(f'SELECT AliquotID FROM Aliquots WHERE SampleID = {sample_id}'):
-                        logger_setup.get_logger().critical(f'Error fetching AliquotID')
-                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        logger.get_logger().critical(f'Error fetching AliquotID')
+                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                         return
                     ids = []
                     while query.next():
                         if query.value(0) in self.data_ids_to_show:
                             ids.append(query.value(0))
                     if not ids:
-                        logger_setup.get_logger().critical(f'No AliquotIDs found for the selected sample')
+                        logger.get_logger().critical(f'No AliquotIDs found for the selected sample')
                         return
                     dlg_args = {'parent_ids': sample_id, 'parent_type': 'Sample', 'table_item_ids': ids}
                 else:
-                    logger_setup.get_logger().info(f'User cancelled aliquot selection')
+                    logger.get_logger().info(f'User cancelled aliquot selection')
                     return
                 dlg = EditTreeView(self, table, **dlg_args)
             else:
@@ -1083,7 +1076,7 @@ class DataViewerWidget(QWidget):
         dlg.exec()
         if dlg.updated:
             if not update_database():
-                logger_setup.get_logger().critical(f'Error updating and displaying the database')
+                logger.get_logger().critical(f'Error updating and displaying the database')
                 self.close()
 
             self.display_data_table()
@@ -1104,7 +1097,7 @@ class DataViewerWidget(QWidget):
         dlg = SampleInformation(self, selected_samples)
         dlg.exec()
         if not update_database():
-            logger_setup.get_logger().critical(f'Error updating and displaying the database')
+            logger.get_logger().critical(f'Error updating and displaying the database')
             self.close()
 
     def open_doi_link(self, item: QTableWidgetItem):
@@ -1134,7 +1127,7 @@ class DataViewerWidget(QWidget):
         elif lineedit == self.goto_line_edit_2:
             ids = self.sql_data_filtered_ids_to_show
         else:
-            logger_setup.get_logger().info('Unknown lineedit for completer')
+            logger.get_logger().info('Unknown lineedit for completer')
             return
         if table == 'UPbAnalyses':
             sql_query = f'''SELECT DISTINCT {name_header} FROM "{table}" 
@@ -1144,8 +1137,8 @@ class DataViewerWidget(QWidget):
 
         all_names = columns_as_list(sql_query, [name_header])[0]
         if not all_names:
-            logger_setup.get_logger().debug(f'No names found for {name_header}')
-            logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+            logger.get_logger().debug(f'No names found for {name_header}')
+            logger.get_logger().debug(f'SQL command: {sql_query}')
             return
         values = set(all_names)
         name_completer.setModel(QStringListModel(values))
@@ -1248,7 +1241,7 @@ class DataViewerWidget(QWidget):
                 return
             record_id = get_id_from_name(self.filtered_data_hierarchy_combobox.currentText(), record_name)
             if not record_id:
-                logger_setup.get_logger().error(f'Could not find record name: {record_name}')
+                logger.get_logger().error(f'Could not find record name: {record_name}')
                 return
             row = get_record_row(self.filtered_data_hierarchy_combobox.currentText(), record_id, self.data_ids_to_show)
 
@@ -1262,14 +1255,14 @@ class DataViewerWidget(QWidget):
                 self.goto_line_edit.setText('')
 
             else:
-                logger_setup.get_logger().critical(f"Record {self.name_header} not found: {self.goto_line_edit.text()}")
+                logger.get_logger().critical(f"Record {self.name_header} not found: {self.goto_line_edit.text()}")
                 return
         except Exception as e:
-            logger_setup.get_logger().critical(f"Invalid Record {self.name_header}: {self.goto_line_edit.text()}")
-            logger_setup.get_logger().debug(f'Error: {e}')
+            logger.get_logger().critical(f"Invalid Record {self.name_header}: {self.goto_line_edit.text()}")
+            logger.get_logger().debug(f'Error: {e}')
             return
 
-        logger_setup.get_logger().info(f'Gone to record: {record_name} in {self.data_table}')
+        logger.get_logger().info(f'Gone to record: {record_name} in {self.data_table}')
 
     def go_to_record_2(self):
         """
@@ -1282,7 +1275,7 @@ class DataViewerWidget(QWidget):
             name_header = get_headers(self.data_filtered_table)[get_name_column(self.data_filtered_table)]
             record_id = get_id_from_name(self.data_filtered_table, record_name)
             if not record_id:
-                logger_setup.get_logger().error(f'Could not find record name: {record_name}')
+                logger.get_logger().error(f'Could not find record name: {record_name}')
                 return
             table = TxM.remove_spaces(self.related_data_combobox.currentText())
             if table in SQLUtils.as_table_dict:
@@ -1299,21 +1292,21 @@ class DataViewerWidget(QWidget):
                 self.goto_line_edit_2.setText('')
 
             else:
-                logger_setup.get_logger().critical(f"{name_header} not found: {self.goto_line_edit_2.text()}")
+                logger.get_logger().critical(f"{name_header} not found: {self.goto_line_edit_2.text()}")
                 return
         except Exception as e:
-            logger_setup.get_logger().critical(f"Invalid Record: {self.goto_line_edit_2.text()}")
-            logger_setup.get_logger().debug(f'Error: {e}')
+            logger.get_logger().critical(f"Invalid Record: {self.goto_line_edit_2.text()}")
+            logger.get_logger().debug(f'Error: {e}')
             return
 
-        logger_setup.get_logger().info(f'Gone to record: {record_name} in {self.data_filtered_table}')
+        logger.get_logger().info(f'Gone to record: {record_name} in {self.data_filtered_table}')
 
     def get_total_records_1(self) -> int:
         """
         Get the total number of records in the filtered data table
         """
         if len(self.data_ids_to_show) == 0:
-            logger_setup.get_logger().info(f'No records to show for the table type: {self.data_table}')
+            logger.get_logger().info(f'No records to show for the table type: {self.data_table}')
             return 0
 
         query = QSqlQuery()
@@ -1321,12 +1314,12 @@ class DataViewerWidget(QWidget):
         sql_query = f"SELECT COUNT(*) FROM {self.data_table} WHERE {get_headers(self.data_table)[0]} {self.sql_data_ids_to_show}"
 
         # Execute the query
-        logger_setup.get_logger().info(f'Fetching total records for the table type: {self.data_table}')
+        logger.get_logger().info(f'Fetching total records for the table type: {self.data_table}')
         if not query.exec(sql_query):
             # Handle query execution error
-            logger_setup.get_logger().critical(f'Error fetching total records')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().critical(f'SQL command: {sql_query}')
+            logger.get_logger().critical(f'Error fetching total records')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().critical(f'SQL command: {sql_query}')
             return 0
 
         # Fetch the count
@@ -1340,19 +1333,19 @@ class DataViewerWidget(QWidget):
         Get the total number of records in the related data table
         """
         if len(self.data_filtered_ids_to_show) == 0:
-            logger_setup.get_logger().info(f'No records to show for the table type: {self.data_filtered_table}')
+            logger.get_logger().info(f'No records to show for the table type: {self.data_filtered_table}')
             return 0
 
         query = QSqlQuery()
         sql_query = f"SELECT COUNT(*) FROM '{self.data_filtered_table}' WHERE {get_headers(self.data_filtered_table)[0]} {self.sql_data_filtered_ids_to_show}"
 
         # Execute the query
-        logger_setup.get_logger().info(f'Fetching total records for the table type: {self.data_filtered_table}')
+        logger.get_logger().info(f'Fetching total records for the table type: {self.data_filtered_table}')
         if not query.exec(sql_query):
             # Handle query execution error
-            logger_setup.get_logger().critical(f'Error fetching total records')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+            logger.get_logger().critical(f'Error fetching total records')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL command: {sql_query}')
             return 0
 
         # Fetch the count

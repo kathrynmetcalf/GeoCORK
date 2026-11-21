@@ -1,8 +1,8 @@
-# from typing import List, Dict, Any, Set, Optional, Tuple
+# from typing input List, Dict, Any, Set, Optional, Tuple
 #
-# from PyQt6.QtSql import QSqlDatabase, QSqlQuery
-# import logger_setup
-# from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
+# from PyQt6.QtSql input QSqlDatabase, QSqlQuery
+# input logger_setup
+# from Functions.Database_manager input turn_on_foreign_keys, turn_off_foreign_keys
 #
 #
 # ###############################################################################

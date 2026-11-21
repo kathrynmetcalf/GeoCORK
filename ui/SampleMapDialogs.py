@@ -4,13 +4,13 @@ from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
 
 import Functions.SQLUtils as SQLUtils
-import logger_setup
 import util.Text_manipulations as TxM
-from util.database.alter_database import convert_gps_location
 from Functions.Check_triggers import validate_insert, update_modified_timestamp
-from Functions.Database_manager import update_database
 from ui.AddTreeTags import AddTreeTags
+from util import logger
 from util.database.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from util.database.alter_database import convert_gps_location
+from util.database.database_helper import update_database
 from util.loading_dialog_manager import show_loading_dialog
 
 SAMPLE_TAG_TABLES = {key.split('.')[0]: schema for key, schema in SQLUtils.tree_tables_schema.items()
@@ -34,7 +34,7 @@ def bind(value):
 def update_if_no_savepoints():
     if not SavepointManager.get_instance().active_savepoints():
         if not update_database():
-            logger_setup.get_logger().critical('Error updating and displaying the database')
+            logger.get_logger().critical('Error updating and displaying the database')
 
 
 class MapAddSampleDialog(QtW.QDialog):
@@ -101,7 +101,7 @@ class MapAddSampleDialog(QtW.QDialog):
     def add_sample(self):
         name = self.name_lineEdit.text().strip()
         if not name:
-            logger_setup.get_logger().error('Sample name is required')
+            logger.get_logger().error('Sample name is required')
             return
         elev = self.elev_lineEdit.text().strip()
         elev_error = self.elev_error_lineEdit.text().strip()
@@ -118,28 +118,28 @@ class MapAddSampleDialog(QtW.QDialog):
         create_savepoint('before_map_add_sample')
         error, header = validate_insert('GPSLocations', GPS_COLUMNS, gps_values, DD_FORMAT_ID)
         if error:
-            logger_setup.get_logger().error(f'Invalid GPS input: {error}')
+            logger.get_logger().error(f'Invalid GPS input: {error}')
             rollback_savepoint('before_map_add_sample')
             return
 
         query = QtS.QSqlQuery()
         gps_id = self.existing_gps_id(gps_values)
         if gps_id:
-            logger_setup.get_logger().info(f'GPS location already exists with ID {gps_id}')
+            logger.get_logger().info(f'GPS location already exists with ID {gps_id}')
         else:
             query.prepare(
                 f'INSERT INTO GPSLocations ({", ".join(GPS_COLUMNS)}) VALUES ({", ".join("?" * len(GPS_COLUMNS))})')
             for value in gps_values:
                 query.addBindValue(bind(value))
             if not query.exec():
-                logger_setup.get_logger().critical('Error inserting GPS location')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().critical('Error inserting GPS location')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 rollback_savepoint('before_map_add_sample')
                 return
             gps_id = query.lastInsertId()
             if not convert_gps_location(gps_id):
-                logger_setup.get_logger().error(f'Error converting GPS location {gps_id}')
+                logger.get_logger().error(f'Error converting GPS location {gps_id}')
                 rollback_savepoint('before_map_add_sample')
                 return
 
@@ -148,7 +148,7 @@ class MapAddSampleDialog(QtW.QDialog):
                          self.description_textEdit.toPlainText().strip() or 'NULL']
         error, header = validate_insert('Samples', sample_columns, sample_values, None)
         if error:
-            logger_setup.get_logger().error(error)
+            logger.get_logger().error(error)
             rollback_savepoint('before_map_add_sample')
             return
         query.prepare(f'INSERT INTO Samples ({", ".join(sample_columns)}) VALUES (?, ?, ?, ?)')
@@ -157,16 +157,16 @@ class MapAddSampleDialog(QtW.QDialog):
         if not query.exec():
             error = query.lastError().text()
             if 'UNIQUE constraint failed' in error:
-                logger_setup.get_logger().error('Sample name and IGSN must be unique (case insensitive)')
+                logger.get_logger().error('Sample name and IGSN must be unique (case insensitive)')
             else:
-                logger_setup.get_logger().critical('Error inserting sample')
-            logger_setup.get_logger().debug(f'Error: {error}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().critical('Error inserting sample')
+            logger.get_logger().debug(f'Error: {error}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             rollback_savepoint('before_map_add_sample')
             return
         self.sample_id = query.lastInsertId()
         release_savepoint('before_map_add_sample')
-        logger_setup.get_logger().info(f'Added sample {name} (SampleID {self.sample_id}) at GPSLocationID {gps_id}')
+        logger.get_logger().info(f'Added sample {name} (SampleID {self.sample_id}) at GPSLocationID {gps_id}')
         update_if_no_savepoints()
         self.accept()
 
@@ -244,9 +244,9 @@ class BulkTagDialog(QtW.QDialog):
                                   AND b.{s["bridge_from_column"]} IN ({sample_ids})
                               GROUP BY t.{s["id_column"]}
                               ORDER BY t.{s["parent_column"]}, t.{parent_row_column}'''):
-            logger_setup.get_logger().critical(f'Error loading {self.table}')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().critical(f'Error loading {self.table}')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             return
         rows = []
         while query.next():
@@ -296,15 +296,15 @@ class BulkTagDialog(QtW.QDialog):
                 query.bindValue(0, sample_id)
                 query.bindValue(1, tag_id)
                 if not query.exec():
-                    logger_setup.get_logger().critical(f'Error {"adding" if add else "removing"} {self.table} tags')
-                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    logger.get_logger().critical(f'Error {"adding" if add else "removing"} {self.table} tags')
+                    logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                    logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                     rollback_savepoint('before_map_tag_apply')
                     return
         update_modified_timestamp('Samples', self.sample_ids)
         release_savepoint('before_map_tag_apply')
-        logger_setup.get_logger().info(f'{"Added" if add else "Removed"} {self.table} {tag_ids} '
-                                       f'{"to" if add else "from"} {len(self.sample_ids)} samples')
+        logger.get_logger().info(f'{"Added" if add else "Removed"} {self.table} {tag_ids} '
+                                 f'{"to" if add else "from"} {len(self.sample_ids)} samples')
         self.updated = True
         self.load_tags()
 

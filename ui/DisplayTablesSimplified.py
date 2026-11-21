@@ -9,12 +9,13 @@ from PyQt6.QtSql import QSqlDatabase
 from PyQt6.QtWidgets import QTreeView
 from PyQt6.uic import loadUi
 
-import logger_setup
+from util import logger
 import util.Text_manipulations as TxM
 from Functions import SQLUtils
 from Functions.Database_views import ViewQuery
-from Functions.Settings_manager import SettingsManager
+from util.settings_manager import SettingsManager
 from util.database.database_helper import get_view_from_table
+from util.database.views import view_setting_dict
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.widgets.models.proxy_models import ReadableProxyModel, TreeSortFilterProxyModel
 from util.widgets.models.query_models import DisplayRoundedQueryModel
@@ -29,7 +30,7 @@ settings = SettingsManager().settings
 class DisplayTablesSimplified(QtW.QWidget):
     def __init__(self, parent, db_file: str):
         super().__init__(parent)
-        logger_setup.get_logger().info(f"Loading simplified {self.tables}")
+        logger.get_logger().info(f"Loading simplified {self.tables}")
         start_time = time.time()
         self.setObjectName('database_tab')
 
@@ -72,7 +73,7 @@ class DisplayTablesSimplified(QtW.QWidget):
 
         self.connect_signals()
 
-        logger_setup.get_logger().info(f'Loaded simplified {self.table} in {time.time() - start_time} seconds')
+        logger.get_logger().info(f'Loaded simplified {self.table} in {time.time() - start_time} seconds')
 
     def connect_signals(self):
         # Signal for table combo box
@@ -118,9 +119,9 @@ class DisplayTablesSimplified(QtW.QWidget):
         table = self.dbTable_comboBox.currentText()
         self.table = TxM.remove_spaces(table)
         if not self.table:
-            logger_setup.get_logger().warning('No table selected to display')
+            logger.get_logger().warning('No table selected to display')
             return
-        logger_setup.get_logger().info(f'Displaying {self.table}')
+        logger.get_logger().info(f'Displaying {self.table}')
         # If moving from a tree table, save the expanded state first
         if self.previous_table in self.dbtree_list and self.previous_table != self.table:
             save_expanded_state(self.previous_table, self.dbTable_treeView)
@@ -136,12 +137,12 @@ class DisplayTablesSimplified(QtW.QWidget):
         show_loading_dialog('Loading', msg)
 
         if self.table in self.dbtree_list:
-            logger_setup.get_logger().info(f'Switching to tree view for {self.table}')
+            logger.get_logger().info(f'Switching to tree view for {self.table}')
             self.switch_to_tree()
             self.database.open()
             if get_view_from_table(self.table) != self.table:
                 # This table requires a more complex query to view
-                show_columns = settings.valeu(SQLUtils.view_setting_dict[get_view_from_table(self.table)])
+                show_columns = settings.valeu(view_setting_dict[get_view_from_table(self.table)])
                 query_args = {'show_columns': show_columns}
                 view_query = ViewQuery(self.table, False, **query_args)
                 table_query = view_query.table_query
@@ -153,7 +154,7 @@ class DisplayTablesSimplified(QtW.QWidget):
                 # There is no view_query, so just use the table query and database file
                 self.model = SQLiteTableModel(table_query, database=self.db_file)
             if self.model.last_error:
-                logger_setup.get_logger().critical(f'Error loading {self.table}')
+                logger.get_logger().critical(f'Error loading {self.table}')
                 return
 
             self.tree_model = TreeModel(source_model=self.model, db=self.database)
@@ -176,7 +177,7 @@ class DisplayTablesSimplified(QtW.QWidget):
             self.switch_to_table()
             if self.table != get_view_from_table(self.table):
                 # This table requires a more complex query to view
-                show_columns = settings.value(SQLUtils.view_setting_dict[get_view_from_table(self.table)])
+                show_columns = settings.value(view_setting_dict[get_view_from_table(self.table)])
                 query_args = {'show_columns': show_columns}
                 view_query = ViewQuery(self.table, False, **query_args)
                 table_query = view_query.table_query
@@ -201,7 +202,7 @@ class DisplayTablesSimplified(QtW.QWidget):
             else:
                 close_loading_dialog('Loading', f'Loading {self.table}...')
             if self.model.last_error:
-                logger_setup.get_logger().critical(f'Error loading {self.table}')
+                logger.get_logger().critical(f'Error loading {self.table}')
                 return
             self.table_proxy_model.setSourceModel(self.model)
 

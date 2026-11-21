@@ -2,7 +2,7 @@ from PyQt6.QtCore import QEvent, QTimer, QObject, QUrl
 from PyQt6.QtGui import QAction, QKeySequence, QDesktopServices
 from PyQt6.QtWidgets import QMenuBar, QMenu, QMainWindow
 
-import logger_setup
+from util import logger
 from ui.menus.AboutDialog import AboutDialog
 
 GITHUB_URL = 'https://github.com/kathrynmetcalf/GeoCORK'
@@ -12,13 +12,13 @@ CITATION_DOI = 'https://doi.org/10.5281/zenodo.15833658'
 LOGO_HEIGHT = 70  # logical pixels
 
 def show_about(window=None):
-    logger_setup.get_logger().info('Opening About dialog')
+    logger.get_logger().info('Opening About dialog')
     AboutDialog(window).exec()
 
 def open_help(topic: str | None = None):
     """Open the help site, optionally at a topic anchor."""
     url = f'{HELP_URL}#{topic}' if topic else HELP_URL
-    logger_setup.get_logger().info(f'Opening help: {url}')
+    logger.get_logger().info(f'Opening help: {url}')
     QDesktopServices.openUrl(QUrl(url))
 
 class StaticMenuGuard(QObject):

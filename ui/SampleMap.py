@@ -13,10 +13,10 @@ from PyQt6.QtWebEngineCore import QWebEngineSettings
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QApplication, QWidget
 
-import logger_setup
+from util import logger
 import util.Text_manipulations as TxM
 import util.gps_conversions as GPS
-from Functions.Settings_manager import SettingsManager
+from util.settings_manager import SettingsManager
 from ui.PlotDialog import PlotDialog
 from ui.SampleInformation import SampleInformation
 from ui.SampleMapDialogs import SAMPLE_TAG_TABLES, MapAddSampleDialog, BulkTagDialog
@@ -129,7 +129,7 @@ class SampleMapWindow(QtW.QMainWindow):
 
     def __init__(self, parent=None, startup_sample_ids: list[int] = None):
         super().__init__(parent)
-        logger_setup.get_logger().info('Starting SampleMapWindow')
+        logger.get_logger().info('Starting SampleMapWindow')
         self.setWindowTitle('Sample Map')
         self.resize(1200, 800)
         self.samples: dict[int, dict] = {}
@@ -241,7 +241,7 @@ class SampleMapWindow(QtW.QMainWindow):
         self.set_selected(sample_ids, push=True)
         dropped = set(sample_ids) - set(self.selected_ids)
         if dropped:
-            logger_setup.get_logger().warning(f'SampleIDs {sorted(dropped)} not mapped: no GPS location or location '
+            logger.get_logger().warning(f'SampleIDs {sorted(dropped)} not mapped: no GPS location or location '
                                               f'could not be resolved to decimal degrees')
         self.js('fitTo', self.selected_ids)
         self.show()
@@ -265,9 +265,9 @@ class SampleMapWindow(QtW.QMainWindow):
         """Reload sample locations from the database and redraw markers, keeping the current selection."""
         query = QtS.QSqlQuery()
         if not query.exec(sample_location_sql()):
-            logger_setup.get_logger().critical('Error loading sample locations')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().critical('Error loading sample locations')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             return
         fields = [query.record().fieldName(i) for i in range(query.record().count())]
         self.samples = {}
@@ -347,9 +347,9 @@ class SampleMapWindow(QtW.QMainWindow):
                 main_widget = widget
                 export_widget = widget.findChild(QWidget, 'ExportWidget')
         if not export_widget:
-            logger_setup.get_logger().error('Export tab not found')
+            logger.get_logger().error('Export tab not found')
             return
-        logger_setup.get_logger().info(f'Exporting {len(self.selected_ids)} samples to Exporter')
+        logger.get_logger().info(f'Exporting {len(self.selected_ids)} samples to Exporter')
         # Switch first so showEvent populates the samples combo on first use, then apply the checks
         main_widget.switch_to_export_tab()
         export_widget.set_checked_samples(self.selected_ids)

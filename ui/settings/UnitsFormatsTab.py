@@ -4,7 +4,7 @@ from PyQt6.QtCore import QRegularExpression
 from PyQt6.QtGui import QRegularExpressionValidator
 from PyQt6.QtSql import QSqlQueryModel
 
-import logger_setup
+from util import logger
 from ui.settings.SettingsCore import settings, update_setting, update_abbreviation
 from util.database.database_helper import get_headers
 from util.populate_models import populate_combo_box
@@ -285,7 +285,7 @@ class UnitsFormatsTab(QtW.QWidget):
             except ValueError:
                 try: best_age_cutoff = float(self.cutoff_age_lineEdit.text())
                 except ValueError:
-                    logger_setup.get_logger().error('Cutoff must be a number')
+                    logger.get_logger().error('Cutoff must be a number')
                     return False
             settings.setValue('best_age_cutoff', best_age_cutoff)
         else:

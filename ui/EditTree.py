@@ -5,9 +5,9 @@ from PyQt6.QtCore import QPoint, QSize
 from PyQt6.QtCore import QRegularExpression
 from PyQt6.QtWidgets import QDialogButtonBox
 
-import logger_setup
+from util import logger
 import util.Text_manipulations as TxM
-from Functions.Settings_manager import SettingsManager
+from util.settings_manager import SettingsManager
 from ui.AddTreeTags import AddTreeTags
 from ui.Merge import MergeDialog
 from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
@@ -30,7 +30,7 @@ class EditTree(QtWidgets.QDialog):
     def __init__(self, parent_window, table_name, **kwargs):
         super().__init__(parent=parent_window)
 
-        logger_setup.get_logger().info(f'Opening {table_name} tree edit dialog')
+        logger.get_logger().info(f'Opening {table_name} tree edit dialog')
         start_edit_tree_time = time.time()
         self.setWindowTitle(f'Edit {table_name}')
 
@@ -47,7 +47,7 @@ class EditTree(QtWidgets.QDialog):
 
         # Set the model and table
         self.table = TxM.remove_spaces(table_name)
-        logger_setup.get_logger().info(f'Setting up {table_name} tree model')
+        logger.get_logger().info(f'Setting up {table_name} tree model')
         # self.model = SQLiteTableModel(f'SELECT * FROM {self.table}')
         self.model = QtSql.QSqlTableModel()
         set_table(self.model, self.table)
@@ -55,12 +55,12 @@ class EditTree(QtWidgets.QDialog):
         self.model.setEditStrategy(QtSql.QSqlTableModel.EditStrategy.OnFieldChange)
         self.tree_model = TreeModel(self.model)
 
-        logger_setup.get_logger().info('Setting up proxy model')
+        logger.get_logger().info('Setting up proxy model')
         self.tree_proxy_model = TreeSortFilterProxyModel()
         self.tree_proxy_model.setSourceModel(self.tree_model)
         self.tree_proxy_model.setFilterKeyColumn(-1)  # search all columns
 
-        logger_setup.get_logger().info('Connecting signals')
+        logger.get_logger().info('Connecting signals')
         self.edit_treeView.setUniformRowHeights(True)
         self.edit_treeView.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
         self.edit_treeView.customContextMenuRequested.connect(self.show_context_menu)
@@ -76,7 +76,7 @@ class EditTree(QtWidgets.QDialog):
         self.tree_model.dataChanged.connect(self.set_updated)
 
         close_loading_dialog('Loading', f'Opening edit window for {self.table_name}...')
-        logger_setup.get_logger().info(
+        logger.get_logger().info(
             f'Opened {table_name} tree edit dialog in {time.time() - start_edit_tree_time} seconds')
 
     def build_ui(self, table_name):
@@ -182,7 +182,7 @@ class EditTree(QtWidgets.QDialog):
             self.delete_item()
 
     def display_tree(self):
-        logger_setup.get_logger().info(f'Displaying {self.model.rowCount()} {self.table_name}...')
+        logger.get_logger().info(f'Displaying {self.model.rowCount()} {self.table_name}...')
         start_display_tree_time = time.time()
         show_loading_dialog('Loading', f'Displaying {self.model.rowCount()} {self.table_name}...')
         self.tree_proxy_model = TreeSortFilterProxyModel()
@@ -194,7 +194,7 @@ class EditTree(QtWidgets.QDialog):
         self.edit_treeView.hideColumn(2)  # don't show parent ID column
         self.edit_treeView.hideColumn(3)  # don't show parent row column
         self.edit_treeView.model().update_visible_columns()
-        logger_setup.get_logger().info(f'Hid columns in {time.time() - start_hide_columns_time} seconds')
+        logger.get_logger().info(f'Hid columns in {time.time() - start_hide_columns_time} seconds')
         self.edit_treeView.setSortingEnabled(False)
         self.edit_treeView.setDragEnabled(True)
         self.edit_treeView.setAcceptDrops(True)
@@ -209,7 +209,7 @@ class EditTree(QtWidgets.QDialog):
         self.page_info_label.setText(f'{self.total_records} {self.table_name}')
 
         close_loading_dialog('Loading', f'Displaying {self.model.rowCount()} {self.table_name}...')
-        logger_setup.get_logger().info(
+        logger.get_logger().info(
             f'Displayed {self.model.rowCount()} {self.table_name} tree in {time.time() - start_display_tree_time} seconds')
 
     def save_expanded(self):
@@ -218,7 +218,7 @@ class EditTree(QtWidgets.QDialog):
             self.updated = True
 
     def update_proxy(self):
-        logger_setup.get_logger().info(f'Displaying {self.model.rowCount()} {self.table_name}...')
+        logger.get_logger().info(f'Displaying {self.model.rowCount()} {self.table_name}...')
         show_loading_dialog('Loading', f'Displaying {self.model.rowCount()} {self.table_name}...')
         self.total_records = self.model.rowCount()
         self.edit_treeView.expand_from_ids()
@@ -252,7 +252,7 @@ class EditTree(QtWidgets.QDialog):
                 tree_indexes.append(self.tree_proxy_model.mapToSource(view_index))
         ids_to_merge = list(get_selected_tree_ids(tree_indexes))
         if len(ids_to_merge) < 2:
-            logger_setup.get_logger().error('At least two records must be selected to merge')
+            logger.get_logger().error('At least two records must be selected to merge')
             return
         if MergeDialog(self.table, ids_to_merge, self).exec() == QtWidgets.QDialog.DialogCode.Accepted:
             self.updated = True
@@ -307,7 +307,7 @@ class EditTree(QtWidgets.QDialog):
             else:
                 pass
         else:
-            logger_setup.get_logger().info(f'Closing {self.table} edit dialog without changes')
+            logger.get_logger().info(f'Closing {self.table} edit dialog without changes')
             release_savepoint('before_edit')
             self.close_by_dialog = True
             self.close()
@@ -347,11 +347,11 @@ class EditTree(QtWidgets.QDialog):
                 self.discard_question()
                 event.ignore()
             else:
-                logger_setup.get_logger().info(f'Closing {self.table} edit dialog')
+                logger.get_logger().info(f'Closing {self.table} edit dialog')
                 release_savepoint('before_edit')
                 event.accept()
         else:
-            logger_setup.get_logger().info(f'Closing {self.table} edit dialog')
+            logger.get_logger().info(f'Closing {self.table} edit dialog')
             release_savepoint('before_edit')
             event.accept()
 

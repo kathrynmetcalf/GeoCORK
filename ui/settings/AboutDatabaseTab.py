@@ -4,7 +4,7 @@ from PyQt6.QtCore import QStandardPaths
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtSql import QSqlQueryModel, QSqlQuery
 
-import logger_setup
+from util import logger
 from ui.settings.UnitsFormatsTab import fixed_height
 
 
@@ -103,9 +103,9 @@ class AboutDatabaseTab(QtW.QWidget):
         for value in about_values:
             query.addBindValue(value)
         if not query.exec():
-            logger_setup.get_logger().critical(f'Error updating About table')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().critical(f'Error updating About table')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
 
     def open_logs(self):
         """

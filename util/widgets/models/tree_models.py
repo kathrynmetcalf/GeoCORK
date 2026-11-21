@@ -9,7 +9,7 @@ from PyQt6.QtCore import QModelIndex
 from Functions.Database_views import ViewQuery
 from util.database.database_helper import update_other_table_with_checks, get_name_from_id, update_many_table_with_checks, \
     bulk_update_parent_row, delete_data
-import logger_setup
+from util import logger
 from Functions.Check_triggers import update_modified_timestamp
 from util.database.Savepoint_manager import rollback_savepoint, release_savepoint, create_savepoint
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
@@ -246,20 +246,20 @@ class TreeModel(QtCore.QAbstractProxyModel):
         :param source_model: Populated QSqlTableModel, QSqlQueryModel, or SQLiteTableModel
         :return: Nothing if there is an error
         """
-        logger_setup.get_logger().info(f'Setting source model for tree model...')
+        logger.get_logger().info(f'Setting source model for tree model...')
         if not source_model and self.source_model:
             source_model = self.source_model
         try:
             if source_model.tableName() != '':
                 self.table = source_model.tableName()
             else:
-                logger_setup.get_logger().critical('Error setting up tree model')
-                logger_setup.get_logger().debug('No table name set')
+                logger.get_logger().critical('Error setting up tree model')
+                logger.get_logger().debug('No table name set')
                 return
         except AttributeError:
-            logger_setup.get_logger().critical(f'Error displaying the selected table')
+            logger.get_logger().critical(f'Error displaying the selected table')
             if isinstance(source_model, QSqlQueryModel):
-                logger_setup.get_logger().debug(f'Cannot retrieve table name from QSqlQueryModel')
+                logger.get_logger().debug(f'Cannot retrieve table name from QSqlQueryModel')
         if isinstance(source_model, QSqlTableModel):
             self.base_filter = f"{source_model.filter()}".split("ORDER")[0]
             if len(self.base_filter) > 0:
@@ -303,7 +303,7 @@ class TreeModel(QtCore.QAbstractProxyModel):
                 except NameError:
                     self.source_model = SQLiteTableModel(query=self.base_query)
                 if self.source_model.last_error:
-                    logger_setup.get_logger().critical(f'Error displaying the selected table')
+                    logger.get_logger().critical(f'Error displaying the selected table')
                     return
         else:
             self.source_model = DisplayRoundedQueryModel(db=self.db)
@@ -341,7 +341,7 @@ class TreeModel(QtCore.QAbstractProxyModel):
         """
         self.beginResetModel()
         if self.root_item.childCount() > 0:
-            logger_setup.get_logger().info('Clearing previous tree model...')
+            logger.get_logger().info('Clearing previous tree model...')
             self.root_item.clear()
         self.parent_item = TreeItem(QtSql.QSqlRecord(), None)
         self.child_item = TreeItem(QtSql.QSqlRecord(), None)
@@ -372,7 +372,7 @@ class TreeModel(QtCore.QAbstractProxyModel):
 
         # Add all nodes to the tree model
         # start with root item, look for children
-        logger_setup.get_logger().info(f'Building the {self.table} tree from the model...')
+        logger.get_logger().info(f'Building the {self.table} tree from the model...')
         # show_loading_dialog('Loading', f'Building the {self.table} tree with {self.source_model.rowCount()} items...')
         start_build_time = time.time()
         # add each child to model with parent (root)
@@ -382,7 +382,7 @@ class TreeModel(QtCore.QAbstractProxyModel):
         # etc. until there are no more children
         self.endResetModel()
         # close_loading_dialog('Loading', f'Building the {self.table} tree with {self.source_model.rowCount()} items...')
-        logger_setup.get_logger().info(
+        logger.get_logger().info(
             f'Finished building the {self.table} tree with {self.source_model.rowCount()} items in {time.time() - start_build_time:.2f} seconds')
 
     def add_to_tree(self, parent: TreeItem):
@@ -482,8 +482,8 @@ class TreeModel(QtCore.QAbstractProxyModel):
             # index = self.index(index.row(), index.column(), index.parent())
             item = index.internalPointer()
             if not item:
-                logger_setup.get_logger().error(f"Error finding item for tree index")
-                logger_setup.get_logger().debug(f"No item for index {index.row()},{index.column()},{index.parent()}")
+                logger.get_logger().error(f"Error finding item for tree index")
+                logger.get_logger().debug(f"No item for index {index.row()},{index.column()},{index.parent()}")
             return item
 
     def index(self, row: int, column: int, parent: QModelIndex = QModelIndex()) -> QtCore.QModelIndex:
@@ -638,7 +638,7 @@ class TreeModel(QtCore.QAbstractProxyModel):
         if not index.isValid():
             return super().setData(index, value, role)
         if role == QtCore.Qt.ItemDataRole.EditRole:
-            logger_setup.get_logger().info(
+            logger.get_logger().info(
                 f'Setting data in {self.table} tree at {index.row()},{index.column()}')
             start_set_time = time.time()
             treeItem = self.getItem(index)
@@ -661,7 +661,7 @@ class TreeModel(QtCore.QAbstractProxyModel):
                 # Get the updated modified timestamp
                 sourceIndex = self.mapToSource(index)
                 if sourceIndex.isValid():
-                    logger_setup.get_logger().info(
+                    logger.get_logger().info(
                         f'Setting data in {self.table} tree at {sourceIndex.row()},{sourceIndex.column()}')
                     modified_col = self.source_model.columnCount() - 1
                     source_modified_index = self.source_model.index(sourceIndex.row(), modified_col,
@@ -677,19 +677,19 @@ class TreeModel(QtCore.QAbstractProxyModel):
                         query.prepare(f"UPDATE {self.table} SET {name_header}=:value WHERE {self.id_header}={table_id}")
                         query.bindValue(":value", value)
                         if not query.exec():
-                            logger_setup.get_logger().critical(f'Error editing data in {self.table}')
-                            logger_setup.get_logger().debug(
+                            logger.get_logger().critical(f'Error editing data in {self.table}')
+                            logger.get_logger().debug(
                                 f'Error setting data in {self.table} tree at {sourceIndex.row()},{sourceIndex.column()}')
-                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                             return False
                         # modified = self.source_model.data(source_modified_index, QtCore.Qt.ItemDataRole.DisplayRole)
                         update_modified_timestamp(self.table, [table_id])
                         treeItem.setData(modified_col, datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'))
             treeItem.setData(dataCol, value)
             self.dataChanged.emit(index, index)
-            logger_setup.get_logger().info(
+            logger.get_logger().info(
                 f'Successfully set data in {self.table} tree at {index.row()},{index.column()} to {value} in {time.time() - start_set_time:.2f} seconds')
             return True
         return super().setData(index, value, role)
@@ -713,16 +713,16 @@ class TreeModel(QtCore.QAbstractProxyModel):
         query = QtSql.QSqlQuery()
         if not query.exec(
                 f'SELECT {self.parent_id_header}, {self.parent_row_header} FROM {self.table} WHERE {self.id_header} = {item_id}'):
-            logger_setup.get_logger().critical(f'Error finding item in {self.table}')
-            logger_setup.get_logger().debug(f'Error fetching parent info for {self.table} ID {item_id}')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().critical(f'Error finding item in {self.table}')
+            logger.get_logger().debug(f'Error fetching parent info for {self.table} ID {item_id}')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             return False
         if not query.next():
-            logger_setup.get_logger().critical(f'Error finding item in {self.table}')
-            logger_setup.get_logger().debug(f'Error fetching parent info for {self.table} ID {item_id}')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().critical(f'Error finding item in {self.table}')
+            logger.get_logger().debug(f'Error fetching parent info for {self.table} ID {item_id}')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             return False
         else:
             old_parent_id = query.value(0)
@@ -756,7 +756,7 @@ class TreeModel(QtCore.QAbstractProxyModel):
             if not bulk_update_parent_row(self.table, old_parent_id, 1, None, old_parent_row)[0]:
                 close_loading_dialog('Moving', f'Moving {self.table} data')
                 return False
-        logger_setup.get_logger().info(f'Moved {self.table} data in {time.time() - start_time} seconds')
+        logger.get_logger().info(f'Moved {self.table} data in {time.time() - start_time} seconds')
         close_loading_dialog('Moving', f'Moving {self.table} data')
         return True
 
@@ -779,9 +779,9 @@ class TreeModel(QtCore.QAbstractProxyModel):
         query.bindValue(':parent_row', parent_row)
         query.bindValue(':item_id', item_id)
         if not query.exec():
-            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-            logger_setup.get_logger().debug(f"Bound values: {query.boundValues()}")
+            logger.get_logger().debug(f"Error: {query.lastError().text()}")
+            logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
+            logger.get_logger().debug(f"Bound values: {query.boundValues()}")
             return False
         update_modified_timestamp(self.table, [item_id])
         tree_item = self.find_id_in_tree(item_id)
@@ -799,7 +799,7 @@ class TreeModel(QtCore.QAbstractProxyModel):
                             self.source_model.setData(source_index, filtered_model.record(0).value(column),
                                                       QtCore.Qt.ItemDataRole.EditRole)
                         break
-        logger_setup.get_logger().info(f'Successfully updated parent for {item_id} in table {self.table}')
+        logger.get_logger().info(f'Successfully updated parent for {item_id} in table {self.table}')
         return True
 
     def insertItem(self, item_name: str, item_description: str, parent_id=None, parent_row=None,
@@ -817,11 +817,11 @@ class TreeModel(QtCore.QAbstractProxyModel):
         """
         # Add a new item to the database, first as a top-level item, then move it to the correct parent and row
         if self.table == 'Aliquots' and not data_parent_id:
-            logger_setup.get_logger().error(
+            logger.get_logger().error(
                 f'Error inserting new item {item_name} into {self.table}: SampleID is required for Aliquots')
             return False
         start_time = time.time()
-        logger_setup.get_logger().info(f'Inserting {item_name} in tree model')
+        logger.get_logger().info(f'Inserting {item_name} in tree model')
         show_loading_dialog('Inserting', f'Inserting new {self.table} item...')
         query = QtSql.QSqlQuery()
         filtered_model = QtSql.QSqlQueryModel()
@@ -853,15 +853,15 @@ class TreeModel(QtCore.QAbstractProxyModel):
             query.bindValue(placeholder, value)
         create_savepoint('before_insert')
         if not query.exec():
-            logger_setup.get_logger().critical(f'Error inserting new item {item_name}')
-            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-            logger_setup.get_logger().debug(f"Bound values: {query.boundValues()}")
+            logger.get_logger().critical(f'Error inserting new item {item_name}')
+            logger.get_logger().debug(f"Error: {query.lastError().text()}")
+            logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
+            logger.get_logger().debug(f"Bound values: {query.boundValues()}")
             rollback_savepoint('before_insert')
             close_loading_dialog('Inserting', f'Inserting new {self.table} item...')
             return False
         else:
-            logger_setup.get_logger().info(f'Successfully inserted new item {item_name}')
+            logger.get_logger().info(f'Successfully inserted new item {item_name}')
             if parent_id and parent_id != 'Null' and parent_id != 'NULL':
                 p_id = f'= {parent_id}'
             else:
@@ -892,7 +892,7 @@ class TreeModel(QtCore.QAbstractProxyModel):
         release_savepoint('before_insert')
         self.dataEdited.emit()
         close_loading_dialog('Inserting', f'Inserting new {self.table} item...')
-        logger_setup.get_logger().info(
+        logger.get_logger().info(
             f'Successfully inserted new item {item_name} in {time.time() - start_time} seconds')
         return True
 
@@ -907,30 +907,30 @@ class TreeModel(QtCore.QAbstractProxyModel):
         """
         # Remove an item and all children from the database
         if len(del_ids) == 0:
-            logger_setup.get_logger().info(f'No items to delete')
+            logger.get_logger().info(f'No items to delete')
             return True
         start_time = time.time()
         show_loading_dialog('Removing', f'Removing item from {self.table}')
-        logger_setup.get_logger().info(f'Removing item from {self.table}')
+        logger.get_logger().info(f'Removing item from {self.table}')
         # Check if the ids have already been deleted
         query = QtSql.QSqlQuery()
         if not query.exec(
                 f"SELECT {self.id_header}, {self.parent_id_header}, {self.parent_row_header} FROM {self.table} WHERE {self.id_header} IN ({', '.join(map(str, del_ids))})"):
-            logger_setup.get_logger().critical(f'Error checking for existing items in {self.table} before deletion')
-            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+            logger.get_logger().critical(f'Error checking for existing items in {self.table} before deletion')
+            logger.get_logger().debug(f"Error: {query.lastError().text()}")
+            logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
             close_loading_dialog('Removing', f'Removing item from {self.table}')
             return False
         existing_data = {}
         while query.next():
             existing_data[query.value(0)] = {'parent_id': query.value(1), 'parent_row': query.value(2)}
         if not existing_data:
-            logger_setup.get_logger().info(f'No items to delete')
+            logger.get_logger().info(f'No items to delete')
             return True
         if not delete_data(self.table, del_ids):
             close_loading_dialog('Removing', f'Removing item from {self.table}')
             return False
-        logger_setup.get_logger().info(f'Successfully deleted items from {self.table}')
+        logger.get_logger().info(f'Successfully deleted items from {self.table}')
         for del_id, parent_data in existing_data.items():
             parent_id = parent_data['parent_id']
             parent_row = parent_data['parent_row']
@@ -938,14 +938,14 @@ class TreeModel(QtCore.QAbstractProxyModel):
                 parent_id = 'NULL'
             # If the parent already has children at rows beyond the deleted one, update their parent rows to close the gap
             if not bulk_update_parent_row(self.table, parent_id, 1, None, parent_row)[0]:
-                logger_setup.get_logger().critical(f'Error removing {self.table}')
-                logger_setup.get_logger().debug(f'Error closing the gap after deleting')
+                logger.get_logger().critical(f'Error removing {self.table}')
+                logger.get_logger().debug(f'Error closing the gap after deleting')
                 rollback_savepoint('before_delete')
                 close_loading_dialog('Removing', f'Removing item from {self.table}')
                 return False
         release_savepoint('before_delete')
         close_loading_dialog('Removing', f'Removing item from {self.table}')
-        logger_setup.get_logger().info(
+        logger.get_logger().info(
             f'Successfully deleted {len(del_ids)} {self.table} in {time.time() - start_time} seconds...')
         self.dataEdited.emit()
         return True
@@ -972,8 +972,8 @@ class TreeModel(QtCore.QAbstractProxyModel):
         if not proxy_index.isValid() or not self.source_model:
             return QtCore.QModelIndex()
         if not isinstance(self.source_model, QtSql.QSqlQueryModel | SQLiteTableModel):
-            logger_setup.get_logger().critical(f'Data type error')
-            logger_setup.get_logger().debug(f'Source model is not a QSqlQueryModel or SQLiteTableModel')
+            logger.get_logger().critical(f'Data type error')
+            logger.get_logger().debug(f'Source model is not a QSqlQueryModel or SQLiteTableModel')
             return QtCore.QModelIndex()
         if proxy_index in self._map_to_source_cache:
             return self._map_to_source_cache[proxy_index]
@@ -1058,7 +1058,7 @@ class TreeModel(QtCore.QAbstractProxyModel):
         if item_id in self.id_to_item:
             return self.id_to_item[item_id]
         else:
-            logger_setup.get_logger().debug(f'Item {item_id} not found in {self.table} tree')
+            logger.get_logger().debug(f'Item {item_id} not found in {self.table} tree')
             return None
 
     def get_index_from_item(self, item: TreeItem) -> QtCore.QModelIndex:
@@ -1145,8 +1145,8 @@ class TreeModel(QtCore.QAbstractProxyModel):
         if action == QtCore.Qt.DropAction.IgnoreAction:
             return False
         if not data.hasFormat('application/x-qabstractitemmodeldatalist'):
-            logger_setup.get_logger().critical(f'Error dropping item')
-            logger_setup.get_logger().debug(f'Drop data format not recognized')
+            logger.get_logger().critical(f'Error dropping item')
+            logger.get_logger().debug(f'Drop data format not recognized')
             return False
         return True
 
@@ -1180,7 +1180,7 @@ class TreeModel(QtCore.QAbstractProxyModel):
         while not stream.atEnd():
             item_ids.append(stream.readInt32())
         if not item_ids:
-            logger_setup.get_logger().debug(f'No items to move')
+            logger.get_logger().debug(f'No items to move')
             rollback_savepoint('drop_mime_data')
             return False
         query = QtSql.QSqlQuery()
@@ -1223,8 +1223,8 @@ class TreeModel(QtCore.QAbstractProxyModel):
                 rows.append(drop_row)
         for move in range(len(item_ids)):
             if not self.moveItem(item_ids[move], rows[move], p_id):
-                logger_setup.get_logger().critical(f'Error moving item')
-                logger_setup.get_logger().debug(f'Item: {item_ids[move]}, rows: {rows[move]}, parent_ID: {p_id}')
+                logger.get_logger().critical(f'Error moving item')
+                logger.get_logger().debug(f'Item: {item_ids[move]}, rows: {rows[move]}, parent_ID: {p_id}')
                 rollback_savepoint('drop_mime_data')
                 return False
         release_savepoint('drop_mime_data')
@@ -1293,10 +1293,10 @@ class TreeModel(QtCore.QAbstractProxyModel):
             return depth
 
         if len(item_ids) == 0:
-            logger_setup.get_logger().debug(f'No item IDs provided, returning None')
+            logger.get_logger().debug(f'No item IDs provided, returning None')
             return None, None
         if '' in item_ids:
-            logger_setup.get_logger().debug(f'Empty item ID found, referencing root. Returning None')
+            logger.get_logger().debug(f'Empty item ID found, referencing root. Returning None')
             return None, None
         depths = {}
         for item_id in item_ids:
@@ -1435,7 +1435,7 @@ class CheckableTreeModel(TreeModel):
             tree_item = self.getItem(index)
             tree_item_id = tree_item.itemData.value(0)
             if not tree_item_id or not isinstance(tree_item_id, int):
-                logger_setup.get_logger().debug(
+                logger.get_logger().debug(
                     f'No item ID found for {tree_item.itemData.value(0)}, cannot set check state')
                 return False
             if value == QtCore.Qt.CheckState.Checked:
@@ -1529,7 +1529,7 @@ class CheckableTreeModel(TreeModel):
         if self.checked_ids != checked_items or self.partially_checked_ids != partially_checked_items:
             self.checked_ids = checked_items
             self.partially_checked_ids = partially_checked_items
-            logger_setup.get_logger().info(f'{self.table} checks updated')
+            logger.get_logger().info(f'{self.table} checks updated')
             self.checksChanged.emit()
 
     def traverse_checkable_tree(self, parent: QtCore.QModelIndex):
@@ -1572,17 +1572,17 @@ class CheckableTreeModel(TreeModel):
         :return: 'True' if successful, 'No' if not needed, 'False' needed but failed
         """
         if not other_ids:
-            logger_setup.get_logger().error(f'No item IDs given for {other_table}')
+            logger.get_logger().error(f'No item IDs given for {other_table}')
             return 'False'
         if self.partially_checked_ids:
             # Any selection for a one-to-many relationship should be complete, so there should be no partially checked IDs
-            logger_setup.get_logger().info(f'Partially checked IDs for one-to-many relationship, no changes to update')
+            logger.get_logger().info(f'Partially checked IDs for one-to-many relationship, no changes to update')
             return 'No'
         if len(self.checked_ids) > 1:
             # If there are multiple checked IDs, this is a many-to-many relationship, so we should not use this function
-            logger_setup.get_logger().error(
+            logger.get_logger().error(
                 f'Multiple checked IDs given for {self.tableName()}. Select only one ID to update {other_table}.')
-            logger_setup.get_logger().debug(
+            logger.get_logger().debug(
                 f'This should be a one-to-many relationship, so set the checkable combo box to single click.')
             return 'False'
         return update_other_table_with_checks(self.table, list(self.checked_ids), list(self.partially_checked_ids),
@@ -1597,7 +1597,7 @@ class CheckableTreeModel(TreeModel):
         :return: 'True' if successful, 'No' if not needed, 'False' needed but failed
         """
         if not item_ids:
-            logger_setup.get_logger().error(f'No item IDs given for {many_table}')
+            logger.get_logger().error(f'No item IDs given for {many_table}')
             return 'False'
         return update_many_table_with_checks(self.table, list(self.checked_ids), list(self.partially_checked_ids),
                                              many_table, item_ids)
@@ -1648,7 +1648,7 @@ class LazyCheckableTreeModel(CheckableTreeModel):
             parent.appendChild(item)
         self.loaded_parent_items.add(parent)
         self.loading_children.remove(parent)
-        logger_setup.get_logger().info(f'Added {len(child_ids)} children to the tree in {time.time() - start_add_time} seconds')
+        logger.get_logger().info(f'Added {len(child_ids)} children to the tree in {time.time() - start_add_time} seconds')
 
     def canFetchMore(self, parent: QtCore.QModelIndex = ...) -> bool:
         """

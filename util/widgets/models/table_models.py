@@ -11,9 +11,9 @@ from PyQt6.QtGui import QFont, QBrush, QColor
 from PyQt6.QtSql import QSqlQuery, QSqlDatabase
 from PyQt6.QtWidgets import QApplication, QProgressDialog
 
-import logger_setup
+from util import logger
 from Functions.Database_views import ViewQuery
-from Functions.Settings_manager import SettingsManager
+from util.settings_manager import SettingsManager
 from util.Text_manipulations import strip_strings
 from util.database.database_helper import get_name_column, get_headers, get_view_from_table, \
     update_other_table_with_checks, get_name_from_id, update_many_table_with_checks, get_total_records
@@ -36,12 +36,12 @@ def scroll_to_record(record_id: int, view: QtWidgets.QTableView):
     view_index = QtCore.QModelIndex()
     for row in range(model.rowCount()):
         if model.index(row, 0).data(QtCore.Qt.ItemDataRole.DisplayRole) == record_id:
-            logger_setup.get_logger().info(f'Scrolling to record ID: {record_id}')
+            logger.get_logger().info(f'Scrolling to record ID: {record_id}')
             view_index = model.index(row, 0)
             break
     if not view_index.isValid():
-        logger_setup.get_logger().critical(f'Error scrolling to record')
-        logger_setup.get_logger().debug(f'Invalid index for ID {record_id} in scroll_to_record')
+        logger.get_logger().critical(f'Error scrolling to record')
+        logger.get_logger().debug(f'Invalid index for ID {record_id} in scroll_to_record')
         return
     max_view_index = model.index(view_index.row(), model.columnCount()-1)
 
@@ -82,7 +82,7 @@ class SQLiteTableModel(QAbstractTableModel):
     """
 
     def __init__(self, query: str = '', database=None, view_query: ViewQuery = None):
-        from Functions.Settings_manager import SettingsManager
+        from util.settings_manager import SettingsManager
         settings = SettingsManager().settings
         db_settings = SettingsManager().db_settings
 
@@ -113,7 +113,7 @@ class SQLiteTableModel(QAbstractTableModel):
         set_time = time.time()
         self.view_query = view_query
         self.load_data(new_query, self.database)
-        logger_setup.get_logger().info(f'Set new query in {time.time() - set_time} seconds')
+        logger.get_logger().info(f'Set new query in {time.time() - set_time} seconds')
 
     def update_database(self, new_database: str, view_query: ViewQuery = None):
         """
@@ -143,19 +143,19 @@ class SQLiteTableModel(QAbstractTableModel):
             conn = sqlite3.connect(uri, uri=True)
             with conn:
                 cursor = conn.cursor()
-                logger_setup.get_logger().info('Populating model with query')
-                logger_setup.get_logger().debug(f'SQL query: {query}')
+                logger.get_logger().info('Populating model with query')
+                logger.get_logger().debug(f'SQL query: {query}')
                 start_time = time.time()
                 cursor.execute(query)
                 self._data = cursor.fetchall()
                 self._headers = [desc[0] for desc in cursor.description]
-                logger_setup.get_logger().debug(f"Model populated in {time.time() - start_time} seconds")
+                logger.get_logger().debug(f"Model populated in {time.time() - start_time} seconds")
             conn.commit()
             conn.close()
         except sqlite3.Error as e:
-            logger_setup.get_logger().critical(f"Error executing query")
-            logger_setup.get_logger().debug(f"Error: {e}")
-            logger_setup.get_logger().debug(f"SQL query: {query}")
+            logger.get_logger().critical(f"Error executing query")
+            logger.get_logger().debug(f"Error: {e}")
+            logger.get_logger().debug(f"SQL query: {query}")
             self.last_error = e
 
         # Get the table name from the query
@@ -345,7 +345,7 @@ class SQLiteTableModel(QAbstractTableModel):
         :param ids_to_remove: list of ids to remove from the table
         :return: True for success, False otherwise
         """
-        logger_setup.get_logger().info(
+        logger.get_logger().info(
             f"Removing rows for IDs {', '.join(str(remove_id) for remove_id in ids_to_remove)} from {self.table}")
         self.beginRemoveRows(QtCore.QModelIndex(), 0, len(self._data) - 1)
         ids_to_remove.sort(reverse=False)
@@ -356,7 +356,7 @@ class SQLiteTableModel(QAbstractTableModel):
                 new_data.remove(row)
         self._data = new_data
         self.endRemoveRows()
-        logger_setup.get_logger().info(
+        logger.get_logger().info(
             f"Removed rows for IDs {', '.join(str(remove_id) for remove_id in ids_to_remove)} from {self.table}")
         return True
 
@@ -369,7 +369,7 @@ class SQLiteTableModel(QAbstractTableModel):
         self.beginInsertRows(QtCore.QModelIndex(), len(self._data), len(self._data))
         self._data.append(row_data)
         self.endInsertRows()
-        logger_setup.get_logger().info(f'Updated {self.table}')
+        logger.get_logger().info(f'Updated {self.table}')
         return True
 
     def canFetchMore(self, parent=None):
@@ -400,12 +400,12 @@ class SQLiteTableModel(QAbstractTableModel):
                 else:
                     query_text = f'{self.query_text.split(' WHERE ')[0]} {where}'
                 if not query.exec(query_text):
-                    logger_setup.get_logger().critical(f'Error updating {self.table} display')
-                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    logger.get_logger().critical(f'Error updating {self.table} display')
+                    logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                    logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                     return False
                 if not query.next():
-                    logger_setup.get_logger().info(
+                    logger.get_logger().info(
                         f'This ID does not exist in the query any more. May be removed from this model in a later step.')
                 row_data = [query.value(column) for column in range(self.columnCount())]
                 self._data[row] = row_data
@@ -432,12 +432,12 @@ class SQLiteTableModel(QAbstractTableModel):
             else:
                 query_text = f'{self.query_text.split(' WHERE ')[0]} {where}'
             if not query.exec(query_text):
-                logger_setup.get_logger().critical(f'Error updating {self.table} display')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().critical(f'Error updating {self.table} display')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 return False
             if not query.next():
-                logger_setup.get_logger().info(
+                logger.get_logger().info(
                     f'This ID does not exist in the query any more. May be removed from this model in a later step.')
             row_data = [query.value(column) for column in range(self.columnCount())]
             if not self.insertRow(row_data):
@@ -500,7 +500,7 @@ class CheckableSQLiteTableModel(SQLiteTableModel):
         if index.column() == col and role == QtCore.Qt.ItemDataRole.CheckStateRole:
             item_id = self.index(index.row(), 0).data(QtCore.Qt.ItemDataRole.DisplayRole)
             if not item_id:
-                logger_setup.get_logger().debug(f'No ID found for row {index.row()} in {self.tableName()}')
+                logger.get_logger().debug(f'No ID found for row {index.row()} in {self.tableName()}')
                 return False
             if value == QtCore.Qt.CheckState.Checked:
                 if item_id not in self.checked_ids:
@@ -548,7 +548,7 @@ class CheckableSQLiteTableModel(SQLiteTableModel):
         if self.checked_ids != checked_items or self.partially_checked_ids != partially_checked_items:
             self.checked_ids = checked_items
             self.partially_checked_ids = partially_checked_items
-            logger_setup.get_logger().info(f'{self.table} checks updated')
+            logger.get_logger().info(f'{self.table} checks updated')
             self.checksChanged.emit()
 
     def return_checked_ids(self):
@@ -586,17 +586,17 @@ class CheckableSQLiteTableModel(SQLiteTableModel):
         :return: 'True' if successful, 'No' if not needed, 'False' needed but failed
         """
         if not other_ids:
-            logger_setup.get_logger().error(f'No item IDs given for {other_table}')
+            logger.get_logger().error(f'No item IDs given for {other_table}')
             return 'False'
         if self.partially_checked_ids:
             # Any selection for a one-to-many relationship should be complete, so there should be no partially checked IDs
-            logger_setup.get_logger().info(f'Partially checked IDs for one-to-many relationship, no changes to update')
+            logger.get_logger().info(f'Partially checked IDs for one-to-many relationship, no changes to update')
             return 'No'
         if len(self.checked_ids) > 1:
             # If there are multiple checked IDs, this is a many-to-many relationship, so we should not use this function
-            logger_setup.get_logger().error(
+            logger.get_logger().error(
                 f'Multiple checked IDs given for {self.tableName()}. Select only one ID to update {other_table}.')
-            logger_setup.get_logger().debug(
+            logger.get_logger().debug(
                 f'This should be a one-to-many relationship, so set the checkable combo box to single click.')
             return 'False'
         return update_other_table_with_checks(self.table, list(self.checked_ids), list(self.partially_checked_ids),
@@ -611,7 +611,7 @@ class CheckableSQLiteTableModel(SQLiteTableModel):
         :return: 'True' if successful, 'No' if not needed, 'False' needed but failed
         """
         if not item_ids:
-            logger_setup.get_logger().error(f'No item IDs given for {many_table}')
+            logger.get_logger().error(f'No item IDs given for {many_table}')
             return 'False'
         return update_many_table_with_checks(self.table, list(self.checked_ids), list(self.partially_checked_ids),
                                              many_table, item_ids)
@@ -771,7 +771,7 @@ class CheckableSqlTableModel(DisplayRoundedTableModel):
         if index.column() == col and role == QtCore.Qt.ItemDataRole.CheckStateRole:
             item_id = self.index(index.row(), 0).data(QtCore.Qt.ItemDataRole.DisplayRole)
             if not item_id:
-                logger_setup.get_logger().debug(f'No ID found for row {index.row()} in {self.tableName()}')
+                logger.get_logger().debug(f'No ID found for row {index.row()} in {self.tableName()}')
                 return False
             if value == QtCore.Qt.CheckState.Checked:
                 if item_id not in self.checked_ids:
@@ -861,17 +861,17 @@ class CheckableSqlTableModel(DisplayRoundedTableModel):
         :return: 'True' if successful, 'No' if not needed, 'False' needed but failed
         """
         if not other_ids:
-            logger_setup.get_logger().error(f'No item IDs given for {other_table}')
+            logger.get_logger().error(f'No item IDs given for {other_table}')
             return 'False'
         if self.partially_checked_ids:
             # Any selection for a one-to-many relationship should be complete, so there should be no partially checked IDs
-            logger_setup.get_logger().info(f'Partially checked IDs for one-to-many relationship, no changes to update')
+            logger.get_logger().info(f'Partially checked IDs for one-to-many relationship, no changes to update')
             return 'No'
         if len(self.checked_ids) > 1:
             # If there are multiple checked IDs, this is a many-to-many relationship, so we should not use this function
-            logger_setup.get_logger().error(
+            logger.get_logger().error(
                 f'Multiple checked IDs given for {self.tableName()}. Select only one ID to update {other_table}.')
-            logger_setup.get_logger().debug(
+            logger.get_logger().debug(
                 f'This should be a one-to-many relationship, so set the checkable combo box to single click.')
             return 'False'
         return update_other_table_with_checks(self.tableName(), list(self.checked_ids),
@@ -886,7 +886,7 @@ class CheckableSqlTableModel(DisplayRoundedTableModel):
         :return: 'True' if successful, 'No' if not needed, 'False' needed but failed
         """
         if not item_ids:
-            logger_setup.get_logger().error(f'No item IDs given for {many_table}')
+            logger.get_logger().error(f'No item IDs given for {many_table}')
             return 'False'
         return update_many_table_with_checks(self.tableName(), list(self.checked_ids), list(self.partially_checked_ids),
                                              many_table, item_ids)
@@ -926,7 +926,7 @@ class LazyCheckableSqlTableModel(CheckableSqlTableModel):
             self.beginInsertRows(QtCore.QModelIndex(), self.loaded_row_count, self.loaded_row_count + rows_to_load - 1)
             self.loaded_row_count += rows_to_load
             self.endInsertRows()
-            logger_setup.get_logger().debug(
+            logger.get_logger().debug(
                 f'Loaded {rows_to_load} more rows for {self.tableName()}, total loaded: {self.loaded_row_count}/{self.total_rows}')
 
     def data(self, index: QtCore.QModelIndex = ..., role: QtCore.Qt.ItemDataRole = ...):
@@ -1275,15 +1275,15 @@ class ImportSheetTableModel(QAbstractTableModel):
         Styles the model by getting the font and color for each cell in the sheet based on its content.
         """
         if self.sheet.max_row != self.rowCount():
-            logger_setup.get_logger().error(
-                'Rows have been removed and can no longer be mapped to the original import file.\n\nSave the current mapping, reload the import file, and select the checkbox before removing rows.')
+            logger.get_logger().error(
+                'Rows have been removed and can no longer be mapped to the original input file.\n\nSave the current mapping, reload the input file, and select the checkbox before removing rows.')
             return False
         if self.rowCount() != self._status_dataframe.shape[0]:
-            logger_setup.get_logger().critical(
-                'Data are unsynced.\n\nSave the current mapping and reload the import file.')
+            logger.get_logger().critical(
+                'Data are unsynced.\n\nSave the current mapping and reload the input file.')
             return False
 
-        logger_setup.get_logger().info('Identifying rejected rows by style')
+        logger.get_logger().info('Identifying rejected rows by style')
         show_loading_dialog('Loading', 'Identifying rejected rows...')
 
         style_progress_dialog = QProgressDialog(
@@ -1325,7 +1325,7 @@ class ImportSheetTableModel(QAbstractTableModel):
             close_loading_dialog('Loading', 'Identifying rejected rows...')
             return False
 
-        logger_setup.get_logger().info('Identified rejected rows by style')
+        logger.get_logger().info('Identified rejected rows by style')
         close_loading_dialog('Loading', 'Identifying rejected rows...')
         self._status_array = self._status_dataframe.to_numpy()
         return True

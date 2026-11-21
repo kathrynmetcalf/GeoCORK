@@ -1,9 +1,9 @@
 from PyQt6 import QtCore, QtSql
 from PyQt6.QtSql import QSqlQueryModel, QSqlDatabase
 
-import logger_setup
+from util import logger
 from Functions.Check_triggers import update_modified_timestamp
-from Functions.Settings_manager import SettingsManager
+from util.settings_manager import SettingsManager
 from util.database.database_helper import update_other_table_with_checks, get_name_column, get_view_from_table, \
     get_name_from_id, update_many_table_with_checks, get_total_records, delete_data
 from util.display_formatting import return_rounded, display_value_with_error, display_gps, display_age
@@ -33,13 +33,13 @@ class DisplayRoundedQueryModel(QSqlQueryModel):
         :return:
         """
         if not query_text:
-            logger_setup.get_logger().info(f"No query text provided, skipping setQuery for {self.objectName()}.")
+            logger.get_logger().info(f"No query text provided, skipping setQuery for {self.objectName()}.")
             return
         super().setQuery(query_text, self.db)
         if self.lastError().text():
-            logger_setup.get_logger().critical(f"Error displaying table")
-            logger_setup.get_logger().debug(f"Failed to set query: {self.lastError().text()}")
-            logger_setup.get_logger().debug(f"SQL query: {query_text}")
+            logger.get_logger().critical(f"Error displaying table")
+            logger.get_logger().debug(f"Failed to set query: {self.lastError().text()}")
+            logger.get_logger().debug(f"SQL query: {query_text}")
         else:
             self.query_text = query_text
             if 'table_info' in query_text:
@@ -161,7 +161,7 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
         if role == QtCore.Qt.ItemDataRole.CheckStateRole:
             item_id = self.index(index.row(), 0).data(QtCore.Qt.ItemDataRole.DisplayRole)
             if not item_id:
-                logger_setup.get_logger().debug(f'No ID found for row {index.row()} in {self.tableName()}')
+                logger.get_logger().debug(f'No ID found for row {index.row()} in {self.tableName()}')
                 return False
             if value == QtCore.Qt.CheckState.Checked:
                 if item_id not in self.checked_ids:
@@ -246,17 +246,17 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
         :return: 'True' if successful, 'No' if not needed, 'False' needed but failed
         """
         if not other_ids:
-            logger_setup.get_logger().error(f'No item IDs given for {other_table}')
+            logger.get_logger().error(f'No item IDs given for {other_table}')
             return 'False'
         if self.partially_checked_ids:
             # Any selection for a one-to-many relationship should be complete, so there should be no partially checked IDs
-            logger_setup.get_logger().info(f'Partially checked IDs for one-to-many relationship, no changes to update')
+            logger.get_logger().info(f'Partially checked IDs for one-to-many relationship, no changes to update')
             return 'No'
         if len(self.checked_ids) > 1:
             # If there are multiple checked IDs, this is a many-to-many relationship, so we should not use this function
-            logger_setup.get_logger().error(
+            logger.get_logger().error(
                 f'Multiple checked IDs given for {self.tableName()}. Select only one ID to update {other_table}.')
-            logger_setup.get_logger().debug(
+            logger.get_logger().debug(
                 f'This should be a one-to-many relationship, so set the checkable combo box to single click.')
             return 'False'
         return update_other_table_with_checks(self.table, list(self.checked_ids), list(self.partially_checked_ids),
@@ -271,7 +271,7 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
         :return: 'True' if successful, 'No' if not needed, 'False' needed but failed
         """
         if not item_ids:
-            logger_setup.get_logger().error(f'No item IDs given for {many_table}')
+            logger.get_logger().error(f'No item IDs given for {many_table}')
             return 'False'
         return update_many_table_with_checks(self.table, list(self.checked_ids), list(self.partially_checked_ids),
                                              many_table, item_ids)
@@ -303,24 +303,24 @@ class EditableSqlQueryModel(DisplayRoundedQueryModel):
             edited_header = self.headerData(index.column(), QtCore.Qt.Orientation.Horizontal)
             query = QtSql.QSqlQuery()
             if not query.exec(f'SELECT {edited_header} FROM {self.table} WHERE {id_header}={edited_id}'):
-                logger_setup.get_logger().critical(f'Failed to get {edited_header} from {self.table}')
-                logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-                logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                logger.get_logger().critical(f'Failed to get {edited_header} from {self.table}')
+                logger.get_logger().debug(f"Error: {query.lastError().text()}")
+                logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
                 return False
             if query.next():
                 if query.value(0) == value:
-                    logger_setup.get_logger().info(f'{edited_header} is already set to {value}')
+                    logger.get_logger().info(f'{edited_header} is already set to {value}')
                     return True
             query.prepare(f'UPDATE {self.table} SET {edited_header}=:value WHERE {id_header}=:id')
             query.bindValue(':value', value)
             query.bindValue(':id', edited_id)
             if not query.exec():
-                logger_setup.get_logger().critical(f'Failed to update {edited_header} in {self.table}')
-                logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-                logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-                logger_setup.get_logger().debug(f"Bound values: {query.boundValues()}")
+                logger.get_logger().critical(f'Failed to update {edited_header} in {self.table}')
+                logger.get_logger().debug(f"Error: {query.lastError().text()}")
+                logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                logger.get_logger().debug(f"Bound values: {query.boundValues()}")
                 return False
-            logger_setup.get_logger().info(f'Successfully updated {edited_header} in {self.table}')
+            logger.get_logger().info(f'Successfully updated {edited_header} in {self.table}')
             update_modified_timestamp(self.tableName(), [edited_id])
             self.setQuery(self.query_text)
             self.dataChanged.emit(index, index)
@@ -330,11 +330,11 @@ class EditableSqlQueryModel(DisplayRoundedQueryModel):
     def deleteRowFromTable(self, row):
         id = self.data(self.index(row, 0), QtCore.Qt.ItemDataRole.DisplayRole)
         if not id:
-            logger_setup.get_logger().warning(f'No ID found for row {row} in {self.table}')
+            logger.get_logger().warning(f'No ID found for row {row} in {self.table}')
             return False
         if not delete_data(self.table, [id]):
             return False
-        logger_setup.get_logger().info(f'Successfully deleted {id} from {self.table}')
+        logger.get_logger().info(f'Successfully deleted {id} from {self.table}')
         return True
 
 

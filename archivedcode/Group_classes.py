@@ -1,8 +1,8 @@
-# import random
-# import typing
+# input random
+# input typing
 #
-# from PyQt6 import QtCore as QtC
-# from PyQt6 import QtSql as QtS
+# from PyQt6 input QtCore as QtC
+# from PyQt6 input QtSql as QtS
 #
 #
 # # Based on code from https://stackoverflow.com/questions/7858653/qt-pyside-qsqlmodel-qabstractitemmodel-and-qtreeview-interaction

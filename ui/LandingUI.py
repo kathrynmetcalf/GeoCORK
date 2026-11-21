@@ -13,14 +13,14 @@ from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QFileDialog, QPushButton, QMessageBox, QMainWindow, \
     QListWidget, QListWidgetItem, QApplication, QLabel, QWidget, QVBoxLayout, QHBoxLayout
 
-import logger_setup
-from Functions.Database_manager import update_database, turn_on_foreign_keys
-from Functions.Settings_manager import SettingsManager
 from ui.MergeDatabaseUI import MergeDatabaseDialog
 from ui.settings.SettingsCore import update_stylesheet
+from util import logger
 from util.Text_manipulations import shrink_home, expand_home
 from util.database import Savepoint_manager
+from util.database.database_helper import update_database, turn_on_foreign_keys
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
+from util.settings_manager import SettingsManager
 
 settings = SettingsManager().settings
 
@@ -34,7 +34,7 @@ THEME_EVENTS = (QEvent.Type.PaletteChange, QEvent.Type.ApplicationPaletteChange,
 class LandingPage(QMainWindow):
     def __init__(self, start_filepath=None):
         super().__init__()
-        logger_setup.get_logger().info("Starting Landing Page...")
+        logger.get_logger().info("Starting Landing Page...")
         from ui.menus.StaticMenuGuard import install_static_menus
         install_static_menus(self)
 
@@ -158,7 +158,7 @@ class LandingPage(QMainWindow):
 
     def closeEvent(self, a0):
         self.saveWindowState()
-        logger_setup.get_logger().info("Closing Landing Page...")
+        logger.get_logger().info("Closing Landing Page...")
         super().closeEvent(a0)
 
     # ------------------------------------------------------------------ theme
@@ -202,7 +202,7 @@ class LandingPage(QMainWindow):
         if theme_key == self._applied_theme:
             return
         self._applied_theme = theme_key
-        logger_setup.get_logger().debug(f"Landing page theme: {'dark' if is_dark else 'light'}")
+        logger.get_logger().debug(f"Landing page theme: {'dark' if is_dark else 'light'}")
 
         pixmap = self.get_logo_pixmap(is_dark, dpr)
         if pixmap is not None and not pixmap.isNull():
@@ -235,7 +235,7 @@ class LandingPage(QMainWindow):
             painter.end()
             pixmap.setDevicePixelRatio(dpr)
         else:
-            logger_setup.get_logger().debug(f"Could not load {svg_name}, falling back to GeoCORK_Logo.png")
+            logger.get_logger().debug(f"Could not load {svg_name}, falling back to GeoCORK_Logo.png")
             pixmap = QPixmap(os.path.join(self.base_path, 'GeoCORK_Logo.png'))
             if pixmap.isNull():
                 return None
@@ -249,7 +249,7 @@ class LandingPage(QMainWindow):
         # This is a new database, so prompt the user to fill in the About Database form
         if not self.test_database_lock():
             if not update_database():
-                logger_setup.get_logger().critical('Error updating and displaying database')
+                logger.get_logger().critical('Error updating and displaying database')
                 return
             from ui.settings.Settings import SettingsDialog
             settings_dialog = SettingsDialog()
@@ -282,7 +282,7 @@ class LandingPage(QMainWindow):
                 self.db.setDatabaseName(self.get_filename())
                 self.db.open()
                 if not self.db.isOpen():
-                    logger_setup.get_logger().critical(f"Error opening database: {self.db.lastError().text()}")
+                    logger.get_logger().critical(f"Error opening database: {self.db.lastError().text()}")
                     close_loading_dialog("Opening",
                                          f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
                     self.show()
@@ -295,7 +295,7 @@ class LandingPage(QMainWindow):
                 Savepoint_manager.SavepointManager()
             if not skip_update:
                 if not update_database():
-                    logger_setup.get_logger().critical('Error updating and displaying database')
+                    logger.get_logger().critical('Error updating and displaying database')
                     close_loading_dialog("Opening",
                                          f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
                     self.show()
@@ -338,14 +338,14 @@ class LandingPage(QMainWindow):
         src = sqlite3.connect(db_file, timeout=10)
         backup = sqlite3.connect(backup_file, timeout=10)
 
-        logger_setup.get_logger().info('Beginning Restore')
+        logger.get_logger().info('Beginning Restore')
         self.last_percent = 0
 
         def progress(status, remaining, total):
             # Calculate progress percentage
             percent = 100 - int((remaining / total) * 100)
             if percent != self.last_percent:
-                logger_setup.get_logger().info(f'Backup Progress: {percent}')
+                logger.get_logger().info(f'Backup Progress: {percent}')
                 self.last_percent = percent
 
         backup.backup(src, pages=5, progress=progress)
@@ -367,7 +367,7 @@ class LandingPage(QMainWindow):
         self.db = None
 
     def test_database_lock(self):
-        logger_setup.get_logger().info("Testing Database Lock...")
+        logger.get_logger().info("Testing Database Lock...")
         database_path = self.get_filename()
         try:
             # Attempt to connect and perform a simple query
@@ -380,10 +380,10 @@ class LandingPage(QMainWindow):
             connection.close()
         except Exception as e:
             # Handle the specific database lock error
-            logger_setup.get_logger().debug(
+            logger.get_logger().debug(
                 f"Error testing for database lock: {e}")
             if "database is locked" in str(e):
-                logger_setup.get_logger().debug(
+                logger.get_logger().debug(
                     f"Database lock error: {e}")
                 self.show_message("Database Locked",
                                   "The database is currently locked. Make sure it is not in use elsewhere.")
@@ -425,7 +425,7 @@ class LandingPage(QMainWindow):
                 self.db = QSqlDatabase.addDatabase("QSQLITE")
                 self.db.setDatabaseName(full_path)
                 if not self.db.open():
-                    logger_setup.get_logger().critical(f"Error opening database: {self.db.lastError().text()}")
+                    logger.get_logger().critical(f"Error opening database: {self.db.lastError().text()}")
                     return
                 if not turn_on_foreign_keys():
                     return
@@ -464,7 +464,7 @@ class LandingPage(QMainWindow):
             self.db.setDatabaseName(self.get_filename())
             self.db.open()
             if not self.db.isOpen():
-                logger_setup.get_logger().critical(f"Error opening database: {self.db.lastError().text()}")
+                logger.get_logger().critical(f"Error opening database: {self.db.lastError().text()}")
                 return
             if not turn_on_foreign_keys():
                 return
@@ -510,7 +510,7 @@ class LandingPage(QMainWindow):
             return
 
     def restore_settings(self):
-        from Functions.Settings_manager import SettingsManager
+        from util.settings_manager import SettingsManager
         settings = SettingsManager().settings
         settings.setValue('default_settings', 'true')
         from ui.settings.SettingsCore import reset_to_default_settings

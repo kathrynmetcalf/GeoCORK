@@ -5,11 +5,11 @@ from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
 
-import logger_setup
+from util import logger
 from Functions import SQLUtils
 from Functions.Check_triggers import validate_update, update_modified_timestamp
 from Functions.Database_views import ViewQuery
-from Functions.Settings_manager import SettingsManager
+from util.settings_manager import SettingsManager
 from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags
 from ui.EditTable import EditTable
@@ -94,7 +94,7 @@ class ColumnFields(QtW.QWidget):
 
     def populate_dropdowns(self):
         start_populate_dropdown_time = time.time()
-        logger_setup.get_logger().info("Populating dropdowns")
+        logger.get_logger().info("Populating dropdowns")
         show_loading_dialog('Loading', 'Populating dropdowns...')
         column_cols = settings.value('column_view_columns')
         query_args = {'show_columns': column_cols}
@@ -111,12 +111,12 @@ class ColumnFields(QtW.QWidget):
         self.column_name_comboBox.view().setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         end_populate_dropdown_time = time.time()
         close_loading_dialog('Loading', 'Populating dropdowns...')
-        logger_setup.get_logger().info(
+        logger.get_logger().info(
             f"Populated dropdowns in {end_populate_dropdown_time - start_populate_dropdown_time} seconds")
-        logger_setup.get_logger().info("Dropdowns populated")
+        logger.get_logger().info("Dropdowns populated")
 
     def populate_fields(self):
-        logger_setup.get_logger().info("Populating fields")
+        logger.get_logger().info("Populating fields")
         start_populate_fields_time = time.time()
         headers = get_headers('Samples')
         if len(self.checked_sample_list) > 1:
@@ -130,7 +130,7 @@ class ColumnFields(QtW.QWidget):
         while self.samples_table.canFetchMore():
             self.samples_table.fetchMore()
         if self.samples_table.rowCount() == 0:
-            logger_setup.get_logger().info("No samples to populate")
+            logger.get_logger().info("No samples to populate")
             self.clear_fields()
             return
         for header in headers:
@@ -175,9 +175,9 @@ class ColumnFields(QtW.QWidget):
                     self.height_depth_lineEdit.setText(str(text))
 
         end_populate_fields_time = time.time()
-        logger_setup.get_logger().info(
+        logger.get_logger().info(
             f"Populated fields in {end_populate_fields_time - start_populate_fields_time} seconds")
-        logger_setup.get_logger().info("Fields populated")
+        logger.get_logger().info("Fields populated")
 
     def set_validators(self):
         height_depth_float_validator = QtG.QDoubleValidator()
@@ -208,31 +208,31 @@ class ColumnFields(QtW.QWidget):
         if not self.groupBox.edited:
             for child in self.groupBox.findChildren(QtW.QWidget):
                 if child.hasFocus():
-                    logger_setup.get_logger().info(f"Child {child.objectName()} has focus")
+                    logger.get_logger().info(f"Child {child.objectName()} has focus")
                     self.groupBox.set_edited(child)
                     break
         self.groupBox.clearFocus()
         if self.groupBox.edited:
-            logger_setup.get_logger().info(f"GPS was edited")
+            logger.get_logger().info(f"GPS was edited")
             self.update_column_info()
 
     def focus_lost_delay(self):
         if self._isApplicationFocused:
-            logger_setup.get_logger().info("Column group box focus lost")
+            logger.get_logger().info("Column group box focus lost")
             self.lost_widget = self.sender()
-            logger_setup.get_logger().info(f'Focus lost on {self.lost_widget.objectName()}')
+            logger.get_logger().info(f'Focus lost on {self.lost_widget.objectName()}')
             self.focus_timer.timeout.connect(self.update_column_info)
             self.focus_timer.start(100)
 
     def connect_signals(self):
         # Connect signals and slots
         self.disconnect_signals()
-        logger_setup.get_logger().info("Connecting signals")
+        logger.get_logger().info("Connecting signals")
         self.groupBox.focusLost.connect(self.focus_lost_delay)
         self.groupBox.connect_child_signals()
 
     def disconnect_signals(self):
-        logger_setup.get_logger().info("Disconnecting signals")
+        logger.get_logger().info("Disconnecting signals")
         try:
             self.column_name_comboBox.currentTextChanged.disconnect()
         except TypeError:
@@ -255,31 +255,31 @@ class ColumnFields(QtW.QWidget):
             pass
 
     def update_column_info(self):
-        logger_setup.get_logger().info("Update column height called")
+        logger.get_logger().info("Update column height called")
         try:
             self.groupBox.focusLost.disconnect()
         except TypeError:
             pass
         if len(self.checked_sample_list) == 0:
-            logger_setup.get_logger().info("No samples selected")
+            logger.get_logger().info("No samples selected")
             return False
         start_update_column_height_time = time.time()
         query = QtS.QSqlQuery()
         if not query.exec(
                 f"SELECT ColumnID FROM Columns WHERE ColumnName = '{self.column_name_comboBox.currentText()}'"):
-            logger_setup.get_logger().critical(
+            logger.get_logger().critical(
                 f"Failed to select ColumnID for {self.column_name_comboBox.currentText()}")
-            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+            logger.get_logger().debug(f"Error: {query.lastError().text()}")
+            logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
             return False
         query.next()
         column_id = query.value(0)
         if not query.exec(
                 f"SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = '{self.height_depth_unit_comboBox.currentText()}'"):
-            logger_setup.get_logger().critical(
+            logger.get_logger().critical(
                 f"Failed to select DistanceUnitID for {self.height_depth_unit_comboBox.currentText()}")
-            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+            logger.get_logger().debug(f"Error: {query.lastError().text()}")
+            logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
             return False
         query.next()
         unit_id = query.value(0)
@@ -292,7 +292,7 @@ class ColumnFields(QtW.QWidget):
                                         [column_id, self.height_depth_lineEdit.text(),
                                          self.height_depth_error_lineEdit.text(), unit_id], where_sql)
         if error:
-            logger_setup.get_logger().error(f"Error: {error}")
+            logger.get_logger().error(f"Error: {error}")
             self.groupBox.setFocus()
             return False
         query.prepare(f'''UPDATE Samples SET SampleColumnID = :columnID, HeightDepth = :height, 
@@ -302,19 +302,19 @@ class ColumnFields(QtW.QWidget):
         query.bindValue(":error", self.height_depth_error_lineEdit.text())
         query.bindValue(":unitID", unit_id)
         if not query.exec():
-            logger_setup.get_logger().critical(f"Failed to update column information")
-            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+            logger.get_logger().critical(f"Failed to update column information")
+            logger.get_logger().debug(f"Error: {query.lastError().text()}")
+            logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
             return False
         update_modified_timestamp('Samples', self.checked_sample_list)
         self.updated = True
         end_update_column_height_time = time.time()
-        logger_setup.get_logger().info(
+        logger.get_logger().info(
             f"Updated column height in {end_update_column_height_time - start_update_column_height_time} seconds")
         return True
 
     def update_list(self, sample_ids):
-        logger_setup.get_logger().info(f"Populating column fields for Samples with sample IDs {sample_ids}")
+        logger.get_logger().info(f"Populating column fields for Samples with sample IDs {sample_ids}")
         self.checked_sample_list = sample_ids
         if len(self.checked_sample_list) == 0:
             # No samples selected, clear fields and disable groups
@@ -327,7 +327,7 @@ class ColumnFields(QtW.QWidget):
 
     def add_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
         combo.blockSignals(True)
-        logger_setup.get_logger().info(f"Add popup called")
+        logger.get_logger().info(f"Add popup called")
         try:
             model = combo.source_model()
         except AttributeError:
@@ -338,8 +338,8 @@ class ColumnFields(QtW.QWidget):
             if model:
                 table = model.table
             else:
-                logger_setup.get_logger().critical(f"Error adding new item")
-                logger_setup.get_logger().debug(f"Error: No tree model found")
+                logger.get_logger().critical(f"Error adding new item")
+                logger.get_logger().debug(f"Error: No tree model found")
                 combo.blockSignals(False)
                 return
         else:
@@ -359,7 +359,7 @@ class ColumnFields(QtW.QWidget):
         if not dlg:
             combo.blockSignals(False)
             return
-        logger_setup.get_logger().info(f"Showing {table} add dialog")
+        logger.get_logger().info(f"Showing {table} add dialog")
         dlg.exec()
         if dlg.updated:
             self.updated = True
@@ -372,7 +372,7 @@ class ColumnFields(QtW.QWidget):
             return
 
     def edit_popup(self):
-        logger_setup.get_logger().info(f'Edit popup called')
+        logger.get_logger().info(f'Edit popup called')
         combo: QtW.QComboBox = self.sender()
         try:
             model = combo.source_model()
@@ -384,8 +384,8 @@ class ColumnFields(QtW.QWidget):
             if model:
                 table = model.table
             else:
-                logger_setup.get_logger().critical(f"Error editing table")
-                logger_setup.get_logger().debug(f"Error: No tree model found")
+                logger.get_logger().critical(f"Error editing table")
+                logger.get_logger().debug(f"Error: No tree model found")
                 return
         elif isinstance(model, QtC.QSortFilterProxyModel):
             model = model.sourceModel()
@@ -404,7 +404,7 @@ class ColumnFields(QtW.QWidget):
         if dlg is None:
             combo.blockSignals(False)
             return
-        logger_setup.get_logger().info(f"Showing {table} edit dialog")
+        logger.get_logger().info(f"Showing {table} edit dialog")
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
             # Update this combo box

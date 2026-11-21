@@ -6,16 +6,15 @@ from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QLabel, QComboBox, QDialogButtonBox
 
 import util.Text_manipulations as TxM
-import logger_setup
-from Functions.Database_manager import update_database
+from util import logger
 from util.database.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
-from Functions.Settings_manager import SettingsManager
+from util.settings_manager import SettingsManager
 from ui.settings import SettingsCore
 from util.widgets.models.query_models import EditableSqlQueryModel
 from util.widgets.models.proxy_models import ReadableProxyModel
 
 from util.database.database_helper import (get_headers,get_name_column, get_total_records,
-                                           get_id_from_name, get_record_row, delete_data)
+                                           get_id_from_name, get_record_row, delete_data, update_database)
 
 from ui.AddTags import AddTags
 from ui.Merge import MergeDialog
@@ -34,7 +33,7 @@ class EditTable(QtW.QDialog):
 
     def __init__(self, parent_window, table_name, **kwargs):
         super().__init__(parent=parent_window)
-        logger_setup.get_logger().info(f'Opening {table_name} edit dialog')
+        logger.get_logger().info(f'Opening {table_name} edit dialog')
         show_loading_dialog('Loading', f'Opening edit window for {table_name}...')
 
         self.table = TxM.remove_spaces(table_name)
@@ -249,7 +248,7 @@ class EditTable(QtW.QDialog):
                     if id not in ids_to_merge:
                         ids_to_merge.append(id)
                 if len(ids_to_merge) < 2:
-                    logger_setup.get_logger().error('At least two records must be selected to merge')
+                    logger.get_logger().error('At least two records must be selected to merge')
                     return
                 if MergeDialog(self.table, ids_to_merge, self).exec() == QtW.QDialog.DialogCode.Accepted:
                     self.updated = True
@@ -274,7 +273,7 @@ class EditTable(QtW.QDialog):
         """
         Dislays the table in the table view. Sets the model for the table view to the proxy model.
         """
-        logger_setup.get_logger().info(f'Displaying {self.model.rowCount()} {self.table} table')
+        logger.get_logger().info(f'Displaying {self.model.rowCount()} {self.table} table')
         show_loading_dialog('Loading', f'Displaying {self.model.rowCount()} {self.table}...')
         # Reset column sorting indicator
         self.edit_tableView.horizontalHeader().setSortIndicator(-1, QtC.Qt.SortOrder.AscendingOrder)
@@ -307,10 +306,10 @@ class EditTable(QtW.QDialog):
 
         query = QSqlQuery()
         sql_query = f'SELECT DISTINCT {self.name_header} FROM "{self.table}"'
-        logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+        logger.get_logger().debug(f'SQL command: {sql_query}')
         if not query.exec(sql_query):
-            logger_setup.get_logger().critical(f'Error creating the completer for input')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().critical(f'Error creating the completer for input')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
         values = set()
         while query.next():
             values.add(query.value(0))
@@ -332,7 +331,7 @@ class EditTable(QtW.QDialog):
                 return
             record_id = get_id_from_name(self.table, record_name)
             if not record_id:
-                logger_setup.get_logger().error(f'Could not find record ID for record name: {record_name}')
+                logger.get_logger().error(f'Could not find record ID for record name: {record_name}')
                 return
             row = get_record_row(self.table, record_id)
 
@@ -343,10 +342,10 @@ class EditTable(QtW.QDialog):
                     self.create_model()
                 scroll_to_record(record_id, self.edit_tableView)
             else:
-                logger_setup.get_logger().critical(f"Record {self.name_header} not found: {self.goto_line_edit.text()}")
+                logger.get_logger().critical(f"Record {self.name_header} not found: {self.goto_line_edit.text()}")
         except Exception as e:
-            logger_setup.get_logger().critical(f"Invalid Record {self.name_header}: {self.goto_line_edit.text()}")
-            logger_setup.get_logger().debug(f'Error: {e}')
+            logger.get_logger().critical(f"Invalid Record {self.name_header}: {self.goto_line_edit.text()}")
+            logger.get_logger().debug(f'Error: {e}')
         self.goto_line_edit.setText('')
 
     def add_popup(self):
@@ -384,14 +383,14 @@ class EditTable(QtW.QDialog):
         if (self.edit_tableView.currentIndex().isValid() and
                 not self.model.setData(current_model_index, current_model_index.data(), QtC.Qt.ItemDataRole.EditRole)):
             # There is a valid index selected and submitting data failed
-            logger_setup.get_logger().critical('Failed to save changes')
+            logger.get_logger().critical('Failed to save changes')
             return
         else:
             release_savepoint('before_edit')
             # Check if there is another existing savepoint. If not, go ahead and update the database
             if not SavepointManager.get_instance().active_savepoints():
                 if not update_database():
-                    logger_setup.get_logger().critical(f'Error updating and displaying database')
+                    logger.get_logger().critical(f'Error updating and displaying database')
                     self.close_by_dialog = True
                     self.close()
             self.accept()
@@ -436,11 +435,11 @@ class EditTable(QtW.QDialog):
                 self.discard_question()
                 event.ignore()
             else:
-                logger_setup.get_logger().info(f'Closing {self.table} edit dialog')
+                logger.get_logger().info(f'Closing {self.table} edit dialog')
                 release_savepoint('before_edit')
                 event.accept()
         else:
-            logger_setup.get_logger().info(f'Closing {self.table} edit dialog')
+            logger.get_logger().info(f'Closing {self.table} edit dialog')
             release_savepoint('before_edit')
             event.accept()
 

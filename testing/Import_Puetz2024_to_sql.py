@@ -7,7 +7,7 @@ import time
 from Additional_units_Puetz2024 import additional_unit_tags_dict
 
 """
-This module contains functions to import data from Puetz et al. (2024) into a GeoCORK database. Make sure that you have
+This module contains functions to input data from Puetz et al. (2024) into a GeoCORK database. Make sure that you have
 the following files in the same directory as this script or paste the full file paths:
 From Metcalf and Burges (2026): 
 DB1_2019_edited.xlsx, DB2_2021_edited.xlsx, DB3_2023_edited.xlsx, Additional_units_Puetz2024
@@ -216,7 +216,7 @@ def duplicate_names_nocase(names: list) -> tuple[list, set]:
 
 def Puetz_importer():
     """
-    Method to import the data from Puetz et al. (2024) and convert it into a format
+    Method to input the data from Puetz et al. (2024) and convert it into a format
     that can be used by the model.
     """
     data_files = ['DB1_2019_edited.xlsx',
@@ -225,7 +225,7 @@ def Puetz_importer():
     db = 'Puetz_et_al_2024_DZ.db'
 
     # --------------------
-    # Get the headers for the tables to import into the database
+    # Get the headers for the tables to input into the database
     tables = ['"References"', 'Samples', 'Aliquots', 'Spots', 'UPbAnalyses', 'UPbAnalysisMethods', 'LabFacilities',
               'Instruments', 'UPbAnalysisContexts', 'SpotContexts', 'Units', 'Regions', 'RockTypes', 'SpotCompositions',
               'SampleAges', 'GPSLocations', 'Columns', 'Samples_Regions', 'Samples_RockTypes', 'Samples_SampleAges',
@@ -353,7 +353,7 @@ def Puetz_importer():
     sample_sql_df['SampleID'] = pd.Series(list(range(1, sample_sql_df.shape[0] + 1)), dtype=pd.Int64Dtype())
     merged_sample_id_df = sample_df.merge(sample_sql_df, left_on='Sample_ID', right_on='SampleName', how='left', indicator=True)
 
-    print(f'{sample_sql_df.shape[0]} unique samples to import')
+    print(f'{sample_sql_df.shape[0]} unique samples to input')
 
 
     print('Importing GPS')
@@ -547,7 +547,7 @@ def Puetz_importer():
         print(f'Samples table has {sample_sql_df.shape[0]} samples and Samples_SampleAge table has {samples_sample_ages_sql_df.shape[0]} samples')
         return
 
-    # Everything should now be in the Samples table, so it is ready for import
+    # Everything should now be in the Samples table, so it is ready for input
     sample_sql_df['SampleCreated'] = pd.to_datetime('now')
     sample_sql_df['SampleModified'] = pd.to_datetime('now')
     try:
@@ -1657,7 +1657,7 @@ def Puetz_importer():
 
     print(f'Importing spot contexts')
 
-    # No GrainContexts to import
+    # No GrainContexts to input
 
     # Create the SpotContexts table
 

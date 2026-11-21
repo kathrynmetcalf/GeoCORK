@@ -1,20 +1,20 @@
 import logging
 import logging.handlers
+import os
 import sys
 import traceback
 from datetime import datetime
 from queue import Queue
-import os
 
 from PyQt6.QtCore import QStandardPaths
 from PyQt6.QtSql import QSqlDatabase
 from PyQt6.QtWidgets import QMessageBox, QApplication
+from tzlocal import get_localzone
 
 from util.database.Savepoint_manager import SavepointManager
-from Functions.Settings_manager import SettingsManager
+from util.settings_manager import SettingsManager
 
 settings = SettingsManager().settings
-from tzlocal import get_localzone
 
 # Get the local timezone
 local_timezone = get_localzone()
@@ -28,6 +28,7 @@ formatted_timestamp = current_time.strftime('%Y-%m-%d %H.%M.%S')
 # Global references to the logger and queue listener
 _logger = None
 _queue_listener = None
+
 
 class CustomLogger(logging.getLoggerClass()):
     """Custom logger that captures critical errors and shows a PyQt6 message box."""
@@ -43,10 +44,10 @@ class CustomLogger(logging.getLoggerClass()):
 
     def error(self, msg, parent=None, *args, exc_info=None, stack_info=False, stacklevel=2, extra=None):
         button = QMessageBox.warning(parent,
-                                      "Error",
-                                      f"{msg}",
-                                      buttons=QMessageBox.StandardButton.Ok,
-                                      defaultButton=QMessageBox.StandardButton.Ok)
+                                     "Error",
+                                     f"{msg}",
+                                     buttons=QMessageBox.StandardButton.Ok,
+                                     defaultButton=QMessageBox.StandardButton.Ok)
 
         super().error(msg, *args, exc_info=exc_info, stack_info=stack_info, stacklevel=stacklevel, extra=extra)
 
@@ -148,6 +149,7 @@ def stop_logger():
     if _queue_listener:
         _queue_listener.stop()
 
+
 def _log_direct(level, message):
     # Bypass CustomLogger methods to avoid QMessageBox
     record = _logger.makeRecord(
@@ -155,6 +157,7 @@ def _log_direct(level, message):
     )
     for handler in _logger.handlers:
         handler.handle(record)
+
 
 def log_uncaught_exceptions(exc_type, exc_value, exc_tb):
     """

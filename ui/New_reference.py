@@ -2,7 +2,7 @@ from PyQt6 import QtWidgets
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QDialogButtonBox
 
-import logger_setup
+from util import logger
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 
 
@@ -10,7 +10,7 @@ class NewReference(QtWidgets.QDialog):
     def __init__(self, parent_window):
         super().__init__(parent=parent_window)
 
-        logger_setup.get_logger().info(f'Opening reference add dialog')
+        logger.get_logger().info(f'Opening reference add dialog')
         show_loading_dialog('Loading', 'Opening add window for References...')
 
         self.build_ui()
@@ -77,13 +77,13 @@ class NewReference(QtWidgets.QDialog):
         query.addBindValue(None if source == '' else source)
         query.addBindValue(None if doi == '' else doi)
         if not query.exec():
-            logger_setup.get_logger().critical('Error checking for duplicate reference')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+            logger.get_logger().critical('Error checking for duplicate reference')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().debug(f'Bound values: {query.boundValues()}')
             return
         if query.next():
-            logger_setup.get_logger().info('Reference already exists')
+            logger.get_logger().info('Reference already exists')
             return
         query.prepare(
             'INSERT INTO "References" (Authors, Year, Title, Source, DOI, ReferenceDescription) VALUES (?, ?, ?, ?, ?, ?)')
@@ -94,12 +94,12 @@ class NewReference(QtWidgets.QDialog):
         query.addBindValue(None if doi == '' else doi)
         query.addBindValue(None if description == '' else description)
         if not query.exec():
-            logger_setup.get_logger().critical('Error adding reference')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+            logger.get_logger().critical('Error adding reference')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().debug(f'Bound values: {query.boundValues()}')
             return
-        logger_setup.get_logger().info('Reference added successfully')
+        logger.get_logger().info('Reference added successfully')
         self.updated = True
         self.ids_added.append(query.lastInsertId())
         self.accept()

@@ -1,9 +1,9 @@
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtWidgets as QtW
 
-import logger_setup
+from util import logger
 import ui.ColumnFields
-from Functions.Settings_manager import SettingsManager
+from util.settings_manager import SettingsManager
 from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from util.loading_dialog_manager import close_loading_dialog
 
@@ -47,25 +47,25 @@ class ColumnDialog(QtW.QDialog):
         close_loading_dialog('Loading', f'Opening column editor...')
 
     def discard_clicked(self):
-        logger_setup.get_logger().info("Discard clicked")
+        logger.get_logger().info("Discard clicked")
         self.discard_question()
 
     def commit_clicked(self):
-        logger_setup.get_logger().info("Commit clicked")
+        logger.get_logger().info("Commit clicked")
         self.commit_question()
 
     def discard_question(self):
-        logger_setup.get_logger().info("Discard question called")
+        logger.get_logger().info("Discard question called")
         if self.column_fields.updated:
             msg_box = QtW.QMessageBox()
             msg_box.setIcon(QtW.QMessageBox.Icon.Question)
             msg_box.setText('Are you sure you want to discard all changes?')
             msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
             msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
-            logger_setup.get_logger().info("Showing discard question")
+            logger.get_logger().info("Showing discard question")
             response = msg_box.exec()
             if response == QtW.QMessageBox.StandardButton.Yes:
-                logger_setup.get_logger().info("Discarding changes")
+                logger.get_logger().info("Discarding changes")
                 rollback_savepoint('before_edit_columns')
                 self.reject()
                 self.close_by_dialog = True
@@ -115,8 +115,8 @@ class ColumnDialog(QtW.QDialog):
                 self.discard_question()
                 event.ignore()
             else:
-                logger_setup.get_logger().info("Closing Column dialog")
+                logger.get_logger().info("Closing Column dialog")
                 event.accept()
         else:
-            logger_setup.get_logger().info("Closing Column dialog")
+            logger.get_logger().info("Closing Column dialog")
             event.accept()

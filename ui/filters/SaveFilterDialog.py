@@ -1,7 +1,7 @@
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QHBoxLayout, QTextEdit, QMessageBox
 
-import logger_setup
+from util import logger
 from util.database.database_helper import get_name_from_id, get_id_from_name
 
 
@@ -73,21 +73,21 @@ class SaveFilterDialog(QDialog):
         """
         query.prepare(sql_query)
         query.bindValue(":filter_id", self.update_id)
-        logger_setup.get_logger().info(f'Populating fields for filter: {self.update_id}')
+        logger.get_logger().info(f'Populating fields for filter: {self.update_id}')
         if query.exec():
             if query.next():
                 self.name_input.setText(query.value(0))
                 self.description_input.setText(query.value(1))
             else:
                 filter_name = get_name_from_id('FilterGroups', self.update_id)
-                logger_setup.get_logger().critical(f'No filter group "{filter_name}" found.')
-                logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+                logger.get_logger().critical(f'No filter group "{filter_name}" found.')
+                logger.get_logger().debug(f'SQL command: {sql_query}')
         else:
-            logger_setup.get_logger().critical(
+            logger.get_logger().critical(
                 f'Error in populating existing Filters')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL command: {sql_query}')
-            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL command: {sql_query}')
+            logger.get_logger().debug(f'Bound values: {query.boundValues()}')
 
     def insert_data(self):
         """
@@ -105,13 +105,13 @@ class SaveFilterDialog(QDialog):
         check_query = "SELECT FilterGroupName FROM FilterGroups WHERE FilterGroupName = :name COLLATE NOCASE"
         query.prepare(check_query)
         query.bindValue(":name", name)
-        logger_setup.get_logger().info(f'Checking if name: {name} already exists in FilterGroups table')
+        logger.get_logger().info(f'Checking if name: {name} already exists in FilterGroups table')
         if not query.exec():
-            logger_setup.get_logger().critical(
+            logger.get_logger().critical(
                 f'Error in checking for existing Filters')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL command: {check_query}')
-            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL command: {check_query}')
+            logger.get_logger().debug(f'Bound values: {query.boundValues()}')
             return
 
         if query.next():
@@ -138,13 +138,13 @@ class SaveFilterDialog(QDialog):
             query.bindValue(":description", None if description=='' else description)
 
             if not query.exec():
-                logger_setup.get_logger().critical(
+                logger.get_logger().critical(
                     f'Error could not add filter')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL command: {check_query}')
-                logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL command: {check_query}')
+                logger.get_logger().debug(f'Bound values: {query.boundValues()}')
             else:
-                logger_setup.get_logger().info(f'Filter {name} added')
+                logger.get_logger().info(f'Filter {name} added')
                 self.accept()
 
     def update_data(self):
@@ -163,11 +163,11 @@ class SaveFilterDialog(QDialog):
         query.bindValue(":description", description)
         query.bindValue(":id", self.update_id)
         if not query.exec():
-            logger_setup.get_logger().critical(
+            logger.get_logger().critical(
                 f'Error could not update filter')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL command: {update_query}')
-            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL command: {update_query}')
+            logger.get_logger().debug(f'Bound values: {query.boundValues()}')
         else:
-            logger_setup.get_logger().info(f'Filter {name} updated')
+            logger.get_logger().info(f'Filter {name} updated')
             self.accept()

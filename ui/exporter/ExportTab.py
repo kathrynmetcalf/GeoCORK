@@ -18,25 +18,26 @@ from PyQt6.QtWidgets import (
 from PyQt6.uic import loadUi
 from openpyxl import Workbook
 
-import logger_setup
-from Functions.Database_manager import update_database
-from util.database.database_helper import get_join_from_table, columns_as_list, get_total_records, find_parent_items
-from util.database.export import ExportDatabase
 from Functions import SQLUtils
-from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
 from Functions.Database_views import ViewQuery
-from Functions.Settings_manager import SettingsManager
 from ui.filters import FilterHelpers
 from ui.filters.FiltersTab import FiltersTab
-
-from util.layouts.FlowLayout import FlowLayout
+from util import logger
+from util.database.database_helper import (get_join_from_table, columns_as_list, get_total_records,
+                                           find_parent_items, update_database, turn_on_foreign_keys,
+                                           turn_off_foreign_keys)
+from util.database.export import ExportDatabase
+from util.database.export.export_helper import export_formats
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.populate_models import populate_combo_box
+from util.settings_manager import SettingsManager
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
+from util.widgets.layouts import FlowLayout
 from util.widgets.models.proxy_models import ReadableProxyModel
 from util.widgets.models.table_models import SQLiteTableModel
-from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 
 settings = SettingsManager().settings
+
 
 class ExportTab(QWidget):
     """
@@ -108,7 +109,7 @@ class ExportTab(QWidget):
         # Clear all the existing items in the combo box
         while self.exportformat_comboBox.count() > 0:
             self.exportformat_comboBox.removeItem(0)
-        for export_format in SQLUtils.export_formats:
+        for export_format in export_formats:
             self.exportformat_comboBox.addItem(export_format)
 
         for widget in QApplication.topLevelWidgets():
@@ -144,13 +145,13 @@ class ExportTab(QWidget):
 
         self.edit_columnnames_button = QPushButton("Edit Column Names")
         self.edit_columnnames_button.setObjectName("edit_columnnames_button")
-        self.edit_columnnames_button.setToolTip('Edits the column names to be exported. Column names seen below are what will be exported, not what they are called in the database.')
+        self.edit_columnnames_button.setToolTip(
+            'Edits the column names to be exported. Column names seen below are what will be exported, not what they are called in the database.')
 
         self.worksheetbutton_layout.addWidget(self.refresh_button)
         self.worksheetbutton_layout.addWidget(self.add_worksheet_button)
         self.worksheetbutton_layout.addWidget(self.remove_worksheet_button)
         self.worksheetbutton_layout.addWidget(self.edit_columnnames_button)
-
 
         self.editorder_button = QPushButton("Edit Column Order")
         self.editorder_button.setObjectName("editorder_button")
@@ -180,7 +181,6 @@ class ExportTab(QWidget):
 
         self.edit_columnnames_button.clicked.connect(self.open_columnname_mapping_dialog)
 
-
         self.export_button.clicked.connect(self.export_data)
 
         self.editorder_button.clicked.connect(self.open_column_order_dialog)
@@ -191,13 +191,12 @@ class ExportTab(QWidget):
 
         self.populate_stack()
 
-
     def sync_selected_ordered_columns(self, worksheet_name: str = None):
         """
         :param str worksheet_name: worksheet name to view, otherwise the current index will be used
         """
         # Get the current workbook
-        logger_setup.get_logger().info('Updating table view with new parameters')
+        logger.get_logger().info('Updating table view with new parameters')
         show_loading_dialog('Loading', 'Updating table view with new parameters')
         start_update_table_view_time = time.time()
         if worksheet_name is None:
@@ -245,7 +244,7 @@ class ExportTab(QWidget):
         :param str worksheet_name: worksheet name to view, otherwise the current index will be used
         """
         # Get the current workbook
-        logger_setup.get_logger().info('Updating table view with new parameters')
+        logger.get_logger().info('Updating table view with new parameters')
         show_loading_dialog('Loading', 'Updating table view with new parameters')
         start_update_table_view_time = time.time()
         if worksheet_name is None:
@@ -269,7 +268,6 @@ class ExportTab(QWidget):
         self.checked_filter_ids_str = f"({', '.join(map(str, self.checked_filter_list))})"
 
         self.checked_grouped_filter_list = self.groupedfilter_comboBox.source_model().return_checked_ids()[0]
-
 
         if self.exportformat_comboBox.currentText() != 'Database':
             # Get the current TableView
@@ -354,8 +352,8 @@ class ExportTab(QWidget):
             json_query.prepare('SELECT SQLQuery FROM FilterGroups WHERE FilterGroupID = :filter_id')
             json_query.bindValue(':filter_id', filter_id)
             if not json_query.exec():
-                logger_setup.get_logger().critical(f'Could not fetch SQL Query for filter')
-                logger_setup.get_logger().info(f'Filter ID: {filter_id}')
+                logger.get_logger().critical(f'Could not fetch SQL Query for filter')
+                logger.get_logger().info(f'Filter ID: {filter_id}')
 
             json_query.next()
             filter_json = json_query.value(0)
@@ -367,8 +365,8 @@ class ExportTab(QWidget):
             sql_query = f"SELECT DISTINCT UPbAnalysisID FROM ({filtered_where_clause});"
             uri = f'file:{settings.value('db_file', type=str)}?mode=ro&immutable=1'
             # Execute the query
-            logger_setup.get_logger().info(f'Fetching distinct UPbAnalyisIDs from FilterID: {filter_id}')
-            logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+            logger.get_logger().info(f'Fetching distinct UPbAnalyisIDs from FilterID: {filter_id}')
+            logger.get_logger().debug(f'SQL command: {sql_query}')
             try:
                 conn = sqlite3.connect(uri, uri=True)
                 with conn:
@@ -389,28 +387,28 @@ class ExportTab(QWidget):
                         conn.commit()
                         conn.close()
                     except sqlite3.Error as e:
-                        logger_setup.get_logger().critical(f'Error fetching distinct values')
-                        logger_setup.get_logger().debug(f'Error: {e}')
-                        logger_setup.get_logger().debug(f'SQL query: {sql_query}')
+                        logger.get_logger().critical(f'Error fetching distinct values')
+                        logger.get_logger().debug(f'Error: {e}')
+                        logger.get_logger().debug(f'SQL query: {sql_query}')
                         close_loading_dialog('Loading', 'Updating table view with new parameters')
                         return False
                 else:
-                    logger_setup.get_logger().critical(f'Error fetching distinct values')
-                    logger_setup.get_logger().debug(f'Error: {e}')
-                    logger_setup.get_logger().debug(f'SQL query: {sql_query}')
+                    logger.get_logger().critical(f'Error fetching distinct values')
+                    logger.get_logger().debug(f'Error: {e}')
+                    logger.get_logger().debug(f'SQL query: {sql_query}')
                     close_loading_dialog('Loading', 'Updating table view with new parameters')
                     return False
-                logger_setup.get_logger().critical(f"Error fetching distinct values")
-                logger_setup.get_logger().debug(f"Error: {e}")
-                logger_setup.get_logger().debug(f"SQL query: {sql_query}")
+                logger.get_logger().critical(f"Error fetching distinct values")
+                logger.get_logger().debug(f"Error: {e}")
+                logger.get_logger().debug(f"SQL query: {sql_query}")
                 close_loading_dialog('Loading', 'Updating table view with new parameters')
                 return None
 
-            logger_setup.get_logger().info(f'Fetched distinct UPbAnalysisIDs from FilterID: {filter_id} sucessfully')
+            logger.get_logger().info(f'Fetched distinct UPbAnalysisIDs from FilterID: {filter_id} sucessfully')
             # add the filtered UPbAnalysisIDs to the set
             self.filtered_upb_ids.update(filtered_upb_ids)
 
-        logger_setup.get_logger().info(f'Number of Filtered UPbAnalysis IDs Found: {len(self.filtered_upb_ids)}')
+        logger.get_logger().info(f'Number of Filtered UPbAnalysis IDs Found: {len(self.filtered_upb_ids)}')
 
         if self.exportformat_comboBox.currentText() == 'Database':
             # If the export format is Database, then we only need the list of analyses that pass the filters
@@ -446,7 +444,7 @@ class ExportTab(QWidget):
                                 {where_clause}
                                 {group_by} LIMIT {self.max_rows_to_display}"""
 
-        logger_setup.get_logger().debug(f'Final TableView SQL command: {sample_query_str}')
+        logger.get_logger().debug(f'Final TableView SQL command: {sample_query_str}')
 
         # code to add optional grouped filters as a new Sample ID, if a filter name is 'Modern River Sand'
         # and returns UPbAnalysesIDs from multiple samples it will group them all together as
@@ -461,14 +459,14 @@ class ExportTab(QWidget):
             json_query.prepare('SELECT FilterGroupName, SQLQuery FROM FilterGroups WHERE FilterGroupID = :filter_id')
             json_query.bindValue(':filter_id', filter_id)
             if not json_query.exec():
-                logger_setup.get_logger().critical(f'Could not fetch SQL Query for filter')
-                logger_setup.get_logger().info(f'Filter ID: {filter_id}')
+                logger.get_logger().critical(f'Could not fetch SQL Query for filter')
+                logger.get_logger().info(f'Filter ID: {filter_id}')
 
             json_query.next()
             name = json_query.value(0)
             filter_json = json_query.value(1)
 
-            logger_setup.get_logger().info('Fetching Filters for Grouped Filter List')
+            logger.get_logger().info('Fetching Filters for Grouped Filter List')
             # loops through each filter in the checked filter list, processes the json to sql
             filtered_where_clause, ctes = FilterHelpers.process_json_to_sql(filter_json[1:-1], scope='UPbAnalyses')
             filtered_where_clause = filtered_where_clause[0:-1]
@@ -477,8 +475,8 @@ class ExportTab(QWidget):
 
             uri = f'file:{settings.value('db_file', type=str)}?mode=ro&immutable=1'
             # Execute the query
-            logger_setup.get_logger().info(f'Fetching distinct UPbAnalyisIDs from FilterID: {filter_id}')
-            logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+            logger.get_logger().info(f'Fetching distinct UPbAnalyisIDs from FilterID: {filter_id}')
+            logger.get_logger().debug(f'SQL command: {sql_query}')
             try:
                 conn = sqlite3.connect(uri, uri=True)
                 with conn:
@@ -491,13 +489,13 @@ class ExportTab(QWidget):
                 conn.commit()
                 conn.close()
             except sqlite3.Error as e:
-                logger_setup.get_logger().critical(f"Error fetching distinct values")
-                logger_setup.get_logger().debug(f"Error: {e}")
-                logger_setup.get_logger().debug(f"SQL query: {sql_query}")
+                logger.get_logger().critical(f"Error fetching distinct values")
+                logger.get_logger().debug(f"Error: {e}")
+                logger.get_logger().debug(f"SQL query: {sql_query}")
                 close_loading_dialog('Loading', 'Updating table view with new parameters')
                 return None
 
-            logger_setup.get_logger().info(f'Fetched distinct UPbAnalysisIDs from FilterID: {filter_id} sucessfully')
+            logger.get_logger().info(f'Fetched distinct UPbAnalysisIDs from FilterID: {filter_id} sucessfully')
 
             # remove LIMIT {self.max_rows_to_display} from original query_str, can only have one of those
             query_str = query_str.replace(f'LIMIT {self.max_rows_to_display}', '')
@@ -521,7 +519,7 @@ class ExportTab(QWidget):
                 query_str = f"{query_str} \nUNION ALL \n {modified_query_str} WHERE UPbAnalyses.UPbAnalysisID IN {filtered_upb_ids} {group_by} LIMIT {self.max_rows_to_display} \n"
             else:
                 query_str = f"{modified_query_str} WHERE UPbAnalyses.UPbAnalysisID IN {filtered_upb_ids} {group_by} LIMIT {self.max_rows_to_display} \n"
-            logger_setup.get_logger().debug(f'SQL command: {query_str}')
+            logger.get_logger().debug(f'SQL command: {query_str}')
 
         # code to transform the query into a pivot table
         # SQLite doesn't have a builtin Pivot function, so it must be done manually.
@@ -534,7 +532,7 @@ class ExportTab(QWidget):
             db.close()
             db.open()
             if not db.isOpen():
-                logger_setup.get_logger().critical('Error opening database connection')
+                logger.get_logger().critical('Error opening database connection')
                 close_loading_dialog('Loading', 'Updating table view with new parameters')
                 self.uncheck_pivot()
                 return None
@@ -544,9 +542,9 @@ class ExportTab(QWidget):
                 return None
 
             drop_table_qry = QSqlQuery()
-            logger_setup.get_logger().info('Dropping TempPivotTable')
+            logger.get_logger().info('Dropping TempPivotTable')
             if not drop_table_qry.exec('DROP TABLE IF EXISTS TempPivotTable'):
-                logger_setup.get_logger().critical(
+                logger.get_logger().critical(
                     f'Error dropping TempPivotTable: {drop_table_qry.lastError().text()}')
                 self.uncheck_pivot()
                 close_loading_dialog('Loading', 'Updating table view with new parameters')
@@ -555,24 +553,24 @@ class ExportTab(QWidget):
             uri = f'file:{settings.value('db_file', type=str)}'
             # Execute the query
             sql_temptable_create = 'CREATE TABLE TempPivotTable AS SELECT * FROM (' + query_str + ')'
-            logger_setup.get_logger().debug(f'SQL command: {sql_temptable_create}')
+            logger.get_logger().debug(f'SQL command: {sql_temptable_create}')
             try:
                 conn = sqlite3.connect(uri, uri=True)
                 with conn:
                     cursor = conn.cursor()
-                    logger_setup.get_logger().info('Creating table TempPivotTable')
+                    logger.get_logger().info('Creating table TempPivotTable')
                     cursor.execute(sql_temptable_create)
                 conn.commit()
                 conn.close()
             except sqlite3.Error as e:
-                logger_setup.get_logger().critical(f"Error creating TempPivotTable")
-                logger_setup.get_logger().debug(f"Error: {e}")
-                logger_setup.get_logger().debug(f"SQL query: {sql_temptable_create}")
+                logger.get_logger().critical(f"Error creating TempPivotTable")
+                logger.get_logger().debug(f"Error: {e}")
+                logger.get_logger().debug(f"SQL query: {sql_temptable_create}")
                 self.uncheck_pivot()
                 close_loading_dialog('Loading', 'Updating table view with new parameters')
                 return None
 
-            logger_setup.get_logger().info('Created table TempPivotTable successfully')
+            logger.get_logger().info('Created table TempPivotTable successfully')
 
             # defaults to pivot based on the first column in the exporter.
             # tuple is in format (table, attribute)
@@ -594,20 +592,20 @@ class ExportTab(QWidget):
             uri = f'file:{settings.value('db_file', type=str)}?mode=ro&immutable=1'
             # Execute the query
             sql_distinct_first_column = f'SELECT DISTINCT {pivot_col} FROM TempPivotTable ORDER BY {pivot_col}'
-            logger_setup.get_logger().debug(f'SQL command: {sql_distinct_first_column}')
+            logger.get_logger().debug(f'SQL command: {sql_distinct_first_column}')
             try:
                 conn = sqlite3.connect(uri, uri=True)
                 with conn:
                     cursor = conn.cursor()
-                    logger_setup.get_logger().info('Selecting distinct values from TempPivotTable first column')
+                    logger.get_logger().info('Selecting distinct values from TempPivotTable first column')
                     cursor.execute(sql_distinct_first_column)
                     first_column_list = [row[0] for row in cursor.fetchall()]
                 conn.commit()
                 conn.close()
             except sqlite3.Error as e:
-                logger_setup.get_logger().critical(f"Error selecting distinct values from TempPivotTable")
-                logger_setup.get_logger().debug(f"Error: {e}")
-                logger_setup.get_logger().debug(f"SQL query: {sql_distinct_first_column}")
+                logger.get_logger().critical(f"Error selecting distinct values from TempPivotTable")
+                logger.get_logger().debug(f"Error: {e}")
+                logger.get_logger().debug(f"SQL query: {sql_distinct_first_column}")
                 self.uncheck_pivot()
                 close_loading_dialog('Loading', 'Updating table view with new parameters')
                 return None
@@ -616,7 +614,8 @@ class ExportTab(QWidget):
                 # if no columns/values are found then could be an error, check if items are checked, if there are
                 # then something went wrong.
                 if not len(self.checked_sample_list) == 0:
-                    logger_setup.get_logger().error('No rows returned. Try broadening filters, samples, or additional filters.')
+                    logger.get_logger().error(
+                        'No rows returned. Try broadening filters, samples, or additional filters.')
                     model = SQLiteTableModel()
                     proxy_model = ReadableProxyModel()
                     proxy_model.setSourceModel(model)
@@ -649,8 +648,8 @@ class ExportTab(QWidget):
                         case_expressions.append(
                             f'MAX(CASE WHEN [{pivot_col}] = \'{name}\' THEN [{field_name}] END) AS [{name + "_" + field_name}]')
                     except Exception as e:
-                        logger_setup.get_logger().critical(f"Error getting column name for {name}")
-                        logger_setup.get_logger().debug(f"Error: {e}")
+                        logger.get_logger().critical(f"Error getting column name for {name}")
+                        logger.get_logger().debug(f"Error: {e}")
                         self.uncheck_pivot()
                         close_loading_dialog('Loading', 'Updating table view with new parameters')
                         return None
@@ -673,19 +672,20 @@ class ExportTab(QWidget):
 
         # At this point the final query_str is complete, either with or without pivot.
         # saves final string used for exporting, removed LIMIT, and saved model for future use.
-        model = SQLiteTableModel(database = settings.value('db_file', type=str))
+        model = SQLiteTableModel(database=settings.value('db_file', type=str))
         model.setQuery(query_str)
         if model.last_error:
             if 'too many columns' in str(model.last_error):
-                logger_setup.get_logger().critical(f"Too many rows to pivot")
+                logger.get_logger().critical(f"Too many rows to pivot")
                 self.uncheck_pivot()
             else:
-                logger_setup.get_logger().critical(f'Error updating table view')
+                logger.get_logger().critical(f'Error updating table view')
             close_loading_dialog('Loading', 'Updating table view with new parameters')
             return None
         while model.canFetchMore():
             model.fetchMore()
-        self.worksheet_tabs_dict[current_worksheet_name]['sql'] = query_str.replace(f'LIMIT {self.max_rows_to_display}', '')
+        self.worksheet_tabs_dict[current_worksheet_name]['sql'] = query_str.replace(f'LIMIT {self.max_rows_to_display}',
+                                                                                    '')
         self.worksheet_tabs_dict[current_worksheet_name]['model'] = model
 
         # Remove LIMIT {self.max_rows_to_display} from the original query string and build the COUNT query, for the count label
@@ -695,9 +695,9 @@ class ExportTab(QWidget):
         counter_query = QSqlQuery(db=self.database)
         # logger_setup.get_logger().debug(f"SQL Command: {counter_sql_query}")
         if not counter_query.exec(counter_sql_query):
-            logger_setup.get_logger().critical(f'Error fetching total records')
-            logger_setup.get_logger().debug(f'Error: {counter_query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {counter_query.lastQuery()}')
+            logger.get_logger().critical(f'Error fetching total records')
+            logger.get_logger().debug(f'Error: {counter_query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {counter_query.lastQuery()}')
             close_loading_dialog('Loading', 'Updating table view with new parameters')
             return
         else:
@@ -705,7 +705,8 @@ class ExportTab(QWidget):
             if counter_query.next():
                 count = counter_query.value(0)
                 if count >= self.max_rows_to_display:
-                    self.worksheet_tabs_dict[current_worksheet_name]['label'].setText(f"Showing {self.max_rows_to_display}/{count} rows")
+                    self.worksheet_tabs_dict[current_worksheet_name]['label'].setText(
+                        f"Showing {self.max_rows_to_display}/{count} rows")
                 else:
                     self.worksheet_tabs_dict[current_worksheet_name]['label'].setText(f"Showing {count} rows")
             else:
@@ -720,7 +721,7 @@ class ExportTab(QWidget):
         tableView.setModel(proxy_model)
         tableView.resizeColumnsToContents()
         close_loading_dialog('Loading', 'Updating table view with new parameters')
-        logger_setup.get_logger().info(f'Updated table view in {time.time() - start_update_table_view_time:.2f} seconds')
+        logger.get_logger().info(f'Updated table view in {time.time() - start_update_table_view_time:.2f} seconds')
 
     def update_active_filters(self):
         if not self.active_filter_sample_checkBox.isChecked():
@@ -734,7 +735,7 @@ class ExportTab(QWidget):
                 if self.active_filter_sample_ids is None:
                     self.active_filter_sample_ids = []
             except Exception as e:
-                logger_setup.get_logger().critical(f'Error updating active filter')
+                logger.get_logger().critical(f'Error updating active filter')
                 return
 
         if len(self.active_filter_sample_ids) > 0 and self.active_filter_sample_checkBox.isChecked():
@@ -743,7 +744,8 @@ class ExportTab(QWidget):
             self.samplesincluded_comboBox.source_model().update_model_checks(set(self.checked_sample_list), set())
         elif not self.active_filter_sample_checkBox.isChecked():
             # if the checkbox is not checked, remove the active filter sample from the checked sample list
-            checked_sample_list = [sample_id for sample_id in self.checked_sample_list if sample_id not in self.active_filter_sample_ids]
+            checked_sample_list = [sample_id for sample_id in self.checked_sample_list if
+                                   sample_id not in self.active_filter_sample_ids]
             self.checked_sample_list = checked_sample_list
             self.samplesincluded_comboBox.source_model().update_model_checks(set(self.checked_sample_list), set())
 
@@ -763,7 +765,7 @@ class ExportTab(QWidget):
                 self.fileformat_comboBox.setEnabled(True)
                 # means error is in % and not sigma as required by detritalPy
                 message_text = ''
-                if settings.value('age_error_format_id', int) not in (1,2):
+                if settings.value('age_error_format_id', int) not in (1, 2):
                     message_text += 'detritalPy uses absolute error for ages.\nWould you like to update the settings now?\n1% will be converted to 1sigma and 2% will be converted to 2sigma.'
                 if settings.value('gps_format_id', int) == 7:  # UTM format
                     text = 'detritalPy uses Lat/Lon coordinates.\nWould you like to update the settings to DD +/- now?'
@@ -773,7 +775,8 @@ class ExportTab(QWidget):
                         message_text += text
                 if message_text:
                     response = QMessageBox.question(self, 'Update settings', message_text,
-                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.Yes)
+                                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                                    QMessageBox.StandardButton.Yes)
                     if response == QMessageBox.StandardButton.Yes:
                         if 'absolute error' in message_text:
                             if settings.value('age_error_format_id', int) == 3:  # 1 sigma %
@@ -789,7 +792,7 @@ class ExportTab(QWidget):
                                 settings.setValue('gps_format_abbreviation', 'DD +/-')
 
                         if not update_database():
-                            logger_setup.get_logger().critical(f'Error updating and displaying database')
+                            logger.get_logger().critical(f'Error updating and displaying database')
                             self.parent().close()
                             return
                         self.populate_stack()
@@ -967,7 +970,7 @@ class ExportTab(QWidget):
                             settings.setValue('age_error_format_abbreviation', '2σ abs')
 
                         if not update_database():
-                            logger_setup.get_logger().critical(f'Error updating and displaying database')
+                            logger.get_logger().critical(f'Error updating and displaying database')
                             self.parent().close()
                             return
                         self.populate_stack()
@@ -1003,7 +1006,7 @@ class ExportTab(QWidget):
                             settings.setValue('age_error_format_abbreviation', '2σ abs')
 
                         if not update_database():
-                            logger_setup.get_logger().critical(f'Error updating and displaying database')
+                            logger.get_logger().critical(f'Error updating and displaying database')
                             self.parent().close()
                             return
                         self.populate_stack()
@@ -1081,7 +1084,6 @@ class ExportTab(QWidget):
                 # tab_layout = QVBoxLayout(self)
                 # new_tab.setLayout(tab_layout)
 
-
                 self.worksheet_tabs_dict['Database'] = {
                     'tableView': QTableView(),
                     'model': QSqlQueryModel(),
@@ -1154,7 +1156,7 @@ class ExportTab(QWidget):
     def update_step_2_list(self):
         """Updates the CheckableComboBox model based upon selected values. Allows the user to select
          samples by either Samples or FilterGroups """
-        logger_setup.get_logger().info(f'Updating Step 2 list for {self.selectionscope_comboBox.currentText()}')
+        logger.get_logger().info(f'Updating Step 2 list for {self.selectionscope_comboBox.currentText()}')
         start_update_step_2_time = time.time()
         self.samplesincluded_comboBox.setEnabled(True)
         self.samplesincluded_comboBox.show()
@@ -1177,7 +1179,7 @@ class ExportTab(QWidget):
             self.filters_label.setToolTip("")
 
             # self.update_table_view()
-        logger_setup.get_logger().info(f'Update Step 2 list took {time.time() - start_update_step_2_time:.2f} seconds')
+        logger.get_logger().info(f'Update Step 2 list took {time.time() - start_update_step_2_time:.2f} seconds')
         self.update_table_view()
 
     def tab_changed(self):
@@ -1439,7 +1441,8 @@ class ExportTab(QWidget):
                                    'CalculatedEastingDisplay', 'CalculatedNorthingDisplay', 'CalculatedGPSElev',
                                    'CalculatedGPSElevError']
                 else:
-                    field_items = ['GPSLocationConverted', 'GPSLocationDisplay', 'CalculatedLatDisplay', 'CalculatedLonDisplay',
+                    field_items = ['GPSLocationConverted', 'GPSLocationDisplay', 'CalculatedLatDisplay',
+                                   'CalculatedLonDisplay',
                                    'CalculatedGPSElev', 'CalculatedGPSElevError']
 
             # Create container widget with QVBoxLayout
@@ -1695,7 +1698,7 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
         """
         Method to force a refresh of the dropdowns, stacked checkboxes, and table view.
         """
-        logger_setup.get_logger().info('Refresh Button Clicked')
+        logger.get_logger().info('Refresh Button Clicked')
 
         if self.exportformat_comboBox.currentText() != 'Database':
             # Recreate column stacks and reload checkbox states
@@ -1731,24 +1734,25 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
     def showEvent(self, a0):
         """Overridden showEvent to repopulate the table models when the widget is shown. This occurs mainly when
         the tabs are switched so if samples, filters are modified, the models are updated."""
-        logger_setup.get_logger().info('Populating ExportWidget with data from the database')
+        logger.get_logger().info('Populating ExportWidget with data from the database')
         start_show_time = time.time()
         show_loading_dialog('Loading', 'Loading data for export...')
 
         sample_count = get_total_records('Samples')
         if self.sample_count != sample_count:
             self.sample_count = sample_count
-            logger_setup.get_logger().info(f'Found {self.sample_count} samples in the database')
+            logger.get_logger().info(f'Found {self.sample_count} samples in the database')
             show_loading_dialog('Loading', f'Loading {self.sample_count} Samples...')
             self.samplesincluded_comboBox.enable_context_menu(show_context_menu=True, only_select_deselect=True)
             view_query = ViewQuery('Samples', True, **{'show_columns': settings.value('sample_edit_columns')[0:4]})
             populate_combo_box(self.samplesincluded_comboBox, **{'table': 'Samples', 'live': False,
-                                                                 'query': view_query.table_query, 'view_query': view_query})
+                                                                 'query': view_query.table_query,
+                                                                 'view_query': view_query})
             self.samplesincluded_comboBox.source_model().update_model_checks(set(self.checked_sample_list), set())
             close_loading_dialog('Loading', f'Loading {self.sample_count} Samples...')
 
         filter_count = get_total_records('FilterGroups')
-        logger_setup.get_logger().info(f'Found {filter_count} filters in the database')
+        logger.get_logger().info(f'Found {filter_count} filters in the database')
 
         show_loading_dialog('Loading', f'Loading {filter_count} Filter Groups...')
         self.filterselection_comboBox.enable_context_menu(show_context_menu=True, only_select_deselect=True)
@@ -1765,14 +1769,16 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
         # self.update_step_2_list()
         try:
             self.exportformat_comboBox.currentIndexChanged.disconnect()
-        except TypeError: pass
+        except TypeError:
+            pass
 
         self.exportformat_comboBox.currentIndexChanged.connect(self.export_format)
         # self.exportformat_comboBox.currentIndexChanged.connect(self.update_table_view)
 
         try:
             self.selectionscope_comboBox.currentIndexChanged.disconnect()
-        except TypeError: pass
+        except TypeError:
+            pass
         self.selectionscope_comboBox.currentIndexChanged.connect(self.update_step_2_list)
 
         try:
@@ -1804,7 +1810,7 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
         # self.update_table_view()
 
         close_loading_dialog('Loading', 'Loading data for export...')
-        logger_setup.get_logger().info(f'ExportWidget populated in {time.time() - start_show_time:.2f} seconds')
+        logger.get_logger().info(f'ExportWidget populated in {time.time() - start_show_time:.2f} seconds')
         super().showEvent(a0)
 
     def export_data(self):
@@ -1819,7 +1825,6 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
             elif self.fileformat_comboBox.currentText() == 'Comma-Separated Value (.csv)':
                 self.export_to_csv()
         close_loading_dialog('Export', 'Exporting data...')
-
 
     def export_to_database(self):
         """Exports the selected samples, either by selection or filter, to a new database file containing all related
@@ -1836,7 +1841,7 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
         if not fileName:
             return
 
-        logger_setup.get_logger().info(f'Exporting selected samples to database {fileName}')
+        logger.get_logger().info(f'Exporting selected samples to database {fileName}')
         if not fileName.lower().endswith(".db"):
             fileName += ".db"
 
@@ -1851,18 +1856,18 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
             try:
                 os.remove(fileName)
             except OSError as e:
-                logger_setup.get_logger().critical(f'Could not clear existing database file: {e}')
+                logger.get_logger().critical(f'Could not clear existing database file: {e}')
                 return
 
         tgt_db = QSqlDatabase().addDatabase('QSQLITE', 'target_connection')
         tgt_db.setDatabaseName(fileName)
         tgt_db.open()
         if not tgt_db.isOpen() or not turn_off_foreign_keys(tgt_db):
-            logger_setup.get_logger().critical('Could not open target database')
+            logger.get_logger().critical('Could not open target database')
             return
         # Ensure the database is created and static tables are set up
         if not update_database(tgt_db):
-            logger_setup.get_logger().critical('Could not create target database')
+            logger.get_logger().critical('Could not create target database')
             return
 
         # src_db is the current default database in use
@@ -1872,10 +1877,10 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
             # Warn the user the that the filters will be applied at the sample level. Any unwanted aliquots, spots, and analyses
             # can be removed in the new database.
             response = QMessageBox.question(self, 'Export Samples',
-                                 'Exporting samples will apply the filters at the sample level.\nAny unwanted aliquots, spots, and analyses can be removed in the new database.',
-                                QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
+                                            'Exporting samples will apply the filters at the sample level.\nAny unwanted aliquots, spots, and analyses can be removed in the new database.',
+                                            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
             if response != QMessageBox.StandardButton.Ok:
-                logger_setup.get_logger().info('User canceled the database export')
+                logger.get_logger().info('User canceled the database export')
                 return
             filtered_sample_ids, filtered_aliquot_ids, filtered_grain_ids, filtered_spot_ids = find_parent_items(
                 list(self.filtered_upb_ids), 'UPbAnalyses')
@@ -1884,10 +1889,9 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
         all_sample_ids = list(set(filtered_sample_ids + self.checked_sample_list))
         show_loading_dialog('Exporting', 'Exporting to database...')
 
-
         # subsets and copies over samples and related-data from src_db to tgt_db
         if not ExportDatabase.subset_database(src_db, tgt_db, all_sample_ids):
-            logger_setup.get_logger().critical('Could not subset database')
+            logger.get_logger().critical('Could not subset database')
             close_loading_dialog('Exporting', 'Exporting to database...')
             return
         tgt_db.commit()
@@ -1933,7 +1937,8 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
             self.update_table_view(worksheet_name=sheet_name)
             sql = info['sql']
             if not sql:
-                logger_setup.get_logger().warning(f'No SQL query found for sheet "{sheet_name}". Select columns to include in each sheet before exporting.')
+                logger.get_logger().warning(
+                    f'No SQL query found for sheet "{sheet_name}". Select columns to include in each sheet before exporting.')
                 return False
             if first_sheet:
                 ws = wb.active
@@ -1946,9 +1951,9 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
             query.prepare(sql)
 
             if not query.exec():
-                logger_setup.get_logger().critical(
+                logger.get_logger().critical(
                     f'Error exporting SQL query to excel: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL command: {sql}')
+                logger.get_logger().debug(f'SQL command: {sql}')
                 return False
 
             # Retrieve column names
@@ -1973,9 +1978,9 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
         try:
             wb.save(fileName)
         except Exception as e:
-            logger_setup.get_logger().critical(
+            logger.get_logger().critical(
                 f'Error saving the Excel file')
-            logger_setup.get_logger().debug(f'Exception: {e}')
+            logger.get_logger().debug(f'Exception: {e}')
             return False
 
         # Open the file using the system's default application
@@ -2026,9 +2031,9 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
                     query.prepare(sql)
 
                     if not query.exec():
-                        logger_setup.get_logger().critical(
+                        logger.get_logger().critical(
                             f'Query execution failed for {sheet_name}: {query.lastError().text()}')
-                        logger_setup.get_logger().debug(f'SQL command: {sql}')
+                        logger.get_logger().debug(f'SQL command: {sql}')
                         continue
 
                     column_count = query.record().count()
@@ -2045,8 +2050,8 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
 
 
             except Exception as e:
-                logger_setup.get_logger().critical(f'Error saving the Excel file')
-                logger_setup.get_logger().debug(f'Exception: {e}')
+                logger.get_logger().critical(f'Error saving the Excel file')
+                logger.get_logger().debug(f'Exception: {e}')
                 return False
 
         # Open the file using the system's default application

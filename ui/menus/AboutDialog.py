@@ -6,8 +6,8 @@ from PyQt6.QtGui import QPixmap, QPainter, QPalette
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QLabel, QVBoxLayout, QDialog, QApplication, QPushButton
 
-import logger_setup
-from Functions.Settings_manager import SettingsManager
+from util import logger
+from util.settings_manager import SettingsManager
 
 settings = SettingsManager().settings
 
@@ -27,7 +27,7 @@ def _logo_pixmap(widget) -> QPixmap | None:
     svg_name = 'GeoCORKLogo_Darkmode.svg' if is_dark else 'GeoCORKLogo_Lightmode.svg'
     renderer = QSvgRenderer(os.path.join(base_path, svg_name))
     if not renderer.isValid():
-        logger_setup.get_logger().debug(f'Could not load {svg_name} for the About dialog')
+        logger.get_logger().debug(f'Could not load {svg_name} for the About dialog')
         return None
 
     dpr = widget.devicePixelRatioF()

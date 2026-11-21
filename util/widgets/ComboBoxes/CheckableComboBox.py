@@ -2,7 +2,7 @@ import time
 
 from PyQt6 import QtCore, QtWidgets, QtGui
 
-import logger_setup
+from util import logger
 import util.Text_manipulations as TxM
 from util.database.database_helper import get_name_column, get_view_from_table, show_column
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
@@ -194,7 +194,7 @@ class CheckableComboBox(QtWidgets.QComboBox):
             show_column(self, self.name_col)
         self.view().setModel(self.proxy_model)
         self.view().setMinimumWidth(self.view().sizeHint().width())
-        logger_setup.get_logger().debug(
+        logger.get_logger().debug(
             f'Set model for {self.table} combo box in {time.time() - start_set_model_time:.2f} seconds')
 
     def update_filter(self, text: str):
@@ -327,7 +327,7 @@ class CheckableComboBox(QtWidgets.QComboBox):
             return
         source_model.clear_checks()
         self.lineEdit().setText("")
-        logger_setup.get_logger().info(f'Cleared all checks in {self.table} combo box')
+        logger.get_logger().info(f'Cleared all checks in {self.table} combo box')
 
     def check_all(self):
         """
@@ -364,7 +364,7 @@ class CheckableComboBox(QtWidgets.QComboBox):
         self.view().setFixedHeight(self.view().sizeHint().height())
         close_loading_dialog('Loading', f'Loading {self.proxy_model.rowCount()} items...')
         super().showPopup()
-        logger_setup.get_logger().debug(f'Popup shown in {self.table} combo box in {time.time() - start_time} seconds')
+        logger.get_logger().debug(f'Popup shown in {self.table} combo box in {time.time() - start_time} seconds')
         self.popup_shown = True
 
     def hidePopup(self):
@@ -376,7 +376,7 @@ class CheckableComboBox(QtWidgets.QComboBox):
         :return:
         """
         if self.popup_shown:
-            logger_setup.get_logger().info(f'Popup hiding in {self.table} combo box')
+            logger.get_logger().info(f'Popup hiding in {self.table} combo box')
             if not self.single_click:
                 # Check if the cursor is still over the view, if so, do not hide the popup
                 if self.view().rect().contains(self.view().mapFromGlobal(QtGui.QCursor.pos())):
@@ -424,8 +424,8 @@ class CheckableComboBox(QtWidgets.QComboBox):
                         clicked_id = source_model.index(source_index.row(), 0).data(QtCore.Qt.ItemDataRole.DisplayRole)
                     if clicked_id in source_model.checked_ids:
                         if self.not_null:
-                            logger_setup.get_logger().error(f'{source_model.headerData(self.name_col,
-                                                                                       QtCore.Qt.Orientation.Horizontal, QtCore.Qt.ItemDataRole.DisplayRole)} cannot be blank')
+                            logger.get_logger().error(f'{source_model.headerData(self.name_col,
+                                                                                 QtCore.Qt.Orientation.Horizontal, QtCore.Qt.ItemDataRole.DisplayRole)} cannot be blank')
                             return True
                         source_model.clear_checks()
                         self.stop_typing()

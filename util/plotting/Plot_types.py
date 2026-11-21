@@ -314,8 +314,6 @@ class TeraWasserburg(Concordia):
 
 # ---------------------------------------------------------------- geochemistry (pyrolite)
 
-from util.plotting.Plot_data import REFERENCE_COMPOSITIONS
-
 TIO2_PER_TI = 79.866 / 47.867
 MAJOR_OXIDES = ['SiO2', 'TiO2', 'Al2O3', 'Fe2O3T', 'MnO', 'MgO', 'CaO', 'Na2O', 'K2O', 'P2O5']
 MULTI_ELEMENT = ['Cs', 'Rb', 'Ba', 'Th', 'U', 'Nb', 'Ta', 'K', 'La', 'Ce', 'Pb', 'Pr', 'Sr', 'P', 'Nd', 'Zr', 'Hf',
@@ -442,8 +440,14 @@ class PearcePlot(GeoChemPlot):
 
 
 class NormalizedPlot(GeoChemPlot):
+    from pyrolite.geochem.norm import all_reference_compositions
     show_option = Option('show', 'Show', 'choice', 'Analyses', ['Analyses', 'Analyses + sample median', 'Sample median'])
-    reference_option = Option('reference', 'Normalize to', 'choice', 'Chondrite_PON', REFERENCE_COMPOSITIONS)
+    reference_option = Option(name = 'reference',
+                              label = 'Normalize to',
+                              kind = 'choice',
+                              default = 'Chondrite_PON',
+                              choices = list(all_reference_compositions().keys()),
+                              tooltip= 'A list of reference compositions from pyrolite geochem module.')
 
     def columns(self, el: pd.DataFrame, opts) -> list[str]:
         raise NotImplementedError

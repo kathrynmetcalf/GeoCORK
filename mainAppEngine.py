@@ -7,8 +7,8 @@ import sys
 from PyQt6 import QtWebEngineWidgets
 from PyQt6.QtWidgets import QApplication
 
-import logger_setup
-from Functions.Settings_manager import SettingsManager
+from util import logger
+from util.settings_manager import SettingsManager
 from ui.LandingUI import LandingPage
 from ui.settings.SettingsCore import reset_to_default_settings, populate_app_defaults, check_missing_settings, \
     default_settings
@@ -29,8 +29,8 @@ if __name__ == "__main__":
     tooltip_filter = TooltipFilter(settings)
     app.installEventFilter(tooltip_filter)
 
-    logger_setup.setup_async_logger()
-    logger = logger_setup.get_logger()
+    logger.setup_async_logger()
+    logger = logger.get_logger()
 
     logger.info("Starting GeoCORK...")
     if os.path.isfile("temp.db"):
@@ -73,6 +73,6 @@ if __name__ == "__main__":
 
     finally:
         logger.info("GeoCORK has exited with code %s.", exit_code)
-        logger_setup.stop_logger()
+        logger.stop_logger()
 
     sys.exit(exit_code)

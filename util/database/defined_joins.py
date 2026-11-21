@@ -99,7 +99,7 @@ geochem_labs_join = 'LEFT JOIN LabFacilities AS GeoChemLabFacilities ON GeoChemi
 geochem_instruments_join = 'LEFT JOIN Instruments AS GeoChemInstruments ON GeoChemicalAnalyses.InstrumentID = GeoChemInstruments.InstrumentID'
 geochem_method_join = 'LEFT JOIN GeoChemicalMethods ON GeoChemicalAnalyses.GeoChemicalMethodID = GeoChemicalMethods.GeoChemicalMethodID'
 geochem_analyte_value_join = 'LEFT JOIN GeoChemicalAnalysisValues ON GeoChemicalAnalyses.GeoChemAnalysisID = GeoChemicalAnalysisValues.GeoChemAnalysisID'
-geochem_analyte_join = 'LEFT JOIN GeoChemicalAnalytes ON GeoChemicalAnalyses.GeoChemAnalyteID = GeoChemicalAnalytes.GeoChemAnalyteID'
+geochem_analyte_join = 'LEFT JOIN GeoChemicalAnalytes ON GeoChemicalAnalysisValues.GeoChemAnalyteID = GeoChemicalAnalytes.GeoChemAnalyteID'
 geochem_analyte_unit_join = 'LEFT JOIN AnalyticalUnits AS GeoChemAnalyteUnits ON GeoChemicalAnalysisValues.GeoChemAnalyteUnitID = GeoChemAnalyteUnits.AnalyticalUnitID'
 geochem_analyte_error_format_join = 'LEFT JOIN ErrorFormats AS GeoChemAnalyteErrorFormats ON GeoChemicalAnalysisValues.GeoChemAnalyteErrorFormatID = GeoChemAnalyteErrorFormats.ErrorFormatID'
 geochem_spot_size_unit_join = 'LEFT JOIN DistanceUnits AS GeoChemSpotSizeUnits ON GeoChemicalAnalyses.SpotSizeUnitID = GeoChemSpotSizeUnits.DistanceUnitID'

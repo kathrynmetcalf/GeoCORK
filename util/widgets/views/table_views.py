@@ -1,7 +1,7 @@
 from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtCore import QSortFilterProxyModel
 
-import logger_setup
+from util import logger
 from util.database.database_helper import get_name_column
 from util.widgets.models.query_models import CheckableSqlQueryModel
 from util.widgets.models.table_models import CheckableSqlTableModel
@@ -55,7 +55,7 @@ class CheckableTableView(QtWidgets.QTableView):
                 if source_model.single_click:
                     if item_id in source_model.checked_ids:
                         if source_model.not_null and len(source_model.checked_ids) == 1:
-                            logger_setup.get_logger().error(
+                            logger.get_logger().error(
                                 f'{source_model.headerData(
                                     get_name_column(source_model.tableName()),
                                     QtCore.Qt.Orientation.Horizontal,

@@ -1,13 +1,13 @@
 """
 Settings dialog builder. Each tab of the settings QTabWidget is its own class in ui/SettingsTabs/, and the shared
 setting helpers live in ui/SettingsTabs/SettingsCore.py. Everything from SettingsCore is re-exported here so existing
-imports such as `from ui.settings.Settings import get_importer_brushes, update_stylesheet` keep working.
+imports such as `from ui.settings.Settings input get_importer_brushes, update_stylesheet` keep working.
 Settings.ui is no longer used.
 """
 from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import QPoint, QSize, Qt
 
-import logger_setup
+from util import logger
 
 from ui.settings.SettingsCore import settings, reset_to_default_settings
 from ui.settings.UnitsFormatsTab import UnitsFormatsTab
@@ -24,7 +24,7 @@ class SettingsDialog(QtW.QDialog):
 
     def __init__(self):
         super().__init__()
-        logger_setup.get_logger().info('Opening settings dialog')
+        logger.get_logger().info('Opening settings dialog')
         self._tabs = []
 
         self.resize(800, 600)
@@ -99,7 +99,7 @@ class SettingsDialog(QtW.QDialog):
         """
         Populates all the fields with the current settings. This is called when the settings dialog is opened.
         """
-        logger_setup.get_logger().info('Populating fields with the current settings')
+        logger.get_logger().info('Populating fields with the current settings')
         for tab in self._tabs:
             tab.populate()
 
@@ -109,7 +109,7 @@ class SettingsDialog(QtW.QDialog):
         """
         # No longer using default settings
         from util.database.database_helper import show_loading_dialog, close_loading_dialog
-        logger_setup.get_logger().info('Updating settings')
+        logger.get_logger().info('Updating settings')
         show_loading_dialog('Updating', 'Updating settings...')
         settings.setValue('default_settings', 'false')
 
@@ -121,7 +121,7 @@ class SettingsDialog(QtW.QDialog):
 
         self.populate_fields()
         close_loading_dialog('Updating', 'Updating settings...')
-        logger_setup.get_logger().info('Updated settings successfully')
+        logger.get_logger().info('Updated settings successfully')
         self.updated = True
 
     def update_settings_close(self):
@@ -137,7 +137,7 @@ class SettingsDialog(QtW.QDialog):
         """
         from util.database.database_helper import show_loading_dialog, close_loading_dialog
         show_loading_dialog('Restoring Default Settings', 'Currently updating settings...')
-        logger_setup.get_logger().info('Restoring default settings')
+        logger.get_logger().info('Restoring default settings')
         settings.setValue('default_settings', 'true')
         reset_to_default_settings()
         self.populate_fields()

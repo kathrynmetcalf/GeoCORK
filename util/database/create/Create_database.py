@@ -5,11 +5,12 @@ import xml.etree.ElementTree as ET  # xml reader
 from PyQt6 import QtSql as QtS
 from PyQt6.QtWidgets import QMessageBox
 
-import Functions.Database_manager as Database_manager
 import Functions.SQLUtils as SQLUtils
-import logger_setup
+from util import logger
 from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
-from Functions.Settings_manager import SettingsManager
+from util.database.backup.BackupDatabase import backup_database
+from util.database.database_helper import get_headers
+from util.settings_manager import SettingsManager
 
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.database.formats import concordance_formats, error_formats, gps_formats
@@ -1918,7 +1919,7 @@ def create_tables(database=None) -> bool:
     :param database: QSqlDatabase instance to create tables in, if None uses the default connection
     :return: True for success, False for failure
     """
-    logger_setup.get_logger().info('Creating database tables')
+    logger.get_logger().info('Creating database tables')
     if database is None:
         query = QtS.QSqlQuery()
     else:
@@ -1926,443 +1927,443 @@ def create_tables(database=None) -> bool:
 
     # Create the tables
     if not query.exec(CREATE_ABOUT_TABLE):
-        logger_setup.get_logger().critical(f'Error creating About table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating About table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec('SELECT * FROM About'):
-        logger_setup.get_logger().critical(f"Failed to query About table")
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f"Failed to query About table")
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
     else:
         if not query.next():  # No rows found
             # insert blank row into about
             if not query.exec(
                     f"INSERT INTO About VALUES (1, 'Name','Authors','','', '{settings.value('default_geocork_version')}','','CreatedBy',NULL,NULL)"):
-                logger_setup.get_logger().debug(f"Failed to insert default values into About table")
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().debug(f"Failed to insert default values into About table")
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             else:
-                logger_setup.get_logger().info('About table empty, populated with default values')
+                logger.get_logger().info('About table empty, populated with default values')
         else:
-            logger_setup.get_logger().info('About table already populated, updating version info')
+            logger.get_logger().info('About table already populated, updating version info')
             if not query.exec(f"UPDATE About SET Version = '{settings.value('default_geocork_version')}' WHERE AboutID = 1"):
-                logger_setup.get_logger().debug(f"Failed to update version in About table")
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().debug(f"Failed to update version in About table")
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
 
     # Create unit and formats tables
     if not query.exec(CREATE_AGE_UNITS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating AgeUnits table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating AgeUnits table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_ANALYTICAL_UNITS):
-        logger_setup.get_logger().critical(f'Error creating AnalyticalUnits table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating AnalyticalUnits table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_ANALYTICAL_UNITS):
-        logger_setup.get_logger().critical(f'Error creating AnalyticalUnits table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating AnalyticalUnits table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_CONCORDANCE_FORMATS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating ConcordanceFormats table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating ConcordanceFormats table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_DIRECTION_UNITS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating DirectionUnits table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating DirectionUnits table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_DISTANCE_UNITS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating DistanceUnits table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating DistanceUnits table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_ERROR_FORMATS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating ErrorFormats table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating ErrorFormats table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create conversion tables
     if not query.exec(CREATE_AGE_CONVERSIONS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating AgeConversions table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating AgeConversions table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_ANALYTICAL_CONVERSIONS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating AnalyticalUnitConversions table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating AnalyticalUnitConversions table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_CONCORDANCE_CONVERSIONS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating ConcordanceConversions table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating ConcordanceConversions table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_DISTANCE_CONVERSIONS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating DistanceConversions table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating DistanceConversions table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_ERROR_CONVERSIONS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating ErrorConversions table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating ErrorConversions table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create UPb analysis tag tables
     if not query.exec(CREATE_INSTRUMENTS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Instruments table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating Instruments table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_LAB_FACILITIES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating LabFacilities table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating LabFacilities table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_REJECTION_REASONS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating RejectionReasons table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating RejectionReasons table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_REFERENCES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating References table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating References table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_UPB_CONTEXT_TABLE):
-        logger_setup.get_logger().critical(f'Error creating UPbAnalysisContexts table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating UPbAnalysisContexts table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_UPBANALYSIS_METHOD_TABLE):
-        logger_setup.get_logger().critical(f'Error creating UPbAnalysisMethods table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating UPbAnalysisMethods table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create spot tag tables
     if not query.exec(CREATE_SPOT_COMPOSITION_TABLE):
-        logger_setup.get_logger().critical(f'Error creating SpotCompositions table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating SpotCompositions table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SPOT_CONTEXT_TABLE):
-        logger_setup.get_logger().critical(f'Error creating SpotContexts table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating SpotContexts table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create GeoChem analysis tag tables
     if not query.exec(CREATE_GEOCHEMICAL_ANALYSIS_CONTEXTS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating GeoChemicalAnalysisContexts table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating GeoChemicalAnalysisContexts table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_GEOCHEMICAL_ANALYTE_CLASSES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating GeoChemicalAnalyteClasses table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating GeoChemicalAnalyteClasses table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create GeoChem analysis tag tables
     if not query.exec(CREATE_GEOCHEMICAL_ANALYSIS_CONTEXTS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating GeochemicalAnalysisContexts table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating GeochemicalAnalysisContexts table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create grain tag tables
     if not query.exec(CREATE_GRAIN_COMPOSITION_TABLE):
-        logger_setup.get_logger().critical(f'Error creating GrainCompositions table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating GrainCompositions table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_GRAIN_CONTEXTS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating GrainContexts table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating GrainContexts table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create aliquot tag tables
     if not query.exec(CREATE_ALIQUOT_CONTEXT_TABLE):
-        logger_setup.get_logger().critical(f'Error creating AliquotContexts table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating AliquotContexts table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create sample tag tables
     if not query.exec(CREATE_AGE_CONSTRAINTS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating AgeConstraints table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating AgeConstraints table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_AGE_INTERPRETATIONS_TABLE):  # Shared with upb analyses
-        logger_setup.get_logger().critical(f'Error creating AgeInterpretations table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating AgeInterpretations table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_AGE_SIGNATURES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating AgeSignatures table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating AgeSignatures table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_AGES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Ages table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating Ages table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_COLUMNS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Columns table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating Columns table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_GPS_CONVERSIONS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating GPSConversions table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating GPSConversions table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_GPS_FORMATS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating GPSFormats table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating GPSFormats table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_GPS_LOCATIONS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating GPSLocations table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating GPSLocations table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_REGIONS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Regions table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating Regions table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_ROCK_TYPES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating RockTypes table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating RockTypes table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SAMPLE_AGE_TABLE):
-        logger_setup.get_logger().critical(f'Error creating SampleAges table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating SampleAges table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SAMPLE_CONTEXT_TABLE):
-        logger_setup.get_logger().critical(f'Error creating SampleContexts table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating SampleContexts table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SAMPLEAGES_AGECONSTRAINTS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating SampleAges_AgeConstraints table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating SampleAges_AgeConstraints table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SAMPLEAGES_AGEINTERPRETATIONS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating SampleAges_AgeInterpretations table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating SampleAges_AgeInterpretations table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SAMPLEAGES_REFERENCES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating SampleAges_References table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating SampleAges_References table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SAMPLING_METHODS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating SamplingMethods table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating SamplingMethods table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SETTINGS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Settings table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating Settings table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_UNITS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Units table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating Units table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create sample item and analysis tables
     if not query.exec(CREATE_SAMPLES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Samples table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating Samples table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_ALIQUOTS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Aliquots table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating Aliquots table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SPOTS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Spots table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating Spots table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_GRAINS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Grains table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating Grains table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_UPBANALYSES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating UPbAnalyses table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating UPbAnalyses table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_GEOCHEMCIAL_ANALYTES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating GeoChemicalAnalytes table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating GeoChemicalAnalytes table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_GEOCHEMICAL_METHODS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating GeoChemicalMethods table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating GeoChemicalMethods table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_GEOCHEMICAL_ANALYSES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating GeoChemicalAnalyses table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating GeoChemicalAnalyses table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_GEOCHEMICAL_ANALYSIS_VALUES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating GeoChemicalAnalysisValues table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating GeoChemicalAnalysisValues table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_GEOCHEMCIAL_ANALYTES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating GeoChemicalAnalytes table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating GeoChemicalAnalytes table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_GEOCHEMICAL_METHODS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating GeoChemicalMethods table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating GeoChemicalMethods table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_GEOCHEMICAL_ANALYSES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating GeoChemicalAnalyses table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating GeoChemicalAnalyses table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create many-to-many sample tables
     if not query.exec(CREATE_SAMPLES_AGESIGNATURES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Samples_AgeSignatures table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating Samples_AgeSignatures table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SAMPLES_REGIONS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Samples_Regions table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating Samples_Regions table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SAMPLES_ROCKTYPES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Samples_RockTypes table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating Samples_RockTypes table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SAMPLES_SAMPLEAGES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Samples_SampleAges table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating Samples_SampleAges table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SAMPLES_SAMPLECONTEXT_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Samples_SampleContexts table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating Samples_SampleContexts table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SAMPLES_SAMPLINGMETHODS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Samples_SamplingMethods table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating Samples_SamplingMethods table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SAMPLES_SETTINGS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Samples_Settings table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating Samples_Settings table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SAMPLES_UNITS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Samples_Units table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating Samples_Units table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create many-to-many anliquot tables
     if not query.exec(CREATE_ALIQUOTS_ALIQUOTCONTEXT_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Aliquots_AliquotContexts table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating Aliquots_AliquotContexts table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create many-to-many spot tables
     if not query.exec(CREATE_SPOTS_SPOTCONTEXT_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Spots_SpotContexts table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating Spots_SpotContexts table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create many-to-many grain tables
     if not query.exec(CREATE_GRAINS_GRAINCONTEXT_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Grains_GrainContexts table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating Grains_GrainContexts table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create many-to-many UPb analysis tables
     if not query.exec(CREATE_UPBANALYSES_UPBANALYSISCONTEXT_TABLE):
-        logger_setup.get_logger().critical(f'Error creating UPbAnalyses_UPbAnalysisContexts table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating UPbAnalyses_UPbAnalysisContexts table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_UPBANALYSES_REJECTIONREASONS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating UPbAnalyses_RejectionReasons table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating UPbAnalyses_RejectionReasons table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create GeoChem analysis many-to-many tables
     if not query.exec(CREATE_GEOCHEMICAL_ANALYTES_GEOCHEMICAL_ANALYTE_CLASSES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating GeoChemicalAnalytes_GeoChemicalAnalyteClasses table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating GeoChemicalAnalytes_GeoChemicalAnalyteClasses table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_GEOCHEMICAL_ANALYSES_GEOCHEMICAL_ANALYSIS_CONTEXTS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating GeoChemicalAnalyses_GeoChemicalAnalysisContexts table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating GeoChemicalAnalyses_GeoChemicalAnalysisContexts table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_GEOCHEMICAL_ANALYSES_REJECTION_REASONS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating GeoChemicalAnalyses_RejectionReasons table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating GeoChemicalAnalyses_RejectionReasons table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_FILTER_GROUPS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating FilterGroups table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error creating FilterGroups table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
-    logger_setup.get_logger().info('Successfully created all database tables')
+    logger.get_logger().info('Successfully created all database tables')
     # Populate the tables
     if not populate_tables(database):
         return False
 
-    logger_setup.get_logger().info('Successfully populated all database tables')
+    logger.get_logger().info('Successfully populated all database tables')
     return True
 
 
@@ -2380,12 +2381,12 @@ def update_schema(version: str, database: QtS.QSqlDatabase = None) -> str:
     if version is None:
         version = 0
     if version == settings.value('default_geocork_version') or version == 0:
-        logger_setup.get_logger().info('Database schema is up to date')
+        logger.get_logger().info('Database schema is up to date')
         return 'True'
 
     extant_versions = ['v1.0.0', 'v1.0.1', 'v1.0.2', 'v1.0.3', 'v1.0.4', 'v1.0.5', 'v1.1.0']
     if version not in extant_versions:
-        logger_setup.get_logger().error(f'Database schema version {version} is not compatible with this version of GeoCORK ({settings.value("default_geocork_version")})')
+        logger.get_logger().error(f'Database schema version {version} is not compatible with this version of GeoCORK ({settings.value("default_geocork_version")})')
         return 'Cancel'
 
     # else:
@@ -2413,17 +2414,17 @@ def update_schema(version: str, database: QtS.QSqlDatabase = None) -> str:
                                                   defaultButton=QMessageBox.StandardButton.No)
 
     if continue_messagebox != QMessageBox.StandardButton.Yes:
-        logger_setup.get_logger().info(
+        logger.get_logger().info(
             f'User rejected updating schema from {version} to {settings.value('default_geocork_version')}')
         return 'Cancel'
 
-    logger_setup.get_logger().info(
+    logger.get_logger().info(
         f'Updating database schema from version {version} to {settings.value('default_geocork_version')}')
 
-    backup_file = Database_manager.backup_database(database)
+    backup_file = backup_database(database)
 
     if backup_file is None:
-        logger_setup.get_logger().critical(f'Error updating database schema. Could not create backup file.')
+        logger.get_logger().critical(f'Error updating database schema. Could not create backup file.')
         return 'False'
     else:
         QMessageBox.information(None,
@@ -2451,9 +2452,9 @@ def update_schema(version: str, database: QtS.QSqlDatabase = None) -> str:
     if version == 'v1.0.4':
         # No database schema updates
         if not query.exec(f'UPDATE About SET Version = "v1.0.5" WHERE AboutID = 1'):
-            logger_setup.get_logger().critical(f'Error updating version in About table')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().critical(f'Error updating version in About table')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             return backup_file
         version = 'v1.0.5'
 
@@ -2469,9 +2470,9 @@ def update_schema_v101(database: QtS.QSqlDatabase = None) -> bool:
     query = QtS.QSqlQuery(database)
 
     if not query.exec(f'ALTER TABLE Spots ADD COLUMN GrainID INTEGER'):
-        logger_setup.get_logger().debug(f"Failed to add GrainID column to Spots table")
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        logger.get_logger().debug(f"Failed to add GrainID column to Spots table")
+        logger.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
         rollback_savepoint('before_schema_update')
         return False
 
@@ -2495,9 +2496,9 @@ def update_schema_v101(database: QtS.QSqlDatabase = None) -> bool:
                         ON DELETE SET NULL
                     )'''
     if not query.exec(f'CREATE TABLE IF NOT EXISTS Spots_new{column_creation}'):
-        logger_setup.get_logger().debug(f"Failed to create new Spots table")
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        logger.get_logger().debug(f"Failed to create new Spots table")
+        logger.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
         rollback_savepoint('before_schema_update')
         return False
 
@@ -2506,59 +2507,59 @@ def update_schema_v101(database: QtS.QSqlDatabase = None) -> bool:
     query, virtual, stored, columns = get_columns('Spots_new', database)
     column_str = ', '.join(columns)
     insert_new_table = f'INSERT INTO Spots_new SELECT {column_str} FROM Spots'
-    logger_setup.get_logger().info(f'Inserting into new table: Spots_new')
+    logger.get_logger().info(f'Inserting into new table: Spots_new')
     if not query.exec(insert_new_table):
-        logger_setup.get_logger().debug(f'Error inserting values into Spots_new table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().debug(f'Error inserting values into Spots_new table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         rollback_savepoint('before_schema_update')
         return False
 
     # Close and reopen the database to avoid "database table is locked" errors
     if not database.commit():
         if 'no transaction is active' not in database.lastError().text():
-            logger_setup.get_logger().critical(f"Error committing database")
-            logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+            logger.get_logger().critical(f"Error committing database")
+            logger.get_logger().debug(f'Error: {database.lastError().text()}')
             return False
     if not database.close():
         if 'no transaction is active' not in database.lastError().text():
-            logger_setup.get_logger().critical(f"Error closing database")
-            logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+            logger.get_logger().critical(f"Error closing database")
+            logger.get_logger().debug(f'Error: {database.lastError().text()}')
             return False
     if not database.open():
-        logger_setup.get_logger().critical(f"Error opening database")
-        logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+        logger.get_logger().critical(f"Error opening database")
+        logger.get_logger().debug(f'Error: {database.lastError().text()}')
         return False
 
     # Drop the original table
     drop_original_table = f'DROP TABLE IF EXISTS "Spots"'
-    logger_setup.get_logger().info(f'Dropping original table: Spots')
+    logger.get_logger().info(f'Dropping original table: Spots')
     if not query.exec(drop_original_table):
-        logger_setup.get_logger().critical(f'Error dropping original Spots table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error dropping original Spots table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         # rollback_savepoint('before_schema_update')
         return False
-    logger_setup.get_logger().info(f'Successfully dropped original table: Spots')
+    logger.get_logger().info(f'Successfully dropped original table: Spots')
 
     # Rename the new table to the original table name
     alter_table_qry = f'ALTER TABLE Spots_new RENAME TO "Spots"'
-    logger_setup.get_logger().info(f'Altering table rename: Spots_new to Spots')
+    logger.get_logger().info(f'Altering table rename: Spots_new to Spots')
     if not query.exec(alter_table_qry):
-        logger_setup.get_logger().critical(f'Error renaming Spots table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error renaming Spots table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         # rollback_savepoint('before_schema_update')
         return False
-    logger_setup.get_logger().info(f'Successfully altered table rename: Spots_new to Spots')
+    logger.get_logger().info(f'Successfully altered table rename: Spots_new to Spots')
 
     # Create a dictionary of SpotID and SpotName from the Spots table
     spot_dict = {}
     update_names = []
     if not query.exec(f'SELECT SpotID, SpotName FROM Spots'):
-        logger_setup.get_logger().debug(f'Error retrieving SpotID and SpotName from Spots table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().debug(f'Error retrieving SpotID and SpotName from Spots table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     while query.next():
         # Find any spots beginning with 'km001' case sensitive and add 16 in front of the name
@@ -2570,25 +2571,25 @@ def update_schema_v101(database: QtS.QSqlDatabase = None) -> bool:
 
     for spot_id in update_names:
         if not query.exec(f'UPDATE Spots SET SpotName="{spot_dict[spot_id]}" WHERE SpotID={spot_id}'):
-            logger_setup.get_logger().debug(f'Error updating SpotName in Spots table')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().debug(f'Error updating SpotName in Spots table')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             return False
 
     # Add a new column to the UPbAnalyses table and populate it with the spot name corresponding to the SpotID already in the table
     create_savepoint('before_schema_update')
     if not query.exec(f'ALTER TABLE UPbAnalyses ADD COLUMN UPbAnalysisName TEXT'):
         if 'duplicate column name' not in query.lastError().text():
-            logger_setup.get_logger().debug(f'Error adding UPbAnalysisName column to UPbAnalyses table')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().debug(f'Error adding UPbAnalysisName column to UPbAnalyses table')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             rollback_savepoint('before_schema_update')
             return False
     upb_spots = {}
     if not query.exec(f'SELECT UPbAnalysisID, SpotID FROM UPbAnalyses'):
-        logger_setup.get_logger().debug(f'Error retrieving UPbAnalysisID and SpotID from UPbAnalyses table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().debug(f'Error retrieving UPbAnalysisID and SpotID from UPbAnalyses table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         rollback_savepoint('before_schema_update')
         return False
     while query.next():
@@ -2607,9 +2608,9 @@ def update_schema_v101(database: QtS.QSqlDatabase = None) -> bool:
         if spot_name:
             if not query.exec(
                     f'UPDATE UPbAnalyses SET UPbAnalysisName="{spot_name}" WHERE UPbAnalysisID={upb_analysis_id}'):
-                logger_setup.get_logger().debug(f'Error updating UPbAnalysisName in UPbAnalyses table')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().debug(f'Error updating UPbAnalysisName in UPbAnalyses table')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 rollback_savepoint('before_schema_update')
                 return False
             added_spots += 1
@@ -2618,32 +2619,32 @@ def update_schema_v101(database: QtS.QSqlDatabase = None) -> bool:
         else:
             # Delete orphaned UPbAnalysis with no matching SpotID
             if not query.exec(f'DELETE FROM UPbAnalyses WHERE UPbAnalysisID={upb_analysis_id}'):
-                logger_setup.get_logger().debug(
+                logger.get_logger().debug(
                     f'Error deleting orphaned UPbAnalysisID {upb_analysis_id} from UPbAnalyses table')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 rollback_savepoint('before_schema_update')
                 return False
-            logger_setup.get_logger().info(
+            logger.get_logger().info(
                 f'Deleted orphaned UPbAnalysisID {upb_analysis_id} with missing SpotID {spot_id}')
             missing_spots += 1
             deleted_upb.append(upb_analysis_id)
-    logger_setup.get_logger().info(f'Successfully added UPbAnalysisName column to UPbAnalyses table')
+    logger.get_logger().info(f'Successfully added UPbAnalysisName column to UPbAnalyses table')
     # Remove deleted analyses from the dictionary
     for deleted in deleted_upb:
         upb_spots.pop(deleted)
 
     if not query.exec(f'PRAGMA table_xinfo("UPbAnalyses")'):
-        logger_setup.get_logger().debug(f"Failed to get columns for UPbAnalyses table")
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        logger.get_logger().debug(f"Failed to get columns for UPbAnalyses table")
+        logger.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
         rollback_savepoint('before_schema_update')
         return False
     columns = []
     while query.next():
         columns.append(query.value(1))
     if 'UPbAnalysisName' not in columns:
-        logger_setup.get_logger().debug(f"Failed to add UPbAnalysisName column to UPbAnalyses table")
+        logger.get_logger().debug(f"Failed to add UPbAnalysisName column to UPbAnalyses table")
         rollback_savepoint('before_schema_update')
         return False
 
@@ -2651,9 +2652,9 @@ def update_schema_v101(database: QtS.QSqlDatabase = None) -> bool:
     create_sql = CREATE_UPBANALYSES_TABLE_v101
     column_creation = create_sql.split(f'CREATE TABLE IF NOT EXISTS UPbAnalyses')[1]
     if not query.exec(f'CREATE TABLE IF NOT EXISTS UPbAnalyses_new{column_creation}'):
-        logger_setup.get_logger().debug(f"Failed to create new UPbAnalyses table")
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        logger.get_logger().debug(f"Failed to create new UPbAnalyses table")
+        logger.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
         rollback_savepoint('before_schema_update')
         return False
 
@@ -2662,63 +2663,63 @@ def update_schema_v101(database: QtS.QSqlDatabase = None) -> bool:
     query, virtual, stored, columns = get_columns('UPbAnalyses_new', database)
     column_str = ', '.join(columns)
     insert_new_table = f'INSERT INTO UPbAnalyses_new SELECT {column_str} FROM UPbAnalyses'
-    logger_setup.get_logger().info(f'Inserting into new table: UPbAnalyses_new')
+    logger.get_logger().info(f'Inserting into new table: UPbAnalyses_new')
     if not query.exec(insert_new_table):
-        logger_setup.get_logger().debug(f'Error inserting values into UPbAnalyses_new table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().debug(f'Error inserting values into UPbAnalyses_new table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         rollback_savepoint('before_schema_update')
         return False
-    logger_setup.get_logger().info(f'Successfully inserted into new table: UPbAnalyses_new')
+    logger.get_logger().info(f'Successfully inserted into new table: UPbAnalyses_new')
     release_savepoint('before_schema_update')
 
     # Close and reopen the database to avoid "database table is locked" errors
     if not database.commit():
         if 'no transaction is active' not in database.lastError().text():
-            logger_setup.get_logger().critical(f"Error committing database")
-            logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+            logger.get_logger().critical(f"Error committing database")
+            logger.get_logger().debug(f'Error: {database.lastError().text()}')
             return False
     if not database.close():
         if 'no transaction is active' not in database.lastError().text():
-            logger_setup.get_logger().critical(f"Error closing database")
-            logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+            logger.get_logger().critical(f"Error closing database")
+            logger.get_logger().debug(f'Error: {database.lastError().text()}')
             return False
     if not database.open():
-        logger_setup.get_logger().critical(f"Error opening database")
-        logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+        logger.get_logger().critical(f"Error opening database")
+        logger.get_logger().debug(f'Error: {database.lastError().text()}')
         return False
 
     # Drop the original table
     drop_original_table = f'DROP TABLE IF EXISTS "UPbAnalyses"'
-    logger_setup.get_logger().info(f'Dropping original table: UPbAnalyses')
+    logger.get_logger().info(f'Dropping original table: UPbAnalyses')
     if not query.exec(drop_original_table):
-        logger_setup.get_logger().critical(f'Error dropping original UPbAnalyses table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error dropping original UPbAnalyses table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         # rollback_savepoint('before_schema_update')
         return False
-    logger_setup.get_logger().info(f'Successfully dropped original table: UPbAnalyses')
+    logger.get_logger().info(f'Successfully dropped original table: UPbAnalyses')
 
     # Rename the new table to the original table name
     alter_table_qry = f'ALTER TABLE UPbAnalyses_new RENAME TO "UPbAnalyses"'
-    logger_setup.get_logger().info(f'Altering table rename: UPbAnalyses_new to UPbAnalyses')
+    logger.get_logger().info(f'Altering table rename: UPbAnalyses_new to UPbAnalyses')
     if not query.exec(alter_table_qry):
-        logger_setup.get_logger().critical(f'Error renaming UPbAnalyses table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error renaming UPbAnalyses table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         # rollback_savepoint('before_schema_update')
         return False
-    logger_setup.get_logger().info(f'Successfully altered table rename: UPbAnalyses_new to UPbAnalyses')
+    logger.get_logger().info(f'Successfully altered table rename: UPbAnalyses_new to UPbAnalyses')
     update_version_query = f"UPDATE About SET Version = 'v1.0.1' WHERE AboutID = 1"
     if not query.exec(update_version_query):
-        logger_setup.get_logger().critical(f'Error updating version lable')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error updating version lable')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     release_savepoint('before_schema_update')
 
-    logger_setup.get_logger().info('Updating view and edit columns')
+    logger.get_logger().info('Updating view and edit columns')
     update_settings = ['upb_analysis_view_columns', 'upb_analysis_edit_columns', 'spot_view_columns',
                        'spot_edit_columns', 'grain_edit_columns', 'grain_view_columns', 'aliquot_view_columns',
                        'sample_edit_columns', 'sample_view_columns']
@@ -2730,11 +2731,11 @@ def update_schema_v101(database: QtS.QSqlDatabase = None) -> bool:
             if column not in current_columns and (column == 'UPbAnalysisName' or 'Grain' in column):
                 current_columns.append(column)
         settings.setValue(column_setting, current_columns)
-    logger_setup.get_logger().info(f'Successfully updated view and edit columns')
+    logger.get_logger().info(f'Successfully updated view and edit columns')
     if not query.exec(f'UPDATE About SET Version = "v1.0.1" WHERE AboutID = 1'):
-        logger_setup.get_logger().critical(f'Error updating version in About table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error updating version in About table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     return True
 
@@ -2751,39 +2752,39 @@ def update_schema_v103(database: QtS.QSqlDatabase = None) -> bool:
 
     if not query.exec(f'ALTER TABLE UPbAnalyses ADD COLUMN "Concordance_206Pb/238Uv207Pb/206Pb" REAL'):
         if 'duplicate column name' not in query.lastError().text():
-            logger_setup.get_logger().debug(f'Error adding UPbAnalysisName column to UPbAnalyses table')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().debug(f'Error adding UPbAnalysisName column to UPbAnalyses table')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             rollback_savepoint('before_schema_update')
             return False
     if not query.exec(f'ALTER TABLE UPbAnalyses ADD COLUMN "Concordance_206Pb/238Uv207Pb/235U" REAL'):
         if 'duplicate column name' not in query.lastError().text():
-            logger_setup.get_logger().debug(f'Error adding UPbAnalysisName column to UPbAnalyses table')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().debug(f'Error adding UPbAnalysisName column to UPbAnalyses table')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             rollback_savepoint('before_schema_update')
             return False
     concordance_values = {}
     if not query.exec(f'SELECT UPbAnalysisID, Concordance FROM UPbAnalyses'):
-        logger_setup.get_logger().debug(f'Error retrieving UPbAnalysisID and Concordance from UPbAnalyses table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().debug(f'Error retrieving UPbAnalysisID and Concordance from UPbAnalyses table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         rollback_savepoint('before_schema_update')
         return False
     while query.next():
         concordance_values[query.value(0)] = query.value(1)
 
     if not query.exec(f'PRAGMA table_xinfo("UPbAnalyses")'):
-        logger_setup.get_logger().debug(f"Failed to get columns for UPbAnalyses table")
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        logger.get_logger().debug(f"Failed to get columns for UPbAnalyses table")
+        logger.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
         rollback_savepoint('before_schema_update')
         return False
     columns = []
     while query.next():
         columns.append(query.value(1))
     if 'Concordance_206Pb/238Uv207Pb/206Pb' and 'Concordance_206Pb/238Uv207Pb/235U' not in columns:
-        logger_setup.get_logger().debug(
+        logger.get_logger().debug(
             f'Failed to add "Concordance_206Pb/238Uv207Pb/206Pb" and "Concordance_206Pb/238Uv207Pb/235U" columns to UPbAnalyses table')
         rollback_savepoint('before_schema_update')
         return False
@@ -2792,9 +2793,9 @@ def update_schema_v103(database: QtS.QSqlDatabase = None) -> bool:
     create_sql = CREATE_UPBANALYSES_TABLE
     column_creation = create_sql.split(f'CREATE TABLE IF NOT EXISTS UPbAnalyses')[1]
     if not query.exec(f'CREATE TABLE IF NOT EXISTS UPbAnalyses_new{column_creation}'):
-        logger_setup.get_logger().debug(f"Failed to create new UPbAnalyses table")
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        logger.get_logger().debug(f"Failed to create new UPbAnalyses table")
+        logger.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
         rollback_savepoint('before_schema_update')
         return False
 
@@ -2803,11 +2804,11 @@ def update_schema_v103(database: QtS.QSqlDatabase = None) -> bool:
     query, virtual, stored, columns = get_columns('UPbAnalyses_new', database)
     column_str = ', '.join(columns)
     insert_new_table = f'INSERT INTO UPbAnalyses_new SELECT {column_str} FROM UPbAnalyses'
-    logger_setup.get_logger().info(f'Inserting into new table: UPbAnalyses_new')
+    logger.get_logger().info(f'Inserting into new table: UPbAnalyses_new')
     if not query.exec(insert_new_table):
-        logger_setup.get_logger().debug(f'Error inserting values into UPbAnalyses_new table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().debug(f'Error inserting values into UPbAnalyses_new table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         rollback_savepoint('before_schema_update')
         return False
     # Copy the old "concordance" value into the new "concordance_206Pb/238Uv207Pb/206Pb"
@@ -2816,53 +2817,53 @@ def update_schema_v103(database: QtS.QSqlDatabase = None) -> bool:
         if concordance:
             update_concordance = f'UPDATE UPbAnalyses_new SET "Concordance_206Pb/238Uv207Pb/206Pb" = {concordance} WHERE UPbAnalysisID = {upb_analysis}'
             if not query.exec(update_concordance):
-                logger_setup.get_logger().debug(f'Error copying concordance to new column')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().debug(f'Error copying concordance to new column')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 rollback_savepoint('before_schema_update')
                 return False
-    logger_setup.get_logger().info(f'Successfully inserted into new table: UPbAnalyses_new')
+    logger.get_logger().info(f'Successfully inserted into new table: UPbAnalyses_new')
     release_savepoint('before_schema_update')
 
     # Close and reopen the database to avoid "database table is locked" errors
     if not database.commit():
         if 'no transaction is active' not in database.lastError().text():
-            logger_setup.get_logger().critical(f"Error committing database")
-            logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+            logger.get_logger().critical(f"Error committing database")
+            logger.get_logger().debug(f'Error: {database.lastError().text()}')
             return False
     if not database.close():
         if 'no transaction is active' not in database.lastError().text():
-            logger_setup.get_logger().critical(f"Error closing database")
-            logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+            logger.get_logger().critical(f"Error closing database")
+            logger.get_logger().debug(f'Error: {database.lastError().text()}')
             return False
     if not database.open():
-        logger_setup.get_logger().critical(f"Error opening database")
-        logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+        logger.get_logger().critical(f"Error opening database")
+        logger.get_logger().debug(f'Error: {database.lastError().text()}')
         return False
 
     # Drop the original table
     drop_original_table = f'DROP TABLE IF EXISTS "UPbAnalyses"'
-    logger_setup.get_logger().info(f'Dropping original table: UPbAnalyses')
+    logger.get_logger().info(f'Dropping original table: UPbAnalyses')
     if not query.exec(drop_original_table):
-        logger_setup.get_logger().critical(f'Error dropping original UPbAnalyses table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error dropping original UPbAnalyses table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         # rollback_savepoint('before_schema_update')
         return False
-    logger_setup.get_logger().info(f'Successfully dropped original table: UPbAnalyses')
+    logger.get_logger().info(f'Successfully dropped original table: UPbAnalyses')
 
     # Rename the new table to the original table name
     alter_table_qry = f'ALTER TABLE UPbAnalyses_new RENAME TO "UPbAnalyses"'
-    logger_setup.get_logger().info(f'Altering table rename: UPbAnalyses_new to UPbAnalyses')
+    logger.get_logger().info(f'Altering table rename: UPbAnalyses_new to UPbAnalyses')
     if not query.exec(alter_table_qry):
-        logger_setup.get_logger().critical(f'Error renaming UPbAnalyses table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error renaming UPbAnalyses table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         # rollback_savepoint('before_schema_update')
         return False
-    logger_setup.get_logger().info(f'Successfully altered table rename: UPbAnalyses_new to UPbAnalyses')
+    logger.get_logger().info(f'Successfully altered table rename: UPbAnalyses_new to UPbAnalyses')
 
-    logger_setup.get_logger().info('Updating view and edit columns')
+    logger.get_logger().info('Updating view and edit columns')
     update_settings = ['upb_analysis_view_columns', 'upb_analysis_edit_columns']
     for column_setting in update_settings:
         current_columns = settings.value(column_setting)
@@ -2877,15 +2878,15 @@ def update_schema_v103(database: QtS.QSqlDatabase = None) -> bool:
             if column not in current_columns and 'Concordance' in column:
                 current_columns.append(column)
         settings.setValue(column_setting, current_columns)
-    logger_setup.get_logger().info(f'Successfully updated view and edit columns')
+    logger.get_logger().info(f'Successfully updated view and edit columns')
 
 
-    logger_setup.get_logger().info('Updating Ages table to includue colors.')
+    logger.get_logger().info('Updating Ages table to includue colors.')
     if not query.exec(f'ALTER TABLE Ages ADD COLUMN "Color" TEXT'):
         if 'duplicate column name' not in query.lastError().text():
-            logger_setup.get_logger().debug(f'Error adding Color column to Ages table')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().debug(f'Error adding Color column to Ages table')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             rollback_savepoint('before_schema_update')
             return False
 
@@ -2917,9 +2918,9 @@ def update_schema_v103(database: QtS.QSqlDatabase = None) -> bool:
         query.bindValue(":name", age_name)
 
         if not query.exec():
-            logger_setup.get_logger().debug(f'Error adding color value {color} to {age_name} during update')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().debug(f'Error adding color value {color} to {age_name} during update')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             continue
 
         rows = query.numRowsAffected()
@@ -2927,13 +2928,13 @@ def update_schema_v103(database: QtS.QSqlDatabase = None) -> bool:
             not_found.append(age_name)
         else:
             updated += rows
-    logger_setup.get_logger().info(f'Updated {updated} ages with colors during schema update.')
+    logger.get_logger().info(f'Updated {updated} ages with colors during schema update.')
     if not_found:
-        logger_setup.get_logger().info(f'Could not find {len(not_found)} ages to update colors during schema update: {not_found}')
+        logger.get_logger().info(f'Could not find {len(not_found)} ages to update colors during schema update: {not_found}')
     if not query.exec(f'UPDATE About SET Version = "v1.0.3" WHERE AboutID = 1'):
-        logger_setup.get_logger().critical(f'Error updating version in About table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error updating version in About table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     return True
 
@@ -2949,81 +2950,81 @@ def update_schema_v104(database: QtS.QSqlDatabase = None) -> bool:
     create_savepoint('before_schema_update')
     query = QtS.QSqlQuery()
     show_loading_dialog('Updating', 'Adding new columns to UPbAnalyses...')
-    logger_setup.get_logger().debug(f'Adding new columns to UPbAnalyses...')
+    logger.get_logger().debug(f'Adding new columns to UPbAnalyses...')
     if not query.exec(f'ALTER TABLE UPbAnalyses ADD COLUMN "ErrorCorr/Rho_68v76" REAL'):
         if 'duplicate column name' not in query.lastError().text():
-            logger_setup.get_logger().debug(f'Error adding UPbAnalysisName column to UPbAnalyses table')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().debug(f'Error adding UPbAnalysisName column to UPbAnalyses table')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             rollback_savepoint('before_schema_update')
             close_loading_dialog('Updating', 'Adding new columns to UPbAnalyses...')
             return False
     if not query.exec(f'ALTER TABLE UPbAnalyses ADD COLUMN "ErrorCorr/Rho_68v75" REAL'):
         if 'duplicate column name' not in query.lastError().text():
-            logger_setup.get_logger().debug(f'Error adding UPbAnalysisName column to UPbAnalyses table')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().debug(f'Error adding UPbAnalysisName column to UPbAnalyses table')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             rollback_savepoint('before_schema_update')
             close_loading_dialog('Updating', 'Adding new columns to UPbAnalyses...')
             return False
     if not query.exec(f'ALTER TABLE UPbAnalyses ADD COLUMN "MinimumSegmentedDiscordance" REAL'):
         if 'duplicate column name' not in query.lastError().text():
-            logger_setup.get_logger().debug(f'Error adding UPbAnalysisName column to UPbAnalyses table')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().debug(f'Error adding UPbAnalysisName column to UPbAnalyses table')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             rollback_savepoint('before_schema_update')
             close_loading_dialog('Updating', 'Adding new columns to UPbAnalyses...')
             return False
     if not query.exec(f'ALTER TABLE UPbAnalyses ADD Column "Pbppm" TEXT'):
         if 'duplicate column name' not in query.lastError().text():
-            logger_setup.get_logger().debug(f'Error adding Pbppm column to UPbAnalyses table')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().debug(f'Error adding Pbppm column to UPbAnalyses table')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             rollback_savepoint('before_schema_update')
             close_loading_dialog('Updating', 'Adding new columns to UPbAnalyses...')
             return False
     if not query.exec(f'ALTER TABLE UPbAnalyses ADD COLUMN "UPbAnalysisDescription" TEXT'):
         if 'duplicate column name' not in query.lastError().text():
-            logger_setup.get_logger().debug(f'Error adding UPbAnalysisDescription column to UPbAnalyses table')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().debug(f'Error adding UPbAnalysisDescription column to UPbAnalyses table')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             rollback_savepoint('before_schema_update')
             close_loading_dialog('Updating', 'Adding new columns to UPbAnalyses...')
             return False
     close_loading_dialog('Updating', 'Adding new columns to UPbAnalyses...')
 
     show_loading_dialog('Updating', 'Adding new columns to Aliquots...')
-    logger_setup.get_logger().info('Adding new columns to Aliquots...')
+    logger.get_logger().info('Adding new columns to Aliquots...')
     if not query.exec(f'ALTER TABLE Aliquots ADD COLUMN "AliquotDescription" TEXT'):
         if 'duplicate column name' not in query.lastError().text():
-            logger_setup.get_logger().debug(f'Error adding AliquotDescription column to Aliquots table')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().debug(f'Error adding AliquotDescription column to Aliquots table')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             rollback_savepoint('before_schema_update')
             close_loading_dialog('Updating', 'Adding new columns to Aliquots...')
             return False
     close_loading_dialog('Updating', 'Adding new columns to Aliquots...')
 
     show_loading_dialog('Updating', 'Adding new columns to Spots...')
-    logger_setup.get_logger().info('Adding new columns to Spots...')
+    logger.get_logger().info('Adding new columns to Spots...')
     if not query.exec(f'ALTER TABLE Spots ADD COLUMN "SpotDescription" TEXT'):
         if 'duplicate column name' not in query.lastError().text():
-            logger_setup.get_logger().debug(f'Error adding SpotDescription column to Spots table')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().debug(f'Error adding SpotDescription column to Spots table')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             rollback_savepoint('before_schema_update')
             close_loading_dialog('Updating', 'Adding new columns to Spots...')
             return False
     close_loading_dialog('Updating', 'Adding new columns to Spots...')
 
     show_loading_dialog('Updating', 'Evaluating data...')
-    logger_setup.get_logger().info('Evaluating data...')
+    logger.get_logger().info('Evaluating data...')
     msc_concordance_values = {}
     # v103 assumed that all concordance values entered previously were 206Pb/238Uv207Pb/206Pb, but now need to separate out the minimum segmented discordance values.
     if not query.exec(f'SELECT UPbAnalysisID, "Concordance_206Pb/238Uv207Pb/206Pb" FROM UPbAnalyses WHERE ConcordanceFormatID = 5 AND "Concordance_206Pb/238Uv207Pb/206Pb" is not NULL'):
-        logger_setup.get_logger().debug(f'Error retrieving UPbAnalysisID and Concordance from UPbAnalyses table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().debug(f'Error retrieving UPbAnalysisID and Concordance from UPbAnalyses table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         rollback_savepoint('before_schema_update')
         close_loading_dialog('Updating', 'Evaluating data...')
         return False
@@ -3031,33 +3032,33 @@ def update_schema_v104(database: QtS.QSqlDatabase = None) -> bool:
         msc_concordance_values[query.value(0)] = query.value(1)
     # Get any minimum segmented discordance that was placed in the "Concordance_206Pb/238Uv207Pb/235U" column instead
     if not query.exec(f'SELECT UPbAnalysisID, "Concordance_206Pb/238Uv207Pb/235U" FROM UPbAnalyses WHERE ConcordanceFormatID = 5 AND "Concordance_206Pb/238Uv207Pb/206Pb" is NULL'):
-        logger_setup.get_logger().debug(f'Error retrieving UPbAnalysisID and Concordance from UPbAnalyses table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().debug(f'Error retrieving UPbAnalysisID and Concordance from UPbAnalyses table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         rollback_savepoint('before_schema_update')
         close_loading_dialog('Updating', 'Evaluating data...')
         return False
     while query.next():
         msc_concordance_values[query.value(0)] = query.value(1)
-    from Functions.Widget_classes import get_headers
+
     columns = get_headers('UPbAnalyses')
     error_cor_68v76_values = {}
     error_cor_68v75_values = {}
     if '"ErrorCorr/Rho"' in columns:
         error_cor_68v76_values = {}
         if not query.exec(f'SELECT UPbAnalysisID, "ErrorCorr/Rho" FROM UPbAnalyses WHERE "Concordance_206Pb/238Uv207Pb/206Pb" is not NULL'):
-            logger_setup.get_logger().debug(f'Error retrieving UPbAnalysisID and ErrorCorr/Rho from UPbAnalyses table')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().debug(f'Error retrieving UPbAnalysisID and ErrorCorr/Rho from UPbAnalyses table')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             rollback_savepoint('before_schema_update')
             close_loading_dialog('Updating', 'Evaluating data...')
             return False
         while query.next():
             error_cor_68v76_values[query.value(0)] = query.value(1)
         if not query.exec(f'SELECT UPbAnalysisID, "ErrorCorr/Rho" FROM UPbAnalyses WHERE "Concordance_206Pb/238Uv207Pb/235U" is not NULL'):
-            logger_setup.get_logger().debug(f'Error retrieving UPbAnalysisID and ErrorCorr/Rho from UPbAnalyses table')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().debug(f'Error retrieving UPbAnalysisID and ErrorCorr/Rho from UPbAnalyses table')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             rollback_savepoint('before_schema_update')
             close_loading_dialog('Updating', 'Evaluating data...')
             return False
@@ -3066,11 +3067,11 @@ def update_schema_v104(database: QtS.QSqlDatabase = None) -> bool:
     close_loading_dialog('Updating', 'Evaluating data...')
 
     show_loading_dialog('Updating', 'Confirming new UPbAnalyses columns...')
-    logger_setup.get_logger().info('Confirming new UPbAnalyses columns...')
+    logger.get_logger().info('Confirming new UPbAnalyses columns...')
     if not query.exec(f'PRAGMA table_xinfo("UPbAnalyses")'):
-        logger_setup.get_logger().debug(f"Failed to get columns for UPbAnalyses table")
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        logger.get_logger().debug(f"Failed to get columns for UPbAnalyses table")
+        logger.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
         rollback_savepoint('before_schema_update')
         close_loading_dialog('Updating', 'Confirming new UPbAnalyses columns...')
         return False
@@ -3078,7 +3079,7 @@ def update_schema_v104(database: QtS.QSqlDatabase = None) -> bool:
     while query.next():
         columns.append(query.value(1))
     if any(new_column not in columns for new_column in ['ErrorCorr/Rho_68v76', 'ErrorCorr/Rho_68v75', 'MinimumSegmentedDiscordance']):
-        logger_setup.get_logger().debug(
+        logger.get_logger().debug(
             f'Failed to add "ErrorCorr/Rho_68v76", "ErrorCorr/Rho_68v75", and MinimumSegmentedDiscordance columns to UPbAnalyses table')
         rollback_savepoint('before_schema_update')
         close_loading_dialog('Updating', 'Confirming new UPbAnalyses columns...')
@@ -3086,49 +3087,49 @@ def update_schema_v104(database: QtS.QSqlDatabase = None) -> bool:
     close_loading_dialog('Updating', 'Confirming new UPbAnalyses columns...')
 
     show_loading_dialog('Updating', 'Preparing updated tables...')
-    logger_setup.get_logger().info('Preparing updated tables...')
+    logger.get_logger().info('Preparing updated tables...')
     # Create new UPbAnalyses, Spots, and Aliquots tables with new create statements
     create_sql = CREATE_UPBANALYSES_TABLE
     column_creation = create_sql.split(f'CREATE TABLE IF NOT EXISTS UPbAnalyses')[1]
     if not query.exec(f'CREATE TABLE IF NOT EXISTS UPbAnalyses_new{column_creation}'):
-        logger_setup.get_logger().debug(f"Failed to create new UPbAnalyses table")
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        logger.get_logger().debug(f"Failed to create new UPbAnalyses table")
+        logger.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
         rollback_savepoint('before_schema_update')
         close_loading_dialog('Updating', 'Preparing updated tables...')
         return False
     create_sql = CREATE_SPOTS_TABLE
     column_creation = create_sql.split(f'CREATE TABLE IF NOT EXISTS Spots')[1]
     if not query.exec(f'CREATE TABLE IF NOT EXISTS Spots_new{column_creation}'):
-        logger_setup.get_logger().debug(f"Failed to create new Spots table")
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        logger.get_logger().debug(f"Failed to create new Spots table")
+        logger.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
         rollback_savepoint('before_schema_update')
         close_loading_dialog('Updating', 'Preparing updated tables...')
         return False
     create_sql = CREATE_ALIQUOTS_TABLE
     column_creation = create_sql.split(f'CREATE TABLE IF NOT EXISTS Aliquots')[1]
     if not query.exec(f'CREATE TABLE IF NOT EXISTS Aliquots_new{column_creation}'):
-        logger_setup.get_logger().debug(f"Failed to create new Aliquots table")
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        logger.get_logger().debug(f"Failed to create new Aliquots table")
+        logger.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
         rollback_savepoint('before_schema_update')
         close_loading_dialog('Updating', 'Preparing updated tables...')
         return False
     close_loading_dialog('Updating', 'Preparing updated tables...')
 
     show_loading_dialog('Updating', 'Moving data to new columns...')
-    logger_setup.get_logger().info('Moving data to new columns...')
+    logger.get_logger().info('Moving data to new columns...')
     # Copy data from old UPbAnalyses table to new UPbAnalyses table
     from util.database.alter_database import get_columns
     query, virtual, stored, columns = get_columns('UPbAnalyses_new', database)
     column_str = ', '.join(columns)
     insert_new_table = f'INSERT INTO UPbAnalyses_new SELECT {column_str} FROM UPbAnalyses'
-    logger_setup.get_logger().info(f'Inserting into new table: UPbAnalyses_new')
+    logger.get_logger().info(f'Inserting into new table: UPbAnalyses_new')
     if not query.exec(insert_new_table):
-        logger_setup.get_logger().debug(f'Error inserting values into UPbAnalyses_new table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().debug(f'Error inserting values into UPbAnalyses_new table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         rollback_savepoint('before_schema_update')
         close_loading_dialog('Updating', 'Moving data to new columns...')
         return False
@@ -3138,9 +3139,9 @@ def update_schema_v104(database: QtS.QSqlDatabase = None) -> bool:
         if error_cor_68v76:
             update_concordance = f'UPDATE UPbAnalyses_new SET "ErrorCorr/Rho_68v76" = {error_cor_68v76} WHERE UPbAnalysisID = {upb_analysis}'
             if not query.exec(update_concordance):
-                logger_setup.get_logger().debug(f'Error copying concordance to new column')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().debug(f'Error copying concordance to new column')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 rollback_savepoint('before_schema_update')
                 close_loading_dialog('Updating', 'Moving data to new columns...')
                 return False
@@ -3149,9 +3150,9 @@ def update_schema_v104(database: QtS.QSqlDatabase = None) -> bool:
         if error_cor_68v75:
             update_concordance = f'UPDATE UPbAnalyses_new SET "ErrorCorr/Rho_68v75" = {error_cor_68v75} WHERE UPbAnalysisID = {upb_analysis}'
             if not query.exec(update_concordance):
-                logger_setup.get_logger().debug(f'Error copying concordance to new column')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().debug(f'Error copying concordance to new column')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 rollback_savepoint('before_schema_update')
                 close_loading_dialog('Updating', 'Moving data to new columns...')
                 return False
@@ -3161,31 +3162,31 @@ def update_schema_v104(database: QtS.QSqlDatabase = None) -> bool:
         if msc_concordance:
             update_concordance = f'UPDATE UPbAnalyses_new SET "MinimumSegmentedDiscordance" = {msc_concordance}, "ConcordanceFormatID" = NULL WHERE UPbAnalysisID = {upb_analysis}'
             if not query.exec(update_concordance):
-                logger_setup.get_logger().debug(f'Error copying concordance to new column')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().debug(f'Error copying concordance to new column')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 rollback_savepoint('before_schema_update')
                 close_loading_dialog('Updating', 'Moving data to new columns...')
                 return False
             update_concordance = f'UPDATE UPbAnalyses_new SET "Concordance_206Pb/238Uv207Pb/206Pb" = NULL, "Concordance_206Pb/238Uv207Pb/235U" = NULL WHERE UPbAnalysisID = {upb_analysis}'
             if not query.exec(update_concordance):
-                logger_setup.get_logger().debug(f'Error setting old concordance columns to NULL for minimum segmented discordance analyses')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().debug(f'Error setting old concordance columns to NULL for minimum segmented discordance analyses')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 rollback_savepoint('before_schema_update')
                 close_loading_dialog('Updating', 'Moving data to new columns...')
                 return False
-    logger_setup.get_logger().info(f'Successfully inserted into new table: UPbAnalyses_new')
+    logger.get_logger().info(f'Successfully inserted into new table: UPbAnalyses_new')
 
     # Copy data from old Spots table to new Spots table
     query, virtual, stored, columns = get_columns('Spots_new', database)
     column_str = ', '.join(columns)
     insert_new_table = f'INSERT INTO Spots_new SELECT {column_str} FROM Spots'
-    logger_setup.get_logger().info(f'Inserting into new table: Spots_new')
+    logger.get_logger().info(f'Inserting into new table: Spots_new')
     if not query.exec(insert_new_table):
-        logger_setup.get_logger().debug(f'Error inserting values into Spots_new table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().debug(f'Error inserting values into Spots_new table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         rollback_savepoint('before_schema_update')
         close_loading_dialog('Updating', 'Moving data to new columns...')
         return False
@@ -3194,130 +3195,130 @@ def update_schema_v104(database: QtS.QSqlDatabase = None) -> bool:
     query, virtual, stored, columns = get_columns('Aliquots_new', database)
     column_str = ', '.join(columns)
     insert_new_table = f'INSERT INTO Aliquots_new SELECT {column_str} FROM Aliquots'
-    logger_setup.get_logger().info(f'Inserting into new table: Aliquots_new')
+    logger.get_logger().info(f'Inserting into new table: Aliquots_new')
     if not query.exec(insert_new_table):
-        logger_setup.get_logger().debug(f'Error inserting values into Aliquots_new table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().debug(f'Error inserting values into Aliquots_new table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         rollback_savepoint('before_schema_update')
         close_loading_dialog('Updating', 'Moving data to new columns...')
         return False
     close_loading_dialog('Updating', 'Moving data to new columns...')
 
     show_loading_dialog('Updating', 'Removing obsolete formats...')
-    logger_setup.get_logger().info('Removing obsolete formats...')
+    logger.get_logger().info('Removing obsolete formats...')
     # Remove old concordance format MinimumSegmentedDiscordance from settings if present since now there is a separate column for minimum segmented discordance and concordance format should no longer be set to 5 for those analyses.
     if not query.exec(f'DELETE FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "MinSegDis"'):
-        logger_setup.get_logger().debug(f'Error deleting old minimum segmented discordance concordance format from ConcordanceFormats table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().debug(f'Error deleting old minimum segmented discordance concordance format from ConcordanceFormats table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         rollback_savepoint('before_schema_update')
         close_loading_dialog('Updating', 'Removing obsolete formats...')
         return False
 
     # Remove old conversions for minimum segmented discordance. These could not be converted with the other formats, so the calculation column is "-"
     if not query.exec(f'DELETE FROM ConcordanceFormatConversions WHERE ConcordanceFormatConversionCalculation = "-"'):
-        logger_setup.get_logger().debug(f'Error deleting old minimum segmented discordance conversions from ConcordanceFormatConversions table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().debug(f'Error deleting old minimum segmented discordance conversions from ConcordanceFormatConversions table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         rollback_savepoint('before_schema_update')
         close_loading_dialog('Updating', 'Removing obsolete formats...')
         return False
     close_loading_dialog('Updating', 'Removing obsolete formats...')
 
     show_loading_dialog('Updating', 'Cleaning up...')
-    logger_setup.get_logger().info('Cleaning up...')
+    logger.get_logger().info('Cleaning up...')
     # Close and reopen the database to avoid "database table is locked" errors
     if not database.commit():
         if 'no transaction is active' not in database.lastError().text():
-            logger_setup.get_logger().critical(f"Error committing database")
-            logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+            logger.get_logger().critical(f"Error committing database")
+            logger.get_logger().debug(f'Error: {database.lastError().text()}')
             close_loading_dialog('Updating', 'Cleaning up...')
             rollback_savepoint('before_schema_update')
             return False
     if not database.close():
         if 'no transaction is active' not in database.lastError().text():
-            logger_setup.get_logger().critical(f"Error closing database")
-            logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+            logger.get_logger().critical(f"Error closing database")
+            logger.get_logger().debug(f'Error: {database.lastError().text()}')
             close_loading_dialog('Updating', 'Cleaning up...')
             rollback_savepoint('before_schema_update')
             return False
     if not database.open():
-        logger_setup.get_logger().critical(f"Error opening database")
-        logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+        logger.get_logger().critical(f"Error opening database")
+        logger.get_logger().debug(f'Error: {database.lastError().text()}')
         close_loading_dialog('Updating', 'Cleaning up...')
         rollback_savepoint('before_schema_update')
         return False
 
     # Drop the original tables
     drop_original_table = f'DROP TABLE IF EXISTS "UPbAnalyses"'
-    logger_setup.get_logger().info(f'Dropping original table: UPbAnalyses')
+    logger.get_logger().info(f'Dropping original table: UPbAnalyses')
     if not query.exec(drop_original_table):
-        logger_setup.get_logger().critical(f'Error dropping original UPbAnalyses table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error dropping original UPbAnalyses table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         close_loading_dialog('Updating', 'Cleaning up...')
         rollback_savepoint('before_schema_update')
         return False
-    logger_setup.get_logger().info(f'Successfully dropped original table: UPbAnalyses')
+    logger.get_logger().info(f'Successfully dropped original table: UPbAnalyses')
     drop_original_table = f'DROP TABLE IF EXISTS "Spots"'
-    logger_setup.get_logger().info(f'Dropping original table: Spots')
+    logger.get_logger().info(f'Dropping original table: Spots')
     if not query.exec(drop_original_table):
-        logger_setup.get_logger().critical(f'Error dropping original Spots table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error dropping original Spots table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         close_loading_dialog('Updating', 'Cleaning up...')
         rollback_savepoint('before_schema_update')
         return False
-    logger_setup.get_logger().info(f'Successfully dropped original table: Spots')
+    logger.get_logger().info(f'Successfully dropped original table: Spots')
     drop_original_table = f'DROP TABLE IF EXISTS "Aliquots"'
-    logger_setup.get_logger().info(f'Dropping original table: Aliquots')
+    logger.get_logger().info(f'Dropping original table: Aliquots')
     if not query.exec(drop_original_table):
-        logger_setup.get_logger().critical(f'Error dropping original Aliquots table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error dropping original Aliquots table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         close_loading_dialog('Updating', 'Cleaning up...')
         rollback_savepoint('before_schema_update')
         return False
-    logger_setup.get_logger().info(f'Successfully dropped original table: Aliquots')
+    logger.get_logger().info(f'Successfully dropped original table: Aliquots')
 
     # Rename the new tables to the original table names
     alter_table_qry = f'ALTER TABLE UPbAnalyses_new RENAME TO "UPbAnalyses"'
-    logger_setup.get_logger().info(f'Altering table rename: UPbAnalyses_new to UPbAnalyses')
+    logger.get_logger().info(f'Altering table rename: UPbAnalyses_new to UPbAnalyses')
     if not query.exec(alter_table_qry):
-        logger_setup.get_logger().critical(f'Error renaming UPbAnalyses table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error renaming UPbAnalyses table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         close_loading_dialog('Updating', 'Cleaning up...')
         rollback_savepoint('before_schema_update')
         return False
-    logger_setup.get_logger().info(f'Successfully altered table rename: UPbAnalyses_new to UPbAnalyses')
+    logger.get_logger().info(f'Successfully altered table rename: UPbAnalyses_new to UPbAnalyses')
     alter_table_qry = f'ALTER TABLE Spots_new RENAME TO "Spots"'
-    logger_setup.get_logger().info(f'Altering table rename: Spots_new to Spots')
+    logger.get_logger().info(f'Altering table rename: Spots_new to Spots')
     if not query.exec(alter_table_qry):
-        logger_setup.get_logger().critical(f'Error renaming Spots table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error renaming Spots table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         close_loading_dialog('Updating', 'Cleaning up...')
         rollback_savepoint('before_schema_update')
         return False
-    logger_setup.get_logger().info(f'Successfully altered table rename: Spots_new to Spots')
+    logger.get_logger().info(f'Successfully altered table rename: Spots_new to Spots')
     alter_table_qry = f'ALTER TABLE Aliquots_new RENAME TO "Aliquots"'
-    logger_setup.get_logger().info(f'Altering table rename: Aliquots_new to Aliquots')
+    logger.get_logger().info(f'Altering table rename: Aliquots_new to Aliquots')
     if not query.exec(alter_table_qry):
-        logger_setup.get_logger().critical(f'Error renaming Aliquots table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error renaming Aliquots table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         close_loading_dialog('Updating', 'Cleaning up...')
         rollback_savepoint('before_schema_update')
         return False
-    logger_setup.get_logger().info(f'Successfully altered table rename: Aliquots_new to Aliquots')
+    logger.get_logger().info(f'Successfully altered table rename: Aliquots_new to Aliquots')
 
     # Ensure that Spots.GrainID is NULL instead of 'GrainID.' Left over from not explicitly adding the GrainID column in v101 updated
     if not query.exec(f'UPDATE Spots SET GrainID = NULL WHERE GrainID = "GrainID"'):
-        logger_setup.get_logger().debug(f'Error setting GrainID to NULL in Spots table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().debug(f'Error setting GrainID to NULL in Spots table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         rollback_savepoint('before_schema_update')
         return False
     close_loading_dialog('Updating', 'Cleaning up...')
@@ -3325,7 +3326,7 @@ def update_schema_v104(database: QtS.QSqlDatabase = None) -> bool:
     release_savepoint('before_schema_update')
 
     show_loading_dialog('Updating', 'Updating settings...')
-    logger_setup.get_logger().info('Updating view and edit columns')
+    logger.get_logger().info('Updating view and edit columns')
     update_column_settings = ['upb_analysis_view_columns', 'upb_analysis_edit_columns', 'spot_view_columns',
                        'spot_edit_columns', 'grain_edit_columns', 'grain_view_columns', 'aliquot_view_columns',
                        'aliquot_edit_columns', 'sample_edit_columns', 'sample_view_columns']
@@ -3335,12 +3336,12 @@ def update_schema_v104(database: QtS.QSqlDatabase = None) -> bool:
     for setting in other_settings:
         if not setting in settings.allKeys():
             settings.setValue(setting, settings.value(f'default_{setting}'))
-    logger_setup.get_logger().info(f'Successfully updated view and edit columns')
+    logger.get_logger().info(f'Successfully updated view and edit columns')
     close_loading_dialog('Updating', 'Updating settings...')
     if not query.exec(f'UPDATE About SET Version = "v1.0.4" WHERE AboutID = 1'):
-        logger_setup.get_logger().critical(f'Error updating version in About table')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error updating version in About table')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     return True
 
@@ -3352,16 +3353,16 @@ def populate_tables(database=None) -> bool:
     :return: True for success, False for failure
     """
     # Populate the age units table during initiation
-    logger_setup.get_logger().info('Populating tables')
+    logger.get_logger().info('Populating tables')
     if database is None:
         query = QtS.QSqlQuery()
     else:
         query = QtS.QSqlQuery(database)
     sql = 'SELECT * FROM AgeUnits'
     if not query.exec(sql):
-        logger_setup.get_logger().critical(f'Error getting AgeUnits')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error getting AgeUnits')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     out = []
     while query.next(): out.append(query.value(1))
@@ -3375,9 +3376,9 @@ def populate_tables(database=None) -> bool:
     sql = '''SELECT * \
              FROM AnalyticalUnits'''
     if not query.exec(sql):
-        logger_setup.get_logger().critical(f'Error getting AnalyticalUnits')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error getting AnalyticalUnits')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     out = []
     while query.next(): out.append(query.value(1))
@@ -3391,9 +3392,9 @@ def populate_tables(database=None) -> bool:
     sql = '''SELECT * \
              FROM GeoChemicalAnalytes'''
     if not query.exec(sql):
-        logger_setup.get_logger().critical(f'Error getting GeoChemicalAnalytes')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error getting GeoChemicalAnalytes')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     out = []
     while query.next(): out.append(query.value(1))
@@ -3405,9 +3406,9 @@ def populate_tables(database=None) -> bool:
     sql = '''SELECT * \
              FROM AnalyticalUnits'''
     if not query.exec(sql):
-        logger_setup.get_logger().critical(f'Error getting AnalyticalUnits')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error getting AnalyticalUnits')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     out = []
     while query.next(): out.append(query.value(1))
@@ -3421,9 +3422,9 @@ def populate_tables(database=None) -> bool:
     sql = '''SELECT * \
              FROM GeoChemicalAnalytes'''
     if not query.exec(sql):
-        logger_setup.get_logger().critical(f'Error getting GeoChemicalAnalytes')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error getting GeoChemicalAnalytes')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     out = []
     while query.next(): out.append(query.value(1))
@@ -3434,9 +3435,9 @@ def populate_tables(database=None) -> bool:
     # Populate the concordance format table during initiation
     sql = '''SELECT * FROM ConcordanceFormats'''
     if not query.exec(sql):
-        logger_setup.get_logger().critical(f'Error getting ConcordanceFormats')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error getting ConcordanceFormats')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     out = []
     while query.next(): out.append(query.value(1))
@@ -3449,9 +3450,9 @@ def populate_tables(database=None) -> bool:
     # Populate the direction unit table during initiation
     sql = '''SELECT * FROM DirectionUnits'''
     if not query.exec(sql):
-        logger_setup.get_logger().critical(f'Error getting DirectionUnits')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error getting DirectionUnits')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     out = []
     while query.next(): out.append(query.value(1))
@@ -3462,9 +3463,9 @@ def populate_tables(database=None) -> bool:
     # Populate the distance unit table during initiation
     sql = '''SELECT * FROM DistanceUnits'''
     if not query.exec(sql):
-        logger_setup.get_logger().critical(f'Error getting DistanceUnits')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error getting DistanceUnits')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     out = []
     while query.next(): out.append(query.value(1))
@@ -3477,9 +3478,9 @@ def populate_tables(database=None) -> bool:
     # Populate the error format table during initiation
     sql = '''SELECT * FROM ErrorFormats'''
     if not query.exec(sql):
-        logger_setup.get_logger().critical(f'Error getting ErrorFormats')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error getting ErrorFormats')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     out = []
     while query.next(): out.append(query.value(1))
@@ -3492,9 +3493,9 @@ def populate_tables(database=None) -> bool:
     # Populate the gps format table during initiation
     sql = '''SELECT * FROM GPSFormats'''
     if not query.exec(sql):
-        logger_setup.get_logger().critical(f'Error getting GPSFormats')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error getting GPSFormats')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     out = []
     while query.next(): out.append(query.value(2))
@@ -3503,12 +3504,12 @@ def populate_tables(database=None) -> bool:
     sql = 'DELETE FROM GPSFormatConversions'
     if not query.exec(sql):
         if 'database is locked' in query.lastError().text():
-            logger_setup.get_logger().critical(f'The database is currently locked. Make sure it is not in use elsewhere.')
+            logger.get_logger().critical(f'The database is currently locked. Make sure it is not in use elsewhere.')
             return False
         else:
-            logger_setup.get_logger().critical(f'Error resetting GPSFormatConversions')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().critical(f'Error resetting GPSFormatConversions')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             return False
     if not populate_gps_conversions(database):
         return False
@@ -3522,9 +3523,9 @@ def populate_tables(database=None) -> bool:
             if not populate_ages(database):  # populate it
                 return False
     else:
-        logger_setup.get_logger().critical(f'Error selecting all rows from AgeUnits')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error selecting all rows from AgeUnits')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     return True
@@ -3546,9 +3547,9 @@ def populate_age_units(database=None) -> bool:
         sql = f'''INSERT INTO AgeUnits(AgeUnitName, AgeUnitAbbreviation) VALUES("{unit[0]}","{unit[1]}")'''
         if not query.exec(sql):
             if 'UNIQUE constraint failed' not in query.lastError().text():
-                logger_setup.get_logger().critical(f'Error populating AgeUnits')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().critical(f'Error populating AgeUnits')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 return False
 
     return True
@@ -3583,9 +3584,9 @@ def populate_age_conversions(database=None) -> bool:
                     sql = f'''INSERT INTO AgeUnitConversions(FromAgeUnitID, ToAgeUnitID, AgeUnitConversionCalculation)
                                     VALUES((SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}"),(SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}"),"{conversion1to2}")'''
                     if not query.exec(sql):
-                        logger_setup.get_logger().critical(f'Error populating AgeUnitConversions')
-                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        logger.get_logger().critical(f'Error populating AgeUnitConversions')
+                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                         return False
                 else:
                     current_conversion = age_conversion_model.record(0).value('AgeUnitConversionCalculation')
@@ -3593,9 +3594,9 @@ def populate_age_conversions(database=None) -> bool:
                         sql = f'''UPDATE AgeUnitConversions SET AgeUnitConversionCalculation = "{conversion1to2}"
                                     WHERE FromAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}") AND ToAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}")'''
                         if not query.exec(sql):
-                            logger_setup.get_logger().critical(f'Error populating AgeUnitConversions')
-                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            logger.get_logger().critical(f'Error populating AgeUnitConversions')
+                            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                             return False
                 age_conversion_model.setFilter(
                     f'FromAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}") AND ToAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}")')
@@ -3603,9 +3604,9 @@ def populate_age_conversions(database=None) -> bool:
                     sql = f'''INSERT INTO AgeUnitConversions(FromAgeUnitID, ToAgeUnitID, AgeUnitConversionCalculation)
                                     VALUES((SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}"),(SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}"),"{conversion2to1}")'''
                     if not query.exec(sql):
-                        logger_setup.get_logger().critical(f'Error populating AgeUnitConversions')
-                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        logger.get_logger().critical(f'Error populating AgeUnitConversions')
+                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                         return False
                 else:
                     current_conversion = age_conversion_model.record(0).value('AgeUnitConversionCalculation')
@@ -3613,9 +3614,9 @@ def populate_age_conversions(database=None) -> bool:
                         sql = f'''UPDATE AgeUnitConversions SET AgeUnitConversionCalculation = "{conversion2to1}"
                                     WHERE FromAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}") AND ToAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}")'''
                         if not query.exec(sql):
-                            logger_setup.get_logger().critical(f'Error populating AgeUnitConversions')
-                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            logger.get_logger().critical(f'Error populating AgeUnitConversions')
+                            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                             return False
     return True
 
@@ -3636,9 +3637,9 @@ def populate_analytical_units(database=None) -> bool:
                                 VALUES("{analytical_unit[0]}","{analytical_unit[1]}","{analytical_unit[2]}")'''
         if not query.exec(sql):
             if 'UNIQUE constraint failed' not in query.lastError().text():
-                logger_setup.get_logger().critical('Error populating AnalyticalUnits')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().critical('Error populating AnalyticalUnits')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 return False
     return True
 
@@ -3728,9 +3729,9 @@ def populate_analytical_conversions(database=None) -> bool:
                     sql = f'''INSERT INTO AnalyticalUnitConversions(FromAnalyticalUnitID, ToAnalyticalUnitID, AnalyticalUnitConversionCalculation)
                                                             VALUES((SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr1}"),(SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr2}"),"{conversion1to2}")'''
                     if not query.exec(sql):
-                        logger_setup.get_logger().critical('Error populating AnalyticalUnitConversions')
-                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        logger.get_logger().critical('Error populating AnalyticalUnitConversions')
+                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                         return False
                 else:
                     current_conversion = analytical_unit_conversion_model.record(0).value(
@@ -3739,9 +3740,9 @@ def populate_analytical_conversions(database=None) -> bool:
                         sql = f'''UPDATE AnalyticalUnitConversions SET AnalyticalUnitConversionCalculation = "{conversion1to2}"
                                                             WHERE FromAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr1}") AND ToAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr2}")'''
                         if not query.exec(sql):
-                            logger_setup.get_logger().critical('Error populating AnalyticalUnitConversions')
-                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            logger.get_logger().critical('Error populating AnalyticalUnitConversions')
+                            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                             return False
                 analytical_unit_conversion_model.setFilter(
                     f'FromAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr2}") AND ToAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr1}")')
@@ -3749,9 +3750,9 @@ def populate_analytical_conversions(database=None) -> bool:
                     sql = f'''INSERT INTO AnalyticalUnitConversions(FromAnalyticalUnitID, ToAnalyticalUnitID, AnalyticalUnitConversionCalculation)
                                                             VALUES((SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr2}"),(SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr1}"),"{conversion2to1}")'''
                     if not query.exec(sql):
-                        logger_setup.get_logger().critical('Error populating AnalyticalUnitConversions')
-                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        logger.get_logger().critical('Error populating AnalyticalUnitConversions')
+                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                         return False
                 else:
                     current_conversion = analytical_unit_conversion_model.record(0).value(
@@ -3760,9 +3761,9 @@ def populate_analytical_conversions(database=None) -> bool:
                         sql = f'''UPDATE AnalyticalUnitConversions SET AnalyticalUnitConversionCalculation = "{conversion2to1}"
                                                             WHERE FromAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr2}") AND ToAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr1}")'''
                         if not query.exec(sql):
-                            logger_setup.get_logger().critical('Error populating AnalyticalUnitConversions')
-                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            logger.get_logger().critical('Error populating AnalyticalUnitConversions')
+                            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                             return False
     return True
 
@@ -3784,9 +3785,9 @@ def populate_concordance_formats(database=None) -> bool:
                                 VALUES("{concordance_format[0]}","{concordance_format[1]}","{concordance_format[2]}")'''
         if not query.exec(sql):
             if 'UNIQUE constraint failed' not in query.lastError().text():
-                logger_setup.get_logger().critical('Error populating ConcordanceFormats')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().critical('Error populating ConcordanceFormats')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 return False
     return True
 
@@ -3847,9 +3848,9 @@ def populate_concordance_conversions(database=None) -> bool:
                     sql = f'''INSERT INTO ConcordanceFormatConversions(FromConcordanceFormatID, ToConcordanceFormatID, ConcordanceFormatConversionCalculation)
                                                             VALUES((SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format1][1]}"),(SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format2][1]}"),"{conversion1to2}")'''
                     if not query.exec(sql):
-                        logger_setup.get_logger().critical('Error populating ConcordanceFormatConversions')
-                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        logger.get_logger().critical('Error populating ConcordanceFormatConversions')
+                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                         return False
                 else:
                     current_conversion = concordance_conversion_model.record(0).value(
@@ -3858,9 +3859,9 @@ def populate_concordance_conversions(database=None) -> bool:
                         sql = f'''UPDATE ConcordanceFormatConversions SET ConcordanceFormatConversionCalculation = "{conversion1to2}"
                                                             WHERE FromConcordanceFormatID = (SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format1][1]}") AND ToConcordanceFormatID = (SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format2][1]}")'''
                         if not query.exec(sql):
-                            logger_setup.get_logger().critical('Error populating ConcordanceFormatConversions')
-                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            logger.get_logger().critical('Error populating ConcordanceFormatConversions')
+                            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                             return False
                 concordance_conversion_model.setFilter(
                     f'FromConcordanceFormatID = (SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format2][1]}") AND ToConcordanceFormatID = (SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format1][1]}")')
@@ -3868,9 +3869,9 @@ def populate_concordance_conversions(database=None) -> bool:
                     sql = f'''INSERT INTO ConcordanceFormatConversions(FromConcordanceFormatID, ToConcordanceFormatID, ConcordanceFormatConversionCalculation)
                                                             VALUES((SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format2][1]}"),(SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format1][1]}"),"{conversion2to1}")'''
                     if not query.exec(sql):
-                        logger_setup.get_logger().critical('Error populating ConcordanceFormatConversions')
-                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        logger.get_logger().critical('Error populating ConcordanceFormatConversions')
+                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                         return False
                 else:
                     current_conversion = concordance_conversion_model.record(0).value(
@@ -3879,9 +3880,9 @@ def populate_concordance_conversions(database=None) -> bool:
                         sql = f'''UPDATE ConcordanceFormatConversions SET ConcordanceFormatConversionCalculation = "{conversion2to1}"
                                                             WHERE FromConcordanceFormatID = (SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format2][1]}") AND ToConcordanceFormatID = (SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format1][1]}")'''
                         if not query.exec(sql):
-                            logger_setup.get_logger().critical('Error populating ConcordanceFormatConversions')
-                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            logger.get_logger().critical('Error populating ConcordanceFormatConversions')
+                            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                             return False
     return True
 
@@ -3902,9 +3903,9 @@ def populate_direction_units(database=None) -> bool:
                                 VALUES("{unit[0]}", "{unit[1]}", "{unit[2]}")'''
         if not query.exec(sql):
             if 'UNIQUE constraint failed' not in query.lastError().text():
-                logger_setup.get_logger().critical('Error populating DirectionUnits')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().critical('Error populating DirectionUnits')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 return False
     return True
 
@@ -3926,9 +3927,9 @@ def populate_distance_units(database=None) -> bool:
                                     VALUES("{unit[0]}","{unit[1]}")'''
         if not query.exec(sql):
             if 'UNIQUE constraint failed' not in query.lastError().text():
-                logger_setup.get_logger().critical('Error populating DistanceUnits')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().critical('Error populating DistanceUnits')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 return False
     return True
 
@@ -3974,9 +3975,9 @@ def populate_distance_conversions(database=None) -> bool:
                     sql = f'''INSERT INTO DistanceUnitConversions(FromDistanceUnitID, ToDistanceUnitID, DistanceUnitConversionCalculation)
                                             VALUES((SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}"),(SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}"),"{conversion1to2}")'''
                     if not query.exec(sql):
-                        logger_setup.get_logger().critical('Error populating DistanceUnitConversions')
-                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        logger.get_logger().critical('Error populating DistanceUnitConversions')
+                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                         return False
                 else:
                     current_conversion = distance_conversion_model.record(0).value('DistanceUnitConversionCalculation')
@@ -3984,9 +3985,9 @@ def populate_distance_conversions(database=None) -> bool:
                         sql = f'''UPDATE DistanceUnitConversions SET DistanceUnitConversionCalculation = "{conversion1to2}"
                                             WHERE FromDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}") AND ToDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}")'''
                         if not query.exec(sql):
-                            logger_setup.get_logger().critical('Error populating DistanceUnitConversions')
-                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            logger.get_logger().critical('Error populating DistanceUnitConversions')
+                            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                             return False
                 distance_conversion_model.setFilter(
                     f'FromDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}") AND ToDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}")')
@@ -3994,9 +3995,9 @@ def populate_distance_conversions(database=None) -> bool:
                     sql = f'''INSERT INTO DistanceUnitConversions(FromDistanceUnitID, ToDistanceUnitID, DistanceUnitConversionCalculation)
                                             VALUES((SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}"),(SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}"),"{conversion2to1}")'''
                     if not query.exec(sql):
-                        logger_setup.get_logger().critical('Error populating DistanceUnitConversions')
-                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        logger.get_logger().critical('Error populating DistanceUnitConversions')
+                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                         return False
                 else:
                     current_conversion = distance_conversion_model.record(0).value('DistanceUnitConversionCalculation')
@@ -4004,9 +4005,9 @@ def populate_distance_conversions(database=None) -> bool:
                         sql = f'''UPDATE DistanceUnitConversions SET DistanceUnitConversionCalculation = "{conversion2to1}"
                                             WHERE FromDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}") AND ToDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}")'''
                         if not query.exec(sql):
-                            logger_setup.get_logger().critical('Error populating DistanceUnitConversions')
-                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            logger.get_logger().critical('Error populating DistanceUnitConversions')
+                            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                             return False
     return True
 
@@ -4027,9 +4028,9 @@ def populate_error_formats(database=None) -> bool:
                                     VALUES("{error_format[0]}","{error_format[1]}","{error_format[2]}")'''
         if not query.exec(sql):
             if 'UNIQUE constraint failed' not in query.lastError().text():
-                logger_setup.get_logger().critical('Error populating ErrorFormats')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().critical('Error populating ErrorFormats')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 return False
     return True
 
@@ -4083,9 +4084,9 @@ def populate_error_conversions(database=None) -> bool:
                     sql = f'''INSERT INTO ErrorFormatConversions(FromErrorFormatID, ToErrorFormatID, ErrorFormatConversionCalculation)
                                         VALUES((SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format1][1]}"),(SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format2][1]}"),"{conversion1to2}")'''
                     if not query.exec(sql):
-                        logger_setup.get_logger().critical(f'Error populating ErrorFormatConversions')
-                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        logger.get_logger().critical(f'Error populating ErrorFormatConversions')
+                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                         return False
                 else:
                     current_conversion = error_conversion_model.record(0).value('ErrorFormatConversionCalculation')
@@ -4093,9 +4094,9 @@ def populate_error_conversions(database=None) -> bool:
                         sql = f'''UPDATE ErrorFormatConversions SET ErrorFormatConversionCalculation = "{conversion1to2}"
                                         WHERE FromErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format1][1]}") AND ToErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format2][1]}")'''
                         if not query.exec(sql):
-                            logger_setup.get_logger().critical(f'Error populating ErrorFormatConversions')
-                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            logger.get_logger().critical(f'Error populating ErrorFormatConversions')
+                            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                             return False
                 error_conversion_model.setFilter(
                     f'FromErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format2][1]}") AND ToErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format1][1]}")')
@@ -4103,9 +4104,9 @@ def populate_error_conversions(database=None) -> bool:
                     sql = f'''INSERT INTO ErrorFormatConversions(FromErrorFormatID, ToErrorFormatID, ErrorFormatConversionCalculation)
                                         VALUES((SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format2][1]}"),(SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format1][1]}"),"{conversion2to1}")'''
                     if not query.exec(sql):
-                        logger_setup.get_logger().critical(f'Error populating ErrorFormatConversions')
-                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        logger.get_logger().critical(f'Error populating ErrorFormatConversions')
+                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                         return False
                 else:
                     current_conversion = error_conversion_model.record(0).value('ErrorFormatConversionCalculation')
@@ -4113,9 +4114,9 @@ def populate_error_conversions(database=None) -> bool:
                         sql = f'''UPDATE ErrorFormatConversions SET ErrorFormatConversionCalculation = "{conversion2to1}"
                                         WHERE FromErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format2][1]}") AND ToErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format1][1]}")'''
                         if not query.exec(sql):
-                            logger_setup.get_logger().critical(f'Error populating ErrorFormatConversions')
-                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            logger.get_logger().critical(f'Error populating ErrorFormatConversions')
+                            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                             return False
     return True
 
@@ -4149,22 +4150,22 @@ def populate_geochemical_analytes(database=None) -> bool:
                     VALUES ("{geochemical_class[0]}","{geochemical_class[1]}", {parent_id}, {parent_row})'''
         if not query.exec(sql):
             if 'UNIQUE constraint failed' not in query.lastError().text():
-                logger_setup.get_logger().critical('Error populating GeoChemicalAnalyteClasses')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().critical('Error populating GeoChemicalAnalyteClasses')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 return False
             sql = f'''SELECT GeoChemAnalyteClassID FROM GeoChemicalAnalyteClasses WHERE GeoChemAnalyteClassName = "{geochemical_class[0]}"'''
             if not query.exec(sql):
-                logger_setup.get_logger().critical(f'Error populating GeoChemicalAnalytes')
-                logger_setup.get_logger().debug(f'Error searching GeoChemAnalyteClasses for "{geochemical_class[0]}"')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().critical(f'Error populating GeoChemicalAnalytes')
+                logger.get_logger().debug(f'Error searching GeoChemAnalyteClasses for "{geochemical_class[0]}"')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 return False
             if not query.next():
-                logger_setup.get_logger().critical(f'Error populating GeoChemicalAnalytes')
-                logger_setup.get_logger().debug(f'Error searching GeoChemAnalyteClasses for "{geochemical_class[0]}"')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().critical(f'Error populating GeoChemicalAnalytes')
+                logger.get_logger().debug(f'Error searching GeoChemAnalyteClasses for "{geochemical_class[0]}"')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 return False
             analyte_class_id = query.value(0)
         else:
@@ -4177,21 +4178,21 @@ def populate_geochemical_analytes(database=None) -> bool:
                                 VALUES("{geochemical_analyte[0]}","{geochemical_analyte[1]}","{geochemical_analyte[2]}")'''
         if not query.exec(sql):
             if 'UNIQUE constraint failed' not in query.lastError().text():
-                logger_setup.get_logger().critical('Error populating GeoChemicalAnalytes')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().critical('Error populating GeoChemicalAnalytes')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 return False
             else:
                 sql = f'''SELECT GeoChemAnalyteID FROM GeoChemicalAnalytes WHERE GeoChemAnalyteName = "{geochemical_analyte[0]}"'''
                 if not query.exec(sql):
-                    logger_setup.get_logger().critical('Error populating GeoChemicalAnalytes')
-                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    logger.get_logger().critical('Error populating GeoChemicalAnalytes')
+                    logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                    logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                     return False
                 if not query.next():
-                    logger_setup.get_logger().critical('Error populating GeoChemicalAnalytes')
-                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    logger.get_logger().critical('Error populating GeoChemicalAnalytes')
+                    logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                    logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                     return False
                 analyte_id = query.value(0)
         else:
@@ -4201,9 +4202,9 @@ def populate_geochemical_analytes(database=None) -> bool:
                     VALUES ({analyte_id}, {class_id})'''
         if not query.exec(sql):
             if 'UNIQUE constraint failed' not in query.lastError().text():
-                logger_setup.get_logger().critical('Error populating GeoChemicalAnalytes')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().critical('Error populating GeoChemicalAnalytes')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 return False
     return True
 
@@ -4226,9 +4227,9 @@ def populate_gps_formats(database=None) -> bool:
                     VALUES("{gps_format[0]}","{gps_format[1]}","{gps_format[2]}")'''
         if not query.exec(sql):
             if 'UNIQUE constraint failed' not in query.lastError().text():
-                logger_setup.get_logger().critical('Error populating GPSFormats')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().critical('Error populating GPSFormats')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 return False
     return True
 
@@ -4283,10 +4284,10 @@ def populate_gps_conversions(database=None) -> bool:
                     query.bindValue(1, id_1)
                     query.bindValue(2, f'''{conversion1to1}''')
                     if not query.exec():
-                        logger_setup.get_logger().critical('Error populating GPSFormatConversions')
-                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                        logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                        logger.get_logger().critical('Error populating GPSFormatConversions')
+                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                         return False
                 else:
                     current_conversion = gps_conversion_model.record(0).value('GPSFormatConversionCalculation')
@@ -4298,10 +4299,10 @@ def populate_gps_conversions(database=None) -> bool:
                         query.bindValue(1, id_1)
                         query.bindValue(2, id_1)
                         if not query.exec():
-                            logger_setup.get_logger().critical('Error populating GPSFormatConversions')
-                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                            logger.get_logger().critical('Error populating GPSFormatConversions')
+                            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                             return False
             if format2 > format1:
                 if '+/-' in gps_formats[format1][1] and '+/-' in gps_formats[format2][1]:
@@ -4469,10 +4470,10 @@ def populate_gps_conversions(database=None) -> bool:
                     query.bindValue(1, id_2)
                     query.bindValue(2, f'''{conversion1to2}''')
                     if not query.exec():
-                        logger_setup.get_logger().critical('Error populating GPSFormatConversions')
-                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                        logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                        logger.get_logger().critical('Error populating GPSFormatConversions')
+                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                         return False
                 else:
                     current_conversion = gps_conversion_model.record(0).value('GPSFormatConversionCalculation')
@@ -4483,10 +4484,10 @@ def populate_gps_conversions(database=None) -> bool:
                         query.bindValue(1, id_1)
                         query.bindValue(2, id_2)
                         if not query.exec():
-                            logger_setup.get_logger().critical('Error populating GPSFormatConversions')
-                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                            logger.get_logger().critical('Error populating GPSFormatConversions')
+                            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                             return False
                 gps_conversion_model.setFilter(f'FromGPSFormatID = {id_2} AND ToGPSFormatID = {id_1}')
                 if gps_conversion_model.rowCount() == 0:
@@ -4497,10 +4498,10 @@ def populate_gps_conversions(database=None) -> bool:
                     query.bindValue(1, id_1)
                     query.bindValue(2, f'''{conversion2to1}''')
                     if not query.exec():
-                        logger_setup.get_logger().critical('Error populating GPSFormatConversions')
-                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                        logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                        logger.get_logger().critical('Error populating GPSFormatConversions')
+                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                         return False
                 else:
                     current_conversion = gps_conversion_model.record(0).value('GPSFormatConversionCalculation')
@@ -4511,10 +4512,10 @@ def populate_gps_conversions(database=None) -> bool:
                         query.bindValue(1, id_2)
                         query.bindValue(2, id_1)
                         if not query.exec():
-                            logger_setup.get_logger().critical('Error populating GPSFormatConversions')
-                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                            logger.get_logger().critical('Error populating GPSFormatConversions')
+                            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                             return False
     return True
 
@@ -4619,19 +4620,19 @@ def add_age(age: tuple, database=None) -> bool:
                         VALUES({age[0]}, {age[1]}, "{age[2]}", {age[3]}, {age[4]}, "{age[5]}")'''
         if not query.exec(sql):
             if 'UNIQUE constraint failed' not in query.lastError().text():
-                logger_setup.get_logger().critical('Error populating Ages')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                logger.get_logger().critical('Error populating Ages')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                 return False
     else:
         sql = f'''INSERT INTO Ages(AgeParentRow, AgeName, OldestAge, YoungestAge, Color)
                         VALUES({age[1]}, "{age[2]}", {age[3]}, {age[4]}, "{age[5]}")'''
         if not query.exec(sql):
             if 'UNIQUE constraint failed' not in query.lastError().text():
-                logger_setup.get_logger().critical('Error populating Ages')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                logger.get_logger().critical('Error populating Ages')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                 return False
     return True

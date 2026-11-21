@@ -5,7 +5,7 @@ from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QLineEdit, QListWidget, QLayout, QSizePolicy, QListWidgetItem, QPushButton, QMessageBox)
 
-import logger_setup
+from util import logger
 from ui.DataViewerWidget import DataViewerWidget
 from util.loading_dialog_manager import show_loading_dialog
 from ui.filters.SaveFilterDialog import SaveFilterDialog
@@ -165,13 +165,13 @@ class FiltersTab(QWidget):
             query.prepare(sql_query)
             query.bindValue(":filter_name", item.text())
             if not query.exec():
-                logger_setup.get_logger().critical(
+                logger.get_logger().critical(
                     f'Could not delete filter')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL command: {sql_query}')
-                logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL command: {sql_query}')
+                logger.get_logger().debug(f'Bound values: {query.boundValues()}')
             else:
-                logger_setup.get_logger().info(f'Filter {item.text()} deleted')
+                logger.get_logger().info(f'Filter {item.text()} deleted')
 
     def update_filter_list(self):
         """
@@ -180,7 +180,7 @@ class FiltersTab(QWidget):
         self.filter_list_widget.clear()
         query = QSqlQuery()
         sql_query = "SELECT * FROM FilterGroups;"
-        logger_setup.get_logger().debug(f'Updating filter list')
+        logger.get_logger().debug(f'Updating filter list')
         if query.exec(sql_query):
             while query.next():
                 item = QListWidgetItem()
@@ -189,9 +189,9 @@ class FiltersTab(QWidget):
                 self.filter_list_widget.addItem(item)
             self.filter_list_widget.sortItems()
         else:
-            logger_setup.get_logger().info(f'Failed to get all filters from the database')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+            logger.get_logger().info(f'Failed to get all filters from the database')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL command: {sql_query}')
 
     def filter_items(self, text: str):
         """

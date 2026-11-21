@@ -6,11 +6,11 @@ from PyQt6.QtGui import QStandardItem
 from PyQt6.QtWidgets import QWidget, QListView, QMessageBox
 from PyQt6.uic import loadUi
 
-import logger_setup
-from Functions import SQLUtils
-from Functions.Settings_manager import SettingsManager
+from util import logger
+from util.settings_manager import SettingsManager
 from util.database.database_helper import get_name_column
 from ui.settings import SettingsCore
+from util.database.views import view_setting_dict
 from util.widgets.models.item_models import ColumnItemModel
 from util.widgets.models.proxy_models import ColumnListProxyModel
 from util.widgets.views.list_views import ReorderListView
@@ -29,7 +29,7 @@ class SelectColumns(QWidget):
         if 'SampleIfNullView' in self.view_dict:
             self.view_dict.pop('SampleIfNullView')
 
-        self.view_setting_dict = SQLUtils.view_setting_dict.copy()
+        self.view_setting_dict = view_setting_dict.copy()
 
         # Columns that view selections must have but are always hidden: parent ID fields and tree structure fields
         self.hidden_must_haves = ['SampleID', 'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'SpotID',
@@ -51,7 +51,7 @@ class SelectColumns(QWidget):
         self.show_missing_checkBox.stateChanged.connect(self.update_show_missing)
 
     def populate_stack(self):
-        logger_setup.get_logger().info('Populating column selection stack')
+        logger.get_logger().info('Populating column selection stack')
         for view_name in self.view_dict:
             # Create a QListView for each table
             column_list_view = ReorderListView()
@@ -67,7 +67,7 @@ class SelectColumns(QWidget):
             self.columnattributes_stack.addWidget(column_list_view)
 
     def check_list_view(self, view_name: str):
-        logger_setup.get_logger().info(f'Populating checks for {view_name}')
+        logger.get_logger().info(f'Populating checks for {view_name}')
         model = ColumnItemModel()
         view_name_col = get_name_column(view_name)
         field_items = settings.value(f'default_{self.view_setting_dict[view_name]}')
@@ -122,7 +122,7 @@ class SelectColumns(QWidget):
         self.reset_table_pushButton.setText(f'Reset {selected_view_name}')
 
     def reset_table_columns(self):
-        logger_setup.get_logger().info('Resetting table columns')
+        logger.get_logger().info('Resetting table columns')
         selected_view_index = self.columnselection_comboBox.currentIndex()
         selected_view = self.columnselection_comboBox.currentText()
         settings.setValue(self.view_setting_dict[selected_view],
@@ -131,14 +131,14 @@ class SelectColumns(QWidget):
         column_list_view = self.columnattributes_stack.widget(selected_view_index)
         proxy_model = self.check_list_view(selected_view)
         column_list_view.setModel(proxy_model)
-        logger_setup.get_logger().info('Reset table columns')
+        logger.get_logger().info('Reset table columns')
 
     def save_list_states(self):
         # Save the number of rows to show per page
         settings.setValue('show_per_page', int(self.show_per_page_comboBox.currentText()))
 
         # Save the state of checkboxes for all tables
-        logger_setup.get_logger().info('Saving column selections')
+        logger.get_logger().info('Saving column selections')
         for index in range(self.columnattributes_stack.count()):
             view_widget = self.columnattributes_stack.widget(index)
             view_name = self.columnselection_comboBox.itemText(index)
@@ -167,13 +167,13 @@ class SelectColumns(QWidget):
 
                 # Store list of checked columns in the settings
                 settings.setValue(self.view_setting_dict[view_name], view_columns)
-                logger_setup.get_logger().info(f'Saved {view_name} columns')
-        logger_setup.get_logger().info('Saved all column selections')
+                logger.get_logger().info(f'Saved {view_name} columns')
+        logger.get_logger().info('Saved all column selections')
         # self.load_list_states()
 
     def load_list_states(self):
         # Load the state of checkboxes and order of fields for all tables from the settings
-        logger_setup.get_logger().info('Loading column selections')
+        logger.get_logger().info('Loading column selections')
         for index in range(self.columnattributes_stack.count()):
             view_widget = self.columnattributes_stack.widget(index)
             view_name = self.columnselection_comboBox.itemText(index)

@@ -2,7 +2,7 @@ import sqlite3
 from util.database.database_helper import get_name_column
 
 import Functions.SQLUtils as SQLUtils
-import logger_setup
+from util import logger
 
 
 def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
@@ -20,8 +20,8 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
         source_conn = sqlite3.connect(source_db_path)
         incoming_conn = sqlite3.connect(incoming_db_path)
     except sqlite3.Error as e:
-        logger_setup.get_logger().critical(f"Error opening database")
-        logger_setup.get_logger().debug(f"{e.sqlite_errorname}: {e}")
+        logger.get_logger().critical(f"Error opening database")
+        logger.get_logger().debug(f"{e.sqlite_errorname}: {e}")
         return False
 
 
@@ -47,8 +47,8 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
                 "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
             ).fetchall()
         except sqlite3.Error as e:
-            logger_setup.get_logger().critical(f"Error opening database and executing query")
-            logger_setup.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
+            logger.get_logger().critical(f"Error opening database and executing query")
+            logger.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
             raise e
 
         table_names = ["\"" + r[0] + "\"" for r in rows]
@@ -82,8 +82,8 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
             return info
 
         except sqlite3.Error as e:
-            logger_setup.get_logger().critical(f'Error acquiring foreign key list')
-            logger_setup.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
+            logger.get_logger().critical(f'Error acquiring foreign key list')
+            logger.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
             raise e
 
     def get_foreign_key_info(conn: sqlite3.Connection, table: str):
@@ -109,8 +109,8 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
                 })
             return fks
         except sqlite3.Error as e:
-            logger_setup.get_logger().critical(f'Error acquiring foreign key list')
-            logger_setup.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
+            logger.get_logger().critical(f'Error acquiring foreign key list')
+            logger.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
             raise e
 
 
@@ -215,9 +215,9 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
         try:
             incoming_rows = incoming_conn.execute(select_sql).fetchall()
         except sqlite3.Error as e:
-            logger_setup.get_logger().critical(f'Could not select largest parent row for null parents')
-            logger_setup.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
-            logger_setup.get_logger().debug(f"SQL command: {select_sql}")
+            logger.get_logger().critical(f'Could not select largest parent row for null parents')
+            logger.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
+            logger.get_logger().debug(f"SQL command: {select_sql}")
             return False
 
 
@@ -260,10 +260,10 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
                             name_count[current_value] = 1
                         to_insert[name_index] = current_value + f'({name_count[current_value]})'
                     else:
-                        logger_setup.get_logger().critical(f'Could not insert row into database')
-                        logger_setup.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
-                        logger_setup.get_logger().debug(f"SQL command: {insert_sql}")
-                        logger_setup.get_logger().debug(f'SQL row: {to_insert}')
+                        logger.get_logger().critical(f'Could not insert row into database')
+                        logger.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
+                        logger.get_logger().debug(f"SQL command: {insert_sql}")
+                        logger.get_logger().debug(f'SQL row: {to_insert}')
                         return False
 
             # Retrieve new pk
@@ -271,8 +271,8 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
                 try:
                     new_pk_val = source_conn.execute("SELECT last_insert_rowid();").fetchone()[0]
                 except sqlite3.Error as e:
-                    logger_setup.get_logger().critical(f'Error acquiring last insert primary key')
-                    logger_setup.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
+                    logger.get_logger().critical(f'Error acquiring last insert primary key')
+                    logger.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
                     return False
 
                 id_map[table_name][old_pk_val] = new_pk_val
@@ -302,9 +302,9 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
         try:
             all_rows = incoming_conn.execute(select_sql).fetchall()
         except sqlite3.Error as e:
-            logger_setup.get_logger().critical(f'Could not select rows from database')
-            logger_setup.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
-            logger_setup.get_logger().debug(f"SQL command: {select_sql}")
+            logger.get_logger().critical(f'Could not select rows from database')
+            logger.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
+            logger.get_logger().debug(f"SQL command: {select_sql}")
             return False
 
         # Convert to dict: old_pk -> row_dict
@@ -332,9 +332,9 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
             if largest_null_parentrow is None:
                 largest_null_parentrow = -1
         except sqlite3.Error as e:
-            logger_setup.get_logger().critical(f'Could not select largest parent row for null parents')
-            logger_setup.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
-            logger_setup.get_logger().debug(f"SQL command: {parentrow_sql}")
+            logger.get_logger().critical(f'Could not select largest parent row for null parents')
+            logger.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
+            logger.get_logger().debug(f"SQL command: {parentrow_sql}")
             return False
 
         # Repeatedly scan all rows; insert any row whose parent is inserted or NULL
@@ -386,18 +386,18 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
                                 current_value = str(to_insert[2])
                                 to_insert[2] = current_value + '(1)'
                             else:
-                                logger_setup.get_logger().critical(f'Could not insert row into database')
-                                logger_setup.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
-                                logger_setup.get_logger().debug(f"SQL command: {insert_sql}")
-                                logger_setup.get_logger().debug(f'SQL row: {to_insert}')
+                                logger.get_logger().critical(f'Could not insert row into database')
+                                logger.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
+                                logger.get_logger().debug(f"SQL command: {insert_sql}")
+                                logger.get_logger().debug(f'SQL row: {to_insert}')
                                 return False
 
                     # Get new PK
                     try:
                         new_pk_val = source_conn.execute("SELECT last_insert_rowid();").fetchone()[0]
                     except sqlite3.Error as e:
-                        logger_setup.get_logger().critical(f'Error finding last insert')
-                        logger_setup.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
+                        logger.get_logger().critical(f'Error finding last insert')
+                        logger.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
                         return False
 
                     id_map[table_name][old_pk] = new_pk_val
@@ -441,9 +441,9 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
         try:
             rows = incoming_conn.execute(select_sql).fetchall()
         except sqlite3.Error as e:
-            logger_setup.get_logger().critical(f'Could not select rows from database')
-            logger_setup.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
-            logger_setup.get_logger().debug(f"SQL command: {select_sql}")
+            logger.get_logger().critical(f'Could not select rows from database')
+            logger.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
+            logger.get_logger().debug(f"SQL command: {select_sql}")
             return False
 
         # We'll skip the bridging table's PK column (if any) so it re-generates
@@ -478,17 +478,17 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
                 source_conn.execute(insert_sql, to_insert)
             except sqlite3.Error as e:
                 if "UNIQUE constraint failed" in e.__str__():
-                    logger_setup.get_logger().info(f"Relationship already in table {table_name}. Skipping")
-                    logger_setup.get_logger().debug(f"{to_insert}")
+                    logger.get_logger().info(f"Relationship already in table {table_name}. Skipping")
+                    logger.get_logger().debug(f"{to_insert}")
                 elif "NOT NULL constraint failed" in e.__str__():
                     # removes 'orphaned' data
-                    logger_setup.get_logger().info(f"One of the {table_name} does not exist in the original or merged database. Skipping")
-                    logger_setup.get_logger().debug(f"{to_insert}")
+                    logger.get_logger().info(f"One of the {table_name} does not exist in the original or merged database. Skipping")
+                    logger.get_logger().debug(f"{to_insert}")
                 else:
-                    logger_setup.get_logger().critical(f'Could not insert row into database')
-                    logger_setup.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
-                    logger_setup.get_logger().debug(f"SQL command: {insert_sql}")
-                    logger_setup.get_logger().debug(f'SQL row: {to_insert}')
+                    logger.get_logger().critical(f'Could not insert row into database')
+                    logger.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
+                    logger.get_logger().debug(f"SQL command: {insert_sql}")
+                    logger.get_logger().debug(f'SQL row: {to_insert}')
                     return False
 
             # If bridging table has a PK, update the map
@@ -498,8 +498,8 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
                 try:
                     new_pk_val = source_conn.execute("SELECT last_insert_rowid();").fetchone()[0]
                 except sqlite3.Error as e:
-                    logger_setup.get_logger().critical(f'Error acquiring last insert primary key')
-                    logger_setup.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
+                    logger.get_logger().critical(f'Error acquiring last insert primary key')
+                    logger.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
                     return False
 
                 id_map[table_name][old_pk_val] = new_pk_val
@@ -525,9 +525,9 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
         try:
             incoming_rows = incoming_conn.execute(select_sql).fetchall()
         except sqlite3.Error as e:
-            logger_setup.get_logger().critical(f'Could not select rows from database')
-            logger_setup.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
-            logger_setup.get_logger().debug(f"SQL command: {select_sql}")
+            logger.get_logger().critical(f'Could not select rows from database')
+            logger.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
+            logger.get_logger().debug(f"SQL command: {select_sql}")
             return False
 
         # Prepare an INSERT statement for all columns except the PK
@@ -587,8 +587,8 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
                         current_value = str(to_insert[name_index])
                         to_insert[name_index] = current_value + '(1)'
                     elif "NOT NULL constraint failed" in str(e):
-                        logger_setup.get_logger().info(f'{str(e)}')
-                        logger_setup.get_logger().debug(f"{to_insert}")
+                        logger.get_logger().info(f'{str(e)}')
+                        logger.get_logger().debug(f"{to_insert}")
                         break
                     else:
                         # It's another error we don't want to handle here; re-raise
@@ -599,8 +599,8 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
                 try:
                     new_pk_val = source_conn.execute("SELECT last_insert_rowid();").fetchone()[0]
                 except sqlite3.Error as e:
-                    logger_setup.get_logger().critical(f'Error finding last insert')
-                    logger_setup.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
+                    logger.get_logger().critical(f'Error finding last insert')
+                    logger.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
                     return False
                 id_map[table_name][old_pk_val] = new_pk_val
         return True
@@ -630,9 +630,9 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
         try:
             all_rows = incoming_conn.execute(select_sql).fetchall()
         except sqlite3.Error as e:
-            logger_setup.get_logger().critical(f'[{table_name}] Could not select rows from database')
-            logger_setup.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
-            logger_setup.get_logger().debug(f"SQL command: {select_sql}")
+            logger.get_logger().critical(f'[{table_name}] Could not select rows from database')
+            logger.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
+            logger.get_logger().debug(f"SQL command: {select_sql}")
             return False
 
         # Convert to dict: old_pk -> row_dict
@@ -719,10 +719,10 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
                                 current_value = str(to_insert[name_index])
                                 to_insert[name_index] = current_value + "(1)"
                             else:
-                                logger_setup.get_logger().critical(f'[{table_name}] Could not insert row')
-                                logger_setup.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
-                                logger_setup.get_logger().debug(f"SQL command: {insert_sql}")
-                                logger_setup.get_logger().debug(f"Row data: {to_insert}")
+                                logger.get_logger().critical(f'[{table_name}] Could not insert row')
+                                logger.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
+                                logger.get_logger().debug(f"SQL command: {insert_sql}")
+                                logger.get_logger().debug(f"Row data: {to_insert}")
                                 return False
 
                     # If table has a PK, fetch the new PK
@@ -730,8 +730,8 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
                         try:
                             new_pk_val = source_conn.execute("SELECT last_insert_rowid();").fetchone()[0]
                         except sqlite3.Error as e:
-                            logger_setup.get_logger().critical(f"[{table_name}] Error finding last insert")
-                            logger_setup.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
+                            logger.get_logger().critical(f"[{table_name}] Error finding last insert")
+                            logger.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')
                             return False
                         # record old_pk->new_pk
                         id_map[table_name][old_pk] = new_pk_val
@@ -746,7 +746,7 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
 
         if rows_to_insert:
             # Some rows never got inserted, possibly cyclical references or a missing parent
-            logger_setup.get_logger().critical(f"[{table_name}] Not all rows were inserted. Possibly a cycle. Remaining: {rows_to_insert}")
+            logger.get_logger().critical(f"[{table_name}] Not all rows were inserted. Possibly a cycle. Remaining: {rows_to_insert}")
 
         return True
 
@@ -758,7 +758,7 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
     all_tables = SQLUtils.database_ordered_tables
     for t in all_tables:
         t = f'"{t}"'
-        logger_setup.get_logger().info(f"Merging table {t}")
+        logger.get_logger().info(f"Merging table {t}")
         if t == '"Aliquots"':
             if not merge_self_ref_table_with_foreign_keys(t):
                 return False
@@ -787,5 +787,5 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
     source_conn.close()
     incoming_conn.close()
 
-    logger_setup.get_logger().info('Merged successfully')
+    logger.get_logger().info('Merged successfully')
     return True

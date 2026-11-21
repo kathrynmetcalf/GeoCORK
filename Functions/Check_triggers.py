@@ -1,7 +1,7 @@
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtSql as QtS
 
-import logger_setup
+from util import logger
 from util.database.database_helper import get_headers, get_name_from_id
 
 
@@ -13,7 +13,7 @@ def update_modified_timestamp(table: str, record_ids: list):
     :return:
     """
     if not record_ids or not table:
-        logger_setup.get_logger().error('No record ids or table given for updating modified timestamp')
+        logger.get_logger().error('No record ids or table given for updating modified timestamp')
         return
     # Get the header for the first column, the ID column
 
@@ -27,14 +27,14 @@ def update_modified_timestamp(table: str, record_ids: list):
         return f'Unable to find modified header for {table}'
     record_id_header = headers[0]
     query = QtS.QSqlQuery()
-    logger_setup.get_logger().info('Updating modified timestamp')
+    logger.get_logger().info('Updating modified timestamp')
     if len(record_ids) > 1:
         where_sql = f'{record_id_header} IN {tuple(record_ids)}'
     elif len(record_ids) == 1:
         where_sql = f'{record_id_header} = {record_ids[0]}'
     if not query.exec(f'UPDATE {table} SET {modified_header} = CURRENT_TIMESTAMP WHERE {where_sql}'):
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        logger.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
         return f'Error updating modified timestamp for {table}'
     return ''
 
@@ -170,10 +170,10 @@ def validate_update(table: str, columns: list, values: list, where: str):
     table_model.setQuery(f'SELECT * FROM {table} WHERE {where}')
     if table_model.lastError().text():
         error = f'Error validating updated values for {table}'
-        logger_setup.get_logger().debug(error)
-        logger_setup.get_logger().debug(f'Error getting current values for {table}')
-        logger_setup.get_logger().debug(f'Error: {table_model.lastError().text()}')
-        logger_setup.get_logger().debug(f'Query: SELECT * FROM {table} WHERE {where}')
+        logger.get_logger().debug(error)
+        logger.get_logger().debug(f'Error getting current values for {table}')
+        logger.get_logger().debug(f'Error: {table_model.lastError().text()}')
+        logger.get_logger().debug(f'Query: SELECT * FROM {table} WHERE {where}')
         return error, None
     all_records = []
     for col in range(1, table_model.columnCount()):
@@ -272,7 +272,7 @@ def validate_update(table: str, columns: list, values: list, where: str):
                     return f'{age_list[index].replace(f'"', '')} missing units', header
             error, header = check_update_pairs(all_records, age_error_list[index], 'AgeErrorFormatID')
             if error:
-                # An error format with no error value in this column is fine (the import wizard sets the
+                # An error format with no error value in this column is fine (the input wizard sets the
                 # error format globally, so it is present even for age error columns that were not mapped)
                 if error != f'AgeErrorFormatID missing {age_error_list[index].replace(f'"', '')}':
                     return "Age error given without error format", header
@@ -971,7 +971,7 @@ def check_insert_concordance(pairs: list, concordance_format_id: int):
 def check_update_concordance(all_records: list):
     """
     Check that concordance/discordance values will not be left without a concordance format after the update.
-    A concordance format with no concordance values is allowed (the import wizard sets the format globally from a
+    A concordance format with no concordance values is allowed (the input wizard sets the format globally from a
     combo box, so it is present even when no concordance columns were mapped).
     Columns not being updated have a new value of '' and are checked against their old values.
     :param list all_records: list of lists [column_name, new_value, old_values] for each column in the table

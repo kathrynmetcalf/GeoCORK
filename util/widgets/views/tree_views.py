@@ -3,9 +3,9 @@ import time
 from PyQt6 import QtWidgets, QtCore, QtGui
 from PyQt6.QtCore import QSortFilterProxyModel
 
-import logger_setup
+from util import logger
 from Functions import SQLUtils
-from Functions.Settings_manager import SettingsManager
+from util.settings_manager import SettingsManager
 from util.database.database_helper import find_tree_model, map_from_tree_model
 from util.loading_dialog_manager import close_loading_dialog, show_loading_dialog
 from util.widgets.models.tree_models import CheckableTreeModel
@@ -22,7 +22,7 @@ def save_expanded_state(table: str, tree_view: QtWidgets.QTreeView):
     if table not in SQLUtils.user_viewable_tables and table != 'Aliquots' and table != 'Ages':
         return
     show_loading_dialog('Saving expanded state', f'Saving the expanded state of {table}...')
-    logger_setup.get_logger().info(f'Saving the expanded state of {table}...')
+    logger.get_logger().info(f'Saving the expanded state of {table}...')
     start_save_expanded_time = time.time()
     if isinstance(tree_view, TrackExpandedTreeView):
         expanded_ids = tree_view.expanded_ids
@@ -43,7 +43,7 @@ def save_expanded_state(table: str, tree_view: QtWidgets.QTreeView):
             save_state(model.index(i, 0, root_index))
 
     settings.setValue(f'expanded_ids_{table}', expanded_ids)
-    logger_setup.get_logger().debug(f'Expanded state saved for {table} table in {time.time() - start_save_expanded_time} seconds')
+    logger.get_logger().debug(f'Expanded state saved for {table} table in {time.time() - start_save_expanded_time} seconds')
     close_loading_dialog('Saving expanded state', f'Saving the expanded state of {table}...')
 
 def restore_expanded_state(table: str, tree_view: QtWidgets.QTreeView):
@@ -55,7 +55,7 @@ def restore_expanded_state(table: str, tree_view: QtWidgets.QTreeView):
     """
     # logger_setup.get_logger().info(f'Restoring expanded state for {table} table')
     show_loading_dialog('Restoring expanded state', f'Restoring the expanded state of {table}...')
-    logger_setup.get_logger().info(f'Restoring the expanded state of {table}...')
+    logger.get_logger().info(f'Restoring the expanded state of {table}...')
     start_expand_tree_time = time.time()
     expanded_ids = settings.value(f'expanded_ids_{table}', set())
     if isinstance(tree_view, TrackExpandedTreeView):
@@ -78,7 +78,7 @@ def restore_expanded_state(table: str, tree_view: QtWidgets.QTreeView):
                 restore_state(model.index(row, 0, index))
         restore_state(QtCore.QModelIndex())
 
-    logger_setup.get_logger().info(f'Expanded state restored in {time.time() - start_expand_tree_time} seconds')
+    logger.get_logger().info(f'Expanded state restored in {time.time() - start_expand_tree_time} seconds')
     close_loading_dialog('Restoring expanded state', f'Restoring the expanded state of {table}...')
 
 def expand_all_children(tree_view: QtWidgets.QTreeView, parent_index: QtCore.QModelIndex):
@@ -170,7 +170,7 @@ def expand_collapse(tree_view: QtWidgets.QTreeView, action: QtGui.QAction):
     try:
         table = tree_model.tableName()
     except AttributeError:
-        logger_setup.get_logger().error('Error saving expanded state')
+        logger.get_logger().error('Error saving expanded state')
         return
     save_expanded_state(table, tree_view)
 
@@ -210,14 +210,14 @@ class TrackExpandedTreeView(QtWidgets.QTreeView):
         tree_model = find_tree_model(self.model(), [])[0]
         if not tree_model:
             return
-        logger_setup.get_logger().info(f'Expanding {len(self.expanded_ids)} items')
+        logger.get_logger().info(f'Expanding {len(self.expanded_ids)} items')
         start_time = time.time()
         for expanded_id in self.expanded_ids:
             index = self.id_to_index(expanded_id)
             if index and index.isValid() and not self.isExpanded(index):
                 self.setExpanded(index, True)
-                logger_setup.get_logger().info(f'Expanded ID {expanded_id}')
-        logger_setup.get_logger().info(
+                logger.get_logger().info(f'Expanded ID {expanded_id}')
+        logger.get_logger().info(
             f'Expanded {len(self.expanded_ids)} items in {time.time() - start_time:.2f} seconds')
 
     def id_to_index(self, item_id: int):
@@ -232,7 +232,7 @@ class TrackExpandedTreeView(QtWidgets.QTreeView):
                 return QtCore.QModelIndex()
             return index
         except:
-            logger_setup.get_logger().critical(f'Error expanding/collapsing {tree_model.tableName()}')
+            logger.get_logger().critical(f'Error expanding/collapsing {tree_model.tableName()}')
             return QtCore.QModelIndex()
 
     def index_to_id(self, index: QtCore.QModelIndex):
@@ -243,7 +243,7 @@ class TrackExpandedTreeView(QtWidgets.QTreeView):
             item_id = tree_model.getItem(tree_indexes[0]).data(0)
             return item_id
         except:
-            logger_setup.get_logger().critical(f'Error expanding/collapsing {tree_model.tableName()}')
+            logger.get_logger().critical(f'Error expanding/collapsing {tree_model.tableName()}')
             return None
 
     def on_expanded(self, index):
@@ -288,8 +288,8 @@ class CheckableTreeView(TrackExpandedTreeView):
             return
         tree_model, indexes = find_tree_model(model, [])
         if not tree_model:
-            logger_setup.get_logger().critical('Error displaying tree')
-            logger_setup.get_logger().debug(f'No tree model found for model passed to CheckableTreeView')
+            logger.get_logger().critical('Error displaying tree')
+            logger.get_logger().debug(f'No tree model found for model passed to CheckableTreeView')
             return
         from util.widgets.models.proxy_models import TreeSortFilterProxyModel
         if isinstance(model, TreeSortFilterProxyModel):
@@ -360,7 +360,7 @@ class CheckableTreeView(TrackExpandedTreeView):
         """
         tree_model, indexes = find_tree_model(self.model(), [])
         if not tree_model:
-            logger_setup.get_logger().info(f'No checkable tree model found in {self.objectName()}')
+            logger.get_logger().info(f'No checkable tree model found in {self.objectName()}')
             return
         if not tree_model.checked_ids and not tree_model.partially_checked_ids:
             return

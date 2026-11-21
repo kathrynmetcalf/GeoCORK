@@ -3,13 +3,14 @@ import time
 from PyQt6 import QtWidgets, QtCore, QtSql
 from PyQt6.QtCore import QSortFilterProxyModel
 
-import logger_setup
+from util import logger
 import util.Text_manipulations as TxM
 from Functions import SQLUtils
 from Functions.Database_views import ViewQuery
-from Functions.Settings_manager import SettingsManager
+from util.settings_manager import SettingsManager
 from util.database.database_helper import get_view_from_table, get_name_column, \
     get_headers, set_table, show_column, get_edit_column, get_name_from_id
+from util.database.views import view_setting_dict
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
 from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
@@ -82,12 +83,12 @@ def populate_combo_box(comboBox: QtWidgets.QComboBox, **kwargs):
     elif table == 'Ages':
         model = SQLiteTableModel('SELECT * FROM Ages')
         if model.last_error:
-            logger_setup.get_logger().error(f'Error setting up Ages table model')
+            logger.get_logger().error(f'Error setting up Ages table model')
             return
     elif table != get_view_from_table(table):
         # If the table is a view
         # Need to use a special view query
-        query_args = {'show_columns': settings.value(SQLUtils.view_setting_dict[get_view_from_table(table)])}
+        query_args = {'show_columns': settings.value(view_setting_dict[get_view_from_table(table)])}
         view_query = ViewQuery(table, edit_view=False, **query_args)
         query = view_query.table_query
         if settings.value('show_items_missing_data'):
@@ -166,8 +167,8 @@ def populate_combo_box(comboBox: QtWidgets.QComboBox, **kwargs):
                     proxy_model.setSourceModel(checkable_model)
                     comboBox.setModel(proxy_model)
                 except Exception as e:
-                    logger_setup.get_logger().critical(f'Error setting model for combo box {comboBox.objectName()}')
-                    logger_setup.get_logger().debug(f'Error: {e}')
+                    logger.get_logger().critical(f'Error setting model for combo box {comboBox.objectName()}')
+                    logger.get_logger().debug(f'Error: {e}')
                     return
             if checkable_model and not checkable_model.tableName():
                 if table:
@@ -199,7 +200,7 @@ def populate_combo_box(comboBox: QtWidgets.QComboBox, **kwargs):
         if name_col is not None:
             show_column(comboBox, name_col)
     close_loading_dialog('Loading', f'Populating {model.rowCount()} {table}')
-    logger_setup.get_logger().debug(
+    logger.get_logger().debug(
         f'Populated combo box {comboBox.objectName()} in {time.time() - start_populate_combo_time} seconds')
 
 
@@ -237,7 +238,7 @@ def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel
     elif len(item_ids) == 1:
         query_where_str = f'= {item_ids[0]}'
     else:
-        logger_setup.get_logger().info(f'No item IDs provided to populate model checks for {model.tableName()}')
+        logger.get_logger().info(f'No item IDs provided to populate model checks for {model.tableName()}')
         model.blockSignals(True)
         model.clear_checks()
         model.blockSignals(False)
@@ -246,15 +247,15 @@ def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel
     # Check that the table_id_header is in the item_table headers
     table_id_header = get_edit_column(table_id_header, item_table)
     if not table_id_header:
-        logger_setup.get_logger().critical(f'Error populating checks for {model.tableName()}')
-        logger_setup.get_logger().debug(f'Could not find {model.tableName()} ID header in {item_table}')
+        logger.get_logger().critical(f'Error populating checks for {model.tableName()}')
+        logger.get_logger().debug(f'Could not find {model.tableName()} ID header in {item_table}')
         return False
     if not isinstance(model, LazyCheckableSqlTableModel | LazyCheckableSqlQueryModel):
         while model.canFetchMore(QtCore.QModelIndex()):
             model.fetchMore(QtCore.QModelIndex())
     if 'View' in item_table:
         # If the item_table is a view, we need to use the view query
-        show_columns = settings.value(SQLUtils.view_setting_dict[item_table])
+        show_columns = settings.value(view_setting_dict[item_table])
         where = f"WHERE {item_id_header} {query_where_str}"
         edit_view = True if 'Edit' in item_table else False
         query_args = {'show_columns': show_columns, 'where': where}
@@ -266,9 +267,9 @@ def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel
         association_query_str = f"SELECT {table_id_header}, {item_id_header} FROM {item_table} WHERE {item_id_header} {query_where_str}"
     association_query = QtSql.QSqlQuery()
     if not association_query.exec(association_query_str):
-        logger_setup.get_logger().critical(f'Error getting checks for {model.tableName()}')
-        logger_setup.get_logger().debug(f'Error: {association_query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {association_query_str}')
+        logger.get_logger().critical(f'Error getting checks for {model.tableName()}')
+        logger.get_logger().debug(f'Error: {association_query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {association_query_str}')
         close_loading_dialog('Checking model',
                              f'Checking {row_count} {model.tableName()}...')
         return False
@@ -291,7 +292,7 @@ def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel
         model.load_checked()
 
     close_loading_dialog('Checking model', f'Checking {row_count} {model.tableName()}...')
-    logger_setup.get_logger().debug(
+    logger.get_logger().debug(
         f'Populated model checks for {model.tableName()} in {time.time() - start_populate_model_checks_time} seconds')
     return True
 
@@ -329,8 +330,8 @@ def populate_tree_model_checks(tree_model: CheckableTreeModel, item_ids: list, i
     # Check that the table_id_header is in the item_table headers
     table_id_header = get_edit_column(table_id_header, item_table)
     if not table_id_header:
-        logger_setup.get_logger().critical(f'Error populating checks for {tree_model.tableName()}')
-        logger_setup.get_logger().debug(f'Could not find {tree_model.tableName()} ID header in {item_table}')
+        logger.get_logger().critical(f'Error populating checks for {tree_model.tableName()}')
+        logger.get_logger().debug(f'Could not find {tree_model.tableName()} ID header in {item_table}')
         return False
     item_id_header = get_headers(item_table)[0]
     if len(item_ids) > 1:
@@ -338,7 +339,7 @@ def populate_tree_model_checks(tree_model: CheckableTreeModel, item_ids: list, i
     elif len(item_ids) == 1:
         query_where_str = f'= {item_ids[0]}'
     else:
-        logger_setup.get_logger().info(f'No item IDs provided to populate model checks for {tree_model.tableName()}')
+        logger.get_logger().info(f'No item IDs provided to populate model checks for {tree_model.tableName()}')
         tree_model.blockSignals(True)
         tree_model.clear_checks()
         tree_model.blockSignals(False)
@@ -347,9 +348,9 @@ def populate_tree_model_checks(tree_model: CheckableTreeModel, item_ids: list, i
     association_query_str = f"SELECT {table_id_header}, {item_id_header} FROM {item_table} WHERE {item_id_header} {query_where_str}"
     association_query = QtSql.QSqlQuery()
     if not association_query.exec(association_query_str):
-        logger_setup.get_logger().critical(f'Error getting checks for {table}')
-        logger_setup.get_logger().debug(f'Error: {association_query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {association_query_str}')
+        logger.get_logger().critical(f'Error getting checks for {table}')
+        logger.get_logger().debug(f'Error: {association_query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {association_query_str}')
         close_loading_dialog('Checking model', f'Checking {row_count} {table}...')
         return False
     while association_query.next():
@@ -370,7 +371,7 @@ def populate_tree_model_checks(tree_model: CheckableTreeModel, item_ids: list, i
     if isinstance(tree_model, LazyCheckableTreeModel):
         tree_model.load_checked()
     close_loading_dialog('Checking model', f'Checking {row_count} {table}...')
-    logger_setup.get_logger().debug(
+    logger.get_logger().debug(
         f'Populated tree model checks for {table} in {time.time() - start_populate_tree_model_checks_time} seconds')
     return True
 
@@ -392,13 +393,13 @@ def populate_many_model_checks(many_to_many_table: str,
     :return:
     """
     start_populate_many_checks_time = time.time()
-    logger_setup.get_logger().info(f"Populating checks for {many_to_many_table}")
+    logger.get_logger().info(f"Populating checks for {many_to_many_table}")
     if not first_table_ids or len(first_table_ids) == 0:
-        logger_setup.get_logger().info("No items selected, so unchecking everything")
+        logger.get_logger().info("No items selected, so unchecking everything")
         model.blockSignals(True)
         model.clear_checks()
         model.blockSignals(False)
-        logger_setup.get_logger().info("Unchecked everything")
+        logger.get_logger().info("Unchecked everything")
         return
     if isinstance(model, TreeModel):
         row_count = model.source_model.rowCount()
@@ -411,14 +412,14 @@ def populate_many_model_checks(many_to_many_table: str,
         tag_id_header = model.source_model.record().fieldName(0)
     else:
         tag_id_header = model.record().fieldName(0)
-    logger_setup.get_logger().info(f"Checking {many_to_many_table}")
+    logger.get_logger().info(f"Checking {many_to_many_table}")
     associations = {}
     association_query_str = f"SELECT {first_table_id_header}, {tag_id_header} FROM {many_to_many_table} WHERE {first_table_id_header} IN ({', '.join(map(str, first_table_ids))})"
     association_query = QtSql.QSqlQuery()
     if not association_query.exec(association_query_str):
-        logger_setup.get_logger().critical(f'Error getting checks for {many_to_many_table}')
-        logger_setup.get_logger().debug(f'Error: {association_query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {association_query_str}')
+        logger.get_logger().critical(f'Error getting checks for {many_to_many_table}')
+        logger.get_logger().debug(f'Error: {association_query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {association_query_str}')
         close_loading_dialog('Checking model', f'Checking {row_count} {model.tableName()}...')
         return
     while association_query.next():
@@ -438,7 +439,7 @@ def populate_many_model_checks(many_to_many_table: str,
     if model.checked_ids != all_items or model.partially_checked_ids != some_items:
         model.update_model_checks(set(all_items), set(some_items))
     close_loading_dialog('Checking model', f'Checking {row_count} {model.tableName()}...')
-    logger_setup.get_logger().info(
+    logger.get_logger().info(
         f"Populated checks for {many_to_many_table} in {time.time() - start_populate_many_checks_time} seconds")
 
 
@@ -457,12 +458,12 @@ def populate_many_combo_checks(many_to_many_table: str, combo: QtWidgets.QComboB
     :return:
     """
     start_populate_many_checks_time = time.time()
-    logger_setup.get_logger().info(f"Populating combo checks for {many_to_many_table}")
+    logger.get_logger().info(f"Populating combo checks for {many_to_many_table}")
 
     if isinstance(combo, CheckableTreeComboBox):
         model = combo.tree_model
         if not model:
-            logger_setup.get_logger().info(f"Could not find tree model for {combo.objectName()}")
+            logger.get_logger().info(f"Could not find tree model for {combo.objectName()}")
             return
     else:
         if isinstance(combo.model(), QSortFilterProxyModel):
@@ -483,5 +484,5 @@ def populate_many_combo_checks(many_to_many_table: str, combo: QtWidgets.QComboB
     if not text:
         text = ''
     combo.setCurrentText(text)
-    logger_setup.get_logger().info(
+    logger.get_logger().info(
         f"Populated combo checks for {many_to_many_table} in {time.time() - start_populate_many_checks_time} seconds")

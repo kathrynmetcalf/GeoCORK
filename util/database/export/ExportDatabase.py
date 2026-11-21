@@ -4,10 +4,10 @@ from PyQt6 import QtWidgets, QtCore
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 
 from Functions import SQLUtils
+from util import logger
+from util.database.database_helper import turn_on_foreign_keys, turn_off_foreign_keys
 from util.loading_dialog_manager import LoadingDialogManager
-from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
-import logger_setup
 
 
 def open_sqlite_db(db_path: str, connection_name: str) -> QSqlDatabase:
@@ -48,7 +48,8 @@ def copy_table(table_name: str, conn_source: QSqlDatabase, conn_target: QSqlData
             return False
     return True
 
-def fetchall(query_str: str, database: QSqlDatabase=QSqlDatabase(), params: Optional[Tuple] = None) -> List[tuple]:
+
+def fetchall(query_str: str, database: QSqlDatabase = QSqlDatabase(), params: Optional[Tuple] = None) -> List[tuple]:
     """
     Emulates a 'fetchall' using QSqlQuery and a given database connection, if no database is
     provided the default database will be used. Returns rows as list of tuples.
@@ -63,7 +64,7 @@ def fetchall(query_str: str, database: QSqlDatabase=QSqlDatabase(), params: Opti
     query = QSqlQuery(database)
     if not query.prepare(query_str):
         if "too many SQL variables" in query.lastError().text():
-            logger_setup.get_logger().info("Too many SQL variables in query, splitting into smaller chunks")
+            logger.get_logger().info("Too many SQL variables in query, splitting into smaller chunks")
             # Split the query into smaller chunks
             for i in range(0, len(params), query_size):
                 query_params = params[i:i + query_size]
@@ -71,26 +72,26 @@ def fetchall(query_str: str, database: QSqlDatabase=QSqlDatabase(), params: Opti
                 query_str_split = f"{query_str.split(' IN ')[0]} IN ({",".join(["?"] * len(query_params))})"
                 queries.append((query_str_split, query_params))
         else:
-            logger_setup.get_logger().critical(f'Error fetching total records')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().critical(f'Error fetching total records')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             return result_rows
     else:
         queries.append((query_str, params))
     for query_str, params in queries:
         if not query.prepare(query_str):
-            logger_setup.get_logger().critical(f'Error fetching total records')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().critical(f'Error fetching total records')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             return []
         if params:
             for i, val in enumerate(params):
                 query.bindValue(i, val)
         if not query.exec():
-            logger_setup.get_logger().critical(f'Error fetching total records')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+            logger.get_logger().critical(f'Error fetching total records')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger.get_logger().debug(f'Bound values: {query.boundValues()}')
             return []
 
         while query.next():
@@ -98,6 +99,7 @@ def fetchall(query_str: str, database: QSqlDatabase=QSqlDatabase(), params: Opti
             row = tuple(query.value(col) for col in range(query.record().count()))
             result_rows.append(row)
     return result_rows
+
 
 def execute_sql(query_str: str, database: QSqlDatabase) -> bool:
     """
@@ -108,11 +110,12 @@ def execute_sql(query_str: str, database: QSqlDatabase) -> bool:
     """
     query = QSqlQuery(database)
     if not query.exec(query_str):
-        logger_setup.get_logger().critical(f'Error executing SQL')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error executing SQL')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     return True
+
 
 def insert_rows(database: QSqlDatabase, table_name: str, rows: list[tuple], insert_cols: list[str]):
     """
@@ -124,7 +127,7 @@ def insert_rows(database: QSqlDatabase, table_name: str, rows: list[tuple], inse
     :return: True if all rows were inserted successfully, False if the operation was canceled or an error occurred.
     """
     if not rows:
-        logger_setup.get_logger().info(f'No rows to insert into {table_name}')
+        logger.get_logger().info(f'No rows to insert into {table_name}')
         return True
 
     insert_cols = [f"[{item}]" for item in insert_cols]
@@ -139,8 +142,9 @@ def insert_rows(database: QSqlDatabase, table_name: str, rows: list[tuple], inse
     else:
         progress_parent = None
 
-    logger_setup.get_logger().debug(f'SQL query: {insert_stmt}')
-    progress_dialog = QtWidgets.QProgressDialog(f'Inserting {len(rows)} {table_name}...', 'Cancel', 0, len(rows), progress_parent)
+    logger.get_logger().debug(f'SQL query: {insert_stmt}')
+    progress_dialog = QtWidgets.QProgressDialog(f'Inserting {len(rows)} {table_name}...', 'Cancel', 0, len(rows),
+                                                progress_parent)
     progress_dialog.setWindowModality(QtCore.Qt.WindowModality.WindowModal)
     exported_count = 0
     for row in rows:
@@ -150,7 +154,7 @@ def insert_rows(database: QSqlDatabase, table_name: str, rows: list[tuple], inse
         # Let the event loop process the dialog's updates
         QtWidgets.QApplication.processEvents()
         if progress_dialog.wasCanceled():
-            logger_setup.get_logger().info('User cancelled the export operation')
+            logger.get_logger().info('User cancelled the export operation')
             return False
         query.prepare(insert_stmt)
         for i, val in enumerate(row):
@@ -160,14 +164,15 @@ def insert_rows(database: QSqlDatabase, table_name: str, rows: list[tuple], inse
             query.bindValue(i, val)
         if not query.exec():
             if "UNIQUE constraint failed: " in query.lastError().text():
-                logger_setup.get_logger().info(f'Record already in database, skipping: {query.lastError().text()}')
+                logger.get_logger().info(f'Record already in database, skipping: {query.lastError().text()}')
             else:
-                logger_setup.get_logger().critical(f'Error adding {table_name}')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                logger.get_logger().critical(f'Error adding {table_name}')
+                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                 return False
     return True
+
 
 def copy_schema(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> bool:
     """
@@ -187,9 +192,9 @@ def copy_schema(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> bool:
         if create_sql:
             success = execute_sql(create_sql, conn_target)
             if not success:
-                logger_setup.get_logger().critical(f'Error creating table {table_name}')
-                logger_setup.get_logger().debug(f'Error: {conn_target.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {create_sql}')
+                logger.get_logger().critical(f'Error creating table {table_name}')
+                logger.get_logger().debug(f'Error: {conn_target.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {create_sql}')
                 return False
 
     # Copy Indexes (regular and unique)
@@ -201,12 +206,13 @@ def copy_schema(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> bool:
         if create_index_sql:
             success = execute_sql(create_index_sql, conn_target)
             if not success:
-                logger_setup.get_logger().critical(f'Error creating index {index_name}')
-                logger_setup.get_logger().debug(f'Error: {conn_target.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {create_index_sql}')
+                logger.get_logger().critical(f'Error creating index {index_name}')
+                logger.get_logger().debug(f'Error: {conn_target.lastError().text()}')
+                logger.get_logger().debug(f'SQL query: {create_index_sql}')
                 return False
     close_loading_dialog('Copying database schema', 'Copying empty tables to target database...')
     return True
+
 
 def copy_static_tables(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> bool:
     """
@@ -217,11 +223,12 @@ def copy_static_tables(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> 
     """
     show_loading_dialog('Copying static tables', 'Copying static tables to target database...')
     for table in SQLUtils.static_tables:
-        logger_setup.get_logger().info(f"Copying table {table} from source to target connection")
+        logger.get_logger().info(f"Copying table {table} from source to target connection")
         if not copy_table(table, conn_source, conn_target):
             return False
     close_loading_dialog('Copying static tables', 'Copying static tables to target database...')
     return True
+
 
 def metadata_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> bool:
     """
@@ -231,7 +238,7 @@ def metadata_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> b
     :return: True if the export was successful, False if canceled or no tables selected.
     """
 
-    logger_setup.get_logger().info("Copying metadata tables")
+    logger.get_logger().info("Copying metadata tables")
     show_loading_dialog('Copying metadata tables', 'Copying metadata tables to target database...')
     turn_off_foreign_keys(conn_target)
 
@@ -239,7 +246,7 @@ def metadata_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> b
     editable_tables = SQLUtils.user_viewable_tables
     for table in editable_tables:
         if table not in ['Columns', 'Samples', '"References"']:
-            logger_setup.get_logger().info(f"Copying table {table} from source to target connection")
+            logger.get_logger().info(f"Copying table {table} from source to target connection")
             if not copy_table(table, conn_source, conn_target):
                 return False
 
@@ -252,7 +259,7 @@ def metadata_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> b
     return True
 
 
-def find_bridge_tables(table: str, database: QSqlDatabase=QSqlDatabase()) -> List[Dict[str, Any]]:
+def find_bridge_tables(table: str, database: QSqlDatabase = QSqlDatabase()) -> List[Dict[str, Any]]:
     """
     Dynamically discover many-to-many 'bridge' tables in a dataabase that reference the
     given table and exactly one other table (2 foreign keys total). If no database is provided
@@ -283,8 +290,8 @@ def find_bridge_tables(table: str, database: QSqlDatabase=QSqlDatabase()) -> Lis
         for fk in fk_list:
             ref_data.append({
                 "parent_table": fk[2].replace('_old', ''),  # the table referenced
-                "child_col":    fk[3],  # column in this table
-                "parent_col":   fk[4],  # column in parent_table
+                "child_col": fk[3],  # column in this table
+                "parent_col": fk[4],  # column in parent_table
             })
 
         # Check if one references table
@@ -296,12 +303,13 @@ def find_bridge_tables(table: str, database: QSqlDatabase=QSqlDatabase()) -> Lis
 
     return bridge_tables_info
 
+
 def subset_many_to_many_bridges(
-    conn_source: QSqlDatabase,
-    conn_target: QSqlDatabase,
-    export_ids: Set[int],
-    bridges_info: List[Dict[str, Any]],
-    edit_table_name="Samples"
+        conn_source: QSqlDatabase,
+        conn_target: QSqlDatabase,
+        export_ids: Set[int],
+        bridges_info: List[Dict[str, Any]],
+        edit_table_name="Samples"
 ) -> bool:
     """
     For each discovered bridge table referencing edit table (e.g. Samples) and another table,
@@ -390,11 +398,12 @@ def subset_many_to_many_bridges(
         if not insert_rows(conn_target, other_table_name, other_rows, insert_cols_other):
             return False
 
-        #4) Insert bridging rows into subset DB
+        # 4) Insert bridging rows into subset DB
 
         if not insert_rows(conn_target, bridge_table, bridge_rows, insert_cols_bridge):
             return False
     return True
+
 
 ###############################################################################
 # 3. KNOWN ONE-TO-MANY CHAIN: Samples -> Aliquots -> Spots -> UPbAnalyses, optional Spots -> Grains
@@ -402,9 +411,9 @@ def subset_many_to_many_bridges(
 ###############################################################################
 
 def subset_one_to_many_chain(
-    conn_source: QSqlDatabase,
-    conn_target: QSqlDatabase,
-    sample_ids: Set[int]
+        conn_source: QSqlDatabase,
+        conn_target: QSqlDatabase,
+        sample_ids: Set[int]
 ) -> bool:
     """
     Hardcoded logic for the known chain:
@@ -466,7 +475,7 @@ def subset_one_to_many_chain(
                 if bridge['bridge_table'] in ['Spots', 'Grains', 'UPbAnalyses']:
                     # These tables will be handled below, so remove this bridge from bridges_info
                     bridges_info.remove(bridge)
-            logger_setup.get_logger().info(f"Many-to-many bridge tables found referencing 'Aliquots'.")
+            logger.get_logger().info(f"Many-to-many bridge tables found referencing 'Aliquots'.")
             if not subset_many_to_many_bridges(
                     conn_source,
                     conn_target,
@@ -493,7 +502,6 @@ def subset_one_to_many_chain(
             tuple(aliquot_ids)
         )
 
-
         # Collect SpotIDs
         spot_id_idx = insert_cols_info_spots.index("SpotID") if "SpotID" in insert_cols_info_spots else None
         if spot_rows and spot_id_idx is not None:
@@ -510,7 +518,7 @@ def subset_one_to_many_chain(
                     if bridge['bridge_table'] in ['Grains', 'UPbAnalyses']:
                         # These tables will be handled below, so remove this bridge from bridges_info
                         bridges_info.remove(bridge)
-                logger_setup.get_logger().info(f"Many-to-many bridge tables found referencing 'Spots'.")
+                logger.get_logger().info(f"Many-to-many bridge tables found referencing 'Spots'.")
                 if not subset_many_to_many_bridges(
                         conn_source,
                         conn_target,
@@ -557,7 +565,7 @@ def subset_one_to_many_chain(
             show_loading_dialog('Exporting', 'Finding and importing related UPbAnalyses data...')
             bridges_info = find_bridge_tables(f"UPbAnalyses", conn_source)
             if bridges_info:
-                logger_setup.get_logger().info(f"Many-to-many bridge tables found referencing 'UPbAnalyses'.")
+                logger.get_logger().info(f"Many-to-many bridge tables found referencing 'UPbAnalyses'.")
                 if not subset_many_to_many_bridges(
                         conn_source,
                         conn_target,
@@ -585,13 +593,13 @@ def subset_one_to_many_chain(
                     if bridge['bridge_table'] in ['Spots', 'UPbAnalyses']:
                         # These tables were already handled above, so remove this bridge from bridges_info
                         bridges_info.remove(bridge)
-                logger_setup.get_logger().info(f"Many-to-many bridge tables found referencing 'Grains'.")
+                logger.get_logger().info(f"Many-to-many bridge tables found referencing 'Grains'.")
                 if not subset_many_to_many_bridges(
-                    conn_source,
-                    conn_target,
-                    export_ids=grain_ids,
-                    bridges_info=bridges_info,
-                    edit_table_name=f"Grains"
+                        conn_source,
+                        conn_target,
+                        export_ids=grain_ids,
+                        bridges_info=bridges_info,
+                        edit_table_name=f"Grains"
                 ):
                     close_loading_dialog('Exporting', 'Finding and importing related Grain data...')
                     return False
@@ -599,14 +607,15 @@ def subset_one_to_many_chain(
 
     return True
 
+
 def subset_foreign_keys(
-    conn_source: QSqlDatabase,
-    conn_target: QSqlDatabase,
-    table: str,
-    table_ids: Set[int]
+        conn_source: QSqlDatabase,
+        conn_target: QSqlDatabase,
+        table: str,
+        table_ids: Set[int]
 ) -> bool:
     """
-    Find foreign key references in the given table and import foreign IDs present for the given table IDs
+    Find foreign key references in the given table and input foreign IDs present for the given table IDs
     """
     table_col_info = fetchall(f"PRAGMA table_info('{table}')", conn_source)
     table_id_header = table_col_info[0][1]
@@ -623,7 +632,10 @@ def subset_foreign_keys(
         elif table == 'Samples' and foreign_table == 'SampleAges':
             if not subset_sample_ages_m2m(conn_source, conn_target, table_ids):
                 return False
-        elif table in ['Samples', 'Aliquots', 'Grains', 'Spots', 'UPbAnalyses'] and foreign_table in ['Samples', 'Aliquots', 'Grains', 'Spots', 'UPbAnalyses']:
+        elif table in ['Samples', 'Aliquots', 'Grains', 'Spots', 'UPbAnalyses'] and foreign_table in ['Samples',
+                                                                                                      'Aliquots',
+                                                                                                      'Grains', 'Spots',
+                                                                                                      'UPbAnalyses']:
             # These are handled elsewhere in the code
             continue
         else:
@@ -654,7 +666,9 @@ def subset_foreign_keys(
                     return False
     return True
 
-        ###############################################################################
+    ###############################################################################
+
+
 # 4. DETECTING 'TREE' TABLES (HIERARCHIES)
 ###############################################################################
 
@@ -694,13 +708,14 @@ def find_tree_tables(conn: QSqlDatabase) -> List[Dict[str, Any]]:
 
     return results
 
+
 def subset_tree_table_downstream(
-    conn_source: QSqlDatabase,
-    conn_target: QSqlDatabase,
-    table_name: str,
-    parent_col: str,
-    child_col: str,
-    root_ids: Set[int]
+        conn_source: QSqlDatabase,
+        conn_target: QSqlDatabase,
+        table_name: str,
+        parent_col: str,
+        child_col: str,
+        root_ids: Set[int]
 ) -> bool:
     """
     Recursively gather all rows from 'table_name' that descend from 'root_ids'
@@ -719,7 +734,7 @@ def subset_tree_table_downstream(
 
     if parent_col not in col_names or child_col not in col_names:
         # Can't do traversal
-        logger_setup.get_logger().warning(f"Table {table_name} does not have expected columns: {parent_col}, {child_col}")
+        logger.get_logger().warning(f"Table {table_name} does not have expected columns: {parent_col}, {child_col}")
         return False
 
     to_visit = list(root_ids)
@@ -748,14 +763,15 @@ def subset_tree_table_downstream(
             to_visit.extend(new_child_ids)
     return True
 
+
 ###############################################################################
 # 5. MASTER FUNCTION: subset_database
 ###############################################################################
 
 def subset_sample_ages_m2m(
-    conn_source: QSqlDatabase,
-    conn_target: QSqlDatabase,
-    sample_ids: Set[int]
+        conn_source: QSqlDatabase,
+        conn_target: QSqlDatabase,
+        sample_ids: Set[int]
 ):
     """
     Handles the known dual many-to-many relationships:
@@ -781,7 +797,7 @@ def subset_sample_ages_m2m(
     if not sample_ids:
         return True
 
-    logger_setup.get_logger().info(f"Subsetting SampleAges M2M relationships for sample_ids={sample_ids}")
+    logger.get_logger().info(f"Subsetting SampleAges M2M relationships for sample_ids={sample_ids}")
 
     # -------------------------------------------------------------------------
     # (1) Samples_SampleAges referencing our sample_ids
@@ -815,7 +831,7 @@ def subset_sample_ages_m2m(
         sampleAgeID_idx = col_names_samples_sampleages.index("SampleAgeID")
     except ValueError:
         # The bridging table doesn't have the expected column name
-        logger_setup.get_logger().warning("Samples_SampleAges table doesn't have 'SampleAgeID' column!")
+        logger.get_logger().warning("Samples_SampleAges table doesn't have 'SampleAgeID' column!")
         return False
 
     sampleAge_ids = {
@@ -865,7 +881,8 @@ def subset_sample_ages_m2m(
         tuple(sampleAge_ids)
     )
     if sa_ageconstraints_rows:
-        if not insert_rows(conn_target, "SampleAges_AgeConstraints", sa_ageconstraints_rows, insert_cols_sa_ageconstraints):
+        if not insert_rows(conn_target, "SampleAges_AgeConstraints", sa_ageconstraints_rows,
+                           insert_cols_sa_ageconstraints):
             return False
 
         # Gather AgeConstraintIDs
@@ -873,7 +890,7 @@ def subset_sample_ages_m2m(
         try:
             ageConstraintID_idx = col_names_sa_ageconstraints.index("AgeConstraintID")
         except ValueError:
-            logger_setup.get_logger().warning("SampleAges_AgeConstraints doesn't have 'AgeConstraintID' column!")
+            logger.get_logger().warning("SampleAges_AgeConstraints doesn't have 'AgeConstraintID' column!")
             ageConstraintID_idx = None
 
         if ageConstraintID_idx is not None:
@@ -919,7 +936,7 @@ def subset_sample_ages_m2m(
     )
     if sa_ageinterpretations_rows:
         if not insert_rows(conn_target, "SampleAges_AgeInterpretations", sa_ageinterpretations_rows,
-            insert_cols_sa_ageinterpretations):
+                           insert_cols_sa_ageinterpretations):
             return False
 
         # Gather AgeInterpretationIDs
@@ -927,7 +944,7 @@ def subset_sample_ages_m2m(
         try:
             ageInterpretationID_idx = col_names_sa_ageinterpretations.index("AgeInterpretationID")
         except ValueError:
-            logger_setup.get_logger().warning("SampleAges_AgeInterpretations doesn't have 'AgeInterpretationID' column!")
+            logger.get_logger().warning("SampleAges_AgeInterpretations doesn't have 'AgeInterpretationID' column!")
             ageInterpretationID_idx = None
 
         if ageInterpretationID_idx is not None:
@@ -952,11 +969,14 @@ def subset_sample_ages_m2m(
                     tuple(ageInterpretation_ids)
                 )
                 if ageinterpretations_rows:
-                    if not insert_rows(conn_target, "AgeInterpretations", ageinterpretations_rows, insert_cols_ageinterpretations):
+                    if not insert_rows(conn_target, "AgeInterpretations", ageinterpretations_rows,
+                                       insert_cols_ageinterpretations):
                         return False
     return True
 
-def subset_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase, ids_to_export: list[int] | None, export_table: str = None) -> bool:
+
+def subset_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase, ids_to_export: list[int] | None,
+                    export_table: str = None) -> bool:
     """
     Creates a new subset DB. Currently, assumes the IDs are from the 'Samples' table, but can be expanded later to handle
     filtered UPbAnalyses, Spots, or Aliquots.
@@ -986,20 +1006,20 @@ def subset_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase, ids_to
     col_info_export_table = fetchall(f"PRAGMA table_info('{export_table}')", conn_source)
     if not col_info_export_table:
         close_loading_dialog('Exporting', 'Gathering sample data...')
-        logger_setup.get_logger().error(f"Table '{export_table}' does not exist in the source database.")
+        logger.get_logger().error(f"Table '{export_table}' does not exist in the source database.")
         return False
     export_id_header = col_info_export_table[0][1]  # Assuming first column is the ID column
     export_ids = set(ids_to_export)
     placeholder = ",".join(["?"] * len(export_ids))
 
     rows = fetchall(
-            f"""
+        f"""
             SELECT {','.join([item[1] for item in col_info_export_table])} FROM {export_table}
             WHERE {export_id_header} IN ({placeholder})
             """,
-            conn_source,
-            tuple(export_ids)
-        )
+        conn_source,
+        tuple(export_ids)
+    )
     if not rows:
         conn_source.close()
         conn_target.close()
@@ -1023,14 +1043,14 @@ def subset_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase, ids_to
 
     # 4) Subset those bridging tables + their 'other' table references
     if bridges_info:
-        logger_setup.get_logger().info(f"Many-to-many bridge tables found referencing '{export_table}'.")
+        logger.get_logger().info(f"Many-to-many bridge tables found referencing '{export_table}'.")
         if export_table == 'Samples':
             if not subset_many_to_many_bridges(
-                conn_source,
-                conn_target,
-                export_ids=export_ids,
-                bridges_info=bridges_info,
-                edit_table_name=f"{export_table}"
+                    conn_source,
+                    conn_target,
+                    export_ids=export_ids,
+                    bridges_info=bridges_info,
+                    edit_table_name=f"{export_table}"
             ):
                 close_loading_dialog('Exporting', 'Finding and importing related data...')
                 return False
@@ -1077,12 +1097,12 @@ def subset_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase, ids_to
             if root_ids:
                 # Subset the entire downstream from those root IDs
                 if not subset_tree_table_downstream(
-                    conn_source=conn_source,
-                    conn_target=conn_target,
-                    table_name=tbl_name,
-                    child_col=f'Parent{tbl_name[0:-1]}ID',
-                    parent_col=f'{tbl_name[0:-1]}ID',
-                    root_ids=root_ids
+                        conn_source=conn_source,
+                        conn_target=conn_target,
+                        table_name=tbl_name,
+                        child_col=f'Parent{tbl_name[0:-1]}ID',
+                        parent_col=f'{tbl_name[0:-1]}ID',
+                        root_ids=root_ids
                 ):
                     close_loading_dialog('Exporting', 'Finding and importing related data...')
                     return False
@@ -1148,4 +1168,3 @@ class SelectExportMetadata(QtWidgets.QDialog):
             event.accept()
         else:
             self.cancel()
-

@@ -1,16 +1,18 @@
+import time
+
 from PyQt6 import QtSql, QtWidgets, QtCore, QtGui
 from PyQt6.QtCore import QSortFilterProxyModel
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
+from PyQt6.QtWidgets import QApplication, QMessageBox
 
-import logger_setup
 from Functions import SQLUtils
-
 from Functions.Database_views import ViewQuery
-from Functions.Settings_manager import SettingsManager
+from util import logger
 from util.database.Savepoint_manager import rollback_savepoint, release_savepoint, create_savepoint
 from util.database.defined_joins import *
 from util.display_formatting import get_readable_header
-from util.loading_dialog_manager import close_loading_dialog, show_loading_dialog
+from util.loading_dialog_manager import close_loading_dialog, show_loading_dialog, LoadingDialogManager
+from util.settings_manager import SettingsManager
 
 settings = SettingsManager().settings
 
@@ -22,8 +24,8 @@ def get_database_tables() -> list:
     """
     query = QtSql.QSqlQuery()
     if not query.exec('SELECT name FROM sqlite_master WHERE type="table"'):
-        logger_setup.get_logger().critical("Failed to get database tables")
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger.get_logger().critical("Failed to get database tables")
+        logger.get_logger().debug(f"Error: {query.lastError().text()}")
         return []
     tables = []
     while query.next():
@@ -42,13 +44,13 @@ def set_table(model: QtSql.QSqlTableModel, table: str) -> QtSql.QSqlTableModel |
     # logger_setup.get_logger().info(f"Setting table to {table}")
     model.setTable(table)
     if model.lastError().text():
-        logger_setup.get_logger().critical(f"Failed to set table to {table})")
-        logger_setup.get_logger().debug(f"setTable error: {model.lastError().text()}")
+        logger.get_logger().critical(f"Failed to set table to {table})")
+        logger.get_logger().debug(f"setTable error: {model.lastError().text()}")
         return False
     model.select()
     if model.lastError().text():
-        logger_setup.get_logger().critical(f"Failed to set table to {table})")
-        logger_setup.get_logger().debug(f"select error: {model.lastError().text()}")
+        logger.get_logger().critical(f"Failed to set table to {table})")
+        logger.get_logger().debug(f"select error: {model.lastError().text()}")
         return False
     from util.widgets.models.table_models import LazyCheckableSqlTableModel
     if not isinstance(model, LazyCheckableSqlTableModel):
@@ -69,9 +71,9 @@ def get_headers(table: str) -> list:
         return show_columns
     table = table.replace('"', '').strip()
     if not query.exec(f'PRAGMA table_xinfo("{table}")'):
-        logger_setup.get_logger().critical(f"Failed to get headers for {table}")
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        logger.get_logger().critical(f"Failed to get headers for {table}")
+        logger.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
         return []
     headers = []
     while query.next():
@@ -96,9 +98,9 @@ def get_columns(table: str, database: QSqlDatabase = None):
     else:
         query = QtSql.QSqlQuery(database)
     if not query.exec(f'PRAGMA table_xinfo("{table}")'):
-        logger_setup.get_logger().critical(f"Failed to get columns for {table}")
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        logger.get_logger().critical(f"Failed to get columns for {table}")
+        logger.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
         return query, [], [], []
     virtual = []
     stored = []
@@ -268,9 +270,9 @@ def columns_as_list_current(query: str, cols: list) -> list | None:
     model = QtSql.QSqlQueryModel()
     model.setQuery(query)
     if model.lastError().text():
-        logger_setup.get_logger().critical(f"Failed to get columns from query")
-        logger_setup.get_logger().debug(f"Query: {query}")
-        logger_setup.get_logger().debug(f"Error: {model.lastError().text()}")
+        logger.get_logger().critical(f"Failed to get columns from query")
+        logger.get_logger().debug(f"Query: {query}")
+        logger.get_logger().debug(f"Error: {model.lastError().text()}")
         return [None for column in cols]
     while model.canFetchMore():
         model.fetchMore()
@@ -283,15 +285,15 @@ def columns_as_list_current(query: str, cols: list) -> list | None:
                        in range(model.columnCount())]
             column = headers.index(col)
         else:
-            logger_setup.get_logger().critical(f"Failed to get list in table")
-            logger_setup.get_logger().debug(f"Invalid column: {col}")
-            logger_setup.get_logger().debug(f"SQL query: {query}")
+            logger.get_logger().critical(f"Failed to get list in table")
+            logger.get_logger().debug(f"Invalid column: {col}")
+            logger.get_logger().debug(f"SQL query: {query}")
             return [None for column in cols]
         if column < 0 or column >= model.columnCount():
-            logger_setup.get_logger().critical(f"Failed to get list in table")
-            logger_setup.get_logger().debug(
+            logger.get_logger().critical(f"Failed to get list in table")
+            logger.get_logger().debug(
                 f"Column index {column} out of range for model with {model.columnCount()} columns")
-            logger_setup.get_logger().debug(f"SQL query: {query}")
+            logger.get_logger().debug(f"SQL query: {query}")
             return [None for column in cols]
         columns.append(column)
     column_lists = []
@@ -327,15 +329,15 @@ def columns_as_list(query: str, cols: list, view_query: ViewQuery = None) -> lis
                        range(model.columnCount())]
             column = headers.index(col)
         else:
-            logger_setup.get_logger().critical(f"Failed to get list in table")
-            logger_setup.get_logger().debug(f"Invalid column: {col}")
-            logger_setup.get_logger().debug(f"SQL query: {query}")
+            logger.get_logger().critical(f"Failed to get list in table")
+            logger.get_logger().debug(f"Invalid column: {col}")
+            logger.get_logger().debug(f"SQL query: {query}")
             return [None for column in cols]
         if column < 0 or column >= model.columnCount():
-            logger_setup.get_logger().critical(f"Failed to get list in table")
-            logger_setup.get_logger().debug(
+            logger.get_logger().critical(f"Failed to get list in table")
+            logger.get_logger().debug(
                 f"Column index {column} out of range for model with {model.columnCount()} columns")
-            logger_setup.get_logger().debug(f"SQL query: {query}")
+            logger.get_logger().debug(f"SQL query: {query}")
             return [None for column in cols]
         columns.append(column)
     column_lists = []
@@ -356,10 +358,10 @@ def get_name_from_id(table: str, item_id: int):
     :return: Name (e.g. RockTypeName)
     """
     if not table:
-        logger_setup.get_logger().info("No table provided")
+        logger.get_logger().info("No table provided")
         return None
     if not item_id:
-        logger_setup.get_logger().info(f"No ID provided for {table}")
+        logger.get_logger().info(f"No ID provided for {table}")
         return None
     query = QtSql.QSqlQuery()
     headers = get_headers(table)
@@ -368,9 +370,9 @@ def get_name_from_id(table: str, item_id: int):
     sql_query = f'SELECT {headers[get_name_column(table)]} FROM "{table}" WHERE {headers[0]}={item_id}'
     # logger_setup.get_logger().debug(f'SQL command: {sql_query}')
     if not query.exec(sql_query):
-        logger_setup.get_logger().critical(f"Failed to get name for {item_id} in {table}")
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        logger.get_logger().critical(f"Failed to get name for {item_id} in {table}")
+        logger.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
         return None
     query.next()
     return query.value(0)
@@ -386,7 +388,7 @@ def get_id_from_name(table: str, name: str) -> int:
     """
     query = QtSql.QSqlQuery()
     headers = get_headers(table)
-    logger_setup.get_logger().info(f'Getting ID for {name} in {table}')
+    logger.get_logger().info(f'Getting ID for {name} in {table}')
     if table in ['"References"', 'References']:
         # Need to use the ViewQuery to access the generated display column
         name_column = get_name_column(get_view_from_table(table))
@@ -399,14 +401,14 @@ def get_id_from_name(table: str, name: str) -> int:
         sql_query = f'SELECT {headers[0]} FROM "{table}" WHERE {headers[get_name_column(table)]}=:name COLLATE NOCASE'
     # logger_setup.get_logger().debug(f'SQL command: {sql_query}')
     if not query.prepare(sql_query):
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        logger.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
     query.bindValue(":name", str(name))
     if not query.exec():
-        logger_setup.get_logger().critical(f"Failed to get ID for {name} in {table}")
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-        logger_setup.get_logger().debug(f"Bound values: {query.boundValues()}")
+        logger.get_logger().critical(f"Failed to get ID for {name} in {table}")
+        logger.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        logger.get_logger().debug(f"Bound values: {query.boundValues()}")
         return None
     query.next()
     return query.value(0)
@@ -422,18 +424,18 @@ def get_id_from_abbreviation(table: str, abbreviation: str) -> int:
     """
     query = QtSql.QSqlQuery()
     headers = get_headers(table)
-    logger_setup.get_logger().info(f'Getting ID for {abbreviation} in {table}')
+    logger.get_logger().info(f'Getting ID for {abbreviation} in {table}')
     sql_query = f'SELECT {headers[0]} FROM "{table}" WHERE {headers[get_abbreviation_column(table)]}=:name COLLATE NOCASE'
     # logger_setup.get_logger().debug(f'SQL command: {sql_query}')
     if not query.prepare(sql_query):
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        logger.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
     query.bindValue(":name", str(abbreviation))
     if not query.exec():
-        logger_setup.get_logger().critical(f"Failed to get ID for {abbreviation} in {table}")
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-        logger_setup.get_logger().debug(f"Bound values: {query.boundValues()}")
+        logger.get_logger().critical(f"Failed to get ID for {abbreviation} in {table}")
+        logger.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        logger.get_logger().debug(f"Bound values: {query.boundValues()}")
         return None
     query.next()
     return query.value(0)
@@ -462,12 +464,12 @@ def get_total_records(table: str, where: str = '') -> int:
             sql_query = f'SELECT COUNT() FROM (Select * FROM Samples {get_join_from_table('', [table])}) {where}'
 
     # Execute the query
-    logger_setup.get_logger().info(f'Fetching total records for {table}')
+    logger.get_logger().info(f'Fetching total records for {table}')
     if not query.exec(sql_query):
         # Handle query execution error
-        logger_setup.get_logger().critical(f'Error fetching total records')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().critical(f'Error fetching total records')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return 0
 
     # Fetch the count
@@ -486,17 +488,17 @@ def get_record_row(table: str, record_id: int, ids_to_show: list = None) -> int:
     """
     if table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees or table == 'Ages':
         # If the table is a tree, we cannot use this method to find the index, so return -1
-        logger_setup.get_logger().error(f'Cannot get record index for tree {table}')
-        logger_setup.get_logger().debug(
+        logger.get_logger().error(f'Cannot get record index for tree {table}')
+        logger.get_logger().debug(
             f'Table {table} is a tree view which does not use sorting or paging, so cannot get record index')
-        logger_setup.get_logger().debug(f'Inspect code to remove sorting and paging for trees')
+        logger.get_logger().debug(f'Inspect code to remove sorting and paging for trees')
         return -1
     if not ids_to_show:
         ids_to_show = []
     if record_id not in ids_to_show and len(ids_to_show) > 0:
         record_name = get_name_from_id(table, record_id)
-        logger_setup.get_logger().error(f'Record {record_name} not available in this view')
-        logger_setup.get_logger().debug(f'Record ID {record_id} in the list of IDs to show: {ids_to_show}')
+        logger.get_logger().error(f'Record {record_name} not available in this view')
+        logger.get_logger().debug(f'Record ID {record_id} in the list of IDs to show: {ids_to_show}')
         return -1
     query = QSqlQuery()
     base_id_column = get_headers(get_view_from_table(table))[0]
@@ -521,14 +523,14 @@ def get_record_row(table: str, record_id: int, ids_to_show: list = None) -> int:
     query.prepare(sql_query)
     query.bindValue(":record_id", int(record_id))
 
-    logger_setup.get_logger().info(f'Getting the record index for record ID: {record_id}')
+    logger.get_logger().info(f'Getting the record index for record ID: {record_id}')
     # Execute the query
     if not query.exec():
         # Handle query execution error
-        logger_setup.get_logger().critical(f'Error fetching the record')
-        logger_setup.get_logger().debug(f'Error fetching records index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-        logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+        logger.get_logger().critical(f'Error fetching the record')
+        logger.get_logger().debug(f'Error fetching records index: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger.get_logger().debug(f'Bound values: {query.boundValues()}')
         return -1
 
     # Fetch the result
@@ -821,9 +823,9 @@ def get_column_types(table: str):
     query = QtSql.QSqlQuery()
     column_types = []
     if not query.exec(f'PRAGMA table_info("{table}")'):
-        logger_setup.get_logger().critical(f"Failed to get columns for {table}")
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        logger.get_logger().critical(f"Failed to get columns for {table}")
+        logger.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
         return column_types
     while query.next():
         column_types.append(query.value(2))
@@ -833,7 +835,7 @@ def get_column_types(table: str):
 def delete_query(table: str, ids: list):
     moved_ids = []  # Keep track of IDs that were moved during deletion
     if not ids:
-        logger_setup.get_logger().error(f"No IDs given for deletion in {table}")
+        logger.get_logger().error(f"No IDs given for deletion in {table}")
         return False, moved_ids
     create_savepoint('before_delete')
     delete_names = []
@@ -844,11 +846,11 @@ def delete_query(table: str, ids: list):
         if name:
             delete_names.append(name)
         else:
-            logger_setup.get_logger().warning(f"Could not find name for ID {item_id} in {table}")
-            logger_setup.get_logger().debug(f"ID {item_id} not found in {table}")
+            logger.get_logger().warning(f"Could not find name for ID {item_id} in {table}")
+            logger.get_logger().debug(f"ID {item_id} not found in {table}")
             rollback_savepoint('before_delete')
             return False, moved_ids
-    logger_setup.get_logger().info(f"Deleting {table}: {delete_names}")
+    logger.get_logger().info(f"Deleting {table}: {delete_names}")
     query = QtSql.QSqlQuery()
     headers = get_headers(table)
     id_header = headers[0]  # Get the first header which is the ID column
@@ -858,9 +860,9 @@ def delete_query(table: str, ids: list):
         if table in SQLUtils.user_viewable_trees:
             query.exec(f'SELECT {headers[1]}, {headers[2]} FROM "{table}" WHERE {id_header}={delete_id}')
             if not query.next():
-                logger_setup.get_logger().critical(
+                logger.get_logger().critical(
                     f"Failed to delete {', '.join(get_name_from_id(table, item_id) for item_id in ids)} from {table}")
-                logger_setup.get_logger().debug(
+                logger.get_logger().debug(
                     f"ID {delete_id} not found in {table}. Unable to retrieve parent information for tree structure.")
                 rollback_savepoint('before_delete')
                 return False, moved_ids
@@ -868,13 +870,13 @@ def delete_query(table: str, ids: list):
             parent_row = query.value(1)
         query.prepare(f'DELETE FROM "{table}" WHERE {id_header}={delete_id}')
         if not query.exec():
-            logger_setup.get_logger().critical(
+            logger.get_logger().critical(
                 f"Failed to delete {', '.join(get_name_from_id(table, item_id) for item_id in ids)} from {table}")
-            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+            logger.get_logger().debug(f"Error: {query.lastError().text()}")
+            logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
             rollback_savepoint('before_delete')
             return False, moved_ids
-        logger_setup.get_logger().info(f"Successfully deleted ID {delete_id} from {table}")
+        logger.get_logger().info(f"Successfully deleted ID {delete_id} from {table}")
         if table in SQLUtils.user_viewable_trees and parent_row:
             if parent_id in ids:
                 # If the parent is also being deleted, we don't need to update the remaining children
@@ -886,11 +888,11 @@ def delete_query(table: str, ids: list):
                 where_sql = f'{headers[1]} = {parent_id} AND {headers[2]} > {parent_row}'
             query.prepare(f'SELECT {id_header} FROM "{table}" WHERE {where_sql}')
             if not query.exec():
-                logger_setup.get_logger().critical(
+                logger.get_logger().critical(
                     f"Failed to delete {', '.join(get_name_from_id(table, item_id) for item_id in ids)} from {table}")
-                logger_setup.get_logger().debug(f"Error finding affected records during delete")
-                logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-                logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                logger.get_logger().debug(f"Error finding affected records during delete")
+                logger.get_logger().debug(f"Error: {query.lastError().text()}")
+                logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
                 rollback_savepoint(f"before_delete")
                 return False, moved_ids
             while query.next():
@@ -898,11 +900,11 @@ def delete_query(table: str, ids: list):
             for affected_id in affected_ids:
                 update_query = f'UPDATE "{table}" SET {headers[2]} = {headers[2]} - 1 WHERE {id_header} = {affected_id}'
                 if not query.exec(update_query):
-                    logger_setup.get_logger().critical(
+                    logger.get_logger().critical(
                         f"Failed to delete {', '.join(get_name_from_id(table, item_id) for item_id in ids)} from {table}")
-                    logger_setup.get_logger().debug(f"Error updating affected record during delete")
-                    logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-                    logger_setup.get_logger().debug(f"SQL query: {update_query}")
+                    logger.get_logger().debug(f"Error updating affected record during delete")
+                    logger.get_logger().debug(f"Error: {query.lastError().text()}")
+                    logger.get_logger().debug(f"SQL query: {update_query}")
                     rollback_savepoint(f"before_delete")
                     return False, moved_ids
                 if affected_id not in ids and affected_id not in moved_ids:
@@ -910,7 +912,7 @@ def delete_query(table: str, ids: list):
             if moved_ids:
                 from Functions.Check_triggers import update_modified_timestamp
                 update_modified_timestamp(table, moved_ids)
-    logger_setup.get_logger().info(f"Deleted {len(ids)} records from {table}")
+    logger.get_logger().info(f"Deleted {len(ids)} records from {table}")
     release_savepoint('before_delete')
     return True, moved_ids
 
@@ -924,10 +926,10 @@ def delete_data(table: str, data_ids: list, enable_message=True):
     :return: True or False
     """
     if len(data_ids) == 0:
-        logger_setup.get_logger().error(f"No IDs given for deletion in {table}")
+        logger.get_logger().error(f"No IDs given for deletion in {table}")
         return False
     if not delete_question(table, data_ids):
-        logger_setup.get_logger().info(f"Deletion cancelled for {table} with IDs: {', '.join(map(str, data_ids))}")
+        logger.get_logger().info(f"Deletion cancelled for {table} with IDs: {', '.join(map(str, data_ids))}")
         return False
     show_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
     # Delete the selected samples from a table and all children, aliquots, spots, and UPb data dependent on them
@@ -949,7 +951,7 @@ def delete_data(table: str, data_ids: list, enable_message=True):
         for parent_id in delete_aliquot_ids:
             aliquot_child_ids = find_child_ids('Aliquots', parent_id, aliquot_child_ids)
         delete_sample_ids = data_ids
-        logger_setup.get_logger().info(
+        logger.get_logger().info(
             f"Deleting {len(delete_sample_ids)} samples, {len(delete_aliquot_ids)} aliquots, {len(aliquot_child_ids)} sub-aliquots, {len(delete_grain_ids)} grains, {len(delete_spot_ids)} spots, and {len(delete_upb_analysis_ids)} UPb analyses")
         delete_aliquot_ids.extend(aliquot_child_ids)
     elif table == 'Aliquots':
@@ -958,7 +960,7 @@ def delete_data(table: str, data_ids: list, enable_message=True):
         aliquot_child_ids = []
         for parent_id in delete_aliquot_ids:
             aliquot_child_ids = find_child_ids('Aliquots', parent_id, aliquot_child_ids)
-        logger_setup.get_logger().info(
+        logger.get_logger().info(
             f"Deleting {len(delete_aliquot_ids)} aliquots, {len(aliquot_child_ids)} sub-aliquots, {len(delete_grain_ids)} grains, {len(delete_spot_ids)} spots, and {len(delete_upb_analysis_ids)} UPb analyses")
         delete_aliquot_ids.extend(aliquot_child_ids)
         parent_samples = find_current_parent_items(delete_aliquot_ids, table)
@@ -974,7 +976,7 @@ def delete_data(table: str, data_ids: list, enable_message=True):
     elif table == 'Grains':
         delete_spot_ids, delete_upb_analysis_ids = find_current_sub_items(data_ids, table)
         delete_grain_ids = data_ids
-        logger_setup.get_logger().info(
+        logger.get_logger().info(
             f"Deleting {len(delete_grain_ids)} grains, {len(delete_spot_ids)} spots, and {len(delete_upb_analysis_ids)} UPb analyses")
         parent_samples, parent_aliquots, parent_spots = find_current_parent_items(data_ids, table)
         if parent_aliquots:
@@ -997,7 +999,7 @@ def delete_data(table: str, data_ids: list, enable_message=True):
     elif table == 'Spots':
         grain_ids, delete_upb_analysis_ids = find_current_sub_items(data_ids, table)
         delete_spot_ids = data_ids
-        logger_setup.get_logger().info(
+        logger.get_logger().info(
             f"Deleting {len(delete_spot_ids)} spots and {len(delete_upb_analysis_ids)} UPb analyses")
         parent_samples, parent_aliquots = find_current_parent_items(data_ids, table)
         if parent_aliquots:
@@ -1027,7 +1029,7 @@ def delete_data(table: str, data_ids: list, enable_message=True):
 
     elif table == 'UPbAnalyses':
         delete_upb_analysis_ids = data_ids
-        logger_setup.get_logger().info(f"Deleting {len(delete_upb_analysis_ids)} UPb analyses")
+        logger.get_logger().info(f"Deleting {len(delete_upb_analysis_ids)} UPb analyses")
         parent_samples, parent_aliquots, parent_grains, parent_spots = find_current_parent_items(data_ids, table)
         if parent_spots:
             # Determine if all UPb analyses of these spots are being deleted
@@ -1102,7 +1104,7 @@ def delete_data(table: str, data_ids: list, enable_message=True):
             else:
                 # cancel the deletion
                 close_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
-                logger_setup.get_logger().info(
+                logger.get_logger().info(
                     f"Deletion cancelled for {table} with IDs: {', '.join(map(str, data_ids))}")
                 return False
         if delete_all:
@@ -1115,7 +1117,6 @@ def delete_data(table: str, data_ids: list, enable_message=True):
             if spotless_grains:
                 delete_grain_ids.extend(spotless_grains)
 
-    from Functions.Database_manager import turn_on_foreign_keys
     # Double-check that foreign keys are enabled
     if not turn_on_foreign_keys():
         close_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
@@ -1125,17 +1126,17 @@ def delete_data(table: str, data_ids: list, enable_message=True):
             if not delete_query('UPbAnalyses', delete_upb_analysis_ids)[0]:
                 close_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
                 return False
-            logger_setup.get_logger().info(f'Deleted {len(delete_upb_analysis_ids)} UPb analyses')
+            logger.get_logger().info(f'Deleted {len(delete_upb_analysis_ids)} UPb analyses')
         if delete_grain_ids:
             if not delete_query('Grains', delete_grain_ids)[0]:
                 close_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
                 return False
-            logger_setup.get_logger().info(f'Deleted {len(delete_grain_ids)} Grains')
+            logger.get_logger().info(f'Deleted {len(delete_grain_ids)} Grains')
         if delete_spot_ids:
             if not delete_query('Spots', delete_spot_ids)[0]:
                 close_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
                 return False
-            logger_setup.get_logger().info(f'Deleted {len(delete_spot_ids)} spots')
+            logger.get_logger().info(f'Deleted {len(delete_spot_ids)} spots')
         if delete_aliquot_ids:
             parent_samples = find_current_parent_items(delete_aliquot_ids, 'Aliquots')
             query = f'SELECT * FROM Aliquots WHERE SampleID in ({parent_samples})'
@@ -1146,12 +1147,12 @@ def delete_data(table: str, data_ids: list, enable_message=True):
             if not aliquot_tree.removeItems(delete_aliquot_ids)[0]:
                 close_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
                 return False
-            logger_setup.get_logger().info(f'Deleted {len(delete_aliquot_ids)} Aliquots')
+            logger.get_logger().info(f'Deleted {len(delete_aliquot_ids)} Aliquots')
         if delete_sample_ids:
             if not delete_query('Samples', delete_sample_ids)[0]:
                 close_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
                 return False
-            logger_setup.get_logger().info(f'Deleted {len(delete_sample_ids)} Samples')
+            logger.get_logger().info(f'Deleted {len(delete_sample_ids)} Samples')
     else:
         if table_child_ids:
             delete_ids = data_ids + table_child_ids
@@ -1161,7 +1162,7 @@ def delete_data(table: str, data_ids: list, enable_message=True):
             if not delete_query(table, delete_ids)[0]:
                 close_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
                 return False
-            logger_setup.get_logger().info(f'Deleted {len(delete_ids)} {table} records')
+            logger.get_logger().info(f'Deleted {len(delete_ids)} {table} records')
 
     close_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
     return True
@@ -1175,7 +1176,7 @@ def delete_question(table, delete_ids):
     if table == 'Samples':
         sample_names = [get_name_from_id(table, sample_id) for sample_id in delete_ids]
         if None in sample_names:
-            logger_setup.get_logger().info(f'Samples were already deleted or do not exist')
+            logger.get_logger().info(f'Samples were already deleted or do not exist')
             close_loading_dialog('Preparing', 'Gathering information...')
             return False
         # Samples have a special case where they are related to Aliquots, Spots, and UPbAnalyses
@@ -1309,8 +1310,8 @@ def find_child_ids(table, parent_id, child_ids=None):
     query.prepare(f'SELECT {id_header} FROM {table} WHERE {parent_id_header}=:parent_id')
     query.bindValue(':parent_id', parent_id)
     if not query.exec():
-        logger_setup.get_logger().critical(f"Error finding child aliquots to delete")
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().critical(f"Error finding child aliquots to delete")
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
         return
     while query.next():
         if query.value(0) not in child_ids:
@@ -1329,9 +1330,9 @@ def find_foreign_associations(table, item_ids):
     """
     # Find all many-to-many tables where table is the second table in the relationship
     if not item_ids:
-        logger_setup.get_logger().warning(f"No item IDs provided for finding foreign associations in {table}")
+        logger.get_logger().warning(f"No item IDs provided for finding foreign associations in {table}")
         return {}
-    logger_setup.get_logger().info(f"Finding foreign associations for {len(item_ids)} {table}")
+    logger.get_logger().info(f"Finding foreign associations for {len(item_ids)} {table}")
     id_header = get_headers(table)[0]
     associations = {}
     db_tables = get_database_tables()
@@ -1384,7 +1385,7 @@ def find_foreign_associations(table, item_ids):
 
 def find_upb_from_samples(sample_ids):
     # Find UPb analyses for a list of samples
-    logger_setup.get_logger().info(f"Finding UPb Analyses for {len(sample_ids)} samples")
+    logger.get_logger().info(f"Finding UPb Analyses for {len(sample_ids)} samples")
     upb_analysis_ids = []
     if len(sample_ids) > 1:
         where = f'WHERE SampleID in {tuple(sample_ids)}'
@@ -1419,9 +1420,9 @@ def find_sub_items(data_ids: list, table: str) -> tuple:
     :return: tuple of lists of sub item IDs
     """
     # Find all the sub items of a list of samples, aliquots, or spots
-    logger_setup.get_logger().info(f"Finding sub items for {len(data_ids)} {table}")
+    logger.get_logger().info(f"Finding sub items for {len(data_ids)} {table}")
     if not data_ids:
-        logger_setup.get_logger().warning(f"No data IDs provided for finding sub items in {table}")
+        logger.get_logger().warning(f"No data IDs provided for finding sub items in {table}")
         return None, None, None
     show_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
     if len(data_ids) > 1:
@@ -1453,7 +1454,7 @@ def find_sub_items(data_ids: list, table: str) -> tuple:
         close_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
         return upb_analysis_ids
     else:
-        logger_setup.get_logger().critical(f"Table {table} in not supported for finding sub items")
+        logger.get_logger().critical(f"Table {table} in not supported for finding sub items")
         close_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
         return None, None, None
 
@@ -1466,9 +1467,9 @@ def find_parent_items(data_ids: list, table: str) -> tuple:
     :param table: Table to search for parent items
     :return: Tuple of lists of parent sample IDs, aliquot IDs, and spot IDs
     """
-    logger_setup.get_logger().info(f"Finding parent items for {len(data_ids)} {table}")
+    logger.get_logger().info(f"Finding parent items for {len(data_ids)} {table}")
     if not data_ids:
-        logger_setup.get_logger().warning(f"No data IDs provided for finding parent items in {table}")
+        logger.get_logger().warning(f"No data IDs provided for finding parent items in {table}")
         return None, None, None
     show_loading_dialog('Finding Parent Items', f'Finding parent items for {len(data_ids)} {table}...')
     if len(data_ids) > 1:
@@ -1507,7 +1508,7 @@ def find_parent_items(data_ids: list, table: str) -> tuple:
         close_loading_dialog('Finding Parent Items', f'Finding parent items for {len(data_ids)} {table}...')
         return sample_ids
     else:
-        logger_setup.get_logger().critical(f"Table {table} in not supported for finding parent items")
+        logger.get_logger().critical(f"Table {table} in not supported for finding parent items")
         close_loading_dialog('Finding Parent Items', f'Finding parent items for {len(data_ids)} {table}...')
         return None, None, None
 
@@ -1521,13 +1522,13 @@ def find_current_sub_items(data_ids: list, table: str):
     :return: Tuple of lists of sub item IDs
     """
     # Find all the sub items of a list of samples, aliquots, or spots
-    logger_setup.get_logger().info(f"Finding sub items for {len(data_ids)} {table}")
+    logger.get_logger().info(f"Finding sub items for {len(data_ids)} {table}")
     aliquot_ids = []
     grain_ids = []
     spot_ids = []
     upb_analysis_ids = []
     if not data_ids:
-        logger_setup.get_logger().warning(f"No data IDs provided for finding sub items in {table}")
+        logger.get_logger().warning(f"No data IDs provided for finding sub items in {table}")
         if table == 'Spots':
             return grain_ids, upb_analysis_ids
         elif table == 'Grains':
@@ -1537,7 +1538,7 @@ def find_current_sub_items(data_ids: list, table: str):
         elif table == 'Samples':
             return aliquot_ids, grain_ids, spot_ids, upb_analysis_ids
         else:
-            logger_setup.get_logger().critical(f"Table {table} in not supported for finding sub items")
+            logger.get_logger().critical(f"Table {table} in not supported for finding sub items")
             return None, None, None, None
     show_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
     if len(data_ids) > 1:
@@ -1577,7 +1578,7 @@ def find_current_sub_items(data_ids: list, table: str):
         close_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
         return spot_ids, upb_analysis_ids
     else:
-        logger_setup.get_logger().critical(f"Table {table} in not supported for finding sub items")
+        logger.get_logger().critical(f"Table {table} in not supported for finding sub items")
         close_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
         return None, None, None, None
 
@@ -1590,9 +1591,9 @@ def find_current_parent_items(data_ids: list, table: str):
     :param table: Table to search for parent items
     :return: Tuple of lists of parent sample IDs, aliquot IDs, and spot IDs
     """
-    logger_setup.get_logger().info(f"Finding parent items for {len(data_ids)} {table}")
+    logger.get_logger().info(f"Finding parent items for {len(data_ids)} {table}")
     if not data_ids:
-        logger_setup.get_logger().warning(f"No data IDs provided for finding parent items in {table}")
+        logger.get_logger().warning(f"No data IDs provided for finding parent items in {table}")
         return None, None, None, None
     show_loading_dialog('Finding Parent Items', f'Finding parent items for {len(data_ids)} {table}...')
     if len(data_ids) > 1:
@@ -1629,7 +1630,7 @@ def find_current_parent_items(data_ids: list, table: str):
         close_loading_dialog('Finding Parent Items', f'Finding parent items for {len(data_ids)} {table}...')
         return sample_ids
     else:
-        logger_setup.get_logger().critical(f"Table {table} in not supported for finding parent items")
+        logger.get_logger().critical(f"Table {table} in not supported for finding parent items")
         close_loading_dialog('Finding Parent Items', f'Finding parent items for {len(data_ids)} {table}...')
         return None, None, None
 
@@ -1649,17 +1650,17 @@ def update_other_table_with_checks(table: str, checked_ids: list, partially_chec
     :return: 'True' if successful, 'No' if not needed, 'False' needed but failed
     """
     if not update_ids:
-        logger_setup.get_logger().error(f'No item IDs given for {update_table}')
+        logger.get_logger().error(f'No item IDs given for {update_table}')
         return 'False'
     if partially_checked_ids:
         # Any selection for a one-to-many relationship should be complete, so there should be no partially checked IDs
-        logger_setup.get_logger().info(f'Partially checked IDs for one-to-many relationship, no changes to update')
+        logger.get_logger().info(f'Partially checked IDs for one-to-many relationship, no changes to update')
         return 'No'
     if len(checked_ids) > 1:
         # If there are multiple checked IDs, this is a many-to-many relationship, so we should not use this function
-        logger_setup.get_logger().error(
+        logger.get_logger().error(
             f'Multiple checked IDs given for {table}. Select only one ID to update {update_table}.')
-        logger_setup.get_logger().debug(
+        logger.get_logger().debug(
             f'This should be a one-to-many relationship, so set the checkable combo box to single click.')
         return 'False'
     id_header = get_headers(table)[0]
@@ -1673,15 +1674,15 @@ def update_other_table_with_checks(table: str, checked_ids: list, partially_chec
     # Check that the id_header is in the update_table headers
     id_header = get_edit_column(id_header, update_table)
     if not id_header:
-        logger_setup.get_logger().critical(f'Error saving checks for {table}')
-        logger_setup.get_logger().debug(f'Could not find {table} ID header in {update_table}')
+        logger.get_logger().critical(f'Error saving checks for {table}')
+        logger.get_logger().debug(f'Could not find {table} ID header in {update_table}')
         return 'False'
     query.prepare(f"SELECT {id_header} FROM {update_table} WHERE {other_id_header} {query_where_str}")
     if not query.exec():
-        logger_setup.get_logger().critical(
+        logger.get_logger().critical(
             f'Failed to get items from {update_table}')
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        logger.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
         return 'False'
     while query.next():
         current_id = query.value(0)
@@ -1692,26 +1693,26 @@ def update_other_table_with_checks(table: str, checked_ids: list, partially_chec
             if None not in current_ids:
                 current_ids.append(None)
     if current_ids == checked_ids or checked_ids == [] and current_ids == [None]:
-        logger_setup.get_logger().info(f'Checks are up to date')
+        logger.get_logger().info(f'Checks are up to date')
         return 'No'
     create_savepoint('update_other_table')
     if len(list(checked_ids)) == 0:
         if not query.exec(f'UPDATE {update_table} SET {id_header} = NULL WHERE {other_id_header} {query_where_str}'):
-            logger_setup.get_logger().critical(f'Failed to remove item from {update_table}')
-            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+            logger.get_logger().critical(f'Failed to remove item from {update_table}')
+            logger.get_logger().debug(f"Error: {query.lastError().text()}")
+            logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
             rollback_savepoint('update_other_table')
             return 'False'
-        logger_setup.get_logger().info(f'Cleared {id_header} in {update_table}')
+        logger.get_logger().info(f'Cleared {id_header} in {update_table}')
     else:
         if not query.exec(
                 f'UPDATE {update_table} SET {id_header} = {list(checked_ids)[0]} WHERE {other_id_header} {query_where_str}'):
-            logger_setup.get_logger().critical(f'Failed to add item to {update_table}')
-            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+            logger.get_logger().critical(f'Failed to add item to {update_table}')
+            logger.get_logger().debug(f"Error: {query.lastError().text()}")
+            logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
             rollback_savepoint('update_other_table')
             return 'False'
-        logger_setup.get_logger().info(f'Added {id_header} {list(checked_ids)[0]} to {update_table}')
+        logger.get_logger().info(f'Added {id_header} {list(checked_ids)[0]} to {update_table}')
     from Functions.Check_triggers import update_modified_timestamp
     update_modified_timestamp(update_table, update_ids)
     release_savepoint('update_other_table')
@@ -1741,7 +1742,7 @@ def update_many_table_with_checks(table: str, checked_ids: list, partially_check
     elif len(first_table_ids) == 1:
         query_where_str = f'= {first_table_ids[0]}'
     else:
-        logger_setup.get_logger().error(f'No item IDs given for {first_table}')
+        logger.get_logger().error(f'No item IDs given for {first_table}')
         return 'False'
     query_model.setQuery(
         f'SELECT {first_table_id_header}, {second_table_id_header} FROM {many_table} WHERE {first_table_id_header} {query_where_str}')
@@ -1757,9 +1758,9 @@ def update_many_table_with_checks(table: str, checked_ids: list, partially_check
     model_query = f'SELECT {second_table_id_header} FROM "{second_table}"'
     query_model.setQuery(model_query)
     if query_model.lastError().isValid():
-        logger_setup.get_logger().critical(f'Error getting {table} checks for {first_table}')
-        logger_setup.get_logger().debug(f'Error: {query_model.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {model_query}')
+        logger.get_logger().critical(f'Error getting {table} checks for {first_table}')
+        logger.get_logger().debug(f'Error: {query_model.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {model_query}')
         return 'False'
     while query_model.canFetchMore():
         query_model.fetchMore()
@@ -1778,7 +1779,7 @@ def update_many_table_with_checks(table: str, checked_ids: list, partially_check
                 elif second_id not in checked_ids and pair in current_pairs and second_id not in to_remove:
                     to_remove.append(second_id)
     if to_add == [] and to_remove == []:
-        logger_setup.get_logger().info(f'No changes to {many_table}')
+        logger.get_logger().info(f'No changes to {many_table}')
         release_savepoint('update_many_table')
         return 'No'
     if to_remove:
@@ -1786,12 +1787,12 @@ def update_many_table_with_checks(table: str, checked_ids: list, partially_check
             query.prepare(
                 f"DELETE FROM {many_table} WHERE {first_table_id_header} {query_where_str} AND {second_table_id_header} = {id}")
             if not query.exec():
-                logger_setup.get_logger().critical(f"Error unchecking {second_table} from {first_table}")
-                logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-                logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                logger.get_logger().critical(f"Error unchecking {second_table} from {first_table}")
+                logger.get_logger().debug(f"Error: {query.lastError().text()}")
+                logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
                 rollback_savepoint('update_many_table')
                 return 'False'
-        logger_setup.get_logger().info(
+        logger.get_logger().info(
             f"Removed {to_remove} associated with item IDs {first_table_ids} from {many_table}")
     if to_add:
         for id in to_add:
@@ -1806,18 +1807,19 @@ def update_many_table_with_checks(table: str, checked_ids: list, partially_check
                         pass
                     # If it is another type of error, log it and rollback
                     else:
-                        logger_setup.get_logger().critical(
+                        logger.get_logger().critical(
                             f"Error adding {second_table} to {first_table}")
-                        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-                        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-                        logger_setup.get_logger().debug(f"Bound values: {query.boundValues()}")
+                        logger.get_logger().debug(f"Error: {query.lastError().text()}")
+                        logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                        logger.get_logger().debug(f"Bound values: {query.boundValues()}")
                         rollback_savepoint('update_many_table')
                         return 'False'
-        logger_setup.get_logger().info(f"Added {to_add} associated with item IDs {first_table_ids} to {many_table}")
-    logger_setup.get_logger().info(
+        logger.get_logger().info(f"Added {to_add} associated with item IDs {first_table_ids} to {many_table}")
+    logger.get_logger().info(
         f"Successfully updated {many_table} for {first_table_id_header} {first_table_ids}")
     release_savepoint('update_many_table')
     return 'True'
+
 
 def get_edit_column(table_id_header, item_table):
     if table_id_header in get_headers(item_table):
@@ -1827,11 +1829,12 @@ def get_edit_column(table_id_header, item_table):
         for header in get_headers(item_table):
             if table_id_header in header:
                 return header
-    logger_setup.get_logger().debug(f'Could not find edit column for {item_table} with header {table_id_header}')
+    logger.get_logger().debug(f'Could not find edit column for {item_table} with header {table_id_header}')
     return None
 
 
-def bulk_update_parent_row(table, parent_id, spaces_to_move: int, new_row: int | None = None, old_row: int | None = None) -> tuple[bool, list[int]]:
+def bulk_update_parent_row(table, parent_id, spaces_to_move: int, new_row: int | None = None,
+                           old_row: int | None = None) -> tuple[bool, list[int]]:
     """
     Update the parent row for a given range of child rows in the database.
     :param table: table name
@@ -1848,13 +1851,14 @@ def bulk_update_parent_row(table, parent_id, spaces_to_move: int, new_row: int |
     parent_row_header = headers[2]
     updated_ids = []
     if new_row is None and old_row is None:
-        logger_setup.get_logger().critical(f'Error shifting {table} data')
-        logger_setup.get_logger().debug(f'Missing parent row constraints')
+        logger.get_logger().critical(f'Error shifting {table} data')
+        logger.get_logger().debug(f'Missing parent row constraints')
         return False, []
     if new_row == old_row:
-        logger_setup.get_logger().info(f'{table} data already in the correct position at row {old_row}')
+        logger.get_logger().info(f'{table} data already in the correct position at row {old_row}')
         return True, []
-    logger_setup.get_logger().info(f'Bulk updating {table} data for children of {parent_id} from old row {old_row} to new row {new_row}')
+    logger.get_logger().info(
+        f'Bulk updating {table} data for children of {parent_id} from old row {old_row} to new row {new_row}')
     query1 = QtSql.QSqlQuery()
     query2 = QtSql.QSqlQuery()
     select_query = QtSql.QSqlQuery()
@@ -1868,17 +1872,17 @@ def bulk_update_parent_row(table, parent_id, spaces_to_move: int, new_row: int |
                 FROM {table} WHERE {parent_id_header} IS :parent_id''')
     move_size_query.bindValue(':parent_id', parent_id if parent_id != 'NULL' else QtCore.QVariant())
     if not move_size_query.exec():
-        logger_setup.get_logger().critical(f'Error shifting {table} data')
-        logger_setup.get_logger().debug(f"Error: {move_size_query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {move_size_query.lastQuery()}")
-        logger_setup.get_logger().debug(f"Bound values: {move_size_query.boundValues()}")
+        logger.get_logger().critical(f'Error shifting {table} data')
+        logger.get_logger().debug(f"Error: {move_size_query.lastError().text()}")
+        logger.get_logger().debug(f"SQL query: {move_size_query.lastQuery()}")
+        logger.get_logger().debug(f"Bound values: {move_size_query.boundValues()}")
         return False, []
     max_child_row = 0
     if move_size_query.next():
         if move_size_query.value(0):
             max_child_row = move_size_query.value(0)
     if new_row is not None and old_row is None:
-        logger_setup.get_logger().info(f'Making space to insert new child at {new_row}')
+        logger.get_logger().info(f'Making space to insert new child at {new_row}')
         k = max_child_row - new_row + spaces_to_move
         query1.prepare(f'''UPDATE {table} SET {parent_row_header} = {parent_row_header} + {k} + {spaces_to_move}
         WHERE {parent_id_header} IS :parent_id AND {parent_row_header} >= {new_row};
@@ -1891,11 +1895,12 @@ def bulk_update_parent_row(table, parent_id, spaces_to_move: int, new_row: int |
         ''')
         query2.bindValue(':parent_id', parent_id if parent_id != 'NULL' else QtCore.QVariant())
 
-        select_query.prepare(f'SELECT {id_header} FROM {table} WHERE {parent_id_header} {parent_id_sql} AND {parent_row_header} >= {new_row}')
+        select_query.prepare(
+            f'SELECT {id_header} FROM {table} WHERE {parent_id_header} {parent_id_sql} AND {parent_row_header} >= {new_row}')
     elif old_row is not None and new_row is None:
-        logger_setup.get_logger().info(f'Closing space from removed child at {old_row}')
+        logger.get_logger().info(f'Closing space from removed child at {old_row}')
         if old_row > max_child_row:
-            logger_setup.get_logger().info(f'Space already closed')
+            logger.get_logger().info(f'Space already closed')
         k = max_child_row - old_row
         query1.prepare(f'''UPDATE {table} SET {parent_row_header} = {parent_row_header} + {k}
         WHERE {parent_id_header} IS :parent_id AND {parent_row_header} > {old_row};
@@ -1908,10 +1913,11 @@ def bulk_update_parent_row(table, parent_id, spaces_to_move: int, new_row: int |
         ''')
         query2.bindValue(':parent_id', parent_id if parent_id != 'NULL' else QtCore.QVariant())
 
-        select_query.prepare(f'SELECT {id_header} FROM {table} WHERE {parent_id_header} {parent_id_sql} AND {parent_row_header} > {old_row}')
+        select_query.prepare(
+            f'SELECT {id_header} FROM {table} WHERE {parent_id_header} {parent_id_sql} AND {parent_row_header} > {old_row}')
     elif new_row is not None and old_row is not None:
         if new_row < old_row:
-            logger_setup.get_logger().info(f'Moving child up from {old_row} to {new_row}')
+            logger.get_logger().info(f'Moving child up from {old_row} to {new_row}')
             k = max_child_row - new_row + 1
             query1.prepare(f'''UPDATE {table} SET {parent_row_header} = {parent_row_header} + {k}
             WHERE {parent_id_header} IS :parent_id 
@@ -1932,7 +1938,7 @@ def bulk_update_parent_row(table, parent_id, spaces_to_move: int, new_row: int |
             AND {parent_row_header} >= {new_row} 
             AND {parent_row_header} <= {old_row}''')
         elif new_row > old_row:
-            logger_setup.get_logger().info(f'Moving child down from {old_row} to {new_row}')
+            logger.get_logger().info(f'Moving child down from {old_row} to {new_row}')
             k = max_child_row - old_row + 1
             # Move all rows that will be changing to the end
             query1.prepare(f'''UPDATE {table} SET {parent_row_header} = {parent_row_header} + {k}
@@ -1954,33 +1960,34 @@ def bulk_update_parent_row(table, parent_id, spaces_to_move: int, new_row: int |
                 AND {parent_row_header} > {old_row} 
                 AND {parent_row_header} <= {new_row}''')
     if not select_query.exec():
-        logger_setup.get_logger().critical(f'Error shifting {table} data')
-        logger_setup.get_logger().debug(f"Error: {select_query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {select_query.lastQuery()}")
-        logger_setup.get_logger().debug(f"Bound values: {select_query.boundValues()}")
+        logger.get_logger().critical(f'Error shifting {table} data')
+        logger.get_logger().debug(f"Error: {select_query.lastError().text()}")
+        logger.get_logger().debug(f"SQL query: {select_query.lastQuery()}")
+        logger.get_logger().debug(f"Bound values: {select_query.boundValues()}")
         return False, []
     while select_query.next():
         updated_ids.append(select_query.value(0))
     if not updated_ids:
-        logger_setup.get_logger().info(f'No items to shift for {table}')
+        logger.get_logger().info(f'No items to shift for {table}')
         return True, []
     # Move items well out of the way to avoid unique ParentID, ParentRow errors
     if not query1.exec():
-        logger_setup.get_logger().critical(f'Error shifting {table} data')
-        logger_setup.get_logger().debug(f"Error: {query1.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query1.lastQuery()}")
-        logger_setup.get_logger().debug(f"Bound values: {query1.boundValues()}")
+        logger.get_logger().critical(f'Error shifting {table} data')
+        logger.get_logger().debug(f"Error: {query1.lastError().text()}")
+        logger.get_logger().debug(f"SQL query: {query1.lastQuery()}")
+        logger.get_logger().debug(f"Bound values: {query1.boundValues()}")
         return False, []
     # Move items to the new position
     if not query2.exec():
-        logger_setup.get_logger().critical(f'Error shifting {table} data')
-        logger_setup.get_logger().debug(f"Error: {query2.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query2.lastQuery()}")
-        logger_setup.get_logger().debug(f"Bound values: {query2.boundValues()}")
+        logger.get_logger().critical(f'Error shifting {table} data')
+        logger.get_logger().debug(f"Error: {query2.lastError().text()}")
+        logger.get_logger().debug(f"SQL query: {query2.lastQuery()}")
+        logger.get_logger().debug(f"Bound values: {query2.boundValues()}")
         return False, []
     from Functions.Check_triggers import update_modified_timestamp
     update_modified_timestamp(table, updated_ids)
     return True, updated_ids
+
 
 def get_selected_tree_ids(indexes: list[QtCore.QModelIndex]):
     """
@@ -1998,6 +2005,7 @@ def get_selected_tree_ids(indexes: list[QtCore.QModelIndex]):
         if item_id not in item_parent_dictionary.keys():
             item_parent_dictionary[item_id] = [parent_id, parent_row]
     return item_parent_dictionary
+
 
 def find_tree_model(model, indexes: list[QtCore.QModelIndex] | None):
     """
@@ -2060,6 +2068,7 @@ def map_from_tree_model(input_model, tree_indexes: list[QtCore.QModelIndex]):
         model_indexes = parent_indexes
     return model_indexes
 
+
 def set_comboBox_text(comboBox: QtWidgets.QComboBox, text: str):
     """
     Set the text of a combo box. This method updates the current index of the combo box based on the provided text.
@@ -2072,7 +2081,8 @@ def set_comboBox_text(comboBox: QtWidgets.QComboBox, text: str):
     else:
         comboBox.setCurrentText(text)
     if comboBox.currentText() != text:
-        logger_setup.get_logger().debug(f'ComboBox {comboBox.objectName()} text "{text}" not found in items.')
+        logger.get_logger().debug(f'ComboBox {comboBox.objectName()} text "{text}" not found in items.')
+
 
 def show_column(comboBox: QtWidgets.QComboBox, column: str | int):
     """
@@ -2128,6 +2138,7 @@ def show_column(comboBox: QtWidgets.QComboBox, column: str | int):
             comboBox.view().model().sort(column_int, QtCore.Qt.SortOrder.AscendingOrder)
         close_loading_dialog('Loading', f'Loading {count} items...')
 
+
 def add_tree_popup(tree_view: QtWidgets.QTreeView, action: QtGui.QAction | None = None):
     """
     Determine the arguments to pass to a dialog for adding or inserting items in a tree view based on the selected
@@ -2141,7 +2152,7 @@ def add_tree_popup(tree_view: QtWidgets.QTreeView, action: QtGui.QAction | None 
     model = tree_view.model()
     tree_model, tree_indexes = find_tree_model(model, indexes)
     if not tree_model:
-        logger_setup.get_logger().info(f'No tree model found in {tree_view.objectName()}')
+        logger.get_logger().info(f'No tree model found in {tree_view.objectName()}')
         return dlg_args
     item_parent_dictionary = get_selected_tree_ids(tree_indexes)
     if action:
@@ -2153,20 +2164,232 @@ def add_tree_popup(tree_view: QtWidgets.QTreeView, action: QtGui.QAction | None 
         if action_text == 'Insert above':
             row = item_parent_dictionary[first_item_id][1]
             parent_id = item_parent_dictionary[first_item_id][0]
-            dlg_args = {'parent_id' : parent_id, 'parent_row': row}
+            dlg_args = {'parent_id': parent_id, 'parent_row': row}
         elif action_text == 'Insert below':
             row = item_parent_dictionary[first_item_id][1] + 1
             parent_id = item_parent_dictionary[first_item_id][0]
-            dlg_args = {'parent_id' : parent_id, 'parent_row': row}
+            dlg_args = {'parent_id': parent_id, 'parent_row': row}
         elif action_text == 'Add child':
             parent_id = first_item_id
-            dlg_args = {'parent_id' : parent_id}
+            dlg_args = {'parent_id': parent_id}
         elif action_text == 'Add parent':
             parent_ids = [item_parent_dictionary[item_id][0] for item_id in item_ids]
             parent_rows = [item_parent_dictionary[item_id][1] for item_id in item_ids]
-            dlg_args = {'add_item': 'parent', 'item_ids': item_ids, 'old_parent_ids': parent_ids, 'old_parent_rows': parent_rows}
+            dlg_args = {'add_item': 'parent', 'item_ids': item_ids, 'old_parent_ids': parent_ids,
+                        'old_parent_rows': parent_rows}
         elif action_text == 'Add to end' or action_text == 'Add':
             dlg_args = {'add_item': 'child'}
     return dlg_args
 
 
+def turn_on_foreign_keys(database: QSqlDatabase = QSqlDatabase()) -> bool:
+    """
+    Turn on foreign keys for a given database connection, if no database is provided the default database will be used.
+    :param QSqlDatabase database: QSqlDatabase instance to enable foreign keys
+    :return: True for success, False for failure
+    :rtype: bool
+    """
+    query = QSqlQuery(database)
+    logger.get_logger().debug(f'Turning on foreign keys for database: {database.connectionName()}')
+    if not query.exec('PRAGMA foreign_keys=ON'):
+        logger.get_logger().critical(f'Could not turn on foreign keys')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
+    if not query.exec('PRAGMA foreign_keys'):
+        logger.get_logger().critical(f'Could not check foreign keys')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
+    if query.next():
+        if query.value(0) == 1:
+            logger.get_logger().info('Foreign keys are on')
+            return True
+        else:
+            logger.get_logger().critical('Failed to re-enable foreign keys')
+            logger.get_logger().info(f'Foreign keys status: {query.value(0)}')
+            return False
+
+    return False
+
+
+def turn_off_foreign_keys(database: QSqlDatabase = QSqlDatabase()) -> bool:
+    """
+    Turn off foreign keys for a given database connection, if no database is provided the default database will be used.
+    :param QSqlDatabase database: QSqlDatabase instance to enable foreign keys
+    :return: True for success, False for failure
+    :rtype: bool
+    """
+    query = QSqlQuery(database)
+    logger.get_logger().debug(f'Turning off foreign keys for database: {database.connectionName()}')
+    if not query.exec('PRAGMA foreign_keys=OFF'):
+        logger.get_logger().critical(f'Could not turn off foreign keys')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
+    if not query.exec('PRAGMA foreign_keys'):
+        logger.get_logger().critical(f'Could not check foreign keys')
+        logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
+    if query.next():
+        if query.value(0) == 0:
+            logger.get_logger().info('Foreign keys are off')
+            return True
+        else:
+            logger.get_logger().critical('Failed to disable foreign keys')
+            return False
+
+    return False
+
+
+def update_database(database=None) -> bool:
+    """
+    Run this on startup and when settings are changed.
+    The database has generated columns that set display values based on units and formats in settings. These need to be
+    updated if the settings are changed. This function will drop and recreate the generated columns.
+    Uses the default connection established with the database file in GeoCORKMain.py if no database is provided.
+    :param database: QSqlDatabase instance to use, if None the default database is used
+    :return: True for success, False for failure
+    :rtype: bool
+    """
+    start_time = time.time()
+    loading_manager = LoadingDialogManager.get_instance()
+    loading_manager.show_loading_dialog('Loading', 'Updating database... \n(GeoCORK may be slower for large databases)')
+    logger.get_logger().info("Updating database")
+    # Check if the database exists and all tables are present
+    if database is None:
+        db = QSqlDatabase.database()
+    else:
+        db = database
+    if not db.commit():
+        if 'no transaction is active' not in db.lastError().text():
+            logger.get_logger().critical(f"Error committing database")
+            logger.get_logger().debug(f'Error: {db.lastError().text()}')
+            loading_manager.close_loading_dialog('Loading',
+                                                 'Updating database... \n(GeoCORK may be slower for large databases)')
+            return False
+    if not db.close():
+        if 'no transaction is active' not in db.lastError().text():
+            logger.get_logger().critical(f"Error closing database")
+            logger.get_logger().debug(f'Error: {db.lastError().text()}')
+            loading_manager.close_loading_dialog('Loading',
+                                                 'Updating database... \n(GeoCORK may be slower for large databases)')
+            return False
+    if not db.open():
+        logger.get_logger().critical(f"Error opening database")
+        logger.get_logger().debug(f'Error: {db.lastError().text()}')
+        loading_manager.close_loading_dialog('Loading',
+                                             'Updating database... \n(GeoCORK may be slower for large databases)')
+        return False
+    if not turn_on_foreign_keys():
+        loading_manager.close_loading_dialog('Loading',
+                                             'Updating database... \n(GeoCORK may be slower for large databases)')
+        return False
+
+    if database is None:
+        database = QSqlDatabase.database()
+    query = QSqlQuery(db=database)
+
+    '''Backup database before any changes.
+    Restore the backup before returning if the update fails'''
+
+    from Functions import Create_indexes
+    from util.database.create import Create_database as Create_db
+    from util.database import alter_database as Alter_db
+
+    # Update database schema
+    if not query.exec('SELECT Version FROM About WHERE AboutID = 1'):
+        db_version = None
+    else:
+        if not query.next():
+            logger.get_logger().critical('Error retrieving database version')
+            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            loading_manager.close_loading_dialog('Loading',
+                                                 'Updating database... \n(GeoCORK may be slower for large databases)')
+            return False
+        else:
+            db_version = query.value(0)
+            logger.get_logger().info(f'Database version: {db_version}')
+    # if db_version != settings.value('geocork_version'):
+    if not turn_off_foreign_keys():
+        loading_manager.close_loading_dialog('Loading',
+                                             'Updating database... \n(GeoCORK may be slower for large databases)')
+        return False
+    schema_success = Create_db.update_schema(db_version, database=db)
+    if schema_success == 'False':
+        logger.get_logger().debug(f"Error updating schema from {db_version} to {settings.value('geocork_version')}")
+        dialog = QMessageBox()
+        dialog.setIcon(QMessageBox.Icon.Critical)
+        dialog.setText(
+            f"Error updating schema from {db_version} to {settings.value('geocork_version')}\nWould you like to try to open the database anyway? \n \n This will likely cause issues with your data and is not recommended.")
+        dialog.setWindowTitle("Error updating database")
+        dialog.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        ret = dialog.exec()
+        if ret != QMessageBox.StandardButton.Yes:
+            loading_manager.close_loading_dialog('Loading',
+                                                 'Updating database... \n(GeoCORK may be slower for large databases)')
+            return False
+        logger.get_logger().info('Trying to open the database anyway')
+    elif schema_success == 'Cancel':
+        loading_manager.close_loading_dialog('Loading',
+                                             'Updating database... \n(GeoCORK may be slower for large databases)')
+        return False
+    elif schema_success != 'True':
+        # A backup file was returned to restore
+        backup_file = schema_success
+        dialog = QMessageBox()
+        dialog.setIcon(QMessageBox.Icon.Critical)
+        dialog.setText(
+            f"Error updating schema from v.{db_version} to v.{settings.value('geocork_version')}\nWould you like to restore from the backup file?")
+        dialog.setWindowTitle("Error updating database")
+        dialog.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        ret = dialog.exec()
+        if ret != QMessageBox.StandardButton.Yes:
+            loading_manager.close_loading_dialog('Loading',
+                                                 'Updating database... \n(GeoCORK may be slower for large databases)')
+            for widget in QApplication.allWidgets():
+                if widget.objectName() == 'LandingPage':
+                    widget.restore_backup(database.databaseName(), backup_file)
+                    return False
+
+    if not turn_on_foreign_keys():
+        loading_manager.close_loading_dialog('Loading',
+                                             'Updating database... \n(GeoCORK may be slower for large databases)')
+        return False
+
+    if not Create_db.create_tables(database):
+        logger.get_logger().critical(f"Error creating database tables")
+        loading_manager.close_loading_dialog('Loading',
+                                             'Updating database... \n(GeoCORK may be slower for large databases)')
+        return False
+    if not Create_indexes.create_indexes(db):
+        logger.get_logger().critical(f"Error creating database indexes")
+        loading_manager.close_loading_dialog('Loading',
+                                             'Updating database... \n(GeoCORK may be slower for large databases)')
+        return False
+
+    # Make sure the view column settings do not have any leftover old column names
+    from ui.settings import SettingsCore
+    if not SettingsCore.update_column_settings():
+        logger.get_logger().critical(f"Error updating database settings")
+        loading_manager.close_loading_dialog('Loading',
+                                             'Updating database... \n(GeoCORK may be slower for large databases)')
+        return False
+
+    # Drop and regenerate the generated columns
+    if not Alter_db.settings_reset(database):
+        logger.get_logger().critical(f"Error resetting settings")
+        loading_manager.close_loading_dialog('Loading',
+                                             'Updating database... \n(GeoCORK may be slower for large databases)')
+        return False
+    end_time = time.time()
+    loading_manager.close_loading_dialog('Loading',
+                                         'Updating database... \n(GeoCORK may be slower for large databases)')
+    logger.get_logger().info(f"Database updated in {end_time - start_time} seconds")
+    database.commit()
+
+    '''Delete backup made at the beginning of the update if it exists'''
+
+    return True
