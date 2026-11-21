@@ -11,8 +11,8 @@ from PyQt6.QtWidgets import QProgressDialog, QApplication
 import util.database.create.Create_database as Create_db
 # noinspection PyUnresolvedReferences
 import util.gps_conversions as GPS
-from util import logger
-from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from util import geocork_logger
+from util.database.savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from util.database.database_helper import set_table, get_columns, get_headers, bulk_update_parent_row, \
     turn_on_foreign_keys, turn_off_foreign_keys
 from util.loading_dialog_manager import LoadingDialogManager
@@ -71,7 +71,7 @@ def drop_virtual_columns(tables_affected: list[list[str]], edit_table: str = Non
     create_savepoint('before_drop')
 
     for table_info in tables_affected:
-        logger.get_logger().info(f"Progress: {table_idx}/{drop_count}")
+        geocork_logger.get_logger().info(f"Progress: {table_idx}/{drop_count}")
         table = table_info[0]
         drop_progress.setValue(table_idx + 1)
         # Let the event loop process the dialog's updates
@@ -85,86 +85,86 @@ def drop_virtual_columns(tables_affected: list[list[str]], edit_table: str = Non
         create_sql = table_info[1]
         query, virtual, stored, columns = get_columns(table, database)
         if query.lastError().text() != '':
-            logger.get_logger().critical(f'Error getting {table} columns')
-            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            geocork_logger.get_logger().critical(f'Error getting {table} columns')
+            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             rollback_savepoint('before_drop')
             return False
         if virtual:
 
             # Create a new table with the same original columns as the old one
-            logger.get_logger().info(f'Creating table: {table}_new')
+            geocork_logger.get_logger().info(f'Creating table: {table}_new')
             if table == 'References':
                 column_creation = create_sql.split(f'CREATE TABLE IF NOT EXISTS "{table}"')[1]
             else:
                 column_creation = create_sql.split(f'CREATE TABLE IF NOT EXISTS {table}')[1]
             create_sql = f'CREATE TABLE IF NOT EXISTS {table}_new{column_creation}'
             if not query.exec(create_sql):
-                logger.get_logger().critical(f'Error creating {table}_new table')
-                logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                geocork_logger.get_logger().critical(f'Error creating {table}_new table')
+                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 rollback_savepoint('before_drop')
                 return False
-            logger.get_logger().info(f'Successfully created table: {table}_new')
+            geocork_logger.get_logger().info(f'Successfully created table: {table}_new')
 
             # Select only the stored columns, not the virtual ones
             column_str = ', '.join(columns)
             insert_new_table = f'INSERT INTO {table}_new SELECT {column_str} FROM "{table}"'
-            logger.get_logger().info(f'Inserting into new table: {table}_new')
+            geocork_logger.get_logger().info(f'Inserting into new table: {table}_new')
             if not query.exec(insert_new_table):
-                logger.get_logger().critical(f'Error inserting {table}_new table')
-                logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                geocork_logger.get_logger().critical(f'Error inserting {table}_new table')
+                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 rollback_savepoint('before_drop')
                 return False
-            logger.get_logger().info(f'Successfully inserted into new table: {table}_new')
+            geocork_logger.get_logger().info(f'Successfully inserted into new table: {table}_new')
 
             if not database.commit():
                 if 'no transaction is active' not in database.lastError().text():
-                    logger.get_logger().critical(f"Error committing database")
-                    logger.get_logger().debug(f'Error: {database.lastError().text()}')
+                    geocork_logger.get_logger().critical(f"Error committing database")
+                    geocork_logger.get_logger().debug(f'Error: {database.lastError().text()}')
                     rollback_savepoint('before_drop')
                     return False
             if not database.close():
                 if 'no transaction is active' not in database.lastError().text():
-                    logger.get_logger().critical(f"Error closing database")
-                    logger.get_logger().debug(f'Error: {database.lastError().text()}')
+                    geocork_logger.get_logger().critical(f"Error closing database")
+                    geocork_logger.get_logger().debug(f'Error: {database.lastError().text()}')
                     rollback_savepoint('before_drop')
                     return False
             if not database.open():
-                logger.get_logger().critical(f"Error opening database")
-                logger.get_logger().debug(f'Error: {database.lastError().text()}')
+                geocork_logger.get_logger().critical(f"Error opening database")
+                geocork_logger.get_logger().debug(f'Error: {database.lastError().text()}')
                 rollback_savepoint('before_drop')
                 return False
 
             # Drop the original table
             drop_original_table = f'DROP TABLE "{table}"'
-            logger.get_logger().info(f'Dropping original table: {table}')
+            geocork_logger.get_logger().info(f'Dropping original table: {table}')
             if not query.exec(drop_original_table):
-                logger.get_logger().critical(f'Error dropping original {table} table')
-                logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                geocork_logger.get_logger().critical(f'Error dropping original {table} table')
+                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 rollback_savepoint('before_drop')
                 return False
-            logger.get_logger().info(f'Successfully dropped original table: {table}')
+            geocork_logger.get_logger().info(f'Successfully dropped original table: {table}')
 
             # Rename the new table to the original table name
             alter_table_qry = f'ALTER TABLE {table}_new RENAME TO "{table}"'
-            logger.get_logger().info(f'Altering table rename: {table}_new to {table}')
+            geocork_logger.get_logger().info(f'Altering table rename: {table}_new to {table}')
             if not query.exec(f'ALTER TABLE {table}_new RENAME TO "{table}"'):
-                logger.get_logger().critical(f'Error renaming {table} table')
-                logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                geocork_logger.get_logger().critical(f'Error renaming {table} table')
+                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 rollback_savepoint('before_drop')
                 return False
-            logger.get_logger().info(f'Successfully altered table rename: {table}_new to {table}')
+            geocork_logger.get_logger().info(f'Successfully altered table rename: {table}_new to {table}')
 
             # Get the columns of the new table to compare to the original table
             new_query, new_virtual, new_stored, new_columns = get_columns(table)
             if new_columns != columns:
-                logger.get_logger().critical(f'Error copying new table {table} columns')
-                logger.get_logger().debug(f'Original columns: {columns}')
-                logger.get_logger().debug(f'New columns: {new_columns}')
+                geocork_logger.get_logger().critical(f'Error copying new table {table} columns')
+                geocork_logger.get_logger().debug(f'Original columns: {columns}')
+                geocork_logger.get_logger().debug(f'New columns: {new_columns}')
                 rollback_savepoint('before_drop')
                 return False
 
@@ -179,7 +179,7 @@ def drop_virtual_columns(tables_affected: list[list[str]], edit_table: str = Non
 
     release_savepoint('before_drop')
     end_time = time.time()
-    logger.get_logger().info(f'Dropped virtual columns: {end_time - start_time} seconds')
+    geocork_logger.get_logger().info(f'Dropped virtual columns: {end_time - start_time} seconds')
     if not turn_on_foreign_keys():
         return False
     return True
@@ -194,7 +194,7 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
     """
     start_time = time.time()
     create_savepoint('before_populate')
-    logger.get_logger().info('Populating generated columns...')
+    geocork_logger.get_logger().info('Populating generated columns...')
     populate_count = 0
     total_steps = 12
     populate_progress = QProgressDialog('Recalculating from settings...', 'Cancel', 0, total_steps,
@@ -259,7 +259,7 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
 
     # Convert the columns and catch any errors
 
-    logger.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
+    geocork_logger.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
     populate_progress.setValue(populate_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -273,7 +273,7 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
         return False
 
     populate_count += 1
-    logger.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
+    geocork_logger.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
     populate_progress.setValue(populate_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -287,7 +287,7 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
         return False
 
     populate_count += 1
-    logger.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
+    geocork_logger.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
     populate_progress.setValue(populate_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -301,7 +301,7 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
         return False
 
     populate_count += 1
-    logger.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
+    geocork_logger.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
     populate_progress.setValue(populate_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -328,7 +328,7 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
         return False
 
     populate_count += 1
-    logger.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
+    geocork_logger.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
     populate_progress.setValue(populate_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -341,7 +341,7 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
         rollback_savepoint('before_populate')
         return False
     populate_count += 1
-    logger.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
+    geocork_logger.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
     populate_progress.setValue(populate_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -354,7 +354,7 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
         rollback_savepoint('before_populate')
         return False
     populate_count += 1
-    logger.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
+    geocork_logger.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
     populate_progress.setValue(populate_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -367,7 +367,7 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
         rollback_savepoint('before_populate')
         return False
     populate_count += 1
-    logger.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
+    geocork_logger.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
     populate_progress.setValue(populate_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -380,7 +380,7 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
         rollback_savepoint('before_populate')
         return False
     populate_count += 1
-    logger.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
+    geocork_logger.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
     populate_progress.setValue(populate_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -391,7 +391,7 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
     if not generate_reference_column('References', settings.value('reference_format'), database=database):
         rollback_savepoint('before_populate')
         return False
-    logger.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
+    geocork_logger.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
     populate_count += 1
     populate_progress.setValue(populate_count + 1)
     # Let the event loop process the dialog's updates
@@ -404,7 +404,7 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
         rollback_savepoint('before_populate')
         return False
     populate_count += 1
-    logger.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
+    geocork_logger.get_logger().info(f'Populate progress: {populate_count}/{total_steps}')
     populate_progress.setValue(populate_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -418,7 +418,7 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
     populate_count += 1
     release_savepoint('before_populate')
     end_time = time.time()
-    logger.get_logger().info(f'Populated virtual columns: {end_time - start_time} seconds')
+    geocork_logger.get_logger().info(f'Populated virtual columns: {end_time - start_time} seconds')
     return True
 
 
@@ -500,8 +500,8 @@ def retrieve_conversions(conversion_table: str, id_header_base: str, selected_id
             break
     if calculation_col is type(str) or from_id_col is type(str):
         # Error handling
-        logger.get_logger().critical(f'Error retrieving conversions')
-        logger.get_logger().debug(f'Calculation: {calculation_col} and from columns:{from_id_col} not found')
+        geocork_logger.get_logger().critical(f'Error retrieving conversions')
+        geocork_logger.get_logger().debug(f'Calculation: {calculation_col} and from columns:{from_id_col} not found')
         raise NotImplementedError('Calculation not implemented.')
     conversions = []
     for row in range(unit_conversion_model.rowCount()):
@@ -577,14 +577,14 @@ def generate_columns(affected_column_names: list[str], table: str, table_id_head
                 sql_alter += f' WHEN {table_id_header}={conversion[0]} AND {column} IS NULL THEN {calculation}'
         sql_alter += ' END) VIRTUAL'
 
-        logger.get_logger().info(f'Adding the calculated column {column}')
+        geocork_logger.get_logger().info(f'Adding the calculated column {column}')
         if not query.exec(sql_alter):
-            logger.get_logger().critical(f'Error adding the calculated column {column}')
-            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            geocork_logger.get_logger().critical(f'Error adding the calculated column {column}')
+            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             rollback_savepoint('before_populate')
             return False
-        logger.get_logger().info(f'Successfully updated {column}')
+        geocork_logger.get_logger().info(f'Successfully updated {column}')
     return True
 
 
@@ -602,21 +602,21 @@ def generate_age_display_columns(table: str, database: QtS.QSqlDatabase = None) 
         query = QtS.QSqlQuery(db=database)
     column = 'SampleAgeConverted'
     sql_alter = f'ALTER TABLE "{table}" ADD COLUMN {column} TEXT AS (ifnull(CalculatedDirectAge, "") || "±" || ifnull(CalculatedDirectAgeError, "") || ", " || ifnull(CalculatedOldestDirectAge, "") || "-" || ifnull(CalculatedYoungestDirectAge, "") || ", " || ifnull(OldestAgeID, "") || "-" || ifnull(YoungestAgeID, ""))'
-    logger.get_logger().info(f'Adding the calculated column {column}')
+    geocork_logger.get_logger().info(f'Adding the calculated column {column}')
     if not query.exec(sql_alter):
-        logger.get_logger().critical(f'Error adding the calculated column {column}')
-        logger.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        geocork_logger.get_logger().critical(f'Error adding the calculated column {column}')
+        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     column = 'SampleAgeDisplay'
     sql_alter = f'ALTER TABLE "{table}" ADD COLUMN {column} TEXT AS (ifnull(DirectAge, "") || "±" || ifnull(DirectAgeError, "")  || " (" || ifnull(DirectAgeUnitID, "") || ")" || ", " || ifnull(OldestDirectAge, "") || "-" || ifnull(YoungestDirectAge, "") || ", " || ifnull(OldestAgeID, "") || "-" || ifnull(YoungestAgeID, ""))'
-    logger.get_logger().info(f'Adding the calculated column {column}')
+    geocork_logger.get_logger().info(f'Adding the calculated column {column}')
     if not query.exec(sql_alter):
-        logger.get_logger().critical(f'Error adding the calculated column {column}')
-        logger.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        geocork_logger.get_logger().critical(f'Error adding the calculated column {column}')
+        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
-    logger.get_logger().info(f'Successfully updated {column}')
+    geocork_logger.get_logger().info(f'Successfully updated {column}')
     return True
 
 
@@ -666,14 +666,14 @@ def generate_age_error_columns(affected_column_names: list[str], table: str, tab
                     calculation = age_conversion[1].replace('x', f'({err_calculation})')
                     sql_alter += f' WHEN {table_age_id_header}={age_conversion[0]} AND {table_error_id_header}={err_conversion[0]} THEN ({calculation})'
         sql_alter += ' END) VIRTUAL'
-        logger.get_logger().info(f'Updating the calculated {err_column}')
+        geocork_logger.get_logger().info(f'Updating the calculated {err_column}')
         if not query.exec(sql_alter):
-            logger.get_logger().critical(f'Error adding the calculated column {err_column}')
-            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            geocork_logger.get_logger().critical(f'Error adding the calculated column {err_column}')
+            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             rollback_savepoint('before_populate')
             return False
-        logger.get_logger().info(f'Successfully updated {err_column}')
+        geocork_logger.get_logger().info(f'Successfully updated {err_column}')
     return True
 
 
@@ -688,7 +688,7 @@ def generate_best_age_fill_columns(database: QtS.QSqlDatabase = None) -> bool:
     best_age_cutoff = settings.value('best_age_cutoff')
     # for column in ('BestAge', 'BestAgeError', 'CalculatedBestAge', 'CalculatedBestAgeError'):
     for column in ('BestAge', 'BestAgeError'):
-        logger.get_logger().info(f'Constructing query for {column}')
+        geocork_logger.get_logger().info(f'Constructing query for {column}')
         young_column = young_column_setting.replace('"', '')
         old_column = old_column_setting.replace('"', '')
         young_age = young_column
@@ -716,12 +716,12 @@ def generate_best_age_fill_columns(database: QtS.QSqlDatabase = None) -> bool:
         else:
             query = QtS.QSqlQuery(db=database)
         if not query.exec(sql_alter):
-            logger.get_logger().critical(f'Failed to fill missing values for {column}')
-            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            geocork_logger.get_logger().critical(f'Failed to fill missing values for {column}')
+            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             rollback_savepoint('before_populate')
             return False
-        logger.get_logger().info(f'Successfully updated {column}')
+        geocork_logger.get_logger().info(f'Successfully updated {column}')
     age_unit_id = settings.value('age_unit_id')  # default to Ma
     age_error_format_id = settings.value('age_error_format_id')  # default to 1 sigma abs
     age_unit_affected = [['UPbAnalyses', 'AgeUnitID', 'BestAgeFilled']]
@@ -750,7 +750,7 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
     :return: True for success, False for failure
     :rtype: bool
     """
-    logger.get_logger().info(f'Generating GPS column for {affected_column_names}')
+    geocork_logger.get_logger().info(f'Generating GPS column for {affected_column_names}')
     if database is None:
         query = QtS.QSqlQuery()
     else:
@@ -779,19 +779,19 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
         sql_gps_display_alters = [sql_lat_display_alter, sql_lon_display_alter]
         sql_gps_all_alters = sql_gps_alters + sql_gps_display_alters
     for sql_gps_alter in sql_gps_all_alters:
-        logger.get_logger().info(
+        geocork_logger.get_logger().info(
             f'Adding the calculated column {sql_gps_alter.split("COLUMN ")[1].split(" VIRTUAL")[0]}')
         if not query.exec(sql_gps_alter):
-            logger.get_logger().critical(
+            geocork_logger.get_logger().critical(
                 f'Error adding the calculated column {sql_gps_alter.split("COLUMN ")[1]}')
-            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             rollback_savepoint('before_populate')
             return False
     if not query.exec(f'SELECT * FROM GPSLocations'):
-        logger.get_logger().critical(f'Error selecting from {table}')
-        logger.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        geocork_logger.get_logger().critical(f'Error selecting from {table}')
+        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         rollback_savepoint('before_populate')
         return False
     while query.next():
@@ -834,11 +834,11 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
                                 f'UPDATE {table} SET {gps_column}=:value WHERE "GPSLocationID"={gps_id}')
                             update_query.bindValue(':value', float(gps_elements[sql_gps_alters.index(sql_gps_alter)]))
                             if not update_query.exec():
-                                logger.get_logger().critical(
+                                geocork_logger.get_logger().critical(
                                     f'Error adding the calculated column {gps_column}')
-                                logger.get_logger().debug(f'Error: {update_query.lastError().text()}')
-                                logger.get_logger().debug(f'SQL query: {update_query.lastQuery()}')
-                                logger.get_logger().debug(f'Bound values: {update_query.boundValues()}')
+                                geocork_logger.get_logger().debug(f'Error: {update_query.lastError().text()}')
+                                geocork_logger.get_logger().debug(f'SQL query: {update_query.lastQuery()}')
+                                geocork_logger.get_logger().debug(f'Bound values: {update_query.boundValues()}')
                                 rollback_savepoint('before_populate')
                                 return False
                     break
@@ -853,10 +853,10 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
                 update_query.bindValue(':gps_display', gps_display)
                 # logger_setup.get_logger().info(f'Updating the calculated {column}')
                 if not update_query.exec():
-                    logger.get_logger().critical(f'Error adding the calculated column {column}')
-                    logger.get_logger().debug(f'Error: {update_query.lastError().text()}')
-                    logger.get_logger().debug(f'SQL query: {update_query.lastQuery()}')
-                    logger.get_logger().debug(f'Bound values: {update_query.boundValues()}')
+                    geocork_logger.get_logger().critical(f'Error adding the calculated column {column}')
+                    geocork_logger.get_logger().debug(f'Error: {update_query.lastError().text()}')
+                    geocork_logger.get_logger().debug(f'SQL query: {update_query.lastQuery()}')
+                    geocork_logger.get_logger().debug(f'Bound values: {update_query.boundValues()}')
                     rollback_savepoint('before_populate')
                     return False
                 gps_elements = gps_display.split(', ')
@@ -877,11 +877,11 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
                                 calculated_value = float(calculated_value)
                             update_query.bindValue(':value', calculated_value)
                             if not update_query.exec():
-                                logger.get_logger().critical(
+                                geocork_logger.get_logger().critical(
                                     f'Error adding the calculated column {gps_column}')
-                                logger.get_logger().debug(f'Error: {update_query.lastError().text()}')
-                                logger.get_logger().debug(f'SQL query: {update_query.lastQuery()}')
-                                logger.get_logger().debug(f'Bound values: {update_query.boundValues()}')
+                                geocork_logger.get_logger().debug(f'Error: {update_query.lastError().text()}')
+                                geocork_logger.get_logger().debug(f'SQL query: {update_query.lastQuery()}')
+                                geocork_logger.get_logger().debug(f'Bound values: {update_query.boundValues()}')
                                 rollback_savepoint('before_populate')
                                 return False
                     gps_display_elements = gps_elements[1:3]
@@ -894,17 +894,17 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
                     update_query.prepare(f'UPDATE {table} SET {gps_column}=:value WHERE "GPSLocationID"={gps_id}')
                     update_query.bindValue(':value', gps_display_elements[sql_gps_display_alters.index(sql_gps_alter)])
                     if not update_query.exec():
-                        logger.get_logger().critical(
+                        geocork_logger.get_logger().critical(
                             f'Error adding the calculated column {gps_column}')
-                        logger.get_logger().debug(f'Error: {update_query.lastError().text()}')
-                        logger.get_logger().debug(f'SQL query: {update_query.lastQuery()}')
-                        logger.get_logger().debug(f'Bound values: {update_query.boundValues()}')
+                        geocork_logger.get_logger().debug(f'Error: {update_query.lastError().text()}')
+                        geocork_logger.get_logger().debug(f'SQL query: {update_query.lastQuery()}')
+                        geocork_logger.get_logger().debug(f'Bound values: {update_query.boundValues()}')
                         rollback_savepoint('before_populate')
                         return False
                     # logger_setup.get_logger().info(f'Successfully updated {gps_column}')
                 # logger_setup.get_logger().info(f'Successfully updated {column}')
                 break
-    logger.get_logger().info(f'Successfully generated GPS Columns')
+    geocork_logger.get_logger().info(f'Successfully generated GPS Columns')
     return True
 
 
@@ -924,14 +924,14 @@ def generate_reference_column(table: str, constructor: str, database: QtS.QSqlDa
     column = 'ReferenceDisplay'
 
     sql_alter = f'ALTER TABLE "{table}" ADD COLUMN {column} TEXT AS ({constructor}) VIRTUAL'
-    logger.get_logger().info(f'Adding the calculated column {column}')
+    geocork_logger.get_logger().info(f'Adding the calculated column {column}')
     if not query.exec(sql_alter):
-        logger.get_logger().critical(f'Error adding the calculated column {column}')
-        logger.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        geocork_logger.get_logger().critical(f'Error adding the calculated column {column}')
+        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         rollback_savepoint('before_populate')
         return False
-    logger.get_logger().info(f'Successfully updated {column}')
+    geocork_logger.get_logger().info(f'Successfully updated {column}')
     return True
 
 
@@ -1102,9 +1102,9 @@ def convert_gps_location(gps_id: int, database: QtS.QSqlDatabase = None) -> bool
     set_table(gps_model, 'GPSLocations')
     gps_model.setFilter(f'GPSLocationID={gps_id}')
     if gps_model.lastError().text() != '':
-        logger.get_logger().critical(f'Error getting GPSLocations')
-        logger.get_logger().debug(f'Error: {gps_model.lastError().text()}')
-        logger.get_logger().debug(f'Filter: {gps_model.filter()}')
+        geocork_logger.get_logger().critical(f'Error getting GPSLocations')
+        geocork_logger.get_logger().debug(f'Error: {gps_model.lastError().text()}')
+        geocork_logger.get_logger().debug(f'Filter: {gps_model.filter()}')
         return False
     if database is None:
         query = QtS.QSqlQuery()
@@ -1141,17 +1141,17 @@ def convert_gps_location(gps_id: int, database: QtS.QSqlDatabase = None) -> bool
             gps_code = conversion[1]
             exec(gps_code, global_vars, locals())
             gps_display = locals().get('converted')
-            logger.get_logger().info(f'Updating the calculated {column}')
+            geocork_logger.get_logger().info(f'Updating the calculated {column}')
             query.prepare(f'UPDATE GPSLocations SET {column}=:display WHERE "GPSLocationID"={gps_id}')
             query.bindValue(':display', gps_display)
             if not query.exec():
-                logger.get_logger().critical(f'Error adding the calculated column {column}')
-                logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+                geocork_logger.get_logger().critical(f'Error adding the calculated column {column}')
+                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                 rollback_savepoint('before_populate_gps')
                 return False
-            logger.get_logger().info(f'Successfully updated GPS display')
+            geocork_logger.get_logger().info(f'Successfully updated GPS display')
             break
     release_savepoint('before_populate_gps')
     return True
@@ -1173,12 +1173,12 @@ def return_sample_age_converted(sample_age_id: int, database: QtS.QSqlDatabase =
     set_table(sample_age_model, 'SampleAges')
     sample_age_model.setFilter(f'SampleAgeID={sample_age_id}')
     if sample_age_model.lastError().text() != '':
-        logger.get_logger().critical(f'Error getting SampleAges')
-        logger.get_logger().debug(f'Error: {sample_age_model.lastError().text()}')
-        logger.get_logger().debug(f'Filter: {sample_age_model.filter()}')
+        geocork_logger.get_logger().critical(f'Error getting SampleAges')
+        geocork_logger.get_logger().debug(f'Error: {sample_age_model.lastError().text()}')
+        geocork_logger.get_logger().debug(f'Filter: {sample_age_model.filter()}')
         return ''
     if sample_age_model.rowCount() == 0:
-        logger.get_logger().debug(f'No SampleAges with ID {sample_age_id} found. It may have been deleted.')
+        geocork_logger.get_logger().debug(f'No SampleAges with ID {sample_age_id} found. It may have been deleted.')
         return ''
     if database is None:
         query = QtS.QSqlQuery()
@@ -1256,12 +1256,12 @@ def return_sample_age_display(sample_age_id: int, database: QtS.QSqlDatabase = N
     set_table(sample_age_model, 'SampleAges')
     sample_age_model.setFilter(f'SampleAgeID={sample_age_id}')
     if sample_age_model.lastError().text() != '':
-        logger.get_logger().critical(f'Error getting SampleAges')
-        logger.get_logger().debug(f'Error: {sample_age_model.lastError().text()}')
-        logger.get_logger().debug(f'Filter: {sample_age_model.filter()}')
+        geocork_logger.get_logger().critical(f'Error getting SampleAges')
+        geocork_logger.get_logger().debug(f'Error: {sample_age_model.lastError().text()}')
+        geocork_logger.get_logger().debug(f'Filter: {sample_age_model.filter()}')
         return ''
     if sample_age_model.rowCount() == 0:
-        logger.get_logger().debug(f'No SampleAges with ID {sample_age_id} found. It may have been deleted.')
+        geocork_logger.get_logger().debug(f'No SampleAges with ID {sample_age_id} found. It may have been deleted.')
         return ''
     DirectAge = sample_age_model.record(0).value('DirectAge')
     DirectAgeError = sample_age_model.record(0).value('DirectAgeError')
@@ -1288,9 +1288,9 @@ def convert_sample_age(sample_age_id: int, database: QtS.QSqlDatabase = None) ->
     set_table(sample_age_model, 'SampleAges')
     sample_age_model.setFilter(f'SampleAgeID={sample_age_id}')
     if sample_age_model.lastError().text() != '':
-        logger.get_logger().critical(f'Error getting SampleAges')
-        logger.get_logger().debug(f'Error: {sample_age_model.lastError().text()}')
-        logger.get_logger().debug(f'Filter: {sample_age_model.filter()}')
+        geocork_logger.get_logger().critical(f'Error getting SampleAges')
+        geocork_logger.get_logger().debug(f'Error: {sample_age_model.lastError().text()}')
+        geocork_logger.get_logger().debug(f'Filter: {sample_age_model.filter()}')
         return False
     if database is None:
         query = QtS.QSqlQuery()
@@ -1351,23 +1351,23 @@ def convert_sample_age(sample_age_id: int, database: QtS.QSqlDatabase = None) ->
     sql_placeholders = ", ".join('?' * len(calc_age_values))
     if not query.prepare(
             f'UPDATE SampleAges SET ({', '.join(calc_age_columns)}) = ({sql_placeholders}) WHERE "SampleAgeID"={sample_age_id}'):
-        logger.get_logger().error(
+        geocork_logger.get_logger().error(
             f'Error updating the age display. Displays will update on returning to main page')
-        logger.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         rollback_savepoint('before_populate_age')
         return False
     for i, value in enumerate(calc_age_values):
         query.bindValue(i, value)
     if not query.exec():
-        logger.get_logger().error(
+        geocork_logger.get_logger().error(
             f'Error updating the age display. Displays will update on returning to main page')
-        logger.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-        logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
         rollback_savepoint('before_populate_age')
         return False
-    logger.get_logger().info(f'Successfully updated SampleAge display')
+    geocork_logger.get_logger().info(f'Successfully updated SampleAge display')
     release_savepoint('before_populate_age')
     return True
 
@@ -1394,9 +1394,9 @@ def check_tree_structure(table: str, database: QtS.QSqlDatabase = None) -> bool:
     parent_row_header = table_headers[2]
     problem_parents = {}
     if not query.exec(f'SELECT "{parent_id_header}" FROM "{table}" WHERE "{parent_row_header}" IS NULL'):
-        logger.get_logger().critical(f'Error selecting from {table}')
-        logger.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        geocork_logger.get_logger().critical(f'Error selecting from {table}')
+        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     while query.next():
         if not query.value(parent_id_header):
@@ -1417,9 +1417,9 @@ def check_tree_structure(table: str, database: QtS.QSqlDatabase = None) -> bool:
         FROM stats WHERE minr <> 0 OR maxr <> cnt - 1 
         """)
     if not query.exec():
-        logger.get_logger().critical(f'Error selecting from {table}')
-        logger.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        geocork_logger.get_logger().critical(f'Error selecting from {table}')
+        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     while query.next():
         if not query.value(parent_id_header):
@@ -1428,7 +1428,7 @@ def check_tree_structure(table: str, database: QtS.QSqlDatabase = None) -> bool:
             parent = query.value(parent_id_header)
         problem_parents[parent] = query.value('maxr')
     if problem_parents != {}:
-        logger.get_logger().info(f'Found {len(problem_parents)} tree structure problems in {table}')
+        geocork_logger.get_logger().info(f'Found {len(problem_parents)} tree structure problems in {table}')
         if 'NULL' in problem_parents and len(problem_parents) == 1:
             problem_parent_text = 'IS NULL'
         elif 'NULL' in problem_parents:
@@ -1437,9 +1437,9 @@ def check_tree_structure(table: str, database: QtS.QSqlDatabase = None) -> bool:
             problem_parent_text = f'IN ({", ".join(str(parent) for parent in problem_parents)})'
         if not query.exec(
                 f'SELECT "{id_header}", "{parent_id_header}", "{parent_row_header}" FROM "{table}" WHERE "{parent_id_header}" {problem_parent_text}'):
-            logger.get_logger().critical(f'Error selecting from {table}')
-            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            geocork_logger.get_logger().critical(f'Error selecting from {table}')
+            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             return False
         while query.next():
             item_id = query.record().value(id_header)
@@ -1464,7 +1464,7 @@ def check_tree_structure(table: str, database: QtS.QSqlDatabase = None) -> bool:
             if max_parent_row < len(children):
                 max_parent_row = len(children)
             if not bulk_update_parent_row(table, parent_id, 1, max_parent_row):
-                logger.get_logger().error(f'Error updating {table} structure')
+                geocork_logger.get_logger().error(f'Error updating {table} structure')
                 rollback_savepoint('before_update_tree_rows')
                 return False
             for i, child in enumerate(children):
@@ -1473,12 +1473,12 @@ def check_tree_structure(table: str, database: QtS.QSqlDatabase = None) -> bool:
                 query.bindValue(0, i)
                 query.bindValue(1, item_id)
                 if not query.exec():
-                    logger.get_logger().critical(f'Error updating {table} structure')
-                    logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                    logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+                    geocork_logger.get_logger().critical(f'Error updating {table} structure')
+                    geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                    geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                     rollback_savepoint('before_update_tree_rows')
                     return False
         release_savepoint('before_update_tree_rows')
-    logger.get_logger().info(f'Successfully checked {table} structure')
+    geocork_logger.get_logger().info(f'Successfully checked {table} structure')
     return True

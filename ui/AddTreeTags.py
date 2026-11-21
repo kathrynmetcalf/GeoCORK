@@ -7,8 +7,8 @@ from PyQt6.QtWidgets import QTreeView, QDialogButtonBox, QPushButton, QLabel, QH
     QVBoxLayout
 
 import util.Text_manipulations as TxM
-from util import logger
-from util.database.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from util import geocork_logger
+from util.database.savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from util.database.database_helper import get_headers, set_table, get_id_from_name, update_database
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.settings_manager import SettingsManager
@@ -34,7 +34,7 @@ class AddTreeTags(QtW.QDialog):
         :param kwargs:
         """
         super().__init__(parent_window)
-        logger.get_logger().info(f'Starting AddTreeTags dialog for {table}...')
+        geocork_logger.get_logger().info(f'Starting AddTreeTags dialog for {table}...')
 
         self.table = table
         """Database table used for internal or query use"""
@@ -159,7 +159,7 @@ class AddTreeTags(QtW.QDialog):
                 query.prepare(
                     f'SELECT * FROM {self.table} WHERE {self.id_header} = {self.parent_id}')
                 if not query.exec():
-                    logger.get_logger().error(
+                    geocork_logger.get_logger().error(
                         f'Error selecting {self.id_header} {self.parent_id}: {query.lastError().text()}')
                     return
                 query.next()
@@ -196,7 +196,7 @@ class AddTreeTags(QtW.QDialog):
         query = QtS.QSqlQuery()
         query.prepare(f'SELECT {self.name_header} FROM {self.table}')
         if not query.exec():
-            logger.get_logger().critical(
+            geocork_logger.get_logger().critical(
                 f'Error selecting display column from {self.table_name}: {query.lastError().text()}')
             close_loading_dialog('Loading', f'Loading {self.table_name}...')
             return False
@@ -258,7 +258,7 @@ class AddTreeTags(QtW.QDialog):
         name = self.newName_lineEdit.text()
         description = self.newDescription_lineEdit.text()
         if not name:
-            logger.get_logger().error(f'Name is required for {self.table_name}')
+            geocork_logger.get_logger().error(f'Name is required for {self.table_name}')
             close_loading_dialog('Adding item', f'Adding {self.newName_lineEdit.text()} to {self.table_name}...')
             return False
         create_savepoint('before_add_item')
@@ -268,13 +268,13 @@ class AddTreeTags(QtW.QDialog):
                     rollback_savepoint('before_add_item')
                     close_loading_dialog('Adding item', f'Adding {self.newName_lineEdit.text()} to {self.table_name}...')
                     return False
-                logger.get_logger().info(f'Added {name} to top level of {self.table_name}')
+                geocork_logger.get_logger().info(f'Added {name} to top level of {self.table_name}')
             else:
                 if not self.tree_model.insertItem(name, description, self.parent_id, self.parent_row):
                     rollback_savepoint('before_add_item')
                     close_loading_dialog('Adding item', f'Adding {self.newName_lineEdit.text()} to {self.table_name}...')
                     return False
-                logger.get_logger().info(f'Added {name} to {self.parent_id} in {self.table_name}')
+                geocork_logger.get_logger().info(f'Added {name} to {self.parent_id} in {self.table_name}')
         elif self.add_item == 'parent':  # Need to update the parent of all new child ids to the newly-added item
             # Find the top-level parent ID in the list of old parent IDs
             top_parent_id, top_parent_row = self.tree_model.top_node(self.item_ids)
@@ -288,7 +288,7 @@ class AddTreeTags(QtW.QDialog):
                 rollback_savepoint('before_add_item')
                 close_loading_dialog('Adding item', f'Adding {self.newName_lineEdit.text()} to {self.table_name}...')
                 return False
-            logger.get_logger().info(f'Added new parent {name} to {self.table}')
+            geocork_logger.get_logger().info(f'Added new parent {name} to {self.table}')
             new_parent_id = get_id_from_name(self.table, name)
             if not new_parent_id or not isinstance(new_parent_id, int):
                 # If the parent ID is None or not an integer, set it to NULL
@@ -305,7 +305,7 @@ class AddTreeTags(QtW.QDialog):
                         close_loading_dialog('Adding item', f'Adding {self.newName_lineEdit.text()} to {self.table_name}...')
                         return False
                     parent_row += 1
-            logger.get_logger().info(f'Updated parent of {self.item_ids} to {new_parent_id} in {self.table_name}')
+            geocork_logger.get_logger().info(f'Updated parent of {self.item_ids} to {new_parent_id} in {self.table_name}')
             if new_parent_id:
                 # Add the new parent ID to the list of expanded IDs in the settings
                 expanded_ids = settings.value(f'expanded_ids_{self.table}', set())
@@ -356,7 +356,7 @@ class AddTreeTags(QtW.QDialog):
             else:
                 self.cancel_pushButton.blockSignals(False)
         else:
-            logger.get_logger().info(f'No changes made to {self.table_name}, closing dialog')
+            geocork_logger.get_logger().info(f'No changes made to {self.table_name}, closing dialog')
             self.rollback()
 
     def rollback(self):
@@ -379,13 +379,13 @@ class AddTreeTags(QtW.QDialog):
             if not self.add_tree_tag():
                 return False
         release_savepoint('before_add')
-        logger.get_logger().info(f'Changes committed to {self.table_name}')
+        geocork_logger.get_logger().info(f'Changes committed to {self.table_name}')
         save_expanded_state(self.table, self.tags_treeView)
         # Check if there is another existing savepoint. If not, go ahead and update the database
         if not SavepointManager.get_instance().active_savepoints():
-            logger.get_logger().info('No active save points - updating the database')
+            geocork_logger.get_logger().info('No active save points - updating the database')
             if not update_database():
-                logger.get_logger().critical(f'Error updating and displaying the database')
+                geocork_logger.get_logger().critical(f'Error updating and displaying the database')
                 self.close_by_dialog = True
                 self.close()
         self.accept()
@@ -407,11 +407,11 @@ class AddTreeTags(QtW.QDialog):
                 self.discard_question()
                 event.ignore()
             else:
-                logger.get_logger().info(f'Closing {self.table_name} add dialog')
+                geocork_logger.get_logger().info(f'Closing {self.table_name} add dialog')
                 release_savepoint('before_add')
                 event.accept()
         else:
-            logger.get_logger().info(f'Closing {self.table_name} add dialog')
+            geocork_logger.get_logger().info(f'Closing {self.table_name} add dialog')
             release_savepoint('before_add')
             event.accept()
 

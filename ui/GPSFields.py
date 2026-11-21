@@ -8,10 +8,10 @@ from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
 from PyQt6.uic import loadUi
 
-from util import logger
+from util import geocork_logger
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
 from util.settings_manager import SettingsManager
-from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from util.database.savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from util.database.alter_database import convert_gps_location
 from util.database.database_helper import (set_table, set_comboBox_text, get_headers,
                                            delete_data,
@@ -27,7 +27,7 @@ class GPSFields(QtW.QWidget):
     def __init__(self, table: str, item_ids: list | None, parent=None):
         super().__init__(parent)
         show_loading_dialog('Loading', 'Loading GPS Fields...')
-        logger.get_logger().info('Starting GPSFields')
+        geocork_logger.get_logger().info('Starting GPSFields')
         start_gps_time = time.time()
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "GPSFields.ui")
@@ -71,7 +71,7 @@ class GPSFields(QtW.QWidget):
         self.set_validators()
         self.connect_signals()
         close_loading_dialog('Loading', 'Loading GPS Fields...')
-        logger.get_logger().info(f'Finished GPSFields initialization in {time.time() - start_gps_time} seconds')
+        geocork_logger.get_logger().info(f'Finished GPSFields initialization in {time.time() - start_gps_time} seconds')
 
     def update_list(self, item_ids):
         self.item_ids = item_ids
@@ -99,45 +99,45 @@ class GPSFields(QtW.QWidget):
                            **{'table': 'DistanceUnits', 'column': 'DistanceUnitAbbreviation'})
         self.elevation_unit_model = self.elevation_unit_comboBox.model().sourceModel()
         end_populate_dropdowns_time = time.time()
-        logger.get_logger().info(
+        geocork_logger.get_logger().info(
             f"Populated GPS dropdowns in {end_populate_dropdowns_time - start_populate_dropdowns_time} seconds")
 
     def check_focus(self):
-        logger.get_logger().info(f"Checking GPS field focus...")
+        geocork_logger.get_logger().info(f"Checking GPS field focus...")
         if self.latlon_groupBox.any_child_has_focus() or self.latlon_groupBox.edited:
             if not self.latlon_groupBox.edited:
                 for child in self.latlon_groupBox.findChildren(QtW.QWidget):
                     if child.hasFocus():
-                        logger.get_logger().info(f"Child {child.objectName()} has focus")
+                        geocork_logger.get_logger().info(f"Child {child.objectName()} has focus")
                         self.latlon_groupBox.set_edited(child)
                         break
             self.latlon_groupBox.clearFocus()
             if self.latlon_groupBox.edited:
-                logger.get_logger().info(f"GPS was edited")
+                geocork_logger.get_logger().info(f"GPS was edited")
                 self.lost_group_box = self.latlon_groupBox
                 self.update_gps()
         elif self.utm_groupBox.any_child_has_focus() or self.utm_groupBox.edited:
             if not self.utm_groupBox.edited:
                 for child in self.utm_groupBox.findChildren(QtW.QWidget):
                     if child.hasFocus():
-                        logger.get_logger().info(f"Child {child.objectName()} has focus")
+                        geocork_logger.get_logger().info(f"Child {child.objectName()} has focus")
                         self.utm_groupBox.set_edited(child)
                         break
             self.utm_groupBox.clearFocus()
             if self.utm_groupBox.edited:
-                logger.get_logger().info(f"GPS was edited")
+                geocork_logger.get_logger().info(f"GPS was edited")
                 self.lost_group_box = self.utm_groupBox
                 self.update_gps()
         elif self.elev_groupBox.any_child_has_focus() or self.elev_groupBox.edited:
             if not self.elev_groupBox.edited:
                 for child in self.elev_groupBox.findChildren(QtW.QWidget):
                     if child.hasFocus():
-                        logger.get_logger().info(f"Child {child.objectName()} has focus")
+                        geocork_logger.get_logger().info(f"Child {child.objectName()} has focus")
                         self.elev_groupBox.set_edited(child)
                         break
             self.elev_groupBox.clearFocus()
             if self.elev_groupBox.edited:
-                logger.get_logger().info(f"GPS was edited")
+                geocork_logger.get_logger().info(f"GPS was edited")
                 self.lost_group_box = self.elev_groupBox
                 self.update_gps()
 
@@ -158,10 +158,10 @@ class GPSFields(QtW.QWidget):
         self.elev_groupBox.focusLost.connect(self.focus_lost_delay)
 
     def focus_lost_delay(self):
-        logger.get_logger().info(f"Focus lost delay called")
+        geocork_logger.get_logger().info(f"Focus lost delay called")
         if self._isApplicationFocused:
             self.lost_group_box = self.sender()
-            logger.get_logger().info(f"Lost focus from {self.lost_group_box.objectName()}. Starting timer.")
+            geocork_logger.get_logger().info(f"Lost focus from {self.lost_group_box.objectName()}. Starting timer.")
             self.focus_timer.start(200)
 
     def disconnect_text_signals(self):
@@ -174,7 +174,7 @@ class GPSFields(QtW.QWidget):
             pass
 
     def populate_fields(self):
-        logger.get_logger().info('Populating GPS fields')
+        geocork_logger.get_logger().info('Populating GPS fields')
         start_populate_fields_time = time.time()
         reset_fields = False  # Reset the GPS fields if there are no samples to populate
         column_names = get_headers('GPSLocations')
@@ -188,9 +188,9 @@ class GPSFields(QtW.QWidget):
         self.item_model.setQuery(f'SELECT {self.table_gps_id_header} FROM {self.table}{query_where_str}')
         while self.item_model.canFetchMore():
             self.item_model.fetchMore()
-        logger.get_logger().info(f'Set {self.table} model query')
+        geocork_logger.get_logger().info(f'Set {self.table} model query')
         if self.item_model.rowCount() == 0:
-            logger.get_logger().info("No samples to populate")
+            geocork_logger.get_logger().info("No samples to populate")
             reset_fields = True
             empty_gps = True
         if not reset_fields:
@@ -203,7 +203,7 @@ class GPSFields(QtW.QWidget):
                 if id_value and isinstance(id_value, int) and id_value not in gps_ids:
                     gps_ids.append(self.item_model.index(row, 0).data())
             if len(gps_ids) == 0:
-                logger.get_logger().info("No GPS locations associated with the samples, so reset fields")
+                geocork_logger.get_logger().info("No GPS locations associated with the samples, so reset fields")
                 reset_fields = True
             elif len(set(gps_ids)) == 1:
                 self.gps_location_model.setFilter(f"GPSLocationID = {gps_ids[0]}")
@@ -211,7 +211,7 @@ class GPSFields(QtW.QWidget):
                 self.gps_location_model.setFilter(f"GPSLocationID in {tuple(gps_ids)}")
             self.gps_location_model.select()
             if self.gps_location_model.rowCount() == 0:
-                logger.get_logger().info(f"Could not find GPS location with ID {gps_ids}, so reset fields")
+                geocork_logger.get_logger().info(f"Could not find GPS location with ID {gps_ids}, so reset fields")
                 reset_fields = True
         for header in column_names:
             # logger_setup.get_logger().info(f'Populating {header}')
@@ -335,7 +335,7 @@ class GPSFields(QtW.QWidget):
                         self.gps_format_comboBox.setCurrentText(text)
         self.initial_values = self.get_values()[1]
         end_populate_fields_time = time.time()
-        logger.get_logger().info(
+        geocork_logger.get_logger().info(
             f"Populated GPS fields in {end_populate_fields_time - start_populate_fields_time} seconds")
         self.display_gps()
 
@@ -569,25 +569,25 @@ class GPSFields(QtW.QWidget):
         return gps_columns, gps_values
 
     def update_gps(self):
-        logger.get_logger().info('Update_gps called when focus timer timed out')
+        geocork_logger.get_logger().info('Update_gps called when focus timer timed out')
         if not self.lost_group_box.edited:
-            logger.get_logger().info(f"GPS fields not edited")
+            geocork_logger.get_logger().info(f"GPS fields not edited")
             return
         show_loading_dialog('Updating', 'Updating GPS...')
-        logger.get_logger().info('Update_gps called. Collecting input values.')
+        geocork_logger.get_logger().info('Update_gps called. Collecting input values.')
         if len(self.item_ids) == 0:
-            logger.get_logger().info(f"No samples to update")
+            geocork_logger.get_logger().info(f"No samples to update")
             close_loading_dialog('Updating', 'Updating GPS...')
             return
         gps_columns, gps_values = self.get_values()
         if gps_values == self.initial_values:
-            logger.get_logger().info(f"GPS fields not edited")
+            geocork_logger.get_logger().info(f"GPS fields not edited")
             close_loading_dialog('Updating', 'Updating GPS...')
             return
         format_index = gps_columns.index('GPSFormatID')
         gps_format_id = gps_values[format_index]
         if gps_format_id in ('-', '', 'NULL') and gps_values != self.initial_values:
-            logger.get_logger().error(f"Must set a single GPS format to update location data")
+            geocork_logger.get_logger().error(f"Must set a single GPS format to update location data")
         elif '-' not in gps_values:
             if not self.update_single_gps(gps_columns, gps_values, self.item_ids):
                 close_loading_dialog('Updating', 'Updating GPS...')
@@ -632,11 +632,11 @@ class GPSFields(QtW.QWidget):
                     ids_to_update[gps_id].append(item_id)
         query = QtS.QSqlQuery()
         if len(ids_to_update) == 0:
-            logger.get_logger().info(f"No {self.table} to update")
+            geocork_logger.get_logger().info(f"No {self.table} to update")
             return True
         # Get the gps_columns not in update_columns
         unaffected_columns = [gps_columns[i] for i in range(len(gps_columns)) if gps_columns[i] not in update_columns]
-        logger.get_logger().info(f"Updating {len(ids_to_update)} GPS locations")
+        geocork_logger.get_logger().info(f"Updating {len(ids_to_update)} GPS locations")
         create_savepoint('before_update')
         delete_gps = True
         for value in gps_values[0:13]:
@@ -650,14 +650,14 @@ class GPSFields(QtW.QWidget):
             query.prepare(
                 f'''SELECT {', '.join(unaffected_columns)} FROM GPSLocations WHERE GPSLocationID = {gps_id}''')
             if not query.exec():
-                logger.get_logger().critical(f"Error getting current values for GPS")
-                logger.get_logger().debug(f"Error: {query.lastError().text()}")
-                logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                geocork_logger.get_logger().critical(f"Error getting current values for GPS")
+                geocork_logger.get_logger().debug(f"Error: {query.lastError().text()}")
+                geocork_logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
                 rollback_savepoint('before_update')
                 return False
             if not query.next():
-                logger.get_logger().critical(f"GPS location {gps_id} not found")
-                logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                geocork_logger.get_logger().critical(f"GPS location {gps_id} not found")
+                geocork_logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
                 return False
             existing_values = [query.value(i) for i in range(query.record().count())]
             for row in range(len(gps_columns)):
@@ -695,7 +695,7 @@ class GPSFields(QtW.QWidget):
         if duplicate_id:
             if delete_gps:
                 return self.delete_gps([duplicate_id], item_ids)
-            logger.get_logger().info(f"GPS location already exists with ID {duplicate_id}. Updating.")
+            geocork_logger.get_logger().info(f"GPS location already exists with ID {duplicate_id}. Updating.")
             gps_id = duplicate_id
         else:
             if len(item_ids) > 1:
@@ -714,7 +714,7 @@ class GPSFields(QtW.QWidget):
             if len(gps_ids) > 0:
                 if delete_gps:
                     return self.delete_gps(gps_ids, item_ids)
-                logger.get_logger().info(
+                geocork_logger.get_logger().info(
                     f"Checking {len(gps_ids)} GPS locations associated with the {self.table}")
                 if len(self.item_ids) > 1:
                     item_where = f"IN {tuple(self.item_ids)}"
@@ -731,7 +731,7 @@ class GPSFields(QtW.QWidget):
                     while other_item_model.canFetchMore():
                         other_item_model.fetchMore()
                     if self.item_model.rowCount() == 0 and other_item_model.rowCount() == 0:
-                        logger.get_logger().info(
+                        geocork_logger.get_logger().info(
                             f"GPS location {gps} is not associated with any other samples or columns")
                         if not gps_id:
                             # Choose the first GPS location to update and delete the rest that will be unused
@@ -742,18 +742,18 @@ class GPSFields(QtW.QWidget):
             if delete_gps:
                 rollback_savepoint('before_update')
                 return False
-            logger.get_logger().info(f"Adding a new GPS location.")
+            geocork_logger.get_logger().info(f"Adding a new GPS location.")
             error, header = validate_insert('GPSLocations', gps_columns, gps_values, gps_format_id)
             if error:
-                logger.get_logger().error(f"Invalid GPS input: {error}")
+                geocork_logger.get_logger().error(f"Invalid GPS input: {error}")
                 rollback_savepoint('before_update')
                 self.lost_group_box.setFocus()
                 return False
 
             if not query.prepare(f'''INSERT INTO GPSLocations ({qgps_columns}) VALUES ({qgps_placeholders})'''):
-                logger.get_logger().critical(f"Error inserting GPS location")
-                logger.get_logger().debug(f"Error: {query.lastError().text()}")
-                logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                geocork_logger.get_logger().critical(f"Error inserting GPS location")
+                geocork_logger.get_logger().debug(f"Error: {query.lastError().text()}")
+                geocork_logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
                 rollback_savepoint('before_update')
                 return False
             for i in range(len(gps_values)):
@@ -762,18 +762,18 @@ class GPSFields(QtW.QWidget):
                 else:
                     query.bindValue(f":{gps_columns[i]}", gps_values[i])
             if not query.exec():
-                logger.get_logger().critical(f"Error inserting GPS location")
-                logger.get_logger().debug(f"Error: {query.lastError().text()}")
-                logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                geocork_logger.get_logger().critical(f"Error inserting GPS location")
+                geocork_logger.get_logger().debug(f"Error: {query.lastError().text()}")
+                geocork_logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
                 rollback_savepoint('before_update')
                 return False
-            logger.get_logger().info(f"Inserted new GPS location")
+            geocork_logger.get_logger().info(f"Inserted new GPS location")
             gps_id = query.lastInsertId()
         else:
             if not query.exec(f"SELECT {qgps_columns} FROM GPSLocations WHERE GPSLocationID = {gps_id}"):
-                logger.get_logger().error(f"Error getting current values for GPS")
-                logger.get_logger().debug(f"Error: {query.lastError().text()}")
-                logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                geocork_logger.get_logger().error(f"Error getting current values for GPS")
+                geocork_logger.get_logger().debug(f"Error: {query.lastError().text()}")
+                geocork_logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
                 rollback_savepoint('before_update')
                 return False
             query.next()
@@ -786,20 +786,20 @@ class GPSFields(QtW.QWidget):
             if existing_values != gps_values:
                 if delete_gps:
                     return self.delete_gps([gps_id], item_ids)
-                logger.get_logger().info(f"GPS location {gps_id} has different values than the input. Updating.")
+                geocork_logger.get_logger().info(f"GPS location {gps_id} has different values than the input. Updating.")
                 error, header = validate_update('GPSLocations', gps_columns, gps_values,
                                                 f'GPSFormatID = {gps_format_id}')
                 if error:
-                    logger.get_logger().error(f"Invalid GPS input: {error}")
+                    geocork_logger.get_logger().error(f"Invalid GPS input: {error}")
                     rollback_savepoint('before_update')
                     self.lost_group_box.setFocus()
                     return False
-                logger.get_logger().info(f"Valid GPS information")
+                geocork_logger.get_logger().info(f"Valid GPS information")
                 if not query.prepare(
                         f'''UPDATE GPSLocations SET ({qgps_columns}) = ({', '.join(['?'] * len(gps_values))}) WHERE GPSLocationID = {gps_id}'''):
-                    logger.get_logger().critical(f"Error updating GPS")
-                    logger.get_logger().debug(f"Error: {query.lastError().text()}")
-                    logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                    geocork_logger.get_logger().critical(f"Error updating GPS")
+                    geocork_logger.get_logger().debug(f"Error: {query.lastError().text()}")
+                    geocork_logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
                     rollback_savepoint('before_update')
                     return False
                 for i in range(len(gps_values)):
@@ -808,36 +808,36 @@ class GPSFields(QtW.QWidget):
                     else:
                         query.bindValue(i, gps_values[i])
                 if not query.exec():
-                    logger.get_logger().critical(f"Error updating GPS location")
-                    logger.get_logger().debug(f"Error: {query.lastError().text()}")
-                    logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
-                    logger.get_logger().debug(f"Bound values: {query.boundValues()}")
+                    geocork_logger.get_logger().critical(f"Error updating GPS location")
+                    geocork_logger.get_logger().debug(f"Error: {query.lastError().text()}")
+                    geocork_logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                    geocork_logger.get_logger().debug(f"Bound values: {query.boundValues()}")
                     rollback_savepoint('before_update')
                     return False
                 update_modified_timestamp('GPSLocations', [gps_id])
-                logger.get_logger().info(f"Updated GPSLocationID {gps_id}")
+                geocork_logger.get_logger().info(f"Updated GPSLocationID {gps_id}")
         if len(gps_to_delete) > 0:
             if not delete_data('GPSLocations', gps_to_delete):
-                logger.get_logger().critical(f"Error deleting unused GPS")
+                geocork_logger.get_logger().critical(f"Error deleting unused GPS")
                 rollback_savepoint('before_update')
                 return False
-            logger.get_logger().info(f"Deleted unused GPSLocationIDs {gps_to_delete}")
+            geocork_logger.get_logger().info(f"Deleted unused GPSLocationIDs {gps_to_delete}")
         if not convert_gps_location(gps_id):
-            logger.get_logger().error(f"Error converting GPS location {gps_id}")
+            geocork_logger.get_logger().error(f"Error converting GPS location {gps_id}")
             rollback_savepoint('before_update')
             return False
         for item_id in item_ids:
             if not query.exec(
                     f'''UPDATE {self.table} SET {self.table_gps_id_header} = {gps_id} WHERE {self.item_id_header} = {item_id}'''):
-                logger.get_logger().critical(f"Error updating GPS for selected {self.table}")
-                logger.get_logger().debug(f"Error: {query.lastError().text()}")
-                logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                geocork_logger.get_logger().critical(f"Error updating GPS for selected {self.table}")
+                geocork_logger.get_logger().debug(f"Error: {query.lastError().text()}")
+                geocork_logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
                 rollback_savepoint('before_update')
                 return False
             update_modified_timestamp(self.table, [item_id])
-            logger.get_logger().info(f"Updated {self.item_id_header} {item_id} with GPSLocationID {gps_id}")
+            geocork_logger.get_logger().info(f"Updated {self.item_id_header} {item_id} with GPSLocationID {gps_id}")
         self.updated = True
-        logger.get_logger().info('Update_gps finished')
+        geocork_logger.get_logger().info('Update_gps finished')
         release_savepoint('before_update')
         return True
 
@@ -862,27 +862,27 @@ class GPSFields(QtW.QWidget):
             if gps_values[i] != 'NULL':
                 query.bindValue(f":{gps_columns[i]}", gps_values[i])
         if not query.exec():
-            logger.get_logger().critical('Error checking for duplicates', self)
-            logger.get_logger().debug(f"Error: {query.lastError().text()}")
-            logger.get_logger().debug(f"SQL query: {sql_query}\n{gps_values}")
+            geocork_logger.get_logger().critical('Error checking for duplicates', self)
+            geocork_logger.get_logger().debug(f"Error: {query.lastError().text()}")
+            geocork_logger.get_logger().debug(f"SQL query: {sql_query}\n{gps_values}")
             return None
         if query.next():
             existing_gps_id = query.value(0)
-            logger.get_logger().info(f"Found existing GPSLocationID {existing_gps_id} with values {gps_values}")
+            geocork_logger.get_logger().info(f"Found existing GPSLocationID {existing_gps_id} with values {gps_values}")
             return existing_gps_id
         else:
-            logger.get_logger().info(f"No existing GPSLocationID found with values {gps_values}")
+            geocork_logger.get_logger().info(f"No existing GPSLocationID found with values {gps_values}")
             return None
 
     def delete_gps(self, gps_ids: list, item_ids: list):
         # Check if the gps id is associated with other database items
         if len(gps_ids) == 0 or None in gps_ids:
-            logger.get_logger().critical('No GPS IDs to update')
+            geocork_logger.get_logger().critical('No GPS IDs to update')
             return False
         if len(item_ids) == 0 or None in item_ids:
-            logger.get_logger().critical(f'No {self.table} to update')
+            geocork_logger.get_logger().critical(f'No {self.table} to update')
             return False
-        logger.get_logger().info(f"Checking if GPS location is associated with other entries in {self.table}")
+        geocork_logger.get_logger().info(f"Checking if GPS location is associated with other entries in {self.table}")
         if len(item_ids) > 1:
             sql_where = f"NOT IN {tuple(item_ids)}"
         else:
@@ -901,7 +901,7 @@ class GPSFields(QtW.QWidget):
             if self.item_model.rowCount() > 0 or other_item_model.rowCount() > 0:
                 other_items = True
         if not other_items:
-            logger.get_logger().info(
+            geocork_logger.get_logger().info(
                 f"GPS locations {gps_ids} are not associated with any other samples or columns")
             msg = f"Are you sure you want to delete the GPS for the selected {self.table}?"
             msg_box = QtW.QMessageBox()
@@ -911,7 +911,7 @@ class GPSFields(QtW.QWidget):
             msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
             response = msg_box.exec()
             if response == QtW.QMessageBox.StandardButton.Yes:
-                logger.get_logger().info(f"Deleting GPS ID {gps_id}")
+                geocork_logger.get_logger().info(f"Deleting GPS ID {gps_id}")
                 query = QtS.QSqlQuery()
                 if len(gps_ids) > 1:
                     gps_where = f"IN {tuple(gps_ids)}"
@@ -919,22 +919,22 @@ class GPSFields(QtW.QWidget):
                     gps_where = f"IS {gps_ids[0]}"
                 query.prepare(f"DELETE FROM GPSLocations WHERE GPSLocationID {gps_where}")
                 if not query.exec():
-                    logger.get_logger().critical('Error deleting GPS ID', self)
-                    logger.get_logger().debug(f"Error: {query.lastError().text()}")
-                    logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                    geocork_logger.get_logger().critical('Error deleting GPS ID', self)
+                    geocork_logger.get_logger().debug(f"Error: {query.lastError().text()}")
+                    geocork_logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
                     rollback_savepoint('before_update')
                     return False
                 else:
-                    logger.get_logger().info('Deleted GPS ID', self)
+                    geocork_logger.get_logger().info('Deleted GPS ID', self)
                     self.updated = True
                     release_savepoint('before_update')
                     return True
             else:
-                logger.get_logger().info(f"Canceled deletion of GPS")
+                geocork_logger.get_logger().info(f"Canceled deletion of GPS")
                 rollback_savepoint('before_update')
                 return False
         else:
-            logger.get_logger().info(f"GPS locations {gps_ids} associated with other items in the database")
+            geocork_logger.get_logger().info(f"GPS locations {gps_ids} associated with other items in the database")
             msg = f"The GPS is associated with other items in the database. Do you want to delete the GPS for all items or remove it from the selected items only?"
             msg_box = QtW.QMessageBox()
             msg_box.setText(msg)
@@ -952,33 +952,33 @@ class GPSFields(QtW.QWidget):
                 rollback_savepoint('before_update')
                 return False
             elif response == QtW.QMessageBox.ButtonRole.AcceptRole:
-                logger.get_logger().info(f"Deleting GPS ID {gps_id}")
+                geocork_logger.get_logger().info(f"Deleting GPS ID {gps_id}")
                 query = QtS.QSqlQuery()
                 query.prepare(f"DELETE FROM GPSLocations WHERE GPSLocationID = {gps_id}")
                 if not query.exec():
-                    logger.get_logger().critical('Error deleting GPS ID', self)
-                    logger.get_logger().debug(f"Error: {query.lastError().text()}")
-                    logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                    geocork_logger.get_logger().critical('Error deleting GPS ID', self)
+                    geocork_logger.get_logger().debug(f"Error: {query.lastError().text()}")
+                    geocork_logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
                     rollback_savepoint('before_update')
                     return False
                 else:
-                    logger.get_logger().info('Deleted GPS ID', self)
+                    geocork_logger.get_logger().info('Deleted GPS ID', self)
                     self.updated = True
                     release_savepoint('before_update')
                     return True
             elif response == QtW.QMessageBox.ButtonRole.ActionRole:
-                logger.get_logger().info(f"Removing GPS ID {gps_id} from {len(item_ids)} {self.table}")
+                geocork_logger.get_logger().info(f"Removing GPS ID {gps_id} from {len(item_ids)} {self.table}")
                 sql_where = sql_where.replace('NOT ', '')
                 query = QtS.QSqlQuery()
                 query.prepare(f"UPDATE {self.table} SET ({self.table_gps_id_header}) VALUES (NULL) WHERE {sql_where}")
                 if not query.exec():
-                    logger.get_logger().critical('Error removing GPS ID from selected items', self)
-                    logger.get_logger().debug(f"Error: {query.lastError().text()}")
-                    logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                    geocork_logger.get_logger().critical('Error removing GPS ID from selected items', self)
+                    geocork_logger.get_logger().debug(f"Error: {query.lastError().text()}")
+                    geocork_logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
                     rollback_savepoint('before_update')
                     return False
                 else:
-                    logger.get_logger().info('Removed GPS ID', self)
+                    geocork_logger.get_logger().info('Removed GPS ID', self)
                     self.updated = True
                     release_savepoint('before_update')
                     return True

@@ -2,7 +2,7 @@
 from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import Qt
 
-from util import logger
+from util import geocork_logger
 from ui.settings.SettingsCore import (settings, update_setting, apply_color_palette, ColorButton, COLOR_MODES,
                           COLOR_THEME_MODES, THEME_COLOR_ROLES, IMPORTER_COLOR_ROLES,
                           DEFAULT_THEME_COLORS, DEFAULT_IMPORTER_COLORS, theme_color_key,
@@ -222,5 +222,5 @@ class UserInterfaceTab(QtW.QWidget):
                 update_setting(key, value)
                 changed = True
         if changed:
-            logger.get_logger().info('Color settings updated')
+            geocork_logger.get_logger().info('Color settings updated')
         return changed

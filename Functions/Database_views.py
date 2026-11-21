@@ -1,6 +1,6 @@
 from PyQt6.QtSql import QSqlQuery
 import Functions.SQLUtils as SQLUtils
-from util import logger
+from util import geocork_logger
 
 from util.settings_manager import SettingsManager
 from util.database.defined_joins import *
@@ -701,8 +701,8 @@ class ViewQuery:
                                 hierarchy_order_by = f'ORDER BY {self.order_col} COLLATE NOCASE'
                         break
             if hierarchy_where == '' and hierarchy_where_join == '':
-                logger.get_logger().info(f'Where clause {self.where} does not apply to Samples, Aliquots, Spots or UPbAnalyses.')
-                logger.get_logger().info(f'Consider simplifying the query or using the filtering query building.')
+                geocork_logger.get_logger().info(f'Where clause {self.where} does not apply to Samples, Aliquots, Spots or UPbAnalyses.')
+                geocork_logger.get_logger().info(f'Consider simplifying the query or using the filtering query building.')
         elif self.order_col != '' and self.limit != '':
             if self.order_col in headers:
                 # Everything applies to the same table, so put them all in the hierarchy query
@@ -1540,7 +1540,7 @@ WITH RECURSIVE ''')
         else:
             # No direct limits on the main hierarchy tables
             self.limited_hierarchy = ''
-        logger.get_logger().debug(f'Limited hierarchy: {self.limited_hierarchy}')
+        geocork_logger.get_logger().debug(f'Limited hierarchy: {self.limited_hierarchy}')
 
     def get_lsa_from_aliquots(self, lsa_select_cols, lsa_table_joins, lsa_selects):
         lsa_joins = []
@@ -1619,9 +1619,9 @@ WITH RECURSIVE ''')
             # Add a view column for each analyte abbreviation in the database
             query = QSqlQuery(f'SELECT GeoChemAnalyteID, GeoChemAnalyteAbbreviation FROM GeoChemicalAnalytes')
             if not query.exec():
-                logger.get_logger().critical(f"Error displaying GeoChemicalAnalyses")
-                logger.get_logger().debug(f"Error collecting IDs for GeoChemicalAnalyses: {query.lastError().text()}")
-                logger.get_logger().debug(f"Query: {query.lastQuery()}")
+                geocork_logger.get_logger().critical(f"Error displaying GeoChemicalAnalyses")
+                geocork_logger.get_logger().debug(f"Error collecting IDs for GeoChemicalAnalyses: {query.lastError().text()}")
+                geocork_logger.get_logger().debug(f"Query: {query.lastQuery()}")
             while query.next():
                 analyte_id = query.value(0)
                 analyte_abbreviation = query.value(1)

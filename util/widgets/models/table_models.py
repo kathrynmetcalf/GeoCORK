@@ -11,7 +11,7 @@ from PyQt6.QtGui import QFont, QBrush, QColor
 from PyQt6.QtSql import QSqlQuery, QSqlDatabase
 from PyQt6.QtWidgets import QApplication, QProgressDialog
 
-from util import logger
+from util import geocork_logger
 from Functions.Database_views import ViewQuery
 from util.settings_manager import SettingsManager
 from util.Text_manipulations import strip_strings
@@ -36,12 +36,12 @@ def scroll_to_record(record_id: int, view: QtWidgets.QTableView):
     view_index = QtCore.QModelIndex()
     for row in range(model.rowCount()):
         if model.index(row, 0).data(QtCore.Qt.ItemDataRole.DisplayRole) == record_id:
-            logger.get_logger().info(f'Scrolling to record ID: {record_id}')
+            geocork_logger.get_logger().info(f'Scrolling to record ID: {record_id}')
             view_index = model.index(row, 0)
             break
     if not view_index.isValid():
-        logger.get_logger().critical(f'Error scrolling to record')
-        logger.get_logger().debug(f'Invalid index for ID {record_id} in scroll_to_record')
+        geocork_logger.get_logger().critical(f'Error scrolling to record')
+        geocork_logger.get_logger().debug(f'Invalid index for ID {record_id} in scroll_to_record')
         return
     max_view_index = model.index(view_index.row(), model.columnCount()-1)
 
@@ -113,7 +113,7 @@ class SQLiteTableModel(QAbstractTableModel):
         set_time = time.time()
         self.view_query = view_query
         self.load_data(new_query, self.database)
-        logger.get_logger().info(f'Set new query in {time.time() - set_time} seconds')
+        geocork_logger.get_logger().info(f'Set new query in {time.time() - set_time} seconds')
 
     def update_database(self, new_database: str, view_query: ViewQuery = None):
         """
@@ -143,19 +143,19 @@ class SQLiteTableModel(QAbstractTableModel):
             conn = sqlite3.connect(uri, uri=True)
             with conn:
                 cursor = conn.cursor()
-                logger.get_logger().info('Populating model with query')
-                logger.get_logger().debug(f'SQL query: {query}')
+                geocork_logger.get_logger().info('Populating model with query')
+                geocork_logger.get_logger().debug(f'SQL query: {query}')
                 start_time = time.time()
                 cursor.execute(query)
                 self._data = cursor.fetchall()
                 self._headers = [desc[0] for desc in cursor.description]
-                logger.get_logger().debug(f"Model populated in {time.time() - start_time} seconds")
+                geocork_logger.get_logger().debug(f"Model populated in {time.time() - start_time} seconds")
             conn.commit()
             conn.close()
         except sqlite3.Error as e:
-            logger.get_logger().critical(f"Error executing query")
-            logger.get_logger().debug(f"Error: {e}")
-            logger.get_logger().debug(f"SQL query: {query}")
+            geocork_logger.get_logger().critical(f"Error executing query")
+            geocork_logger.get_logger().debug(f"Error: {e}")
+            geocork_logger.get_logger().debug(f"SQL query: {query}")
             self.last_error = e
 
         # Get the table name from the query
@@ -345,7 +345,7 @@ class SQLiteTableModel(QAbstractTableModel):
         :param ids_to_remove: list of ids to remove from the table
         :return: True for success, False otherwise
         """
-        logger.get_logger().info(
+        geocork_logger.get_logger().info(
             f"Removing rows for IDs {', '.join(str(remove_id) for remove_id in ids_to_remove)} from {self.table}")
         self.beginRemoveRows(QtCore.QModelIndex(), 0, len(self._data) - 1)
         ids_to_remove.sort(reverse=False)
@@ -356,7 +356,7 @@ class SQLiteTableModel(QAbstractTableModel):
                 new_data.remove(row)
         self._data = new_data
         self.endRemoveRows()
-        logger.get_logger().info(
+        geocork_logger.get_logger().info(
             f"Removed rows for IDs {', '.join(str(remove_id) for remove_id in ids_to_remove)} from {self.table}")
         return True
 
@@ -369,7 +369,7 @@ class SQLiteTableModel(QAbstractTableModel):
         self.beginInsertRows(QtCore.QModelIndex(), len(self._data), len(self._data))
         self._data.append(row_data)
         self.endInsertRows()
-        logger.get_logger().info(f'Updated {self.table}')
+        geocork_logger.get_logger().info(f'Updated {self.table}')
         return True
 
     def canFetchMore(self, parent=None):
@@ -400,12 +400,12 @@ class SQLiteTableModel(QAbstractTableModel):
                 else:
                     query_text = f'{self.query_text.split(' WHERE ')[0]} {where}'
                 if not query.exec(query_text):
-                    logger.get_logger().critical(f'Error updating {self.table} display')
-                    logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    geocork_logger.get_logger().critical(f'Error updating {self.table} display')
+                    geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                    geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                     return False
                 if not query.next():
-                    logger.get_logger().info(
+                    geocork_logger.get_logger().info(
                         f'This ID does not exist in the query any more. May be removed from this model in a later step.')
                 row_data = [query.value(column) for column in range(self.columnCount())]
                 self._data[row] = row_data
@@ -432,12 +432,12 @@ class SQLiteTableModel(QAbstractTableModel):
             else:
                 query_text = f'{self.query_text.split(' WHERE ')[0]} {where}'
             if not query.exec(query_text):
-                logger.get_logger().critical(f'Error updating {self.table} display')
-                logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                geocork_logger.get_logger().critical(f'Error updating {self.table} display')
+                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 return False
             if not query.next():
-                logger.get_logger().info(
+                geocork_logger.get_logger().info(
                     f'This ID does not exist in the query any more. May be removed from this model in a later step.')
             row_data = [query.value(column) for column in range(self.columnCount())]
             if not self.insertRow(row_data):
@@ -500,7 +500,7 @@ class CheckableSQLiteTableModel(SQLiteTableModel):
         if index.column() == col and role == QtCore.Qt.ItemDataRole.CheckStateRole:
             item_id = self.index(index.row(), 0).data(QtCore.Qt.ItemDataRole.DisplayRole)
             if not item_id:
-                logger.get_logger().debug(f'No ID found for row {index.row()} in {self.tableName()}')
+                geocork_logger.get_logger().debug(f'No ID found for row {index.row()} in {self.tableName()}')
                 return False
             if value == QtCore.Qt.CheckState.Checked:
                 if item_id not in self.checked_ids:
@@ -548,7 +548,7 @@ class CheckableSQLiteTableModel(SQLiteTableModel):
         if self.checked_ids != checked_items or self.partially_checked_ids != partially_checked_items:
             self.checked_ids = checked_items
             self.partially_checked_ids = partially_checked_items
-            logger.get_logger().info(f'{self.table} checks updated')
+            geocork_logger.get_logger().info(f'{self.table} checks updated')
             self.checksChanged.emit()
 
     def return_checked_ids(self):
@@ -586,17 +586,17 @@ class CheckableSQLiteTableModel(SQLiteTableModel):
         :return: 'True' if successful, 'No' if not needed, 'False' needed but failed
         """
         if not other_ids:
-            logger.get_logger().error(f'No item IDs given for {other_table}')
+            geocork_logger.get_logger().error(f'No item IDs given for {other_table}')
             return 'False'
         if self.partially_checked_ids:
             # Any selection for a one-to-many relationship should be complete, so there should be no partially checked IDs
-            logger.get_logger().info(f'Partially checked IDs for one-to-many relationship, no changes to update')
+            geocork_logger.get_logger().info(f'Partially checked IDs for one-to-many relationship, no changes to update')
             return 'No'
         if len(self.checked_ids) > 1:
             # If there are multiple checked IDs, this is a many-to-many relationship, so we should not use this function
-            logger.get_logger().error(
+            geocork_logger.get_logger().error(
                 f'Multiple checked IDs given for {self.tableName()}. Select only one ID to update {other_table}.')
-            logger.get_logger().debug(
+            geocork_logger.get_logger().debug(
                 f'This should be a one-to-many relationship, so set the checkable combo box to single click.')
             return 'False'
         return update_other_table_with_checks(self.table, list(self.checked_ids), list(self.partially_checked_ids),
@@ -611,7 +611,7 @@ class CheckableSQLiteTableModel(SQLiteTableModel):
         :return: 'True' if successful, 'No' if not needed, 'False' needed but failed
         """
         if not item_ids:
-            logger.get_logger().error(f'No item IDs given for {many_table}')
+            geocork_logger.get_logger().error(f'No item IDs given for {many_table}')
             return 'False'
         return update_many_table_with_checks(self.table, list(self.checked_ids), list(self.partially_checked_ids),
                                              many_table, item_ids)
@@ -771,7 +771,7 @@ class CheckableSqlTableModel(DisplayRoundedTableModel):
         if index.column() == col and role == QtCore.Qt.ItemDataRole.CheckStateRole:
             item_id = self.index(index.row(), 0).data(QtCore.Qt.ItemDataRole.DisplayRole)
             if not item_id:
-                logger.get_logger().debug(f'No ID found for row {index.row()} in {self.tableName()}')
+                geocork_logger.get_logger().debug(f'No ID found for row {index.row()} in {self.tableName()}')
                 return False
             if value == QtCore.Qt.CheckState.Checked:
                 if item_id not in self.checked_ids:
@@ -861,17 +861,17 @@ class CheckableSqlTableModel(DisplayRoundedTableModel):
         :return: 'True' if successful, 'No' if not needed, 'False' needed but failed
         """
         if not other_ids:
-            logger.get_logger().error(f'No item IDs given for {other_table}')
+            geocork_logger.get_logger().error(f'No item IDs given for {other_table}')
             return 'False'
         if self.partially_checked_ids:
             # Any selection for a one-to-many relationship should be complete, so there should be no partially checked IDs
-            logger.get_logger().info(f'Partially checked IDs for one-to-many relationship, no changes to update')
+            geocork_logger.get_logger().info(f'Partially checked IDs for one-to-many relationship, no changes to update')
             return 'No'
         if len(self.checked_ids) > 1:
             # If there are multiple checked IDs, this is a many-to-many relationship, so we should not use this function
-            logger.get_logger().error(
+            geocork_logger.get_logger().error(
                 f'Multiple checked IDs given for {self.tableName()}. Select only one ID to update {other_table}.')
-            logger.get_logger().debug(
+            geocork_logger.get_logger().debug(
                 f'This should be a one-to-many relationship, so set the checkable combo box to single click.')
             return 'False'
         return update_other_table_with_checks(self.tableName(), list(self.checked_ids),
@@ -886,7 +886,7 @@ class CheckableSqlTableModel(DisplayRoundedTableModel):
         :return: 'True' if successful, 'No' if not needed, 'False' needed but failed
         """
         if not item_ids:
-            logger.get_logger().error(f'No item IDs given for {many_table}')
+            geocork_logger.get_logger().error(f'No item IDs given for {many_table}')
             return 'False'
         return update_many_table_with_checks(self.tableName(), list(self.checked_ids), list(self.partially_checked_ids),
                                              many_table, item_ids)
@@ -926,7 +926,7 @@ class LazyCheckableSqlTableModel(CheckableSqlTableModel):
             self.beginInsertRows(QtCore.QModelIndex(), self.loaded_row_count, self.loaded_row_count + rows_to_load - 1)
             self.loaded_row_count += rows_to_load
             self.endInsertRows()
-            logger.get_logger().debug(
+            geocork_logger.get_logger().debug(
                 f'Loaded {rows_to_load} more rows for {self.tableName()}, total loaded: {self.loaded_row_count}/{self.total_rows}')
 
     def data(self, index: QtCore.QModelIndex = ..., role: QtCore.Qt.ItemDataRole = ...):
@@ -1275,15 +1275,15 @@ class ImportSheetTableModel(QAbstractTableModel):
         Styles the model by getting the font and color for each cell in the sheet based on its content.
         """
         if self.sheet.max_row != self.rowCount():
-            logger.get_logger().error(
+            geocork_logger.get_logger().error(
                 'Rows have been removed and can no longer be mapped to the original input file.\n\nSave the current mapping, reload the input file, and select the checkbox before removing rows.')
             return False
         if self.rowCount() != self._status_dataframe.shape[0]:
-            logger.get_logger().critical(
+            geocork_logger.get_logger().critical(
                 'Data are unsynced.\n\nSave the current mapping and reload the input file.')
             return False
 
-        logger.get_logger().info('Identifying rejected rows by style')
+        geocork_logger.get_logger().info('Identifying rejected rows by style')
         show_loading_dialog('Loading', 'Identifying rejected rows...')
 
         style_progress_dialog = QProgressDialog(
@@ -1325,7 +1325,7 @@ class ImportSheetTableModel(QAbstractTableModel):
             close_loading_dialog('Loading', 'Identifying rejected rows...')
             return False
 
-        logger.get_logger().info('Identified rejected rows by style')
+        geocork_logger.get_logger().info('Identified rejected rows by style')
         close_loading_dialog('Loading', 'Identifying rejected rows...')
         self._status_array = self._status_dataframe.to_numpy()
         return True

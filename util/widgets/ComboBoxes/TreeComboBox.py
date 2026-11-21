@@ -4,7 +4,7 @@ from PyQt6 import QtWidgets, QtCore, QtGui
 from PyQt6.QtCore import QSortFilterProxyModel
 from PyQt6.QtGui import QAction
 
-from util import logger
+from util import geocork_logger
 from util.database.database_helper import find_tree_model, show_column
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.widgets.context_menus import TreeContextMenu
@@ -102,7 +102,7 @@ class TreeComboBox(QtWidgets.QComboBox):
         start_set_model_time = time.time()
         self.tree_model, indexes = find_tree_model(model, None)
         if not self.tree_model:
-            logger.get_logger().info(f'No checkable tree model found in {self.objectName()}')
+            geocork_logger.get_logger().info(f'No checkable tree model found in {self.objectName()}')
             return
         self.proxy_model = TreeSortFilterProxyModel(self, self.treeView)
         self.proxy_model.setSourceModel(model)
@@ -116,7 +116,7 @@ class TreeComboBox(QtWidgets.QComboBox):
         self.treeView.resizeColumnToContents(0)
         self.treeView.setMinimumWidth(self.treeView.sizeHint().width())
         self.treeView.setSortingEnabled(False)
-        logger.get_logger().debug(
+        geocork_logger.get_logger().debug(
             f'Set model for tree combobox in {time.time() - start_set_model_time:.2f} seconds')
 
     def update_filter(self, text: str):
@@ -166,7 +166,7 @@ class TreeComboBox(QtWidgets.QComboBox):
         """
         menu = TreeContextMenu()
         if not self.tree_model:
-            logger.get_logger().info(f'No checkable tree model found in {self.objectName()}')
+            geocork_logger.get_logger().info(f'No checkable tree model found in {self.objectName()}')
             return
         if self.tree_model.tableName() == 'Aliquots':
             menu.set_view(self.treeView, False, False)
@@ -176,15 +176,15 @@ class TreeComboBox(QtWidgets.QComboBox):
         if action:
             if action.text() == 'Edit':
                 self.edit_triggered.emit(self)
-                logger.get_logger().info(f'Edit triggered for combo box')
+                geocork_logger.get_logger().info(f'Edit triggered for combo box')
             elif 'Add' in action.text() or 'Insert' in action.text():
                 self.add_triggered.emit(self, action)
-                logger.get_logger().info(f'Add triggered for combo box')
+                geocork_logger.get_logger().info(f'Add triggered for combo box')
             elif 'Expand' in action.text() or 'Collapse' in action.text():
                 expand_collapse(self.treeView, action)
             elif 'Delete' in action.text():
                 self.delete_triggered.emit(self, action)
-                logger.get_logger().info(f'Delete triggered for combo box')
+                geocork_logger.get_logger().info(f'Delete triggered for combo box')
             self.showPopup()
 
     def set_line_edit_text(self, text: str):

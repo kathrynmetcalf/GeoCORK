@@ -4,7 +4,7 @@ from PyQt6 import QtWidgets, QtCore
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 
 from Functions import SQLUtils
-from util import logger
+from util import geocork_logger
 from util.database.database_helper import turn_on_foreign_keys, turn_off_foreign_keys
 from util.loading_dialog_manager import LoadingDialogManager
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
@@ -64,7 +64,7 @@ def fetchall(query_str: str, database: QSqlDatabase = QSqlDatabase(), params: Op
     query = QSqlQuery(database)
     if not query.prepare(query_str):
         if "too many SQL variables" in query.lastError().text():
-            logger.get_logger().info("Too many SQL variables in query, splitting into smaller chunks")
+            geocork_logger.get_logger().info("Too many SQL variables in query, splitting into smaller chunks")
             # Split the query into smaller chunks
             for i in range(0, len(params), query_size):
                 query_params = params[i:i + query_size]
@@ -72,26 +72,26 @@ def fetchall(query_str: str, database: QSqlDatabase = QSqlDatabase(), params: Op
                 query_str_split = f"{query_str.split(' IN ')[0]} IN ({",".join(["?"] * len(query_params))})"
                 queries.append((query_str_split, query_params))
         else:
-            logger.get_logger().critical(f'Error fetching total records')
-            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            geocork_logger.get_logger().critical(f'Error fetching total records')
+            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             return result_rows
     else:
         queries.append((query_str, params))
     for query_str, params in queries:
         if not query.prepare(query_str):
-            logger.get_logger().critical(f'Error fetching total records')
-            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            geocork_logger.get_logger().critical(f'Error fetching total records')
+            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             return []
         if params:
             for i, val in enumerate(params):
                 query.bindValue(i, val)
         if not query.exec():
-            logger.get_logger().critical(f'Error fetching total records')
-            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-            logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+            geocork_logger.get_logger().critical(f'Error fetching total records')
+            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
             return []
 
         while query.next():
@@ -110,9 +110,9 @@ def execute_sql(query_str: str, database: QSqlDatabase) -> bool:
     """
     query = QSqlQuery(database)
     if not query.exec(query_str):
-        logger.get_logger().critical(f'Error executing SQL')
-        logger.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        geocork_logger.get_logger().critical(f'Error executing SQL')
+        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     return True
 
@@ -127,7 +127,7 @@ def insert_rows(database: QSqlDatabase, table_name: str, rows: list[tuple], inse
     :return: True if all rows were inserted successfully, False if the operation was canceled or an error occurred.
     """
     if not rows:
-        logger.get_logger().info(f'No rows to insert into {table_name}')
+        geocork_logger.get_logger().info(f'No rows to insert into {table_name}')
         return True
 
     insert_cols = [f"[{item}]" for item in insert_cols]
@@ -142,7 +142,7 @@ def insert_rows(database: QSqlDatabase, table_name: str, rows: list[tuple], inse
     else:
         progress_parent = None
 
-    logger.get_logger().debug(f'SQL query: {insert_stmt}')
+    geocork_logger.get_logger().debug(f'SQL query: {insert_stmt}')
     progress_dialog = QtWidgets.QProgressDialog(f'Inserting {len(rows)} {table_name}...', 'Cancel', 0, len(rows),
                                                 progress_parent)
     progress_dialog.setWindowModality(QtCore.Qt.WindowModality.WindowModal)
@@ -154,7 +154,7 @@ def insert_rows(database: QSqlDatabase, table_name: str, rows: list[tuple], inse
         # Let the event loop process the dialog's updates
         QtWidgets.QApplication.processEvents()
         if progress_dialog.wasCanceled():
-            logger.get_logger().info('User cancelled the export operation')
+            geocork_logger.get_logger().info('User cancelled the export operation')
             return False
         query.prepare(insert_stmt)
         for i, val in enumerate(row):
@@ -164,12 +164,12 @@ def insert_rows(database: QSqlDatabase, table_name: str, rows: list[tuple], inse
             query.bindValue(i, val)
         if not query.exec():
             if "UNIQUE constraint failed: " in query.lastError().text():
-                logger.get_logger().info(f'Record already in database, skipping: {query.lastError().text()}')
+                geocork_logger.get_logger().info(f'Record already in database, skipping: {query.lastError().text()}')
             else:
-                logger.get_logger().critical(f'Error adding {table_name}')
-                logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+                geocork_logger.get_logger().critical(f'Error adding {table_name}')
+                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                 return False
     return True
 
@@ -192,9 +192,9 @@ def copy_schema(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> bool:
         if create_sql:
             success = execute_sql(create_sql, conn_target)
             if not success:
-                logger.get_logger().critical(f'Error creating table {table_name}')
-                logger.get_logger().debug(f'Error: {conn_target.lastError().text()}')
-                logger.get_logger().debug(f'SQL query: {create_sql}')
+                geocork_logger.get_logger().critical(f'Error creating table {table_name}')
+                geocork_logger.get_logger().debug(f'Error: {conn_target.lastError().text()}')
+                geocork_logger.get_logger().debug(f'SQL query: {create_sql}')
                 return False
 
     # Copy Indexes (regular and unique)
@@ -206,9 +206,9 @@ def copy_schema(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> bool:
         if create_index_sql:
             success = execute_sql(create_index_sql, conn_target)
             if not success:
-                logger.get_logger().critical(f'Error creating index {index_name}')
-                logger.get_logger().debug(f'Error: {conn_target.lastError().text()}')
-                logger.get_logger().debug(f'SQL query: {create_index_sql}')
+                geocork_logger.get_logger().critical(f'Error creating index {index_name}')
+                geocork_logger.get_logger().debug(f'Error: {conn_target.lastError().text()}')
+                geocork_logger.get_logger().debug(f'SQL query: {create_index_sql}')
                 return False
     close_loading_dialog('Copying database schema', 'Copying empty tables to target database...')
     return True
@@ -223,7 +223,7 @@ def copy_static_tables(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> 
     """
     show_loading_dialog('Copying static tables', 'Copying static tables to target database...')
     for table in SQLUtils.static_tables:
-        logger.get_logger().info(f"Copying table {table} from source to target connection")
+        geocork_logger.get_logger().info(f"Copying table {table} from source to target connection")
         if not copy_table(table, conn_source, conn_target):
             return False
     close_loading_dialog('Copying static tables', 'Copying static tables to target database...')
@@ -238,7 +238,7 @@ def metadata_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> b
     :return: True if the export was successful, False if canceled or no tables selected.
     """
 
-    logger.get_logger().info("Copying metadata tables")
+    geocork_logger.get_logger().info("Copying metadata tables")
     show_loading_dialog('Copying metadata tables', 'Copying metadata tables to target database...')
     turn_off_foreign_keys(conn_target)
 
@@ -246,7 +246,7 @@ def metadata_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> b
     editable_tables = SQLUtils.user_viewable_tables
     for table in editable_tables:
         if table not in ['Columns', 'Samples', '"References"']:
-            logger.get_logger().info(f"Copying table {table} from source to target connection")
+            geocork_logger.get_logger().info(f"Copying table {table} from source to target connection")
             if not copy_table(table, conn_source, conn_target):
                 return False
 
@@ -475,7 +475,7 @@ def subset_one_to_many_chain(
                 if bridge['bridge_table'] in ['Spots', 'Grains', 'UPbAnalyses']:
                     # These tables will be handled below, so remove this bridge from bridges_info
                     bridges_info.remove(bridge)
-            logger.get_logger().info(f"Many-to-many bridge tables found referencing 'Aliquots'.")
+            geocork_logger.get_logger().info(f"Many-to-many bridge tables found referencing 'Aliquots'.")
             if not subset_many_to_many_bridges(
                     conn_source,
                     conn_target,
@@ -518,7 +518,7 @@ def subset_one_to_many_chain(
                     if bridge['bridge_table'] in ['Grains', 'UPbAnalyses']:
                         # These tables will be handled below, so remove this bridge from bridges_info
                         bridges_info.remove(bridge)
-                logger.get_logger().info(f"Many-to-many bridge tables found referencing 'Spots'.")
+                geocork_logger.get_logger().info(f"Many-to-many bridge tables found referencing 'Spots'.")
                 if not subset_many_to_many_bridges(
                         conn_source,
                         conn_target,
@@ -565,7 +565,7 @@ def subset_one_to_many_chain(
             show_loading_dialog('Exporting', 'Finding and importing related UPbAnalyses data...')
             bridges_info = find_bridge_tables(f"UPbAnalyses", conn_source)
             if bridges_info:
-                logger.get_logger().info(f"Many-to-many bridge tables found referencing 'UPbAnalyses'.")
+                geocork_logger.get_logger().info(f"Many-to-many bridge tables found referencing 'UPbAnalyses'.")
                 if not subset_many_to_many_bridges(
                         conn_source,
                         conn_target,
@@ -593,7 +593,7 @@ def subset_one_to_many_chain(
                     if bridge['bridge_table'] in ['Spots', 'UPbAnalyses']:
                         # These tables were already handled above, so remove this bridge from bridges_info
                         bridges_info.remove(bridge)
-                logger.get_logger().info(f"Many-to-many bridge tables found referencing 'Grains'.")
+                geocork_logger.get_logger().info(f"Many-to-many bridge tables found referencing 'Grains'.")
                 if not subset_many_to_many_bridges(
                         conn_source,
                         conn_target,
@@ -734,7 +734,7 @@ def subset_tree_table_downstream(
 
     if parent_col not in col_names or child_col not in col_names:
         # Can't do traversal
-        logger.get_logger().warning(f"Table {table_name} does not have expected columns: {parent_col}, {child_col}")
+        geocork_logger.get_logger().warning(f"Table {table_name} does not have expected columns: {parent_col}, {child_col}")
         return False
 
     to_visit = list(root_ids)
@@ -797,7 +797,7 @@ def subset_sample_ages_m2m(
     if not sample_ids:
         return True
 
-    logger.get_logger().info(f"Subsetting SampleAges M2M relationships for sample_ids={sample_ids}")
+    geocork_logger.get_logger().info(f"Subsetting SampleAges M2M relationships for sample_ids={sample_ids}")
 
     # -------------------------------------------------------------------------
     # (1) Samples_SampleAges referencing our sample_ids
@@ -831,7 +831,7 @@ def subset_sample_ages_m2m(
         sampleAgeID_idx = col_names_samples_sampleages.index("SampleAgeID")
     except ValueError:
         # The bridging table doesn't have the expected column name
-        logger.get_logger().warning("Samples_SampleAges table doesn't have 'SampleAgeID' column!")
+        geocork_logger.get_logger().warning("Samples_SampleAges table doesn't have 'SampleAgeID' column!")
         return False
 
     sampleAge_ids = {
@@ -890,7 +890,7 @@ def subset_sample_ages_m2m(
         try:
             ageConstraintID_idx = col_names_sa_ageconstraints.index("AgeConstraintID")
         except ValueError:
-            logger.get_logger().warning("SampleAges_AgeConstraints doesn't have 'AgeConstraintID' column!")
+            geocork_logger.get_logger().warning("SampleAges_AgeConstraints doesn't have 'AgeConstraintID' column!")
             ageConstraintID_idx = None
 
         if ageConstraintID_idx is not None:
@@ -944,7 +944,7 @@ def subset_sample_ages_m2m(
         try:
             ageInterpretationID_idx = col_names_sa_ageinterpretations.index("AgeInterpretationID")
         except ValueError:
-            logger.get_logger().warning("SampleAges_AgeInterpretations doesn't have 'AgeInterpretationID' column!")
+            geocork_logger.get_logger().warning("SampleAges_AgeInterpretations doesn't have 'AgeInterpretationID' column!")
             ageInterpretationID_idx = None
 
         if ageInterpretationID_idx is not None:
@@ -1006,7 +1006,7 @@ def subset_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase, ids_to
     col_info_export_table = fetchall(f"PRAGMA table_info('{export_table}')", conn_source)
     if not col_info_export_table:
         close_loading_dialog('Exporting', 'Gathering sample data...')
-        logger.get_logger().error(f"Table '{export_table}' does not exist in the source database.")
+        geocork_logger.get_logger().error(f"Table '{export_table}' does not exist in the source database.")
         return False
     export_id_header = col_info_export_table[0][1]  # Assuming first column is the ID column
     export_ids = set(ids_to_export)
@@ -1043,7 +1043,7 @@ def subset_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase, ids_to
 
     # 4) Subset those bridging tables + their 'other' table references
     if bridges_info:
-        logger.get_logger().info(f"Many-to-many bridge tables found referencing '{export_table}'.")
+        geocork_logger.get_logger().info(f"Many-to-many bridge tables found referencing '{export_table}'.")
         if export_table == 'Samples':
             if not subset_many_to_many_bridges(
                     conn_source,

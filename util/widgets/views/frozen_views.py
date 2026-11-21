@@ -1,6 +1,6 @@
 from PyQt6 import QtWidgets, QtCore
 
-from util import logger
+from util import geocork_logger
 from util.widgets.delegates import ActiveSelectionDelegate
 from util.widgets.views.tree_views import TrackExpandedTreeView
 
@@ -271,11 +271,11 @@ class FrozenTableView(QtWidgets.QTableView):
         self.frozen_table_view.setColumnWidth(self.frozen_column, self.columnWidth(self.frozen_column))
         self.frozen_table_view.horizontalHeader().setFixedHeight(header_height)
         self.sync_row_heights()
-        logger.get_logger().debug(
+        geocork_logger.get_logger().debug(
             f'Frozen column geometry: (x: {x_pos}, y: {y_pos}, width: {width}, height: {height})')
-        logger.get_logger().debug(
+        geocork_logger.get_logger().debug(
             f'Table geometry: (x: {self.x()}, y: {self.y()}, width: {self.width()}, height: {self.height()})')
-        logger.get_logger().debug(
+        geocork_logger.get_logger().debug(
             f'Viewport geometry: (x: {self.viewport().x()}, y: {self.viewport().y()}, width: {self.viewport().width()}, height: {self.viewport().height()})')
 
 
@@ -480,9 +480,9 @@ class FrozenTreeView(TrackExpandedTreeView):
         self.frozen_tree_view.setColumnWidth(self.frozen_column, self.columnWidth(self.frozen_column))
         self.frozen_tree_view.header().setFixedHeight(header_height)
         self.sync_row_heights()
-        logger.get_logger().debug(
+        geocork_logger.get_logger().debug(
             f'Frozen column geometry: (x: {x_pos}, y: {y_pos}, width: {width}, height: {height})')
-        logger.get_logger().debug(
+        geocork_logger.get_logger().debug(
             f'Table geometry: (x: {self.x()}, y: {self.y()}, width: {self.width()}, height: {self.height()})')
-        logger.get_logger().debug(
+        geocork_logger.get_logger().debug(
             f'Viewport geometry: (x: {self.viewport().x()}, y: {self.viewport().y()}, width: {self.viewport().width()}, height: {self.viewport().height()})')

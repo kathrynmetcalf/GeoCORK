@@ -10,8 +10,8 @@ from PyQt6.QtSql import QSqlDatabase
 from PyQt6.QtWidgets import QProgressDialog
 from tzlocal import get_localzone
 
-from util import logger
-from util.database.Savepoint_manager import SavepointManager
+from util import geocork_logger
+from util.database.savepoint_manager import SavepointManager
 
 
 def backup_database(database: QSqlDatabase) -> None | str:
@@ -26,7 +26,7 @@ def backup_database(database: QSqlDatabase) -> None | str:
     else:
         db = database
     db_file = db.databaseName()
-    logger.get_logger().info(f'Creating backup of {db.connectionName()}:')
+    geocork_logger.get_logger().info(f'Creating backup of {db.connectionName()}:')
     local_timezone = get_localzone()
     current_time = datetime.now(local_timezone)
     formatted_timestamp = current_time.strftime('%Y-%m-%d %H.%M.%S')
@@ -38,7 +38,7 @@ def backup_database(database: QSqlDatabase) -> None | str:
     if backup_dir and not os.path.exists(backup_dir):
         os.makedirs(backup_dir, exist_ok=True)
 
-    logger.get_logger().info(f'Backing up to {backup_file}')
+    geocork_logger.get_logger().info(f'Backing up to {backup_file}')
 
     if not SavepointManager.get_instance().active_savepoints():
         progressBar = QProgressDialog()
@@ -65,9 +65,9 @@ def backup_database(database: QSqlDatabase) -> None | str:
         return backup_file
 
     else:
-        logger.get_logger().critical(
+        geocork_logger.get_logger().critical(
             'Uncommitted changes: cannot backup\nPlease commit or discard changes before creating a backup.')
-        logger.get_logger().debug(f"Savepoints: {SavepointManager.get_instance().active_savepoints_names()}")
+        geocork_logger.get_logger().debug(f"Savepoints: {SavepointManager.get_instance().active_savepoints_names()}")
         return None
 
 
@@ -86,13 +86,13 @@ class BackupThread(QThread):
         src = sqlite3.connect(self.source_db)
         backup = sqlite3.connect(self.backup_db)
 
-        logger.get_logger().info('Beginning Backup Thread')
+        geocork_logger.get_logger().info('Beginning Backup Thread')
 
         def progress(status, remaining, total):
             # Calculate progress percentage
             percent = 100 - int((remaining / total) * 100)
             if percent != self.last_percent:
-                logger.get_logger().info(f'Backup Progress: {percent}')
+                geocork_logger.get_logger().info(f'Backup Progress: {percent}')
                 self.last_percent = percent
 
             self.progress_updated.emit(percent)
@@ -123,13 +123,13 @@ class RestoreThread(QThread):
         src = sqlite3.connect(self.source_db, timeout=10)
         backup = sqlite3.connect(self.backup_db, timeout=10)
 
-        logger.get_logger().info('Beginning Restore Thread')
+        geocork_logger.get_logger().info('Beginning Restore Thread')
 
         def progress(status, remaining, total):
             # Calculate progress percentage
             percent = 100 - int((remaining / total) * 100)
             if percent != self.last_percent:
-                logger.get_logger().info(f'Backup Progress: {percent}')
+                geocork_logger.get_logger().info(f'Backup Progress: {percent}')
                 self.last_percent = percent
 
             self.progressBar.setValue(percent)

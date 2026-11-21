@@ -9,8 +9,9 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6.uic import loadUi
 
 import Functions.SQLUtils as SQLUtils
-from util import logger
+from util import geocork_logger
 from Functions.Check_triggers import update_modified_timestamp
+from util.database import savepoint_manager
 from util.settings_manager import SettingsManager
 from util.database.database_helper import (
     set_table,
@@ -28,7 +29,7 @@ from ui.EditUPbTags import EditUPbTags
 from ui.EditView import EditView
 from ui.GPSFields import GPSFields
 from ui.New_reference import NewReference
-from util.database.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from util.database.savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.populate_models import populate_many_combo_checks, populate_combo_box
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
@@ -44,10 +45,9 @@ settings = SettingsManager().settings
 class SampleInformation(QtW.QDialog):
     def __init__(self, parent_window, sample_id_list: list | None):
         super().__init__(parent=parent_window)
-        logger.get_logger().info("Starting the sample information dialog")
+        geocork_logger.get_logger().info("Starting the sample information dialog")
         start_init_time = time.time()
         self.parent_window = parent_window
-        self.savepoint_manager = SavepointManager.get_instance()
         self.setWindowTitle("Edit Sample Information")
         self.setModal(True)
 
@@ -115,14 +115,14 @@ class SampleInformation(QtW.QDialog):
 
         self.installEventFilter(self)
         end_init_time = time.time()
-        logger.get_logger().info(
+        geocork_logger.get_logger().info(
             f"Sample information dialog initialized in {end_init_time - start_init_time} seconds")
         self.showMaximized()
 
         close_loading_dialog('Loading', f'Opening Sample Information window...')
 
     def check_all_samples(self):
-        logger.get_logger().info("Checking all samples")
+        geocork_logger.get_logger().info("Checking all samples")
         if len(self.selected_sample_list) > 0:
             for row in range(self.sample_names_model.rowCount()):
                 index = self.sample_names_model.index(row, 1, QtC.QModelIndex())
@@ -132,14 +132,14 @@ class SampleInformation(QtW.QDialog):
             self.uncheck_all_samples()
 
     def uncheck_all_samples(self):
-        logger.get_logger().info("Unchecking all samples")
+        geocork_logger.get_logger().info("Unchecking all samples")
         for row in range(self.sample_names_model.rowCount()):
             index = self.sample_names_model.index(row, 1, QtC.QModelIndex())
             self.sample_names_model.setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
         self.update_sample_list()
 
     def update_sample_list(self):
-        logger.get_logger().info("Updating the sample list")
+        geocork_logger.get_logger().info("Updating the sample list")
         start_update_sample_list_time = time.time()
         previous_checked_sample_list = self.checked_sample_list
         self.checked_sample_list = []
@@ -156,7 +156,7 @@ class SampleInformation(QtW.QDialog):
                 id_index = self.sample_names_model.index(row, 0, QtC.QModelIndex())
                 self.checked_sample_list.append(self.sample_names_model.data(id_index, QtC.Qt.ItemDataRole.DisplayRole))
         if self.checked_sample_list == previous_checked_sample_list:
-            logger.get_logger().info("Sample list has not changed, skipping update")
+            geocork_logger.get_logger().info("Sample list has not changed, skipping update")
             return
         if len(checked_sample_names) > 1:
             self.checked_sample_names = ", ".join(checked_sample_names)
@@ -171,15 +171,15 @@ class SampleInformation(QtW.QDialog):
         self.sample_names_proxy = ReadableProxyModel()
         self.sample_names_proxy.setSourceModel(self.sample_names_model)
         self.sample_names_proxy.sort(get_name_column('Samples'), QtC.Qt.SortOrder.AscendingOrder)
-        logger.get_logger().info(f"Updated sample list: {self.checked_sample_names}")
+        geocork_logger.get_logger().info(f"Updated sample list: {self.checked_sample_names}")
         end_update_sample_list_time = time.time()
-        logger.get_logger().info(
+        geocork_logger.get_logger().info(
             f"Updated sample list: {self.checked_sample_names} in {end_update_sample_list_time - start_update_sample_list_time} seconds")
         self.update_fields()
 
     def update_fields(self):
         show_loading_dialog('Updating', 'Updating fields...')
-        logger.get_logger().info("Updating fields")
+        geocork_logger.get_logger().info("Updating fields")
         self.disconnect_text_signals()
         if set(self.gps.item_ids) != set(self.checked_sample_list):
             self.gps.update_list(self.checked_sample_list)
@@ -189,12 +189,12 @@ class SampleInformation(QtW.QDialog):
             self.columns.update_list(self.checked_sample_list)
         self.populate_fields()
         self.connect_signals()
-        logger.get_logger().info("Fields updated")
+        geocork_logger.get_logger().info("Fields updated")
         close_loading_dialog('Updating', 'Updating fields...')
 
     def populate_dropdowns(self):
         start_populate_dropdown_time = time.time()
-        logger.get_logger().info("Populating dropdowns")
+        geocork_logger.get_logger().info("Populating dropdowns")
         show_loading_dialog('Loading', 'Populating dropdowns...')
         self.sample_context_comboBox.model_modifiable = True
         self.sample_context_comboBox.enable_context_menu(True)
@@ -222,12 +222,12 @@ class SampleInformation(QtW.QDialog):
         self.sample_name_comboBox.view().setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         end_populate_dropdown_time = time.time()
         close_loading_dialog('Loading', 'Populating dropdowns...')
-        logger.get_logger().info(
+        geocork_logger.get_logger().info(
             f"Populated dropdowns in {end_populate_dropdown_time - start_populate_dropdown_time} seconds")
-        logger.get_logger().info("Dropdowns populated")
+        geocork_logger.get_logger().info("Dropdowns populated")
 
     def connect_signals(self):
-        logger.get_logger().info("Connecting signals")
+        geocork_logger.get_logger().info("Connecting signals")
         # Connect signals and slots
         self.upb_analysis_pushButton.clicked.connect(self.edit_upb_popup)
         self.commit_pushButton.clicked.connect(self.commit_clicked)
@@ -264,18 +264,18 @@ class SampleInformation(QtW.QDialog):
         self.age_signature_comboBox.edit_triggered.connect(self.edit_popup)
         self.sample_description_textEdit.editingFinished.connect(
             lambda: self.update_field('SampleDescription', f'{self.sample_description_textEdit.toPlainText()}'))
-        logger.get_logger().info("Signals connected")
+        geocork_logger.get_logger().info("Signals connected")
 
     def disconnect_text_signals(self):
-        logger.get_logger().info("Disconnecting text signals")
+        geocork_logger.get_logger().info("Disconnecting text signals")
         try:
             self.sample_description_textEdit.editingFinished.disconnect()
         except TypeError:
             pass
-        logger.get_logger().info("Text signals disconnected")
+        geocork_logger.get_logger().info("Text signals disconnected")
 
     def populate_fields(self):
-        logger.get_logger().info("Populating fields")
+        geocork_logger.get_logger().info("Populating fields")
         start_populate_fields_time = time.time()
         headers = get_headers('Samples')
         if len(self.checked_sample_list) > 1:
@@ -290,7 +290,7 @@ class SampleInformation(QtW.QDialog):
         while self.samples_table.canFetchMore():
             self.samples_table.fetchMore()
         if self.samples_table.rowCount() == 0:
-            logger.get_logger().info("No samples to populate")
+            geocork_logger.get_logger().info("No samples to populate")
             self.clear_fields()
             return
         for header in headers:
@@ -330,12 +330,12 @@ class SampleInformation(QtW.QDialog):
         populate_many_combo_checks('Samples_AgeSignatures', self.age_signature_comboBox, self.checked_sample_list)
 
         end_populate_fields_time = time.time()
-        logger.get_logger().info(
+        geocork_logger.get_logger().info(
             f"Populated fields in {end_populate_fields_time - start_populate_fields_time} seconds")
-        logger.get_logger().info("Fields populated")
+        geocork_logger.get_logger().info("Fields populated")
 
     def clear_fields(self):
-        logger.get_logger().info("Clearing fields")
+        geocork_logger.get_logger().info("Clearing fields")
         self.sample_name_lineEdit.setText('')
         self.sample_igsn_lineEdit.setText('')
         self.sample_description_textEdit.setText('')
@@ -358,7 +358,7 @@ class SampleInformation(QtW.QDialog):
             populate_many_combo_checks('Samples_AgeSignatures', self.age_signature_comboBox, self.checked_sample_list)
 
     def populate_sample_dictionary(self):
-        logger.get_logger().info("Populating sample dictionary")
+        geocork_logger.get_logger().info("Populating sample dictionary")
         start_populate_samples_time = time.time()
         headers = get_headers('Samples')
         if len(self.checked_sample_list) > 1:
@@ -370,40 +370,40 @@ class SampleInformation(QtW.QDialog):
         else:
             self.samples_table = SQLiteTableModel(f'SELECT * FROM Samples WHERE SampleID IS NULL')
         if self.samples_table.last_error:
-            logger.get_logger().critical(f"Error populating samples table")
+            geocork_logger.get_logger().critical(f"Error populating samples table")
         if self.samples_table.rowCount() == 0:
-            logger.get_logger().info("No samples to populate")
+            geocork_logger.get_logger().info("No samples to populate")
             return
-        logger.get_logger().info(
+        geocork_logger.get_logger().info(
             f"Populated sample dictionary in {time.time() - start_populate_samples_time} seconds")
 
     def update_field(self, field: str, text: str):
-        logger.get_logger().info(f"Update field called with {field} and {text}")
-        if 'before_edit_samples' not in self.savepoint_manager.savepoint_list:
+        geocork_logger.get_logger().info(f"Update field called with {field} and {text}")
+        if 'before_edit_samples' not in SavepointManager.get_instance().savepoint_list:
             # The edits were already saved and the save point released
             return
         start_update_field_time = time.time()
         if text != "-":
             if len(self.checked_sample_list) > 0:
-                logger.get_logger().info(
+                geocork_logger.get_logger().info(
                     f"Updating {field} to {text} for {len(self.checked_sample_list)} samples")
                 query = QtS.QSqlQuery()
                 create_savepoint('before_update')
                 for sample_id in self.checked_sample_list:
                     if not query.exec(f"SELECT {field} FROM Samples WHERE SampleID = {sample_id}"):
-                        logger.get_logger().critical(
+                        geocork_logger.get_logger().critical(
                             f"Failed to select {field} for SampleID {sample_id}: {query.lastError().text()}")
                         return
                     query.next()
                     if query.value(0) != text:
-                        logger.get_logger().info(f"Updating {field} to {text} for SampleID {sample_id}")
+                        geocork_logger.get_logger().info(f"Updating {field} to {text} for SampleID {sample_id}")
                         if text is None or text == '':
                             text = 'Null'
                         query.prepare(f"UPDATE Samples SET {field} = :text WHERE SampleID = :sample_id")
                         query.bindValue(":text", text)
                         query.bindValue(":sample_id", sample_id)
                         if not query.exec():
-                            logger.get_logger().critical(
+                            geocork_logger.get_logger().critical(
                                 f"Failed to update {field} to {text} for SampleID {sample_id}: {query.lastError().text()}")
                             rollback_savepoint('before_update')
                             return
@@ -412,83 +412,83 @@ class SampleInformation(QtW.QDialog):
                 if field == 'SampleName':
                     self.update_sample_list()
                 end_update_field_time = time.time()
-                logger.get_logger().info(
+                geocork_logger.get_logger().info(
                     f"Updated field in {end_update_field_time - start_update_field_time} seconds")
-                logger.get_logger().info(f"Updated {field} to {text} for {len(self.checked_sample_list)} samples")
+                geocork_logger.get_logger().info(f"Updated {field} to {text} for {len(self.checked_sample_list)} samples")
                 release_savepoint('before_update')
             else:
-                logger.get_logger().info("No samples selected")
+                geocork_logger.get_logger().info("No samples selected")
 
     def update_id(self, id_field: str, name_field: str, text: str, table: str):
-        logger.get_logger().info(f'update_id called with {id_field}, {name_field}, {text}, {table}')
+        geocork_logger.get_logger().info(f'update_id called with {id_field}, {name_field}, {text}, {table}')
         start_update_id_time = time.time()
         item_id = get_id_from_name(table, text)
         if len(self.checked_sample_list) > 0:
-            logger.get_logger().info(
+            geocork_logger.get_logger().info(
                 f"Updating {id_field} to {item_id} for {len(self.checked_sample_list)} samples")
             query = QtS.QSqlQuery()
             create_savepoint('before_update')
             for sample_id in self.checked_sample_list:
                 if not query.exec(f"SELECT {id_field} FROM Samples WHERE SampleID = {sample_id}"):
-                    logger.get_logger().critical(
+                    geocork_logger.get_logger().critical(
                         f"Failed to select {id_field} for SampleID {sample_id}: {query.lastError().text()}")
                     return
                 query.next()
                 if query.value(0) != item_id:
                     if not query.exec(f"UPDATE Samples SET {id_field} = {item_id} WHERE SampleID = {sample_id}"):
-                        logger.get_logger().critical(
+                        geocork_logger.get_logger().critical(
                             f"Failed to update {id_field} to {item_id} for SampleID {sample_id}: {query.lastError().text()}")
                         rollback_savepoint('before_update')
                         return
             update_modified_timestamp('Samples', self.checked_sample_list)
             self.updated = True
             end_update_id_time = time.time()
-            logger.get_logger().info(
+            geocork_logger.get_logger().info(
                 f"Updated {id_field} to {item_id} for {len(self.checked_sample_list)} samples in {end_update_id_time - start_update_id_time} seconds")
-            logger.get_logger().info(
+            geocork_logger.get_logger().info(
                 f"Updated {id_field} to {item_id} for {len(self.checked_sample_list)} samples")
             release_savepoint('before_update')
         else:
-            logger.get_logger().info("No samples selected")
+            geocork_logger.get_logger().info("No samples selected")
 
     def update_sample_tags(self, combo: CheckableTreeComboBox):
-        logger.get_logger().info(f"update_sample_tags called with {combo.objectName()}")
+        geocork_logger.get_logger().info(f"update_sample_tags called with {combo.objectName()}")
         if not isinstance(combo, CheckableTreeComboBox):
-            logger.get_logger().critical(f"Combo box is not CheckableTreeComboBox")
+            geocork_logger.get_logger().critical(f"Combo box is not CheckableTreeComboBox")
             return False
         if len(self.checked_sample_list) == 0:
-            logger.get_logger().info("No samples selected")
+            geocork_logger.get_logger().info("No samples selected")
             return False
         model, indexes = find_tree_model(combo.model(), None)
         if model:
             table = model.table
             id_header = get_headers(table)[0]
         else:
-            logger.get_logger().critical(f"Could not find model for combo box {combo.objectName()}")
+            geocork_logger.get_logger().critical(f"Could not find model for combo box {combo.objectName()}")
             return False
         start_update_sample_tags = time.time()
-        logger.get_logger().info(f"Updating {table} for {len(self.checked_sample_list)} samples")
+        geocork_logger.get_logger().info(f"Updating {table} for {len(self.checked_sample_list)} samples")
         create_savepoint('before_update')
         update = model.update_many_table(f'Samples_{table}', self.checked_sample_list)
         if update == 'False':
-            logger.get_logger().critical(f"Failed to update {table} for selected Samples")
+            geocork_logger.get_logger().critical(f"Failed to update {table} for selected Samples")
             rollback_savepoint('before_update')
             return False
         elif update == 'No':
-            logger.get_logger().info(f"No changes to {table} for selected Samples")
+            geocork_logger.get_logger().info(f"No changes to {table} for selected Samples")
             rollback_savepoint('before_update')
             return True
         self.updated = True
         populate_many_combo_checks(f'Samples_{table}', combo, self.checked_sample_list)
         end_update_sample_tags_time = time.time()
-        logger.get_logger().info(
+        geocork_logger.get_logger().info(
             f"Updated {table} for {len(self.checked_sample_list)} samples in {end_update_sample_tags_time - start_update_sample_tags} seconds")
         release_savepoint('before_update')
         return True
 
     def add_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
         combo.blockSignals(True)
-        logger.get_logger().info(f"Add popup called")
+        geocork_logger.get_logger().info(f"Add popup called")
         model = combo.model()
         if isinstance(combo.view(), QtW.QTreeView):
             if not isinstance(model, TreeModel):
@@ -496,8 +496,8 @@ class SampleInformation(QtW.QDialog):
             if model:
                 table = model.table
             else:
-                logger.get_logger().critical(f"Error adding new item")
-                logger.get_logger().debug(f"Error: No tree model found")
+                geocork_logger.get_logger().critical(f"Error adding new item")
+                geocork_logger.get_logger().debug(f"Error: No tree model found")
                 combo.blockSignals(False)
                 return
         else:
@@ -521,7 +521,7 @@ class SampleInformation(QtW.QDialog):
         if not dlg:
             combo.blockSignals(False)
             return
-        logger.get_logger().info(f"Showing {table} add dialog")
+        geocork_logger.get_logger().info(f"Showing {table} add dialog")
         dlg.exec()
         if dlg.updated:
             self.updated = True
@@ -534,7 +534,7 @@ class SampleInformation(QtW.QDialog):
             return
 
     def edit_popup(self):
-        logger.get_logger().info(f'Edit popup called')
+        geocork_logger.get_logger().info(f'Edit popup called')
         combo: QtW.QComboBox = self.sender()
         model = combo.model()
         if isinstance(combo.view(), QtW.QTreeView):
@@ -543,8 +543,8 @@ class SampleInformation(QtW.QDialog):
             if model:
                 table = model.table
             else:
-                logger.get_logger().critical(f"Error editing table")
-                logger.get_logger().debug(f"Error: No tree model found")
+                geocork_logger.get_logger().critical(f"Error editing table")
+                geocork_logger.get_logger().debug(f"Error: No tree model found")
                 return
         elif isinstance(model, QtC.QSortFilterProxyModel):
             model = model.sourceModel()
@@ -562,7 +562,7 @@ class SampleInformation(QtW.QDialog):
         if dlg is None:
             combo.blockSignals(False)
             return
-        logger.get_logger().info(f"Showing {table} edit dialog")
+        geocork_logger.get_logger().info(f"Showing {table} edit dialog")
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
             # Update this combo box
@@ -571,7 +571,7 @@ class SampleInformation(QtW.QDialog):
         combo.blockSignals(False)
 
     def edit_upb_popup(self):
-        logger.get_logger().info("Edit U-Pb popup called")
+        geocork_logger.get_logger().info("Edit U-Pb popup called")
         show_loading_dialog("Loading", "Showing U-Pb analysis edit dialog")
         self.sender().blockSignals(True)
         dlg = EditUPbTags(self, self.checked_sample_list)
@@ -581,7 +581,7 @@ class SampleInformation(QtW.QDialog):
         self.sender().blockSignals(False)
 
     def delete_item(self):
-        logger.get_logger().info(f"Delete item called")
+        geocork_logger.get_logger().info(f"Delete item called")
         combo = self.sender()
         selected_ids = []
         model = combo.model()
@@ -627,30 +627,30 @@ class SampleInformation(QtW.QDialog):
             self.sample_description_textEdit.editingFinished.emit()
 
     def discard_clicked(self):
-        logger.get_logger().info("Discard clicked")
+        geocork_logger.get_logger().info("Discard clicked")
         self.cancel_pushButton.blockSignals(True)
         self.discard_timer.timeout.connect(self.discard_question)
         self.discard_timer.start(200)
 
     def commit_clicked(self):
-        logger.get_logger().info("Commit clicked")
+        geocork_logger.get_logger().info("Commit clicked")
         self.commit_pushButton.blockSignals(True)
         if not self.commit_pushed:
             self.commit_pushed = True
             self.commit_question()
 
     def discard_question(self):
-        logger.get_logger().info("Discard question called")
+        geocork_logger.get_logger().info("Discard question called")
         if self.updated or self.gps.updated or self.age.updated or self.columns.updated:
             msg_box = QtW.QMessageBox()
             msg_box.setIcon(QtW.QMessageBox.Icon.Question)
             msg_box.setText('Are you sure you want to discard all changes?')
             msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
             msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
-            logger.get_logger().info("Showing discard question")
+            geocork_logger.get_logger().info("Showing discard question")
             response = msg_box.exec()
             if response == QtW.QMessageBox.StandardButton.Yes:
-                logger.get_logger().info("Discarding changes")
+                geocork_logger.get_logger().info("Discarding changes")
                 self.updated = False
                 self.gps.updated = False
                 self.age.updated = False
@@ -712,8 +712,8 @@ class SampleInformation(QtW.QDialog):
                 event.ignore()
             else:
                 # self.saveWindowState()
-                logger.get_logger().info("Closing SampleInformation dialog")
+                geocork_logger.get_logger().info("Closing SampleInformation dialog")
                 event.accept()
         else:
-            logger.get_logger().info("Closing SampleInformation dialog")
+            geocork_logger.get_logger().info("Closing SampleInformation dialog")
             event.accept()

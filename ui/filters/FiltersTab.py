@@ -5,7 +5,7 @@ from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QLineEdit, QListWidget, QLayout, QSizePolicy, QListWidgetItem, QPushButton, QMessageBox)
 
-from util import logger
+from util import geocork_logger
 from ui.DataViewerWidget import DataViewerWidget
 from util.loading_dialog_manager import show_loading_dialog
 from ui.filters.SaveFilterDialog import SaveFilterDialog
@@ -165,13 +165,13 @@ class FiltersTab(QWidget):
             query.prepare(sql_query)
             query.bindValue(":filter_name", item.text())
             if not query.exec():
-                logger.get_logger().critical(
+                geocork_logger.get_logger().critical(
                     f'Could not delete filter')
-                logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger.get_logger().debug(f'SQL command: {sql_query}')
-                logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                geocork_logger.get_logger().debug(f'SQL command: {sql_query}')
+                geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
             else:
-                logger.get_logger().info(f'Filter {item.text()} deleted')
+                geocork_logger.get_logger().info(f'Filter {item.text()} deleted')
 
     def update_filter_list(self):
         """
@@ -180,7 +180,7 @@ class FiltersTab(QWidget):
         self.filter_list_widget.clear()
         query = QSqlQuery()
         sql_query = "SELECT * FROM FilterGroups;"
-        logger.get_logger().debug(f'Updating filter list')
+        geocork_logger.get_logger().debug(f'Updating filter list')
         if query.exec(sql_query):
             while query.next():
                 item = QListWidgetItem()
@@ -189,9 +189,9 @@ class FiltersTab(QWidget):
                 self.filter_list_widget.addItem(item)
             self.filter_list_widget.sortItems()
         else:
-            logger.get_logger().info(f'Failed to get all filters from the database')
-            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger.get_logger().debug(f'SQL command: {sql_query}')
+            geocork_logger.get_logger().info(f'Failed to get all filters from the database')
+            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            geocork_logger.get_logger().debug(f'SQL command: {sql_query}')
 
     def filter_items(self, text: str):
         """

@@ -1,6 +1,6 @@
 from PyQt6 import QtSql
 
-from util import logger
+from util import geocork_logger
 import util.Text_manipulations as TxM
 from util.settings_manager import SettingsManager
 
@@ -223,7 +223,7 @@ def return_number(value: str | float | int):
     elif isinstance(value, int):
         return value
     else:
-        logger.get_logger().info(f"Invalid value type: {type(value)}. Expected str, float, or int.")
+        geocork_logger.get_logger().info(f"Invalid value type: {type(value)}. Expected str, float, or int.")
         return value
 
 

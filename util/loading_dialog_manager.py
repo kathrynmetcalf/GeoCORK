@@ -4,7 +4,7 @@ from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtWidgets import QLabel
 
 
-def show_loading_dialog(title, message):
+def show_loading_dialog(title: str, message: str):
     """
     Show a loading dialog while the action is taking place. The loading dialog is managed by the
     LoadingDialogManager, which ensures that it is closed properly after the action is completed. The title and message
@@ -17,7 +17,7 @@ def show_loading_dialog(title, message):
     loading_manager.show_loading_dialog(title, message)
 
 
-def close_loading_dialog(title, message):
+def close_loading_dialog(title: str, message: str):
     """
     Close the loading dialog with the given title and message. This ensures that the loading dialog is closed properly.
     :param title: Title of the loading dialog to close

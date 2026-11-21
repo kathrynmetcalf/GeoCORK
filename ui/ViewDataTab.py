@@ -11,7 +11,7 @@ from Functions.Database_views import ViewQuery
 from ui.EditTreeView import EditTreeView
 from ui.EditView import EditView
 from ui.settings import SettingsCore
-from util import logger
+from util import geocork_logger
 from util.database.database_helper import (get_name_column, get_headers,
                                            get_view_from_table, get_readable_header,
                                            get_record_row, update_database,
@@ -31,7 +31,7 @@ settings = SettingsManager().settings
 class ViewDataTab(QtW.QWidget):
     def __init__(self, parent_id: int, parent_type: str, child_type: str, label: str):
         super().__init__()
-        logger.get_logger().info(
+        geocork_logger.get_logger().info(
             f'Creating a new ViewDataTab for {child_type} with parent {parent_type} ID {parent_id}')
         start_view_data_tab_time = time.time()
 
@@ -49,7 +49,7 @@ class ViewDataTab(QtW.QWidget):
         self.where = f' WHERE {get_headers(parent_type)[0]} = {self.parent_id}'
         self.table_item_ids = []
         if self.child_type not in ['Aliquots', 'Grains', 'Spots', 'UPbAnalyses', 'GeoChemicalAnalyses']:
-            logger.get_logger().critical(f'Error: Invalid child type {self.child_type}')
+            geocork_logger.get_logger().critical(f'Error: Invalid child type {self.child_type}')
             self.close()
         self.table = self.child_type
         self.name_header = get_headers(get_view_from_table(self.table))[
@@ -134,7 +134,7 @@ class ViewDataTab(QtW.QWidget):
 
         close_loading_dialog('Loading', f'Loading {label}...')
         end_view_data_tab_time = time.time()
-        logger.get_logger().info(
+        geocork_logger.get_logger().info(
             f'Time to create ViewDataTab: {end_view_data_tab_time - start_view_data_tab_time}')
 
     def optimizeVerticalResize(self, logical_index, old_size, new_size):
@@ -180,12 +180,12 @@ class ViewDataTab(QtW.QWidget):
         query_args = {'show_columns': [self.name_header], 'where': self.where}
         view_query = ViewQuery(self.table, True, **query_args)
         table_query = view_query.table_query
-        logger.get_logger().debug(f'SQL command: {table_query}')
+        geocork_logger.get_logger().debug(f'SQL command: {table_query}')
         query.setForwardOnly(True)
         if not query.exec(table_query):
-            logger.get_logger().critical(f'Error creating the completer for input')
-            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger.get_logger().debug(f'SQL command: {table_query}')
+            geocork_logger.get_logger().critical(f'Error creating the completer for input')
+            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            geocork_logger.get_logger().debug(f'SQL command: {table_query}')
         all_names = set()
         while query.next():
             all_names.add(query.value(0))
@@ -211,7 +211,7 @@ class ViewDataTab(QtW.QWidget):
                 return
             record_id = get_id_from_name(self.table, record_name)
             if not record_id:
-                logger.get_logger().error(f'Could not find record ID for record name: {record_name}')
+                geocork_logger.get_logger().error(f'Could not find record ID for record name: {record_name}')
                 return
             row = get_record_row(self.table, record_id, self.table_item_ids)
 
@@ -223,15 +223,15 @@ class ViewDataTab(QtW.QWidget):
                     self.display_table()
                 scroll_to_record(record_id, self.view)
             else:
-                logger.get_logger().critical(f"Record {self.name_header} not found: {self.goto_line_edit.text()}")
+                geocork_logger.get_logger().critical(f"Record {self.name_header} not found: {self.goto_line_edit.text()}")
         except Exception as e:
-            logger.get_logger().critical(f"Invalid Record {self.name_header}: {self.goto_line_edit.text()}")
-            logger.get_logger().debug(f'Error: {e}')
+            geocork_logger.get_logger().critical(f"Invalid Record {self.name_header}: {self.goto_line_edit.text()}")
+            geocork_logger.get_logger().debug(f'Error: {e}')
         # self.goto_line_edit.clear()
         # self.goto_line_edit.setText('')
 
     def display_table(self):
-        logger.get_logger().info(
+        geocork_logger.get_logger().info(
             f'Displaying table for {self.child_type} with parent {self.parent_type} ID {self.parent_id}')
         if settings.value('show_items_missing_data'):
             msg = f'Displaying table...\n\nSettings to speed up loading:\n- Hide items with missing data\n- Reduce the columns shown'
@@ -288,12 +288,12 @@ class ViewDataTab(QtW.QWidget):
         self.model = SQLiteTableModel(table_query, view_query=view_query)
         close_loading_dialog('Loading', related_msg)
         if self.model.last_error:
-            logger.get_logger().critical(f'Error displaying table')
+            geocork_logger.get_logger().critical(f'Error displaying table')
             close_loading_dialog('Loading', msg)
             return
         self.model.set_table(self.table)
         if self.model.rowCount() == 0:
-            logger.get_logger().error(f'No {self.child_type} for selected {self.parent_type}')
+            geocork_logger.get_logger().error(f'No {self.child_type} for selected {self.parent_type}')
             close_loading_dialog('Loading', msg)
             self.close()
             return
@@ -373,7 +373,7 @@ class ViewDataTab(QtW.QWidget):
             self.page_info_label.setText(f'{self.total_records} {self.table}')
         end_display_table_time = time.time()
         close_loading_dialog('Loading', msg)
-        logger.get_logger().info(f'Time to display table: {end_display_table_time - start_display_table_time}')
+        geocork_logger.get_logger().info(f'Time to display table: {end_display_table_time - start_display_table_time}')
 
     def show_context_menu(self, pos):
         tree_menu = TreeContextMenu()
@@ -407,12 +407,12 @@ class ViewDataTab(QtW.QWidget):
 
     def display_data(self, action):
         # get the row that was right-clicked
-        logger.get_logger().info(f'Displaying data for {action.text()}')
+        geocork_logger.get_logger().info(f'Displaying data for {action.text()}')
         parent_ids = []
         if self.view.selectedIndexes():
             selected_indexes = self.view.selectedIndexes()
         else:
-            logger.get_logger().error("Select cell or row")
+            geocork_logger.get_logger().error("Select cell or row")
             return
         for index in selected_indexes:
             if self.tree_model:
@@ -435,7 +435,7 @@ class ViewDataTab(QtW.QWidget):
                 self.main_window.open_tab(parent_ids, self.table, 'UPbAnalyses')
 
     def edit_popup(self):
-        logger.get_logger().info(
+        geocork_logger.get_logger().info(
             f'Opening edit dialog for {self.child_type} with parent {self.parent_type} ID {self.parent_id}')
         dlg_args = {'parent_id': self.parent_id, 'parent_type': self.parent_type}
         if self.child_type == 'Aliquots':
@@ -446,7 +446,7 @@ class ViewDataTab(QtW.QWidget):
             save_expanded_state(self.table, self.view)
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             if not update_database():
-                logger.get_logger().error('Error updating and displaying database')
+                geocork_logger.get_logger().error('Error updating and displaying database')
                 self.parent().close()
             self.display_table()
 

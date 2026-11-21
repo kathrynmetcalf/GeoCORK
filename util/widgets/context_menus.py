@@ -1,6 +1,6 @@
 from PyQt6 import QtWidgets
 
-from util import logger
+from util import geocork_logger
 from util.database.database_helper import find_tree_model, get_selected_tree_ids
 from util.widgets.views.tree_views import CheckableTreeView
 
@@ -41,7 +41,7 @@ class TreeContextMenu(QtWidgets.QMenu):
         self.tree_view.setUniformRowHeights(True)
         self.model, self.indexes = find_tree_model(self.tree_view.model(), self.tree_view.selectedIndexes())
         if not self.model:
-            logger.get_logger().info(f'No checkable tree model found in {self.tree_view.objectName()}')
+            geocork_logger.get_logger().info(f'No checkable tree model found in {self.tree_view.objectName()}')
             return
         item_parent_dictionary = get_selected_tree_ids(self.indexes)
         if len(item_parent_dictionary.keys()) == 1:  # only one item selected

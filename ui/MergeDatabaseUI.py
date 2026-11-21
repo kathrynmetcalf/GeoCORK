@@ -6,7 +6,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import QDialogButtonBox, QFileDialog, QDialog, QMessageBox
 from PyQt6.uic import loadUi
 
-from util import logger
+from util import geocork_logger
 from util.loading_dialog_manager import LoadingDialogManager
 from util.database.merge.merge_helper import merge_database
 
@@ -19,7 +19,7 @@ class MergeDatabaseDialog(QDialog):
 
     def __init__(self):
         super().__init__()
-        logger.get_logger().info("Starting MergeDatabase UI Page...")
+        geocork_logger.get_logger().info("Starting MergeDatabase UI Page...")
         self.loading_manager = LoadingDialogManager.get_instance()
 
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
@@ -73,7 +73,7 @@ class MergeDatabaseDialog(QDialog):
         """
         self.validate()
         self.source_db_filepath.setText(self.source_db_file)
-        logger.get_logger().info(f'Source database file: {self.source_db_file}')
+        geocork_logger.get_logger().info(f'Source database file: {self.source_db_file}')
 
         source_conn = sqlite3.connect(self.source_db_file)
         with source_conn:
@@ -93,7 +93,7 @@ class MergeDatabaseDialog(QDialog):
         """
         self.validate()
         self.incoming_db_filepath.setText(self.incoming_db_file)
-        logger.get_logger().info(f'Incoming database file: {self.incoming_db_file}')
+        geocork_logger.get_logger().info(f'Incoming database file: {self.incoming_db_file}')
 
         incoming_conn = sqlite3.connect(self.incoming_db_file)
         with incoming_conn:
@@ -115,19 +115,19 @@ class MergeDatabaseDialog(QDialog):
         """
         if self.source_db_file is not None and self.incoming_db_file is not None:
             if self.source_db_file == self.incoming_db_file:
-                logger.get_logger().critical('Database files must be different.')
+                geocork_logger.get_logger().critical('Database files must be different.')
 
             try:
                 source_conn = sqlite3.connect(self.source_db_file)
             except sqlite3.Error as e:
-                logger.get_logger().critical(f"Error opening source database: {e.sqlite_errorname}")
-                logger.get_logger().debug(f"Error: {e}")
+                geocork_logger.get_logger().critical(f"Error opening source database: {e.sqlite_errorname}")
+                geocork_logger.get_logger().debug(f"Error: {e}")
                 return False
             try:
                 incoming_conn = sqlite3.connect(self.incoming_db_file)
             except sqlite3.Error as e:
-                logger.get_logger().critical(f"Error opening incoming database: {e.sqlite_errorname}")
-                logger.get_logger().debug(f"Error: {e}")
+                geocork_logger.get_logger().critical(f"Error opening incoming database: {e.sqlite_errorname}")
+                geocork_logger.get_logger().debug(f"Error: {e}")
                 return False
             with source_conn:
                 try:
@@ -139,10 +139,10 @@ class MergeDatabaseDialog(QDialog):
                     source_conn.execute('COMMIT;')
                 except sqlite3.Error as e:
                     if 'database is locked' in e.__str__():
-                        logger.get_logger().critical('Source connection database is locked.')
+                        geocork_logger.get_logger().critical('Source connection database is locked.')
                     else:
-                        logger.get_logger().critical('Source connection could not be established.')
-                    logger.get_logger().info(f'SQL error: {e}')
+                        geocork_logger.get_logger().critical('Source connection could not be established.')
+                    geocork_logger.get_logger().info(f'SQL error: {e}')
                     return False
 
             with incoming_conn:
@@ -155,10 +155,10 @@ class MergeDatabaseDialog(QDialog):
                     source_conn.execute('COMMIT;')
                 except sqlite3.Error as e:
                     if 'database is locked' in e.__str__():
-                        logger.get_logger().critical('Incoming connection database is locked.')
+                        geocork_logger.get_logger().critical('Incoming connection database is locked.')
                     else:
-                        logger.get_logger().critical('Incoming connection could not be established.')
-                    logger.get_logger().info(f'SQL error: {e}')
+                        geocork_logger.get_logger().critical('Incoming connection could not be established.')
+                    geocork_logger.get_logger().info(f'SQL error: {e}')
                     return False
             source_conn.close()
             incoming_conn.close()
@@ -174,10 +174,10 @@ class MergeDatabaseDialog(QDialog):
                                                                   'Are you sure you wish to merge these databases \n and have created backups?',
                                                                   buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                                                   defaultButton=QMessageBox.StandardButton.No):
-            logger.get_logger().info(
+            geocork_logger.get_logger().info(
                 f"Source database: {self.source_db_file} will be merged with incoming database: {self.incoming_db_file}")
             if not merge_database(self.source_db_file, self.incoming_db_file):
-                logger.get_logger().critical("Databases could not be merged")
-            logger.get_logger().info("Databases have been merged successfully")
+                geocork_logger.get_logger().critical("Databases could not be merged")
+            geocork_logger.get_logger().info("Databases have been merged successfully")
             QMessageBox.information(QMessageBox(), "Success", "Databases merged successfully")
         super().accept()

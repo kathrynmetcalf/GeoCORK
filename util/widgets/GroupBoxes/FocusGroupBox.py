@@ -1,7 +1,7 @@
 from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtWidgets import QGroupBox
 
-from util import logger
+from util import geocork_logger
 from util.widgets.ComboBoxes.CheckableComboBox import CheckableComboBox
 from util.widgets.ComboBoxes.CheckableTreeComboBox import CheckableTreeComboBox
 from util.widgets.models.query_models import CheckableSqlQueryModel
@@ -161,7 +161,7 @@ class FocusGroupBox(QGroupBox):
             return
         if isinstance(child, QtWidgets.QLineEdit):
             if child.text() != initial_value:
-                logger.get_logger().info(f'{child.objectName()} was edited')
+                geocork_logger.get_logger().info(f'{child.objectName()} was edited')
                 self.edited = True
         elif isinstance(child, CheckableComboBox | CheckableTreeComboBox):
             if isinstance(child.model(),
@@ -203,9 +203,9 @@ class FocusGroupBox(QGroupBox):
             has_focus = child.hasFocus()
         has_focus = self.any_child_has_focus()
         if not has_focus:
-            logger.get_logger().info(f'{self.objectName()} has lost focus')
+            geocork_logger.get_logger().info(f'{self.objectName()} has lost focus')
             if self.edited:
-                logger.get_logger().info(f'{self.objectName()} was edited and needs to be updated')
+                geocork_logger.get_logger().info(f'{self.objectName()} was edited and needs to be updated')
                 self.focusLost.emit()
 
     def any_child_has_focus(self):

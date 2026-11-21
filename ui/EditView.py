@@ -9,7 +9,7 @@ from PyQt6.QtCore import QPoint, QSize, QSortFilterProxyModel
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QCompleter, QLabel, QComboBox, QDialogButtonBox
 
-from util import logger
+from util import geocork_logger
 import util.Text_manipulations as TxM
 from Functions import SQLUtils
 from Functions.Check_triggers import validate_update
@@ -33,7 +33,7 @@ from ui.Merge import MergeDialog
 from ui.New_reference import NewReference
 from ui.SampleChainEdit import SampleChainEdit
 from ui.settings import SettingsCore
-from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from util.database.savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from util.database.views import view_attributes_dict
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.populate_models import populate_combo_box, populate_tree_model_checks, populate_model_checks, \
@@ -110,7 +110,7 @@ class SetSelectedValues(QtW.QDialog):
 
     def add_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
         # combo.blockSignals(True)
-        logger.get_logger().info(f"Add popup called")
+        geocork_logger.get_logger().info(f"Add popup called")
         try:
             model = combo.source_model()
         except AttributeError:
@@ -121,8 +121,8 @@ class SetSelectedValues(QtW.QDialog):
             if model:
                 table = model.table
             else:
-                logger.get_logger().critical(f"Error adding new item")
-                logger.get_logger().debug(f"Error: No tree model found")
+                geocork_logger.get_logger().critical(f"Error adding new item")
+                geocork_logger.get_logger().debug(f"Error: No tree model found")
                 combo.blockSignals(False)
                 return
         elif isinstance(model, QSortFilterProxyModel):
@@ -149,7 +149,7 @@ class SetSelectedValues(QtW.QDialog):
         if not dlg:
             combo.blockSignals(False)
             return
-        logger.get_logger().info(f"Showing {table} add dialog")
+        geocork_logger.get_logger().info(f"Showing {table} add dialog")
         dlg.exec()
         if dlg.updated:
             self.update_timer.start(10)
@@ -158,7 +158,7 @@ class SetSelectedValues(QtW.QDialog):
             return
 
     def edit_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
-        logger.get_logger().info(f'Edit popup called')
+        geocork_logger.get_logger().info(f'Edit popup called')
         combo: QtW.QComboBox
         model = combo.model()
         if isinstance(combo.view(), QtW.QTreeView):
@@ -167,8 +167,8 @@ class SetSelectedValues(QtW.QDialog):
             if model:
                 table = model.table
             else:
-                logger.get_logger().critical(f"Error editing table")
-                logger.get_logger().debug(f"Error: No tree model found")
+                geocork_logger.get_logger().critical(f"Error editing table")
+                geocork_logger.get_logger().debug(f"Error: No tree model found")
                 return
         elif isinstance(model, QtC.QSortFilterProxyModel):
             model = model.sourceModel()
@@ -186,7 +186,7 @@ class SetSelectedValues(QtW.QDialog):
         if dlg is None:
             combo.blockSignals(False)
             return
-        logger.get_logger().info(f"Showing {table} edit dialog")
+        geocork_logger.get_logger().info(f"Showing {table} edit dialog")
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.update_timer.start(10)
         else:
@@ -245,7 +245,7 @@ class EditView(QtW.QDialog):
         super().__init__(parent=parent_window)
         self.loadWindowState()
 
-        logger.get_logger().info(f'Creating a new EditView for {get_readable_header(table_name)}')
+        geocork_logger.get_logger().info(f'Creating a new EditView for {get_readable_header(table_name)}')
         edit_view_start_time = time.time()
 
         self.build_ui(table_name)
@@ -331,7 +331,7 @@ class EditView(QtW.QDialog):
         self.set_go_to_completer()
 
         close_loading_dialog('Loading', f'Opening edit window for {self.table}...')
-        logger.get_logger().info(
+        geocork_logger.get_logger().info(
             f'EditView created for {self.table} in {time.time() - edit_view_start_time:.2f} seconds')
 
     def build_ui(self, table_name):
@@ -509,7 +509,7 @@ class EditView(QtW.QDialog):
         self.model = SQLiteTableModel(table_query, view_query=view_query)
         close_loading_dialog('Loading', msg)
         if self.model.last_error is not None:
-            logger.get_logger().critical(f'Error displaying {self.table}.')
+            geocork_logger.get_logger().critical(f'Error displaying {self.table}.')
             return
         if not self.table_item_ids:
             query_args = {'show_columns': [self.show_cols[0]], 'where': self.where, 'order_col': self.show_cols[0]}
@@ -580,7 +580,7 @@ class EditView(QtW.QDialog):
         """
         if not self.data_submit():
             # There was an error submitting the changes
-            logger.get_logger().critical(f'Error saving changes to {self.table}')
+            geocork_logger.get_logger().critical(f'Error saving changes to {self.table}')
             return
         if self.updated:
             if not self.reset_model_question():
@@ -609,12 +609,12 @@ class EditView(QtW.QDialog):
         query_args = {'show_columns': [self.name_header], 'where': self.where}
         view_query = ViewQuery(self.table, True, **query_args)
         table_query = view_query.table_query
-        logger.get_logger().debug(f'SQL command: {table_query}')
+        geocork_logger.get_logger().debug(f'SQL command: {table_query}')
         query.setForwardOnly(True)
         if not query.exec(table_query):
-            logger.get_logger().critical(f'Error creating the completer for input')
-            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger.get_logger().debug(f'SQL command: {table_query}')
+            geocork_logger.get_logger().critical(f'Error creating the completer for input')
+            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            geocork_logger.get_logger().debug(f'SQL command: {table_query}')
         all_names = set()
         while query.next():
             all_names.add(query.value(0))
@@ -630,11 +630,11 @@ class EditView(QtW.QDialog):
         self.goto_line_edit.setCompleter(self.name_completer)
 
         if not query.exec(f'DROP TABLE IF EXISTS TempPaged'):
-            logger.get_logger().critical(f'Error dropping temporary paged table for completer')
-            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            geocork_logger.get_logger().critical(f'Error dropping temporary paged table for completer')
+            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
         if not query.exec(f'DROP TABLE IF EXISTS TempIDs'):
-            logger.get_logger().critical(f'Error dropping temporary ID table for completer')
-            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            geocork_logger.get_logger().critical(f'Error dropping temporary ID table for completer')
+            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
 
     def go_to_record(self):
         """
@@ -647,7 +647,7 @@ class EditView(QtW.QDialog):
                 return
             record_id = get_id_from_name(self.table, record_name)
             if not record_id:
-                logger.get_logger().error(f'Could not find record ID for record name: {record_name}')
+                geocork_logger.get_logger().error(f'Could not find record ID for record name: {record_name}')
                 return
             row = get_record_row(self.table, record_id, self.table_item_ids)
 
@@ -656,7 +656,7 @@ class EditView(QtW.QDialog):
                 if self.current_page != new_page:
                     # Check for changes before changing the page
                     if not self.on_row_change(QtC.QModelIndex(), self.edit_tableView.currentIndex()):
-                        logger.get_logger().critical('Failed to save changes')
+                        geocork_logger.get_logger().critical('Failed to save changes')
                         return
                     if len(self.model.edited_indexes) > 0:
                         self.updated = True
@@ -668,10 +668,10 @@ class EditView(QtW.QDialog):
                     self.create_model()
                 scroll_to_record(record_id, self.edit_tableView)
             else:
-                logger.get_logger().critical(f"Record {self.name_header} not found: {self.goto_line_edit.text()}")
+                geocork_logger.get_logger().critical(f"Record {self.name_header} not found: {self.goto_line_edit.text()}")
         except Exception as e:
-            logger.get_logger().critical(f"Invalid Record {self.name_header}: {self.goto_line_edit.text()}")
-            logger.get_logger().debug(f'Error: {e}')
+            geocork_logger.get_logger().critical(f"Invalid Record {self.name_header}: {self.goto_line_edit.text()}")
+            geocork_logger.get_logger().debug(f'Error: {e}')
         # self.goto_line_edit.clear()
         # self.goto_line_edit.setText('')
 
@@ -807,7 +807,7 @@ class EditView(QtW.QDialog):
                 if id not in ids_to_merge:
                     ids_to_merge.append(id)
             if len(ids_to_merge) < 2:
-                logger.get_logger().error('At least two records must be selected to merge')
+                geocork_logger.get_logger().error('At least two records must be selected to merge')
                 return
             merge_dlg = MergeDialog(self.table, ids_to_merge, self)
             if merge_dlg.exec() == QtW.QDialog.DialogCode.Accepted:
@@ -828,7 +828,7 @@ class EditView(QtW.QDialog):
                 if id not in ids_to_delete:
                     ids_to_delete.append(id)
             if not ids_to_delete:
-                logger.get_logger().error('No rows selected to delete')
+                geocork_logger.get_logger().error('No rows selected to delete')
                 return
             if not delete_data(self.table, ids_to_delete):
                 return
@@ -845,7 +845,7 @@ class EditView(QtW.QDialog):
     def display_table(self):
 
         start_time = time.time()
-        logger.get_logger().info(f'Displaying {self.table} table')
+        geocork_logger.get_logger().info(f'Displaying {self.table} table')
         show_loading_dialog('Loading', f'Displaying {self.table}...')
         self.disconnect_table_signals()
         sort_section = -1
@@ -911,7 +911,7 @@ class EditView(QtW.QDialog):
 
         close_loading_dialog('Loading', f'Displaying {self.table}...')
         end_time = time.time()
-        logger.get_logger().info(f'Displayed {self.table} in {end_time - start_time} seconds')
+        geocork_logger.get_logger().info(f'Displayed {self.table} in {end_time - start_time} seconds')
         close_loading_dialog('Loading', f'Loading...')
 
     def display_widget(self):
@@ -920,7 +920,7 @@ class EditView(QtW.QDialog):
         if len(self.edit_view.selectedIndexes()) == 0:
             return
         elif len(self.edit_view.selectedIndexes()) > 1 and self.table != 'GeoChemicalAnalyses':
-            logger.get_logger().error(
+            geocork_logger.get_logger().error(
                 'Right-click with selected values in single column to edit multiple selections')
             return
         proxy_index = self.edit_view.selectedIndexes()[0]
@@ -937,18 +937,18 @@ class EditView(QtW.QDialog):
         if self.lineEdit is not None:
             self.destroy_lineedit()
             if self.lineEdit is not None:
-                logger.get_logger().info('Error destroying previous line edit')
+                geocork_logger.get_logger().info('Error destroying previous line edit')
                 return
         elif self.combo is not None:
             self.save_dropdown_data()
             if self.combo is not None:
-                logger.get_logger().info('Error destroying previous dropdown')
+                geocork_logger.get_logger().info('Error destroying previous dropdown')
                 return
         if self.table in ['References', '"References"'] and model_index.column() == self.name_column:
             # This is the reference display column which is not editable
             header = self.model.headerData(model_index.column(), QtC.Qt.Orientation.Horizontal,
                                            QtC.Qt.ItemDataRole.DisplayRole)
-            logger.get_logger().error(
+            geocork_logger.get_logger().error(
                 f'{get_readable_header(header)} is compiled from other fields and is not directly editable')
             return
         if model_index.column() == self.name_column:
@@ -973,9 +973,9 @@ class EditView(QtW.QDialog):
                 dlg.exec()
                 if dlg.gps_fields.updated:
                     self.updated = True
-                    logger.get_logger().info(f'Repopulating {get_readable_header(header)} for {item_ids[0]}')
+                    geocork_logger.get_logger().info(f'Repopulating {get_readable_header(header)} for {item_ids[0]}')
                     if not self.update_model_data(self.gps_headers, item_ids):
-                        logger.get_logger().critical(
+                        geocork_logger.get_logger().critical(
                             f'Error updating model data for {get_readable_header(header)}')
                         close_loading_dialog('Loading', f'Opening GPS editor...')
                         return
@@ -989,9 +989,9 @@ class EditView(QtW.QDialog):
                 dlg.exec()
                 if dlg.age_fields.updated:
                     self.updated = True
-                    logger.get_logger().info(f'Repopulating {get_readable_header(header)} for {item_ids[0]}')
+                    geocork_logger.get_logger().info(f'Repopulating {get_readable_header(header)} for {item_ids[0]}')
                     if not self.update_model_data(self.age_headers, item_ids):
-                        logger.get_logger().critical(
+                        geocork_logger.get_logger().critical(
                             f'Error updating model data for {get_readable_header(header)}')
                         close_loading_dialog('Loading', f'Opening sample age editor...')
                         return
@@ -1005,9 +1005,9 @@ class EditView(QtW.QDialog):
                 dlg.exec()
                 if dlg.column_fields.updated:
                     self.updated = True
-                    logger.get_logger().info(f'Repopulating {get_readable_header(header)} for {item_ids[0]}')
+                    geocork_logger.get_logger().info(f'Repopulating {get_readable_header(header)} for {item_ids[0]}')
                     if not self.update_model_data(self.column_headers, item_ids):
-                        logger.get_logger().critical(
+                        geocork_logger.get_logger().critical(
                             f'Error updating model data for {get_readable_header(header)}')
                         return
         elif (header in ['SampleName', 'AliquotName', 'GrainName', 'SpotName'] and
@@ -1022,7 +1022,7 @@ class EditView(QtW.QDialog):
             else:
                 columns = None
                 if header in SQLUtils.non_editable[self.table]:
-                    logger.get_logger().error(f'{get_readable_header(header)} is not editable')
+                    geocork_logger.get_logger().error(f'{get_readable_header(header)} is not editable')
                     close_loading_dialog('Loading', f'Loading...')
                     return
                 elif header in SQLUtils.many_editable[self.table]:
@@ -1042,7 +1042,7 @@ class EditView(QtW.QDialog):
                     if columns is None:
                         for key, values in SQLUtils.non_editable.items():
                             if header in values:
-                                logger.get_logger().info(f'{get_readable_header(header)} is not editable')
+                                geocork_logger.get_logger().info(f'{get_readable_header(header)} is not editable')
                                 close_loading_dialog('Loading', f'Loading...')
                                 return
                 if columns is not None:
@@ -1053,14 +1053,14 @@ class EditView(QtW.QDialog):
             if self.dropdown_table == '':
                 query, virtual, stored, columns = get_columns(self.table)
                 if f'"{header}"' in virtual or f'"{header}"' in stored:
-                    logger.get_logger().error(f'{get_readable_header(header)} is auto-generated and not editable')
+                    geocork_logger.get_logger().error(f'{get_readable_header(header)} is auto-generated and not editable')
                     close_loading_dialog('Loading', f'Loading...')
                     return
                 self.create_lineedit()
             else:
                 query, virtual, stored, columns = get_columns(self.dropdown_table)
                 if f'"{header}"' in virtual or f'"{header}"' in stored:
-                    logger.get_logger().error(f'{get_readable_header(header)} is auto-generated and not editable')
+                    geocork_logger.get_logger().error(f'{get_readable_header(header)} is auto-generated and not editable')
                     close_loading_dialog('Loading', f'Loading...')
                     return
                 self.create_dropdown()
@@ -1088,16 +1088,16 @@ class EditView(QtW.QDialog):
         for row in model_rows:
             update_item_id = self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
             if update_item_id not in item_ids:
-                logger.get_logger().critical(f'Error updating view')
-                logger.get_logger().debug(
+                geocork_logger.get_logger().critical(f'Error updating view')
+                geocork_logger.get_logger().debug(
                     f'Selected row {row} item id {update_item_id} not in list of updated item ids {item_ids}')
             query_args = {'show_columns': show_columns, 'where': f' WHERE {self.table_headers[0]} = {update_item_id}'}
             view_query = ViewQuery(self.table, True, **query_args)
             table_query = view_query.table_query
             if not query.exec(table_query):
-                logger.get_logger().critical(f'Error updating {fields}')
-                logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger.get_logger().debug(f'SQL query: {table_query}')
+                geocork_logger.get_logger().critical(f'Error updating {fields}')
+                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                geocork_logger.get_logger().debug(f'SQL query: {table_query}')
                 close_loading_dialog('Loading', f'Updating {fields}...')
                 return False
             if query.next():
@@ -1106,7 +1106,7 @@ class EditView(QtW.QDialog):
                     model_index = self.model.index(row, col)
                     if self.model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole) != query.value(header):
                         self.model.setData(model_index, query.value(header), QtC.Qt.ItemDataRole.EditRole)
-                        logger.get_logger().info(
+                        geocork_logger.get_logger().info(
                             f'New {header} value: {model_index.data(QtC.Qt.ItemDataRole.DisplayRole)}')
                     # Changes were already written to the database
                     if model_index in self.model.edited_indexes:
@@ -1196,18 +1196,18 @@ class EditView(QtW.QDialog):
                     if row_id in update_row_ids:
                         update_row_ids.append(row_id)
                     continue
-            logger.get_logger().info(f'Updating {len(update_row_ids)} rows...')
+            geocork_logger.get_logger().info(f'Updating {len(update_row_ids)} rows...')
             self.model.beginResetModel()
             if update_row_ids and isinstance(self.model, SQLiteTableModel):
                 if not self.model.update_id_rows_from_db(update_row_ids):
-                    logger.get_logger().critical(f'Error updating view')
+                    geocork_logger.get_logger().critical(f'Error updating view')
                     self.model.endResetModel()
                     return
-                logger.get_logger().info(f'Updated {len(update_row_ids)} {self.table} in the view model')
+                geocork_logger.get_logger().info(f'Updated {len(update_row_ids)} {self.table} in the view model')
             self.model.endResetModel()
 
     def create_lineedit(self):
-        logger.get_logger().info('Displaying line edit')
+        geocork_logger.get_logger().info('Displaying line edit')
         self.lineEdit = QtW.QTextEdit()
         if len(self.edit_view.selectedIndexes()) > 1:
             self.edit_index = QtC.QModelIndex()
@@ -1245,13 +1245,13 @@ class EditView(QtW.QDialog):
     def save_lineedit_data(self):
         if not self._isApplicationFocused:
             return
-        logger.get_logger().info('Saving data from line edit')
+        geocork_logger.get_logger().info('Saving data from line edit')
         if self.lineEdit is not None:
             # edit_value = self.lineEdit.text()
             edit_value = self.lineEdit.toPlainText()
             if (len(self.edit_view.selectedIndexes()) == 1 and self.edit_index.isValid() and
                     self.edit_index.data(QtC.Qt.ItemDataRole.DisplayRole) == edit_value):
-                logger.get_logger().info(f'No changes to data')
+                geocork_logger.get_logger().info(f'No changes to data')
                 self.destroy_lineedit()
                 return
             if self.common_edit_string:
@@ -1263,7 +1263,7 @@ class EditView(QtW.QDialog):
                     model_indexes.append(self.proxy_model.mapToSource(index))
             else:
                 model_indexes = [self.proxy_model.mapToSource(self.edit_index)]
-            logger.get_logger().info(f'Saving edits for {len(model_indexes)} items')
+            geocork_logger.get_logger().info(f'Saving edits for {len(model_indexes)} items')
             self.model.blockSignals(True)
             # Find upper left and lower right of model_indexes
             min_col = None
@@ -1282,7 +1282,7 @@ class EditView(QtW.QDialog):
                 header = self.model.headerData(model_index.column(), QtC.Qt.Orientation.Horizontal,
                                                QtC.Qt.ItemDataRole.DisplayRole)
                 if self.table in SQLUtils.not_null and header in SQLUtils.not_null[self.table] and not edit_value:
-                    logger.get_logger().error(f'{get_readable_header(header)} cannot be empty')
+                    geocork_logger.get_logger().error(f'{get_readable_header(header)} cannot be empty')
                     return
                 if self.common_edit_string:
                     edit_data = self.model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole)
@@ -1294,12 +1294,12 @@ class EditView(QtW.QDialog):
                     if self.edit_view.currentIndex() == self.edit_index:
                         self.tabbed_from_editor = False
                 else:
-                    logger.get_logger().critical(f'Failed to set data in the table')
+                    geocork_logger.get_logger().critical(f'Failed to set data in the table')
                     self.destroy_lineedit()
                     return
             self.model.blockSignals(True)
             self.model.dataChanged.emit(self.model.index(min_row, min_col), self.model.index(max_row, max_col))
-            logger.get_logger().info('Data saved from line edit')
+            geocork_logger.get_logger().info('Data saved from line edit')
             self.destroy_lineedit()
             return
 
@@ -1317,7 +1317,7 @@ class EditView(QtW.QDialog):
         self.edit_view.setFocus()
 
     def create_dropdown(self):
-        logger.get_logger().info(f'Displaying dropdown for {self.dropdown_table}')
+        geocork_logger.get_logger().info(f'Displaying dropdown for {self.dropdown_table}')
         if len(self.edit_view.selectedIndexes()) > 1:
             self.combo_index = QtC.QModelIndex()
             model_indexes = []
@@ -1392,12 +1392,12 @@ class EditView(QtW.QDialog):
                 if selected_id not in selected_ids:
                     selected_ids.append(selected_id)
             if not selected_ids:
-                logger.get_logger().critical('No selected ids found')
+                geocork_logger.get_logger().critical('No selected ids found')
                 self.destroy_dropdown()
                 return
             edit_table, edit_ids = self.determine_edit_table(selected_ids)
             if not edit_table or not edit_ids:
-                logger.get_logger().critical('No edit table or edit ids found')
+                geocork_logger.get_logger().critical('No edit table or edit ids found')
                 self.destroy_dropdown()
                 return
             if '_' in edit_table:
@@ -1444,7 +1444,7 @@ class EditView(QtW.QDialog):
         self.combo.showPopup()
 
     def save_dropdown_data(self):
-        logger.get_logger().info('Saving data from dropdown')
+        geocork_logger.get_logger().info('Saving data from dropdown')
         if self.combo is not None:
             combo = self.combo
         else:
@@ -1467,7 +1467,7 @@ class EditView(QtW.QDialog):
             if header not in view_headers:
                 view_headers.append(header)
         if not selected_ids or len(selected_ids) < 1:
-            logger.get_logger().critical('No selected ids found')
+            geocork_logger.get_logger().critical('No selected ids found')
             self.destroy_dropdown()
             return
         # Figure out which table to update and which IDs to update
@@ -1477,24 +1477,24 @@ class EditView(QtW.QDialog):
                 # Update handled
                 for model_index in model_indexes:
                     if not self.model.setData(model_index, combo.currentText(), QtC.Qt.ItemDataRole.EditRole):
-                        logger.get_logger().critical(f'Error updating view')
-                        logger.get_logger().debug(f'Error: {self.model.last_error}')
+                        geocork_logger.get_logger().critical(f'Error updating view')
+                        geocork_logger.get_logger().debug(f'Error: {self.model.last_error}')
                         self.destroy_dropdown()
                         return
         elif 'GPS' in self.dropdown_table or 'Elevation' in self.dropdown_table:
             # GPS and Elevation are updated in the GPSDialog, updated handled when dialog closed
             for model_index in model_indexes:
                 if not self.model.setData(model_index, combo.currentText(), QtC.Qt.ItemDataRole.EditRole):
-                    logger.get_logger().critical(f'Error updating view')
-                    logger.get_logger().debug(f'Error: {self.model.last_error}')
+                    geocork_logger.get_logger().critical(f'Error updating view')
+                    geocork_logger.get_logger().debug(f'Error: {self.model.last_error}')
                     self.destroy_dropdown()
                     return
         elif 'SampleAge' in self.dropdown_table and 'AgeSignature' not in self.dropdown_table:
             # SampleAge is updated in the AgeDialog, updated handled when dialog closed
             for model_index in model_indexes:
                 if not self.model.setData(model_index, combo.currentText(), QtC.Qt.ItemDataRole.EditRole):
-                    logger.get_logger().critical(f'Error updating view')
-                    logger.get_logger().debug(f'Error: {self.model.last_error}')
+                    geocork_logger.get_logger().critical(f'Error updating view')
+                    geocork_logger.get_logger().debug(f'Error: {self.model.last_error}')
                     self.destroy_dropdown()
                     return
         elif self.dropdown_table == 'Rejected' and self.table == 'UPbAnalyses':
@@ -1509,33 +1509,33 @@ class EditView(QtW.QDialog):
             else:
                 sql_where_str = f'IN {tuple(selected_ids)}'
             if not query.exec(f'SELECT REJECTED FROM {self.table} WHERE {self.table_headers[0]} {sql_where_str}'):
-                logger.get_logger().critical(f'Failed to get existing value')
-                logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                geocork_logger.get_logger().critical(f'Failed to get existing value')
+                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             existing = set()
             while query.next():
                 existing.add(query.value(0))
             if len(existing) == 1 and list(existing)[0] == value:
-                logger.get_logger().info(f'No change to Rejected value')
+                geocork_logger.get_logger().info(f'No change to Rejected value')
                 self.destroy_dropdown()
                 return
             create_savepoint('before_edit_rejected')
             if not query.prepare(
                     f'UPDATE {self.table} SET Rejected = :rejected WHERE {self.table_headers[0]} {sql_where_str}'):
-                logger.get_logger().critical(
+                geocork_logger.get_logger().critical(
                     f'Failed to update Rejected for {self.table}: {[get_name_from_id(self.table, selected_id) for selected_id in selected_ids]}')
-                logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 rollback_savepoint('before_edit_rejected')
                 self.destroy_dropdown()
                 return
             query.bindValue(':rejected', value)
             if not query.exec():
-                logger.get_logger().critical(
+                geocork_logger.get_logger().critical(
                     f'Failed to update Rejected for {self.table}: {[get_name_from_id(self.table, selected_id) for selected_id in selected_ids]}')
-                logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                 rollback_savepoint('before_edit_rejected')
                 self.destroy_dropdown()
                 return
@@ -1543,8 +1543,8 @@ class EditView(QtW.QDialog):
             updated = True
             for model_index in model_indexes:
                 if not self.model.setData(model_index, combo.currentText(), QtC.Qt.ItemDataRole.EditRole):
-                    logger.get_logger().critical(f'Error updating view')
-                    logger.get_logger().debug(f'Error: {self.model.last_error}')
+                    geocork_logger.get_logger().critical(f'Error updating view')
+                    geocork_logger.get_logger().debug(f'Error: {self.model.last_error}')
                     self.destroy_dropdown()
                     return
         else:
@@ -1554,8 +1554,8 @@ class EditView(QtW.QDialog):
                 if not isinstance(combo_model, TreeModel):
                     combo_model, indexes = find_tree_model(combo_model, None)
                 if not combo_model:
-                    logger.get_logger().critical(f"Error saving data")
-                    logger.get_logger().debug(f"Error: No tree model found")
+                    geocork_logger.get_logger().critical(f"Error saving data")
+                    geocork_logger.get_logger().debug(f"Error: No tree model found")
                     return
             elif isinstance(combo_model, QtC.QSortFilterProxyModel):
                 combo_model = combo_model.sourceModel()
@@ -1565,7 +1565,7 @@ class EditView(QtW.QDialog):
                     # Many-to-many table
                     update = combo_model.update_many_table(edit_table, edit_ids)
                     if update != 'True':
-                        logger.get_logger().info(f'{edit_table} was not updated')
+                        geocork_logger.get_logger().info(f'{edit_table} was not updated')
                         self.destroy_dropdown()
                         return
                     updated = True
@@ -1574,7 +1574,7 @@ class EditView(QtW.QDialog):
                                   CheckableSqlTableModel | CheckableSqlQueryModel | CheckableSQLiteTableModel | CheckableTreeModel):
                         update = combo_model.update_other_table(edit_table, edit_ids)
                         if update != 'True':
-                            logger.get_logger().info(f'{edit_table} was not updated')
+                            geocork_logger.get_logger().info(f'{edit_table} was not updated')
                             self.destroy_dropdown()
                             return
                         updated = True
@@ -1599,23 +1599,23 @@ class EditView(QtW.QDialog):
                         else:
                             clicked_id = get_id_from_name(self.combo_model.tableName(), combo.currentText())
                             if not clicked_id:
-                                logger.get_logger().info(f'No ID found for {combo.currentText()}')
+                                geocork_logger.get_logger().info(f'No ID found for {combo.currentText()}')
                                 self.destroy_dropdown()
                                 return
                         query.prepare(
                             f'SELECT "{header}" FROM "{edit_table}" WHERE {get_headers(edit_table)[0]} {sql_where_str}')
                         if not query.exec():
-                            logger.get_logger().critical(
+                            geocork_logger.get_logger().critical(
                                 f'Error determining if data changed for {get_readable_header(header)}.\nChanges not saved.')
-                            logger.get_logger().debug(f'Query: {query.lastQuery()}')
-                            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                            geocork_logger.get_logger().debug(f'Query: {query.lastQuery()}')
+                            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
                             self.destroy_dropdown()
                             return
                         existing = set()
                         while query.next():
                             existing.add(query.value(0))
                         if len(existing) == 1 and list(existing)[0] == clicked_id:
-                            logger.get_logger().info(f'No change to {get_readable_header(header)} value')
+                            geocork_logger.get_logger().info(f'No change to {get_readable_header(header)} value')
                             self.destroy_dropdown()
                             return
                         create_savepoint('before_edit_id')
@@ -1623,11 +1623,11 @@ class EditView(QtW.QDialog):
                             f'UPDATE "{edit_table}" SET {header} = :clicked_id WHERE {get_headers(edit_table)[0]} {sql_where_str}')
                         query.bindValue(':clicked_id', clicked_id)
                         if not query.exec():
-                            logger.get_logger().critical(
+                            geocork_logger.get_logger().critical(
                                 f'Failed to update {get_readable_header(header)} for {len(edit_ids)} {edit_table}')
-                            logger.get_logger().debug(f'Query: {query.lastQuery()}')
-                            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+                            geocork_logger.get_logger().debug(f'Query: {query.lastQuery()}')
+                            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                            geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                             rollback_savepoint('before_edit_id')
                             self.destroy_dropdown()
                             return
@@ -1654,8 +1654,8 @@ class EditView(QtW.QDialog):
             else:
                 for model_index in model_indexes:
                     if not self.model.setData(model_index, combo.currentText(), QtC.Qt.ItemDataRole.EditRole):
-                        logger.get_logger().critical(f'Error updating view')
-                        logger.get_logger().debug(f'Error: {self.model.last_error}')
+                        geocork_logger.get_logger().critical(f'Error updating view')
+                        geocork_logger.get_logger().debug(f'Error: {self.model.last_error}')
                         self.destroy_dropdown()
                         return
         if updated:
@@ -1666,7 +1666,7 @@ class EditView(QtW.QDialog):
         if self.edit_view.currentIndex() == self.combo_index:
             self.tabbed_from_editor = False
         self.combo = combo
-        logger.get_logger().info('Data saved from dropdown')
+        geocork_logger.get_logger().info('Data saved from dropdown')
         self.destroy_dropdown()
         return
 
@@ -1739,14 +1739,14 @@ class EditView(QtW.QDialog):
                                     sql_where_str = f'IN {tuple(selected_ids)}'
                                 if not query.exec(
                                         f'SELECT {edit_id_header} FROM {self.table} WHERE {self.table_headers[0]} {sql_where_str}'):
-                                    logger.get_logger().critical(
+                                    geocork_logger.get_logger().critical(
                                         f'Failed to get {edit_id_header} for {table} IDs {selected_ids}: {query.lastError().text()}')
                                     return None, None
                                 while query.next():
                                     if query.value(0) not in item_ids:
                                         item_ids.append(query.value(0))
                                 if not item_ids:
-                                    logger.get_logger().critical('No item IDs found to update')
+                                    geocork_logger.get_logger().critical('No item IDs found to update')
                                     return None, None
                                 return table, item_ids
                             else:
@@ -1764,10 +1764,10 @@ class EditView(QtW.QDialog):
                                     elif table == 'UPbAnalyses' or 'UPbAnalyses_' in table:
                                         item_ids = upb_analysis_ids
                                     else:
-                                        logger.get_logger().error(f'No {table} for selected {self.table} IDs')
+                                        geocork_logger.get_logger().error(f'No {table} for selected {self.table} IDs')
                                         return None, None
                                 else:
-                                    logger.get_logger().error(
+                                    geocork_logger.get_logger().error(
                                         f'Could not find ID column for {table} in {self.table}')
                                     return None, None
                                 return table, item_ids
@@ -1784,7 +1784,7 @@ class EditView(QtW.QDialog):
             elif model_index.data(QtC.Qt.ItemDataRole.DisplayRole) != self.combo.currentText():
                 updated = True
         if not updated:
-            logger.get_logger().info('No changes to update')
+            geocork_logger.get_logger().info('No changes to update')
             self.destroy_dropdown()
             return True
         create_savepoint('before_update_chain')
@@ -1793,24 +1793,24 @@ class EditView(QtW.QDialog):
                 sample_name = self.combo.currentText()
                 sample_id = get_id_from_name('Samples', sample_name)
                 if not sample_id:
-                    logger.get_logger().critical(f'No sample ID found for {sample_name}')
+                    geocork_logger.get_logger().critical(f'No sample ID found for {sample_name}')
                     rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
                 aliquot_id = self.select_child('Samples', 'Aliquots', sample_id)
                 if not aliquot_id:
-                    logger.get_logger().info(f'No aliquot ID selected for {sample_name}')
+                    geocork_logger.get_logger().info(f'No aliquot ID selected for {sample_name}')
                     rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
                 grain_id = self.select_child('Aliquots', 'Grains', aliquot_id)
                 if not grain_id:
-                    logger.get_logger().critical(f'No grain ID selected for {aliquot_id}')
+                    geocork_logger.get_logger().critical(f'No grain ID selected for {aliquot_id}')
                     rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                 spot_id = self.select_child('Aliquots', 'Spots', aliquot_id)
                 if not spot_id:
-                    logger.get_logger().info(f'No spot ID selected for {sample_name}')
+                    geocork_logger.get_logger().info(f'No spot ID selected for {sample_name}')
                     rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
@@ -1819,13 +1819,13 @@ class EditView(QtW.QDialog):
                 aliquot_name = self.combo.currentText()
                 aliquot_id = get_id_from_name('Aliquots', aliquot_name)
                 if not aliquot_id:
-                    logger.get_logger().critical(f'No aliquot ID found for {aliquot_name}')
+                    geocork_logger.get_logger().critical(f'No aliquot ID found for {aliquot_name}')
                     rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
                 spot_id = self.select_child('Aliquots', aliquot_id)
                 if not spot_id:
-                    logger.get_logger().info(f'No spot ID selected for {aliquot_name}')
+                    geocork_logger.get_logger().info(f'No spot ID selected for {aliquot_name}')
                     rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
@@ -1835,13 +1835,13 @@ class EditView(QtW.QDialog):
                 grain_name = self.combo.currentText()
                 grain_id = get_id_from_name('Grains', grain_name)
                 if not grain_id:
-                    logger.get_logger().critical(f'No aliquot ID found for {grain_name}')
+                    geocork_logger.get_logger().critical(f'No aliquot ID found for {grain_name}')
                     rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
                 spot_id = self.select_child('Grains', 'Spots', grain_id)
                 if not spot_id:
-                    logger.get_logger().info(f'No spot ID selected for {grain_name}')
+                    geocork_logger.get_logger().info(f'No spot ID selected for {grain_name}')
                     rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
@@ -1853,9 +1853,9 @@ class EditView(QtW.QDialog):
             elif len(selected_ids) > 1:
                 sql_where = f'IN {tuple(selected_ids)}'
             if not query.exec(f'UPDATE UPbAnalyses SET SpotID = {spot_id} WHERE UPbAnalysisID {sql_where}'):
-                logger.get_logger().critical(f'Failed to update Spot Name for {sample_name}')
-                logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                geocork_logger.get_logger().critical(f'Failed to update Spot Name for {sample_name}')
+                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 rollback_savepoint('before_update_chain')
                 self.destroy_dropdown()
                 return False
@@ -1865,13 +1865,13 @@ class EditView(QtW.QDialog):
                 sample_name = self.combo.currentText()
                 sample_id = get_id_from_name('Samples', sample_name)
                 if not sample_id:
-                    logger.get_logger().critical(f'No sample ID found for {sample_name}')
+                    geocork_logger.get_logger().critical(f'No sample ID found for {sample_name}')
                     rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
                 aliquot_id = self.select_child('Samples', 'Spots', sample_id)
                 if not aliquot_id:
-                    logger.get_logger().info(f'No aliquot ID selected for {sample_name}')
+                    geocork_logger.get_logger().info(f'No aliquot ID selected for {sample_name}')
                     rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
@@ -1883,9 +1883,9 @@ class EditView(QtW.QDialog):
             elif len(selected_ids) > 1:
                 sql_where = f'IN {tuple(selected_ids)}'
             if not query.exec(f'UPDATE Spots SET AliquotID = {aliquot_id} WHERE SpotID {sql_where}'):
-                logger.get_logger().critical(f'Failed to update Spot Name for {sample_name}')
-                logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                geocork_logger.get_logger().critical(f'Failed to update Spot Name for {sample_name}')
+                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 rollback_savepoint('before_update_chain')
                 self.destroy_dropdown()
                 return False
@@ -1909,8 +1909,8 @@ class EditView(QtW.QDialog):
                 update_index = self.model.index(model_index.row(), spot_column)
                 if not self.model.setData(update_index, get_name_from_id('Spots', spot_id),
                                           QtC.Qt.ItemDataRole.EditRole):
-                    logger.get_logger().critical(f'Error updating view')
-                    logger.get_logger().debug(f'Error: {self.model.last_error}')
+                    geocork_logger.get_logger().critical(f'Error updating view')
+                    geocork_logger.get_logger().debug(f'Error: {self.model.last_error}')
                     rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
@@ -1919,8 +1919,8 @@ class EditView(QtW.QDialog):
                 update_index = self.model.index(model_index.row(), grain_column)
                 if not self.model.setData(update_index, get_name_from_id('Grains', grain_id),
                                           QtC.Qt.ItemDataRole.EditRole):
-                    logger.get_logger().critical(f'Error updating view')
-                    logger.get_logger().debug(f'Error: {self.model.last_error}')
+                    geocork_logger.get_logger().critical(f'Error updating view')
+                    geocork_logger.get_logger().debug(f'Error: {self.model.last_error}')
                     rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
@@ -1929,8 +1929,8 @@ class EditView(QtW.QDialog):
                 update_index = self.model.index(model_index.row(), aliquot_column)
                 if not self.model.setData(update_index, get_name_from_id('Aliquots', aliquot_id),
                                           QtC.Qt.ItemDataRole.EditRole):
-                    logger.get_logger().critical(f'Error updating view')
-                    logger.get_logger().debug(f'Error: {self.model.last_error}')
+                    geocork_logger.get_logger().critical(f'Error updating view')
+                    geocork_logger.get_logger().debug(f'Error: {self.model.last_error}')
                     rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
@@ -1939,8 +1939,8 @@ class EditView(QtW.QDialog):
                 update_index = self.model.index(model_index.row(), sample_column)
                 if not self.model.setData(update_index, get_name_from_id('Samples', sample_id),
                                           QtC.Qt.ItemDataRole.EditRole):
-                    logger.get_logger().critical(f'Error updating view')
-                    logger.get_logger().debug(f'Error: {self.model.last_error}')
+                    geocork_logger.get_logger().critical(f'Error updating view')
+                    geocork_logger.get_logger().debug(f'Error: {self.model.last_error}')
                     rollback_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
@@ -1997,8 +1997,8 @@ class EditView(QtW.QDialog):
         close_loading_dialog('Loading',
                              f'Loading related data for {child_table}...')
         if child_model.lastError().text():
-            logger.get_logger().critical(f'Error displaying {child_table}.')
-            logger.get_logger().debug(f'Error: {child_model.lastError().text()}')
+            geocork_logger.get_logger().critical(f'Error displaying {child_table}.')
+            geocork_logger.get_logger().debug(f'Error: {child_model.lastError().text()}')
             return None
         if child_table == 'Aliquots':
             tree_model = CheckableTreeModel()
@@ -2033,17 +2033,17 @@ class EditView(QtW.QDialog):
                 if not isinstance(child_model, TreeModel):
                     child_model, indexes = find_tree_model(child_model, None)
                 if not child_model:
-                    logger.get_logger().critical(f"Error adding item")
-                    logger.get_logger().debug(f"Error: No tree model found")
+                    geocork_logger.get_logger().critical(f"Error adding item")
+                    geocork_logger.get_logger().debug(f"Error: No tree model found")
                     return None
             elif isinstance(child_model, QtC.QSortFilterProxyModel):
                 child_model = child_model.sourceModel()
             checked_ids = child_model.checked_ids
         if len(checked_ids) > 1:
-            logger.get_logger().error('Multiple items selected, please select only one')
+            geocork_logger.get_logger().error('Multiple items selected, please select only one')
             return None
         elif len(checked_ids) == 0:
-            logger.get_logger().info('No items selected')
+            geocork_logger.get_logger().info('No items selected')
             return None
         else:
             child_id = list(checked_ids)[0]
@@ -2058,7 +2058,7 @@ class EditView(QtW.QDialog):
             current_values.append(model_index.data(QtC.Qt.ItemDataRole.DisplayRole))
 
     def clear_data(self):
-        logger.get_logger().info('Clearing selected values')
+        geocork_logger.get_logger().info('Clearing selected values')
         if self.lineEdit is not None:
             self.save_lineedit_data()
         if self.combo is not None:
@@ -2071,11 +2071,11 @@ class EditView(QtW.QDialog):
             header = self.model.headerData(model_index.column(), QtC.Qt.Orientation.Horizontal,
                                            QtC.Qt.ItemDataRole.DisplayRole)
             if header in SQLUtils.not_null[self.table]:
-                logger.get_logger().error(f'{get_readable_header(header)} cannot be empty')
+                geocork_logger.get_logger().error(f'{get_readable_header(header)} cannot be empty')
                 return
             query, virtual, stored, db_columns = get_columns(self.table)
             if f'"{header}"' in virtual or f'"{header}"' in stored:
-                logger.get_logger().error(f'{get_readable_header(header)} is auto-generated')
+                geocork_logger.get_logger().error(f'{get_readable_header(header)} is auto-generated')
                 return
             if header not in columns:
                 columns[header] = []
@@ -2084,7 +2084,7 @@ class EditView(QtW.QDialog):
             if id not in columns[header]:
                 columns[header].append(id)
         if not columns:
-            logger.get_logger().error('No selected IDs found')
+            geocork_logger.get_logger().error('No selected IDs found')
             return
         create_savepoint('before_clear')
         # If any of the headers are in the list of GPS headers or age headers, check if the user wants to apply one value to all selected items
@@ -2105,7 +2105,7 @@ class EditView(QtW.QDialog):
                         edit_ids = columns[gps_header]
                         break
                 if not edit_ids:
-                    logger.get_logger().error('No IDs found to clear')
+                    geocork_logger.get_logger().error('No IDs found to clear')
                     rollback_savepoint('before_clear')
                     return
                 gps_id_header = None
@@ -2114,7 +2114,7 @@ class EditView(QtW.QDialog):
                         gps_id_header = table_header
                         break
                 if not gps_id_header:
-                    logger.get_logger().error('No GPS ID header found')
+                    geocork_logger.get_logger().error('No GPS ID header found')
                     rollback_savepoint('before_clear')
                     return
                 create_savepoint('before_clear_gps')
@@ -2125,7 +2125,7 @@ class EditView(QtW.QDialog):
                     sql_where_str = f'IN {tuple(edit_ids)}'
                 if not query.exec(
                         f'UPDATE {self.table} SET {gps_id_header} = NULL WHERE {self.table_headers[0]} {sql_where_str}'):
-                    logger.get_logger().critical(
+                    geocork_logger.get_logger().critical(
                         f'Failed to clear GPS for {self.table} {edit_ids}: {query.lastError().text()}')
                     rollback_savepoint('before_clear_gps')
                     rollback_savepoint('before_clear')
@@ -2155,7 +2155,7 @@ class EditView(QtW.QDialog):
                         edit_ids = columns[age_header]
                         break
                 if not edit_ids:
-                    logger.get_logger().error(f'No {self.table_headers[0]}s found to clear')
+                    geocork_logger.get_logger().error(f'No {self.table_headers[0]}s found to clear')
                     rollback_savepoint('before_clear')
                     return
                 create_savepoint('before_clear_sample_age')
@@ -2166,13 +2166,13 @@ class EditView(QtW.QDialog):
                     sql_where_str = f'IN {tuple(edit_ids)}'
                 if not query.exec(
                         f'UPDATE {self.table} SET DefaultSampleAgeID = NULL WHERE {self.table_headers[0]} {sql_where_str}'):
-                    logger.get_logger().critical(
+                    geocork_logger.get_logger().critical(
                         f'Failed to clear SampleAge for {self.table} {edit_ids}: {query.lastError().text()}')
                     rollback_savepoint('before_clear_sample_age')
                     rollback_savepoint('before_clear')
                     return
                 if not query.exec(f'DELETE FROM Samples_SampleAge WHERE SampleID {sql_where_str}'):
-                    logger.get_logger().critical(
+                    geocork_logger.get_logger().critical(
                         f'Failed to clear SampleAge for {self.table} {edit_ids}: {query.lastError().text()}')
                     rollback_savepoint('before_clear_sample_age')
                     rollback_savepoint('before_clear')
@@ -2195,7 +2195,7 @@ class EditView(QtW.QDialog):
                 if header == column:
                     edit_indexes.append(index)
             if not edit_indexes:
-                logger.get_logger().error('No indexes found to clear')
+                geocork_logger.get_logger().error('No indexes found to clear')
                 rollback_savepoint('before_clear')
                 return
             if edit_indexes != self.edit_view.selectedIndexes():
@@ -2284,7 +2284,7 @@ class EditView(QtW.QDialog):
         if not any(index.row() != selected.row() for index in self.edit_view.selectedIndexes()):
             # All the selected indexes are for the selected row, so not actually changing rows
             return True
-        logger.get_logger().info('Row changed')
+        geocork_logger.get_logger().info('Row changed')
         column = None
 
         def highlight_error():
@@ -2308,7 +2308,7 @@ class EditView(QtW.QDialog):
         # Check if the row has changed and if the model has been edited
         if selected.row() != deselected.row():
             if not self.model.edited_indexes:
-                logger.get_logger().info('No changes to save')
+                geocork_logger.get_logger().info('No changes to save')
                 return True
             if not self.data_submit():
                 # There was an error submitting the changes
@@ -2319,7 +2319,7 @@ class EditView(QtW.QDialog):
                 return True
 
     def data_submit(self):
-        logger.get_logger().info('Submitting changes')
+        geocork_logger.get_logger().info('Submitting changes')
         row_id_header = self.table_headers[0]
         query = QtS.QSqlQuery()
         for model_index in self.model.edited_indexes:
@@ -2355,10 +2355,10 @@ class EditView(QtW.QDialog):
                     update_cols['UPbAnalyses'].append('Rejected')
                     update_col_values['UPbAnalyses'].append('Null')
                 if not query.exec(f'SELECT UPbAnalysisID FROM UPbAnalyses WHERE {self.show_cols[0]} = {row_id}'):
-                    logger.get_logger().critical(f'Error: changes not commited')
-                    logger.get_logger().debug(f'Failed to get UPbAnalysisID for {row_id}')
-                    logger.get_logger().debug(f'{query.lastError().text()}')
-                    logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    geocork_logger.get_logger().critical(f'Error: changes not commited')
+                    geocork_logger.get_logger().debug(f'Failed to get UPbAnalysisID for {row_id}')
+                    geocork_logger.get_logger().debug(f'{query.lastError().text()}')
+                    geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                     return False
                 while query.next():
                     where_col_ids['UPbAnalyses'].append(query.value(0))
@@ -2386,22 +2386,22 @@ class EditView(QtW.QDialog):
                             else:
                                 if not query.exec(
                                         f'SELECT {other_id_header} FROM {other_table} WHERE {other_name_header} = "{other_item_name}"'):
-                                    logger.get_logger().critical(
+                                    geocork_logger.get_logger().critical(
                                         f'Error setting {other_id_header} to {other_item_name}')
-                                    logger.get_logger().debug(
+                                    geocork_logger.get_logger().debug(
                                         f'Failed to get {other_id_header} for {other_item_name}')
-                                    logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                                    logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                                    geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                                    geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                                     return False
                                 if query.next():
                                     other_id = query.value(0)
                                 else:
-                                    logger.get_logger().critical(
+                                    geocork_logger.get_logger().critical(
                                         f'No {other_id_header} {other_item_name} exists')
-                                    logger.get_logger().debug(
+                                    geocork_logger.get_logger().debug(
                                         f'Failed to get {other_id_header} for {other_item_name}')
-                                    logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                                    logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                                    geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                                    geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                                     return False
                             update_cols[self.table].append(db_header)
                             update_col_values[self.table].append(other_id)
@@ -2417,7 +2417,7 @@ class EditView(QtW.QDialog):
                                 header_found = True
                                 break
                     if not header_found:
-                        logger.get_logger().critical(
+                        geocork_logger.get_logger().critical(
                             f'Could not find columns to update {get_readable_header(header)}')
                         return False
             else:
@@ -2447,8 +2447,8 @@ class EditView(QtW.QDialog):
                                 update_cols[key].append(header)
                                 update_col_values[key].append(id)
                                 if key != self.table:
-                                    logger.get_logger().critical(f'Unexpected table {key} for header {header}')
-                                    logger.get_logger().debug(f'This scenario has not been tested yet')
+                                    geocork_logger.get_logger().critical(f'Unexpected table {key} for header {header}')
+                                    geocork_logger.get_logger().debug(f'This scenario has not been tested yet')
                                     return False
                                 header_found = True
                                 continue
@@ -2511,7 +2511,7 @@ class EditView(QtW.QDialog):
                     sql_values = ", ".join(f'":{str(s)}"' for s in update_cols[table])
                     sql_cols = ', '.join(f'"{str(s)}"' for s in update_cols[table])
                     if len(item_ids) == 0:
-                        logger.get_logger().critical(f'No items found for table {table}')
+                        geocork_logger.get_logger().critical(f'No items found for table {table}')
                         return False
                     elif len(item_ids) == 1:
                         sql_where = f'IS {item_ids[0]}'
@@ -2521,7 +2521,7 @@ class EditView(QtW.QDialog):
                         error, header = validate_update(table, update_cols[table], update_col_values[table],
                                                         f'{table_headers[0]} {sql_where}')
                         if error:
-                            logger.get_logger().error(f'Error: {error}')
+                            geocork_logger.get_logger().error(f'Error: {error}')
                             return False
                     query.prepare(
                         f'UPDATE "{table}" SET ({sql_cols}) = ({", ".join(['?'] * len(update_cols[table]))}) WHERE {table_headers[0]} {sql_where}')
@@ -2530,15 +2530,15 @@ class EditView(QtW.QDialog):
                             value = QtC.QVariant()
                         query.bindValue(i, value)
                     if not query.exec():
-                        logger.get_logger().critical(f'Failed to update {table}')
-                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                        logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+                        geocork_logger.get_logger().critical(f'Failed to update {table}')
+                        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                         return False
-                    logger.get_logger().info(
+                    geocork_logger.get_logger().info(
                         f'Updated {sql_cols} to {', '.join(str(val) for val in update_col_values[table])} in {table} where {table_headers[0]} = {item_ids}')
                     break
-        logger.get_logger().info('Changes submitted')
+        geocork_logger.get_logger().info('Changes submitted')
         self.model.edited_indexes = []
         return True
 
@@ -2549,16 +2549,16 @@ class EditView(QtW.QDialog):
         id_header = table_headers[0]
         query = QtS.QSqlQuery()
         if not query.exec(f'SELECT {id_header} FROM {table} WHERE {table_headers[get_name_column(table)]} = "{value}"'):
-            logger.get_logger().debug(f'Failed to get ID for {value}: {query.lastError().text()}')
+            geocork_logger.get_logger().debug(f'Failed to get ID for {value}: {query.lastError().text()}')
             return None
         if query.next():
             return query.value(0)
-        logger.get_logger().debug(f'{get_name_column(table)} {value} not found in {table}')
+        geocork_logger.get_logger().debug(f'{get_name_column(table)} {value} not found in {table}')
         return None
 
     def add_popup(self):
         if not self.on_row_change(QtC.QModelIndex(), self.edit_tableView.currentIndex()):
-            logger.get_logger().critical(f'Failed to submit changes to {self.table}')
+            geocork_logger.get_logger().critical(f'Failed to submit changes to {self.table}')
             return
         if self.dropdown_table:
             table = self.dropdown_table
@@ -2588,7 +2588,7 @@ class EditView(QtW.QDialog):
 
     def add_child_popup(self):
         if not self.on_row_change(QtC.QModelIndex(), self.edit_tableView.currentIndex()):
-            logger.get_logger().critical(f'Failed to submit changes to {self.table}')
+            geocork_logger.get_logger().critical(f'Failed to submit changes to {self.table}')
             return
         if self.table == 'Samples':
             child_table = 'Aliquots'
@@ -2597,10 +2597,10 @@ class EditView(QtW.QDialog):
         elif self.table == 'Spots':
             child_table = 'UPbAnalyses'
         else:
-            logger.get_logger().critical(f'Unexpected table {self.table} for adding child')
+            geocork_logger.get_logger().critical(f'Unexpected table {self.table} for adding child')
             return
         if not self.edit_tableView.selectedIndexes():
-            logger.get_logger().error(f'No {self.table} selected to add {child_table} to')
+            geocork_logger.get_logger().error(f'No {self.table} selected to add {child_table} to')
             return
         parent_data_id = self.proxy_model.index(self.edit_tableView.selectedIndexes()[0].row(), 0).data(
             QtC.Qt.ItemDataRole.DisplayRole)
@@ -2614,10 +2614,10 @@ class EditView(QtW.QDialog):
                 self.model.beginResetModel()
                 if added_ids and isinstance(self.model, SQLiteTableModel):
                     if not self.model.insert_id_rows_from_db(added_ids):
-                        logger.get_logger().critical(f'Error updating view')
+                        geocork_logger.get_logger().critical(f'Error updating view')
                         self.model.endResetModel()
                         return
-                    logger.get_logger().info(f'Added {len(added_ids)} items to the view model')
+                    geocork_logger.get_logger().info(f'Added {len(added_ids)} items to the view model')
                 self.model.endResetModel()
             show_loading_dialog('Loading', f'Loading...')
         self.display_table()
@@ -2634,7 +2634,7 @@ class EditView(QtW.QDialog):
             parent_table = 'Spots'
             parent_data_id_header = 'SpotID'
         else:
-            logger.get_logger().critical(f'Unexpected table {self.table} for getting parent data ID')
+            geocork_logger.get_logger().critical(f'Unexpected table {self.table} for getting parent data ID')
             return None, None
         show_cols = settings.value(SQLUtils.view_setting_dict[get_edit_view_from_table(parent_table)])
         for col in range(self.model.columnCount()):
@@ -2673,8 +2673,8 @@ class EditView(QtW.QDialog):
                     if parent_data_id and parent_data_id not in parent_data_ids:
                         parent_data_ids.append(parent_data_id)
         if not parent_data_ids:
-            logger.get_logger().critical(f'Error finding parent {parent_table} for {self.table}')
-            logger.get_logger().debug('No parent data id found for selected indexes or whole view')
+            geocork_logger.get_logger().critical(f'Error finding parent {parent_table} for {self.table}')
+            geocork_logger.get_logger().debug('No parent data id found for selected indexes or whole view')
             return None, None
         elif len(parent_data_ids) > 1:
             dlg = QtW.QDialog()
@@ -2714,7 +2714,7 @@ class EditView(QtW.QDialog):
     def find_added(self, ids_added):
         if not ids_added:
             return
-        logger.get_logger().info(f'Found {len(ids_added)} new {self.table}')
+        geocork_logger.get_logger().info(f'Found {len(ids_added)} new {self.table}')
         show_loading_dialog('Loading', f'Adding new {self.table}...')
         if len(ids_added) == 1:
             where = f'WHERE {self.table_headers[0]} = {ids_added[0]}'
@@ -2727,9 +2727,9 @@ class EditView(QtW.QDialog):
         view_query = ViewQuery(self.table, True, **query_args)
         table_query = view_query.table_query
         if not query.exec(table_query):
-            logger.get_logger().critical(f'Could not find new {self.table}')
-            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            geocork_logger.get_logger().critical(f'Could not find new {self.table}')
+            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             return
         while query.next():
             row = []
@@ -2737,7 +2737,7 @@ class EditView(QtW.QDialog):
                 row.append(query.value(i))
             self.model.insertRow(row)
         self.table_item_ids.extend(ids_added)
-        logger.get_logger().info(f'Updated {self.table}')
+        geocork_logger.get_logger().info(f'Updated {self.table}')
         close_loading_dialog('Loading', f'Adding new {self.table}...')
 
     def add_tag_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
@@ -2748,8 +2748,8 @@ class EditView(QtW.QDialog):
             if model:
                 table = model.table
             else:
-                logger.get_logger().critical(f"Error adding item")
-                logger.get_logger().debug(f"Error: No tree model found")
+                geocork_logger.get_logger().critical(f"Error adding item")
+                geocork_logger.get_logger().debug(f"Error: No tree model found")
                 return
         elif isinstance(model, QtC.QSortFilterProxyModel):
             model = model.sourceModel()
@@ -2769,7 +2769,7 @@ class EditView(QtW.QDialog):
             dlg = AddTags(self, table)
         if not dlg:
             return
-        logger.get_logger().info(f"Showing {table} add dialog")
+        geocork_logger.get_logger().info(f"Showing {table} add dialog")
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
             # Clear and recreate this combo box
@@ -2790,8 +2790,8 @@ class EditView(QtW.QDialog):
             if model:
                 table = model.table
             else:
-                logger.get_logger().critical(f"Error editing table")
-                logger.get_logger().debug(f"Error: No tree model found")
+                geocork_logger.get_logger().critical(f"Error editing table")
+                geocork_logger.get_logger().debug(f"Error: No tree model found")
                 return
         elif isinstance(model, QtC.QSortFilterProxyModel):
             model = model.sourceModel()
@@ -2807,7 +2807,7 @@ class EditView(QtW.QDialog):
             dlg = EditTable(self, table)
         if dlg is None:
             return
-        logger.get_logger().info(f"Showing {table} edit dialog")
+        geocork_logger.get_logger().info(f"Showing {table} edit dialog")
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
             # Clear and recreate this combo box
@@ -2870,7 +2870,7 @@ class EditView(QtW.QDialog):
         if not self.buttonBox.hasFocus():
             return
         if not self.on_row_change(QtC.QModelIndex(), self.edit_tableView.currentIndex()):
-            logger.get_logger().critical('Failed to save changes')
+            geocork_logger.get_logger().critical('Failed to save changes')
             return
         if len(self.model.edited_indexes) > 0:
             self.updated = True
@@ -2890,7 +2890,7 @@ class EditView(QtW.QDialog):
 
     def discard_question(self):
         if not self.on_row_change(QtC.QModelIndex(), self.edit_tableView.currentIndex()):
-            logger.get_logger().critical('Failed to save changes')
+            geocork_logger.get_logger().critical('Failed to save changes')
             return
         if len(self.model.edited_indexes) > 0:
             self.updated = True
@@ -2909,12 +2909,12 @@ class EditView(QtW.QDialog):
         self.saveWindowState()
         if not self.close_by_dialog:
             if not self.on_row_change(QtC.QModelIndex(), self.edit_tableView.currentIndex()):
-                logger.get_logger().critical('Failed to save changes')
+                geocork_logger.get_logger().critical('Failed to save changes')
                 self.discard_question()
             elif self.updated or len(self.model.edited_indexes) > 0:
                 self.discard_question()
         else:
-            logger.get_logger().info(f'Closing {self.table} edit dialog')
+            geocork_logger.get_logger().info(f'Closing {self.table} edit dialog')
             super().close()
 
     def saveWindowState(self):

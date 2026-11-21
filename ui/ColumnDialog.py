@@ -1,10 +1,10 @@
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtWidgets as QtW
 
-from util import logger
+from util import geocork_logger
 import ui.ColumnFields
 from util.settings_manager import SettingsManager
-from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from util.database.savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from util.loading_dialog_manager import close_loading_dialog
 
 settings = SettingsManager().settings
@@ -47,25 +47,25 @@ class ColumnDialog(QtW.QDialog):
         close_loading_dialog('Loading', f'Opening column editor...')
 
     def discard_clicked(self):
-        logger.get_logger().info("Discard clicked")
+        geocork_logger.get_logger().info("Discard clicked")
         self.discard_question()
 
     def commit_clicked(self):
-        logger.get_logger().info("Commit clicked")
+        geocork_logger.get_logger().info("Commit clicked")
         self.commit_question()
 
     def discard_question(self):
-        logger.get_logger().info("Discard question called")
+        geocork_logger.get_logger().info("Discard question called")
         if self.column_fields.updated:
             msg_box = QtW.QMessageBox()
             msg_box.setIcon(QtW.QMessageBox.Icon.Question)
             msg_box.setText('Are you sure you want to discard all changes?')
             msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
             msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
-            logger.get_logger().info("Showing discard question")
+            geocork_logger.get_logger().info("Showing discard question")
             response = msg_box.exec()
             if response == QtW.QMessageBox.StandardButton.Yes:
-                logger.get_logger().info("Discarding changes")
+                geocork_logger.get_logger().info("Discarding changes")
                 rollback_savepoint('before_edit_columns')
                 self.reject()
                 self.close_by_dialog = True
@@ -115,8 +115,8 @@ class ColumnDialog(QtW.QDialog):
                 self.discard_question()
                 event.ignore()
             else:
-                logger.get_logger().info("Closing Column dialog")
+                geocork_logger.get_logger().info("Closing Column dialog")
                 event.accept()
         else:
-            logger.get_logger().info("Closing Column dialog")
+            geocork_logger.get_logger().info("Closing Column dialog")
             event.accept()

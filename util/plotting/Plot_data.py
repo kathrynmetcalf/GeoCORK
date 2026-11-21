@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 from PyQt6 import QtSql as QtS
 
-from util import logger
+from util import geocork_logger
 from util.settings_manager import SettingsManager
 from util.database import defined_queries, defined_joins
 from util.database.units import age_units, analytical_units
@@ -74,9 +74,9 @@ class DataProvider:
 def query_frame(sql: str) -> pd.DataFrame:
     query = QtS.QSqlQuery()
     if not query.exec(sql):
-        logger.get_logger().critical('Error loading plot data')
-        logger.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        geocork_logger.get_logger().critical('Error loading plot data')
+        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return pd.DataFrame()
     fields = [query.record().fieldName(i) for i in range(query.record().count())]
     rows = []

@@ -3,8 +3,8 @@ from PyQt6.QtCore import QPoint, QSize
 from PyQt6.QtWidgets import QDialogButtonBox, QLabel, QFormLayout, QLineEdit, QHBoxLayout, QVBoxLayout, QPushButton
 
 import util.Text_manipulations as TxM
-from util import logger
-from util.database.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from util import geocork_logger
+from util.database.savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from util.database.database_helper import set_table, get_headers, get_name_column, get_description_column, \
     update_database
 from util.loading_dialog_manager import close_loading_dialog
@@ -27,7 +27,7 @@ class AddTags(QtWidgets.QDialog):
         :param table:
         """
         super().__init__(parent=parent_window)
-        logger.get_logger().info(f'Starting AddTags dialog for {table}...')
+        geocork_logger.get_logger().info(f'Starting AddTags dialog for {table}...')
 
         self.table = table
         """Database table used for internal or query use"""
@@ -142,7 +142,7 @@ class AddTags(QtWidgets.QDialog):
         # Get a list of the existing tag names
         query.prepare(f'SELECT {self.name_header} FROM {self.table}')
         if not query.exec():
-            logger.get_logger().critical(
+            geocork_logger.get_logger().critical(
                 f'Error selecting display column from {self.table_name}: {query.lastError().text()}')
             return False
         self.existing_names = set()
@@ -173,7 +173,7 @@ class AddTags(QtWidgets.QDialog):
         query.addBindValue(name)
         query.addBindValue(None if description == '' else description)
 
-        logger.get_logger().info(f'Inserting {name}, {description} into {self.table_name}')
+        geocork_logger.get_logger().info(f'Inserting {name}, {description} into {self.table_name}')
         create_savepoint(f'before_add_item')
         if not query.exec():
             error = query.lastError().text()
@@ -183,21 +183,21 @@ class AddTags(QtWidgets.QDialog):
                 for entry in self.existing_names:
                     if name.casefold() == entry.casefold():
                         duplicates.append(entry)
-                logger.get_logger().error(
+                geocork_logger.get_logger().error(
                     f'Each entry in {header} must be unique (case insensitive)\nDuplicates: {duplicates}')
-                logger.get_logger().debug(f'Error: {error}')
-                logger.get_logger().debug(f'SQL command: {query.lastQuery()}')
+                geocork_logger.get_logger().debug(f'Error: {error}')
+                geocork_logger.get_logger().debug(f'SQL command: {query.lastQuery()}')
             elif 'CHECK constraint failed:' in error:
-                logger.get_logger().error(f'{header} cannot be blank')
-                logger.get_logger().debug(f'Error: {error}')
-                logger.get_logger().debug(f'SQL command: {query.lastQuery()}')
+                geocork_logger.get_logger().error(f'{header} cannot be blank')
+                geocork_logger.get_logger().debug(f'Error: {error}')
+                geocork_logger.get_logger().debug(f'SQL command: {query.lastQuery()}')
             else:
-                logger.get_logger().critical(f'Error: {error}')
-                logger.get_logger().debug(f'SQL command: {query.lastQuery()}')
+                geocork_logger.get_logger().critical(f'Error: {error}')
+                geocork_logger.get_logger().debug(f'SQL command: {query.lastQuery()}')
             rollback_savepoint('before_add_item')
             return False
 
-        logger.get_logger().info(f'Successfully inserted {name} into {self.table_name}')
+        geocork_logger.get_logger().info(f'Successfully inserted {name} into {self.table_name}')
         release_savepoint('before_add_item')
         self.updated = True
         self.ids_added.append(query.lastInsertId())
@@ -208,7 +208,7 @@ class AddTags(QtWidgets.QDialog):
         self.newDescription_lineEdit.clear()
         self.display_tags()
 
-        logger.get_logger().info(f'Successfully inserted {name}, {description} into {self.table_name}')
+        geocork_logger.get_logger().info(f'Successfully inserted {name}, {description} into {self.table_name}')
         return True
 
     def discard_question(self):
@@ -244,12 +244,12 @@ class AddTags(QtWidgets.QDialog):
             if not self.add_tag():
                 return False
         release_savepoint('before_add')
-        logger.get_logger().info(f'Changes committed to {self.table_name}')
+        geocork_logger.get_logger().info(f'Changes committed to {self.table_name}')
         # Check if there is another existing savepoint. If not, go ahead and update the database
         if not SavepointManager.get_instance().active_savepoints():
-            logger.get_logger().info('No active save points - updating the database')
+            geocork_logger.get_logger().info('No active save points - updating the database')
             if not update_database():
-                logger.get_logger().critical(f'Error updating and displaying the database')
+                geocork_logger.get_logger().critical(f'Error updating and displaying the database')
                 self.close_by_dialog = True
                 self.close()
         self.accept()
@@ -268,11 +268,11 @@ class AddTags(QtWidgets.QDialog):
                 self.discard_question()
                 event.ignore()
             else:
-                logger.get_logger().info(f'Closing {self.table_name} add dialog')
+                geocork_logger.get_logger().info(f'Closing {self.table_name} add dialog')
                 release_savepoint('before_add')
                 event.accept()
         else:
-            logger.get_logger().info(f'Closing {self.table_name} add dialog')
+            geocork_logger.get_logger().info(f'Closing {self.table_name} add dialog')
             release_savepoint('before_add')
             event.accept()
 

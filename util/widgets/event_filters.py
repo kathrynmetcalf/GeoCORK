@@ -2,13 +2,14 @@ from PyQt6.QtCore import QObject, QSettings, QEvent
 from PyQt6.QtWidgets import QToolTip
 
 
-class TooltipFilter(QObject):
-    """
-    Event filter to accept/reject ALL tooltips globally
-    based on a user setting (stored in QSettings).
-    """
+class ToolTipFilter(QObject):
 
     def __init__(self, settings: QSettings):
+        """
+        Event filter to accept/reject ALL tooltips globally
+        based on a user setting (stored in QSettings).
+        :param settings: The geocork QSettings object
+        """
         super().__init__()
         self.settings = settings
 

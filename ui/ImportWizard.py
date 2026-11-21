@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (
 )
 from openpyxl import load_workbook
 
-from util import logger
+from util import geocork_logger
 from Functions import SQLUtils
 from Functions.Check_triggers import validate_insert, validate_update
 from util.settings_manager import SettingsManager
@@ -31,7 +31,7 @@ from ui.EditTree import EditTree
 from ui.EditView import EditView
 from ui.New_reference import NewReference
 from ui.settings.SettingsCore import get_importer_brushes
-from util.database.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
+from util.database.savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
 from util.database.database_helper import (
     get_name_column, add_tree_popup, get_id_from_name, get_name_from_id,
     get_headers, get_view_from_table, delete_data, find_tree_model, get_columns, update_database)
@@ -110,7 +110,7 @@ def detect_import_format(wb) -> tuple[str | None, dict[str, str]]:
     for name, fmt in SQLUtils.import_formats.items():
         template_path = os.path.join(base_path, fmt['template'])
         if not os.path.exists(template_path):
-            logger.get_logger().warning(f'Import format template not found: {template_path}')
+            geocork_logger.get_logger().warning(f'Import format template not found: {template_path}')
             continue
         template = load_workbook(template_path, read_only=True)
         reference = read_field_headings(template, fmt['header_label'], fmt['header_rows'])
@@ -123,7 +123,7 @@ def detect_import_format(wb) -> tuple[str | None, dict[str, str]]:
                     matched[user_sheet] = template_sheet
                     break
         if len(matched) == len(fmt['sheets']):
-            logger.get_logger().info(f'Detected input format {name}: {matched}')
+            geocork_logger.get_logger().info(f'Detected input format {name}: {matched}')
             return name, matched
     return None, {}
 
@@ -156,7 +156,7 @@ def detect_import_format(wb) -> tuple[str | None, dict[str, str]]:
     for name, fmt in import_helper.import_formats.items():
         template_path = os.path.join(base_path, fmt['template'])
         if not os.path.exists(template_path):
-            logger.get_logger().warning(f'Import format template not found: {template_path}')
+            geocork_logger.get_logger().warning(f'Import format template not found: {template_path}')
             continue
         template = load_workbook(template_path, read_only=True)
         reference = read_field_headings(template, fmt['header_label'], fmt['header_rows'])
@@ -169,7 +169,7 @@ def detect_import_format(wb) -> tuple[str | None, dict[str, str]]:
                     matched[user_sheet] = template_sheet
                     break
         if len(matched) == len(fmt['sheets']):
-            logger.get_logger().info(f'Detected input format {name}: {matched}')
+            geocork_logger.get_logger().info(f'Detected input format {name}: {matched}')
             return name, matched
     return None, {}
 
@@ -222,9 +222,9 @@ class ColumnMapDialog(QDialog):
         query = QSqlQuery()
         if not query.exec(
                 f'SELECT GeoChemAnalyteAbbreviation FROM GeoChemicalAnalytes') and 'Driver' not in query.lastError().text():
-            logger.get_logger().critical(f'Error fetching geochemical analytes for settings')
-            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            geocork_logger.get_logger().critical(f'Error fetching geochemical analytes for settings')
+            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         else:
             if 'Driver' not in query.lastError().text():
                 analytes = {}
@@ -378,7 +378,7 @@ class LoadMappingDialog(QDialog):
                 configs = {}
                 return
         except Exception as e:
-            logger.get_logger().critical(f'Failed to save mapping: {e}')
+            geocork_logger.get_logger().critical(f'Failed to save mapping: {e}')
             return
 
         self.configs = configs
@@ -491,7 +491,7 @@ class LoadMappingDialog(QDialog):
     def accept(self):
         index = self.list_view.currentIndex()
         if not index.isValid():
-            logger.get_logger().error("Must select a mapping")
+            geocork_logger.get_logger().error("Must select a mapping")
             return
         super().accept()
 
@@ -511,7 +511,7 @@ class ImportWizardDialog(QWidget):
     def __init__(self, parent: QWidget):
         super().__init__(parent=None)
 
-        logger.get_logger().info("Import Wizard initializing...")
+        geocork_logger.get_logger().info("Import Wizard initializing...")
 
         self.setWindowTitle("Analysis Import Wizard")
         self.loadWindowState()
@@ -1077,9 +1077,9 @@ class ImportWizardDialog(QWidget):
         query = QSqlQuery()
         if not query.exec(
                 f'SELECT GeoChemAnalyteAbbreviation FROM GeoChemicalAnalytes') and 'Driver' not in query.lastError().text():
-            logger.get_logger().critical(f'Error fetching geochemical analytes for settings')
-            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            geocork_logger.get_logger().critical(f'Error fetching geochemical analytes for settings')
+            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
         else:
             if 'Driver' not in query.lastError().text():
                 analytes = {}
@@ -1151,7 +1151,7 @@ class ImportWizardDialog(QWidget):
 
         self.setMinimumHeight(800)
 
-        logger.get_logger().info("Import Wizard initialized")
+        geocork_logger.get_logger().info("Import Wizard initialized")
 
     def closeEvent(self, a0):
         if self.quick_select_active:
@@ -1433,9 +1433,9 @@ class ImportWizardDialog(QWidget):
             while age_unit_query.next():
                 self.age_formats.append((age_unit_query.value(0), age_unit_query.value(1)))
         else:
-            logger.get_logger().error(f"Failed to find age units")
-            logger.get_logger().debug(f"Error: {age_unit_query.lastError().text()}")
-            logger.get_logger().debug(f"SQL query: {age_unit_query.lastQuery()}")
+            geocork_logger.get_logger().error(f"Failed to find age units")
+            geocork_logger.get_logger().debug(f"Error: {age_unit_query.lastError().text()}")
+            geocork_logger.get_logger().debug(f"SQL query: {age_unit_query.lastQuery()}")
 
         distance_units_query = QSqlQuery()
         distance_units_query.prepare(
@@ -1446,9 +1446,9 @@ class ImportWizardDialog(QWidget):
             while distance_units_query.next():
                 self.distance_units.append((distance_units_query.value(0), distance_units_query.value(1)))
         else:
-            logger.get_logger().error(f"Failed to find distance units")
-            logger.get_logger().debug(f"Error: {distance_units_query.lastError().text()}")
-            logger.get_logger().debug(f"SQL query: {distance_units_query.lastQuery()}")
+            geocork_logger.get_logger().error(f"Failed to find distance units")
+            geocork_logger.get_logger().debug(f"Error: {distance_units_query.lastError().text()}")
+            geocork_logger.get_logger().debug(f"SQL query: {distance_units_query.lastQuery()}")
 
         concordance_units_query = QSqlQuery()
         concordance_units_query.prepare(
@@ -1459,9 +1459,9 @@ class ImportWizardDialog(QWidget):
             while concordance_units_query.next():
                 self.concordance_formats.append((concordance_units_query.value(0), concordance_units_query.value(1)))
         else:
-            logger.get_logger().error(f"Failed to find concordance formats")
-            logger.get_logger().debug(f"Error: {concordance_units_query.lastError().text()}")
-            logger.get_logger().debug(f"SQL query: {concordance_units_query.lastQuery()}")
+            geocork_logger.get_logger().error(f"Failed to find concordance formats")
+            geocork_logger.get_logger().debug(f"Error: {concordance_units_query.lastError().text()}")
+            geocork_logger.get_logger().debug(f"SQL query: {concordance_units_query.lastQuery()}")
 
         error_type_format_query = QSqlQuery()
         error_type_format_query.prepare(
@@ -1472,9 +1472,9 @@ class ImportWizardDialog(QWidget):
             while error_type_format_query.next():
                 self.error_formats.append((error_type_format_query.value(0), error_type_format_query.value(1)))
         else:
-            logger.get_logger().error(f"Failed to find error formats")
-            logger.get_logger().debug(f"Error: {error_type_format_query.lastError().text()}")
-            logger.get_logger().debug(f"SQL query: {error_type_format_query.lastQuery()}")
+            geocork_logger.get_logger().error(f"Failed to find error formats")
+            geocork_logger.get_logger().debug(f"Error: {error_type_format_query.lastError().text()}")
+            geocork_logger.get_logger().debug(f"SQL query: {error_type_format_query.lastQuery()}")
 
         geochem_analysis_units_query = QSqlQuery()
         geochem_analysis_units_query.prepare(
@@ -1486,9 +1486,9 @@ class ImportWizardDialog(QWidget):
                 self.analytical_units.append(
                     (geochem_analysis_units_query.value(0), geochem_analysis_units_query.value(1)))
         else:
-            logger.get_logger().error(f"Failed to find analytical units")
-            logger.get_logger().debug(f"Error: {geochem_analysis_units_query.lastError().text()}")
-            logger.get_logger().debug(f"SQL query: {geochem_analysis_units_query.lastQuery()}")
+            geocork_logger.get_logger().error(f"Failed to find analytical units")
+            geocork_logger.get_logger().debug(f"Error: {geochem_analysis_units_query.lastError().text()}")
+            geocork_logger.get_logger().debug(f"SQL query: {geochem_analysis_units_query.lastQuery()}")
 
     def validate_data(self):
         """
@@ -1497,7 +1497,7 @@ class ImportWizardDialog(QWidget):
         """
         sender = self.sender()
 
-        logger.get_logger().info("Validating data for input")
+        geocork_logger.get_logger().info("Validating data for input")
 
         if self.upb_sheet_name is not None:
             upb_row_count = self.left_tables[self.upb_sheet_name].rowCount()
@@ -1535,7 +1535,7 @@ class ImportWizardDialog(QWidget):
         for sheet in self.sheet_mappings.keys():
             self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[sheet]))
             if self.right_table != self.right_tables[sheet]:
-                logger.get_logger().critical(f"Sheet {sheet} does not match the current right table")
+                geocork_logger.get_logger().critical(f"Sheet {sheet} does not match the current right table")
                 return False
             self.right_table.model().clear_all_background_colors()
 
@@ -1577,7 +1577,7 @@ class ImportWizardDialog(QWidget):
         if sender == self.validate_button:
             QMessageBox.information(self, "Initial Validation Complete", f"Initial data validation is complete.\n\n"
                                                                          "Make sure units and formats are defined for all necessary fields and that GPS data are separated into columns")
-        logger.get_logger().info("Data validation complete")
+        geocork_logger.get_logger().info("Data validation complete")
         self.btn_import.setDisabled(False)
         return True
 
@@ -1590,9 +1590,9 @@ class ImportWizardDialog(QWidget):
                 (not self.geochem_sheet_name or not self.geochem_sheet_name in self.right_tables)):
             return True
         if sheet_name not in [self.upb_sheet_name, self.geochem_sheet_name]:
-            logger.get_logger().critical("Tried to validate a non-data sheet")
-            logger.get_logger().debug(f"Sheet {sheet_name} is not designated as an analysis data sheet")
-        logger.get_logger().info("Validating IDs in the left table")
+            geocork_logger.get_logger().critical("Tried to validate a non-data sheet")
+            geocork_logger.get_logger().debug(f"Sheet {sheet_name} is not designated as an analysis data sheet")
+        geocork_logger.get_logger().info("Validating IDs in the left table")
         data_type = self.resolve_data_type(sheet_name, data_type)
         self.left_table = self.left_tables[sheet_name]
 
@@ -1611,12 +1611,12 @@ class ImportWizardDialog(QWidget):
                     # Optional: Give user a chance to review and adjust the values
                     QMessageBox.information(self, "Review",
                                             f"Purple cells in the left {data_type} table have been filled with default values. Please review before clicking input again.")
-                    logger.get_logger().info(f"Empty {data_type} cells have been filled with default values")
+                    geocork_logger.get_logger().info(f"Empty {data_type} cells have been filled with default values")
                 return False
             else:
-                logger.get_logger().info("Empty cells, but opted not to use default values")
+                geocork_logger.get_logger().info("Empty cells, but opted not to use default values")
                 return False
-        logger.get_logger().info("Validation of IDs complete")
+        geocork_logger.get_logger().info("Validation of IDs complete")
         return True
 
     def edit_combo_box(self, pos):
@@ -1648,7 +1648,7 @@ class ImportWizardDialog(QWidget):
         dlg.exec()
         if dlg.updated:
             if not update_database():
-                logger.get_logger().critical('Error updating and displaying database')
+                geocork_logger.get_logger().critical('Error updating and displaying database')
                 self.close()
             self.populate_comboBoxes(combo)
 
@@ -1692,7 +1692,7 @@ class ImportWizardDialog(QWidget):
         dlg.exec()
         if dlg.updated:
             if not update_database():
-                logger.get_logger().critical('Error updating and displaying database')
+                geocork_logger.get_logger().critical('Error updating and displaying database')
                 self.close()
             self.populate_comboBoxes(combo)
 
@@ -1764,7 +1764,7 @@ class ImportWizardDialog(QWidget):
             return  # User canceled
 
         # Update all rows in the column
-        logger.get_logger().info(f'Setting column to {value}')
+        geocork_logger.get_logger().info(f'Setting column to {value}')
         if isinstance(table, QTableWidget):
             for row in range(table.rowCount()):
                 item = table.item(row, column)
@@ -1783,7 +1783,7 @@ class ImportWizardDialog(QWidget):
                     table.model().setData(index, value, Qt.ItemDataRole.DisplayRole)
                     table.model().userDataChanged.emit(index, index, [Qt.ItemDataRole.DisplayRole])
             table.blockSignals(False)
-        logger.get_logger().info(f'Set column to {value}')
+        geocork_logger.get_logger().info(f'Set column to {value}')
 
     def set_column_to_blank(self, column, table: QTableWidget | QTableView):
         """
@@ -1792,7 +1792,7 @@ class ImportWizardDialog(QWidget):
             column (int): The column index to update.
         """
         # Update all rows in the column
-        logger.get_logger().info(f'Setting column {column} to blank')
+        geocork_logger.get_logger().info(f'Setting column {column} to blank')
         if isinstance(table, QTableWidget):
             for row in range(table.model().rowCount()):
                 item = table.item(row, column)
@@ -1805,7 +1805,7 @@ class ImportWizardDialog(QWidget):
                 index = table.model().index(row, column)
                 table.model().setData(index, "", Qt.ItemDataRole.DisplayRole)
                 table.model().userDataChanged.emit(index, index, [Qt.ItemDataRole.DisplayRole])
-        logger.get_logger().info(f'Set column {column} to blank')
+        geocork_logger.get_logger().info(f'Set column {column} to blank')
 
     def handle_vertical_header_double_click(self, logical_index):
         """
@@ -1829,7 +1829,7 @@ class ImportWizardDialog(QWidget):
         """
         # Open the Column Map Dialog to let the user select a column name and data type
 
-        logger.get_logger().info(f'Adding column {column_index} for field {field}')
+        geocork_logger.get_logger().info(f'Adding column {column_index} for field {field}')
 
         if (self.sender() in [self.combo_upb_reference_comboBox, self.combo_upb_instrument_comboBox,
                               self.combo_upb_lab_facility_comboBox, self.combo_upb_analysis_method_comboBox]
@@ -1987,7 +1987,7 @@ class ImportWizardDialog(QWidget):
         Includes remove rows, mark rows rejected, unmark,
         and set selected cells to a user-defined value.
         """
-        logger.get_logger().info("Showing right table context menu")
+        geocork_logger.get_logger().info("Showing right table context menu")
         menu = QMenu(self)
         remove_action = menu.addAction("Remove Selected Rows")
         disable_action = menu.addAction("Disable Selected Rows")
@@ -2018,7 +2018,7 @@ class ImportWizardDialog(QWidget):
             elif action == set_value_action:
                 new_value, ok = QInputDialog.getText(self, "Set Value", "Enter new value:")
                 if ok:
-                    logger.get_logger().info(f"Setting selected cells to {new_value}")
+                    geocork_logger.get_logger().info(f"Setting selected cells to {new_value}")
                     for index in self.right_table.selectedIndexes():
                         self.right_table.model().setData(index, new_value, Qt.ItemDataRole.DisplayRole)
                         self.right_table.model().userDataChanged.emit(index, index, [Qt.ItemDataRole.DisplayRole])
@@ -2206,7 +2206,7 @@ class ImportWizardDialog(QWidget):
         dlg = QFileDialog(self)
         path, _ = dlg.getOpenFileName(self, "Select Excel File", "", "Excel Files (*.xlsx)")
         if path:
-            logger.get_logger().debug("Selected Excel File: " + path)
+            geocork_logger.get_logger().debug("Selected Excel File: " + path)
             if self.quick_select_active:
                 self.stop_quick_select()
             self.selected_file_path = path
@@ -2223,12 +2223,12 @@ class ImportWizardDialog(QWidget):
                 if reply == QMessageBox.StandardButton.No:
                     return
             try:
-                logger.get_logger().debug(f"Loading sheets from Excel file {os.path.basename(path)}")
+                geocork_logger.get_logger().debug(f"Loading sheets from Excel file {os.path.basename(path)}")
                 show_loading_dialog("Loading", f"Loading {os.path.basename(path)}...")
                 load_workbook_start = time.time()
                 wb = load_workbook(path, data_only=True, rich_text=True)
                 # wb = load_workbook(path, data_only=True, keep_vba=False, read_only=True, rich_text=True, keep_links=False)
-                logger.get_logger().info(
+                geocork_logger.get_logger().info(
                     f"Excel file {os.path.basename(path)} loaded in {(time.time() - load_workbook_start):.2f} seconds")
                 self.upb_combo_sheets.clear()
                 self.geochem_combo_sheets.clear()
@@ -2319,7 +2319,7 @@ class ImportWizardDialog(QWidget):
                         reply = msg_box.exec()
                         if reply != QMessageBox.StandardButton.Yes:
                             continue
-                    logger.get_logger().debug(f"Loading sheet: {sheet.title}")
+                    geocork_logger.get_logger().debug(f"Loading sheet: {sheet.title}")
                     show_loading_dialog(f"Loading {sheet.title}",
                                         f"Loading sheet {sheet.title} with {row_count} rows...")
                     # Add a new tab for each sheet
@@ -2385,8 +2385,8 @@ class ImportWizardDialog(QWidget):
                     self.apply_import_format(import_format, matched_sheets)
                 wb.close()
             except Exception as e:
-                logger.get_logger().critical(f"Error reading the excel file")
-                logger.get_logger().debug(f"Failed to read Excel file:\n{e}")
+                geocork_logger.get_logger().critical(f"Error reading the excel file")
+                geocork_logger.get_logger().debug(f"Failed to read Excel file:\n{e}")
                 close_loading_dialog(f"Loading {sheet.title}",
                                      f"Loading sheet {sheet.title} with {row_count} rows...")
                 close_loading_dialog("Loading", f"Loading {os.path.basename(path)}...")
@@ -2618,7 +2618,7 @@ class ImportWizardDialog(QWidget):
 
     def create_left_table(self, sheet_name):
         if sheet_name in self.left_tables:
-            logger.get_logger().info(f'Left table already exists for {sheet_name}')
+            geocork_logger.get_logger().info(f'Left table already exists for {sheet_name}')
             return
         self.left_table = QTableWidget()
         self.left_tables[sheet_name] = self.left_table
@@ -2629,7 +2629,7 @@ class ImportWizardDialog(QWidget):
         try:
             self.left_layout.addWidget(self.left_table)
         except:
-            logger.get_logger().info(f'Left table already exists for {sheet_name}')
+            geocork_logger.get_logger().info(f'Left table already exists for {sheet_name}')
 
         # Scroll synchronization (vertical)
         self.left_table.verticalScrollBar().valueChanged.connect(
@@ -2654,7 +2654,7 @@ class ImportWizardDialog(QWidget):
         + add 4 extra columns for Lab Facilities, Source, Analysis Method, Instrument (editable).
         """
         # show_loading_dialog('Loading', f'Displaying {sheet_name}...')
-        logger.get_logger().debug(f"Displaying sheet: {sheet_name}")
+        geocork_logger.get_logger().debug(f"Displaying sheet: {sheet_name}")
         display_start_time = time.time()
         check_style = self.identify_rejected.isChecked()
 
@@ -2666,7 +2666,7 @@ class ImportWizardDialog(QWidget):
 
         self.right_table.resizeColumnsToContents()
         close_loading_dialog('Loading', f'Displaying {sheet_name}...')
-        logger.get_logger().info(
+        geocork_logger.get_logger().info(
             f"Displayed sheet '{sheet_name}' in {(time.time() - display_start_time):.2f} seconds")
 
     def sync_left_table_rows(self):
@@ -2706,7 +2706,7 @@ class ImportWizardDialog(QWidget):
             model = model.sourceModel()
         if not isinstance(model,
                           CheckableSqlTableModel | CheckableSqlQueryModel | CheckableSQLiteTableModel | CheckableTreeModel):
-            logger.get_logger().debug(f"No valid model found for {field}.")
+            geocork_logger.get_logger().debug(f"No valid model found for {field}.")
             return
         if "Reference Display" in field:
             id_name = "ReferenceID"
@@ -2721,7 +2721,7 @@ class ImportWizardDialog(QWidget):
         else:
             id_name = None
 
-        logger.get_logger().debug(f"Setting all rows for {field} and {id_name}")
+        geocork_logger.get_logger().debug(f"Setting all rows for {field} and {id_name}")
         try:
             table = model.tableName()
             name_column = get_name_column(get_view_from_table(table))
@@ -2740,7 +2740,7 @@ class ImportWizardDialog(QWidget):
                     checked_item_name = model.data(name_index, Qt.ItemDataRole.DisplayRole)
                     checked_item_id = model.data(id_index, Qt.ItemDataRole.DisplayRole)
                     break
-            logger.get_logger().info(f"Checked item: {checked_item_name}, ID: {checked_item_id}")
+            geocork_logger.get_logger().info(f"Checked item: {checked_item_name}, ID: {checked_item_id}")
         else:
             # Get the checked item from the tree
             if model.checked_ids:
@@ -2767,7 +2767,7 @@ class ImportWizardDialog(QWidget):
 
         if not id_column or not name_col:
             # still did not find the column with the ID header and the column with the name header
-            logger.get_logger().critical(f'Could not find data for {field} in the database')
+            geocork_logger.get_logger().critical(f'Could not find data for {field} in the database')
             return
 
         # Update all rows in the column
@@ -2784,7 +2784,7 @@ class ImportWizardDialog(QWidget):
         self.hidden_mappings[id_column] = {}
         self.hidden_mappings[id_column][id_name] = checked_item_id
         # self.right_table.resizeColumnsToContents()
-        logger.get_logger().info(f"All rows updated with '{str(checked_item_name)}' for {field}.")
+        geocork_logger.get_logger().info(f"All rows updated with '{str(checked_item_name)}' for {field}.")
         QMessageBox.information(self, "Success", f"All rows updated with '{str(checked_item_name)}' for {field}.")
 
     def get_column_index(self, header_name):
@@ -2809,7 +2809,7 @@ class ImportWizardDialog(QWidget):
         Update the left table row text appearance based on the right table row status.
         """
         if self.current_sheet_name in [self.upb_sheet_name, self.geochem_sheet_name]:
-            logger.get_logger().info(f"Updating left table row status for {self.current_sheet_name}")
+            geocork_logger.get_logger().info(f"Updating left table row status for {self.current_sheet_name}")
             # get the default style text color
             if not self.style().standardPalette():
                 text_brush = self.text_brush  # Default to black
@@ -2828,7 +2828,7 @@ class ImportWizardDialog(QWidget):
                     if item:
                         item.setForeground(brush)  # Gray text
             self.right_table.blockSignals(False)
-            logger.get_logger().info(f"Updated left table row status for {self.current_sheet_name}")
+            geocork_logger.get_logger().info(f"Updated left table row status for {self.current_sheet_name}")
 
     def remove_selected_rows(self, rows=None):
         if rows is None:
@@ -2837,7 +2837,7 @@ class ImportWizardDialog(QWidget):
                 return
         else:
             selected_rows = rows
-        logger.get_logger().info(f'Removing selected rows: {selected_rows}')
+        geocork_logger.get_logger().info(f'Removing selected rows: {selected_rows}')
         sr = sorted(selected_rows, reverse=True)
         for r in sr:
             self.right_table.model().removeRow(r)
@@ -2848,7 +2848,7 @@ class ImportWizardDialog(QWidget):
         # if self.current_sheet_name == self.upb_sheet_name:
         #     self.left_table.resizeColumnsToContents()
 
-        logger.get_logger().info(f'Removed selected rows')
+        geocork_logger.get_logger().info(f'Removed selected rows')
 
     def remove_selected_columns(self, columns=None):
         """
@@ -2922,26 +2922,26 @@ class ImportWizardDialog(QWidget):
         else:
             selected_rows = rows
 
-        logger.get_logger().info(f'Disabling selected rows: {selected_rows}')
+        geocork_logger.get_logger().info(f'Disabling selected rows: {selected_rows}')
         for r in selected_rows:
             self.right_table.model().setHeaderData(r, Qt.Orientation.Vertical, "disabled",
                                                    Qt.ItemDataRole.DecorationRole)
         if self.current_sheet_name in [self.upb_sheet_name, self.geochem_sheet_name]:
             self.update_left_table_row_status()
 
-        logger.get_logger().info(f'Disabled selected rows')
+        geocork_logger.get_logger().info(f'Disabled selected rows')
 
     def mark_selected_rows_rejected(self, rows, rejected: bool):
         if not rows:
             return
 
         if rejected:
-            logger.get_logger().info(f'Marking selected rows as rejected: {rows}')
+            geocork_logger.get_logger().info(f'Marking selected rows as rejected: {rows}')
             for r in rows:
                 self.right_table.model().setHeaderData(r, Qt.Orientation.Vertical, "rejected",
                                                        Qt.ItemDataRole.DecorationRole)
         else:
-            logger.get_logger().info(f'Marking selected rows as accepted: {rows}')
+            geocork_logger.get_logger().info(f'Marking selected rows as accepted: {rows}')
             for r in rows:
                 self.right_table.model().setHeaderData(r, Qt.Orientation.Vertical, "accepted",
                                                        Qt.ItemDataRole.DecorationRole)
@@ -2963,7 +2963,7 @@ class ImportWizardDialog(QWidget):
                                                     Qt.ItemDataRole.DisplayRole)
         if not value:
             return
-        logger.get_logger().info(f'Double-click on header {value}')
+        geocork_logger.get_logger().info(f'Double-click on header {value}')
         dialog = ColumnMapDialog(logical_index, self.sheet_mappings[self.current_sheet_name], self)
         if dialog.exec():
             self.apply_column_mapping(logical_index, dialog.get_selected_value())
@@ -3017,7 +3017,7 @@ class ImportWizardDialog(QWidget):
                               "Geochemical Analysis Name"] and
                     self.current_sheet_name in [self.upb_sheet_name, self.geochem_sheet_name]):
                 self.update_left_table_on_header_change(new_field, logical_index)
-        logger.get_logger().info(f'Header updated: {new_field}')
+        geocork_logger.get_logger().info(f'Header updated: {new_field}')
 
     # ---------------------------
     #       Quick Select
@@ -3075,9 +3075,9 @@ class ImportWizardDialog(QWidget):
             if valid:
                 steps.append(valid)
         if not available:
-            logger.get_logger().warning(f'Quick Select {name}: could not check fields against the database')
+            geocork_logger.get_logger().warning(f'Quick Select {name}: could not check fields against the database')
         if missing:
-            logger.get_logger().warning(f'Quick Select {name}: fields not available, skipped: {missing}')
+            geocork_logger.get_logger().warning(f'Quick Select {name}: fields not available, skipped: {missing}')
         if not steps:
             QMessageBox.warning(self, "Quick Select", f"None of the {name} fields are available for input.")
             return
@@ -3094,7 +3094,7 @@ class ImportWizardDialog(QWidget):
         self.quick_select_frame.show()
         self.update_quick_select_prompt()
         self.install_quick_select_cursor_filter()
-        logger.get_logger().info(f'Quick Select {name} started with {len(steps)} fields')
+        geocork_logger.get_logger().info(f'Quick Select {name} started with {len(steps)} fields')
 
     def update_quick_select_prompt(self, analyte: str | None = None):
         """
@@ -3279,7 +3279,7 @@ class ImportWizardDialog(QWidget):
         :param message: Optional message to show briefly in the Quick Select bar before it hides.
         """
         if self.quick_select_active:
-            logger.get_logger().info(message or f'Quick Select {self.quick_select_name} stopped')
+            geocork_logger.get_logger().info(message or f'Quick Select {self.quick_select_name} stopped')
         self.quick_select_active = False
         self.quick_select_steps = []
         self.quick_select_step = 0
@@ -3360,7 +3360,7 @@ class ImportWizardDialog(QWidget):
         grain_col = None
         analysis_cols = {}
         clear_col = None
-        logger.get_logger().info(f'Updating left table after header change: {field}')
+        geocork_logger.get_logger().info(f'Updating left table after header change: {field}')
         # Make sure the analysis name column(s) match the data type(s) designated to this sheet
         self.ensure_left_analysis_columns(self.current_sheet_name)
         for column in range(self.left_table.columnCount()):
@@ -3438,7 +3438,7 @@ class ImportWizardDialog(QWidget):
             analysis_col = analysis_cols.get(field)
             if analysis_col is None:
                 data_type = 'U-Pb' if field == "UPb Analysis Name" else 'Geochemical'
-                logger.get_logger().warning(f'{field} mapped on {self.current_sheet_name}, which is not '
+                geocork_logger.get_logger().warning(f'{field} mapped on {self.current_sheet_name}, which is not '
                                                   f'designated as the {data_type} data sheet')
                 return
             for r in range(self.right_tables[self.current_sheet_name].model().rowCount()):
@@ -3454,15 +3454,15 @@ class ImportWizardDialog(QWidget):
                 self.left_table.blockSignals(False)
         elif field == '':
             if clear_col is None:
-                logger.get_logger().critical(f'Error clearing left table column')
-                logger.get_logger().debug(f'No column to clear for header: {left_header}')
+                geocork_logger.get_logger().critical(f'Error clearing left table column')
+                geocork_logger.get_logger().debug(f'No column to clear for header: {left_header}')
                 return
             for r in range(self.right_tables[self.current_sheet_name].model().rowCount()):
                 # Update the left table
                 self.left_table.blockSignals(True)
                 self.left_table.setItem(r, clear_col, QTableWidgetItem(''))  # Reset to blank
                 self.left_table.blockSignals(False)
-        logger.get_logger().info(f'Updated left table after header change: {field}')
+        geocork_logger.get_logger().info(f'Updated left table after header change: {field}')
         self.left_table.resizeColumnsToContents()
         self.update_left_table_row_status()
 
@@ -3492,8 +3492,8 @@ class ImportWizardDialog(QWidget):
                     configs = {}
 
         except Exception as e:
-            logger.get_logger().critical('Error loading config file')
-            logger.get_logger().debug(f'{e}')
+            geocork_logger.get_logger().critical('Error loading config file')
+            geocork_logger.get_logger().debug(f'{e}')
 
         if configs == {}:
             name, ok = QInputDialog.getText(self, "Save Mapping", "Enter a name for this mapping:")
@@ -3554,7 +3554,7 @@ class ImportWizardDialog(QWidget):
             self.load_mapping(name)
 
     def load_mapping(self, name: str = ''):
-        logger.get_logger().info("Loading Mapping")
+        geocork_logger.get_logger().info("Loading Mapping")
         # Check if columns have been added or removed between loading the file and loading the first mapping
         viewing_right_table = self.right_table
         viewing_left_table = self.left_table
@@ -3595,8 +3595,8 @@ class ImportWizardDialog(QWidget):
                 QMessageBox.warning(self, "No Mappings", "No mappings found in configuration.")
                 return
         except Exception as e:
-            logger.get_logger().critical("Error loading configuration file")
-            logger.get_logger().debug(f'{e}')
+            geocork_logger.get_logger().critical("Error loading configuration file")
+            geocork_logger.get_logger().debug(f'{e}')
             return
 
         if not name:
@@ -3606,9 +3606,9 @@ class ImportWizardDialog(QWidget):
             else:
                 return
         if not name:
-            logger.get_logger().info("No mapping selected.")
+            geocork_logger.get_logger().info("No mapping selected.")
             return
-        logger.get_logger().info(f"Loading Mapping {name}")
+        geocork_logger.get_logger().info(f"Loading Mapping {name}")
         show_loading_dialog('Loading', f'Loading mapping: {name}...')
         loaded = configs[name]
         # Preserve mappings for columns added by combo box selections
@@ -3733,7 +3733,7 @@ class ImportWizardDialog(QWidget):
         self.update_mapping_list(name, configs)
         # self.right_table.resizeColumnsToContents()
         close_loading_dialog('Loading', f'Loading mapping: {name}...')
-        logger.get_logger().info(f"Mapping {name} loaded successfully.")
+        geocork_logger.get_logger().info(f"Mapping {name} loaded successfully.")
         QMessageBox.information(self, "Loaded", f"Mapping '{name}' loaded successfully.")
         self.mapping_loaded = True
         self.current_mapping = name
@@ -3748,7 +3748,7 @@ class ImportWizardDialog(QWidget):
         :param name: key of SQLUtils.import_formats
         :param matched_sheets: {workbook sheet: template sheet} from detect_import_format
         """
-        logger.get_logger().info(f"Applying input format {name}")
+        geocork_logger.get_logger().info(f"Applying input format {name}")
         fmt = import_helper.import_formats[name]
         viewing_right_table = self.right_table
         viewing_sheet = self.current_sheet_name
@@ -3784,7 +3784,7 @@ class ImportWizardDialog(QWidget):
                 self.static_combos[key].setCurrentIndex(index)
         self.right_table = viewing_right_table
         self.current_sheet_name = viewing_sheet
-        logger.get_logger().info(f"Import format {name} applied")
+        geocork_logger.get_logger().info(f"Import format {name} applied")
         QMessageBox.information(self, "Import Format Applied",
                                 f"{name} selections applied.\n\n"
                                 f"Review the mapped (blue) columns and units/formats before validating. "
@@ -3818,7 +3818,7 @@ class ImportWizardDialog(QWidget):
         if ((not self.upb_sheet_name and not self.geochem_sheet_name) or
                 sheet_name not in [self.upb_sheet_name, self.geochem_sheet_name]):
             return empty_cells
-        logger.get_logger().info("Checking empty cells in left table")
+        geocork_logger.get_logger().info("Checking empty cells in left table")
         own_analysis_header = self.analysis_header_for(self.resolve_data_type(sheet_name, data_type))
         disabled_rows = self.right_tables[sheet_name].model().rows_for_status('disabled')
         self.left_table = self.left_tables[sheet_name]
@@ -3931,7 +3931,7 @@ class ImportWizardDialog(QWidget):
 
             if sample_name in ["", 'NULL', None]:
                 sample_item.setBackground(self.conflict_brush)
-                logger.get_logger().info(f"Sample Name empty in row {row}.")
+                geocork_logger.get_logger().info(f"Sample Name empty in row {row}.")
                 QMessageBox.warning(self, "No Sample Name",
                                     f"Please enter a Sample Name in row {row + 1} (red) or disable it before proceeding.")
                 self.left_table.scrollToItem(sample_item)
@@ -4004,7 +4004,7 @@ class ImportWizardDialog(QWidget):
         if sheet_name not in [self.upb_sheet_name, self.geochem_sheet_name] or sheet_name not in self.right_tables:
             return True
         # Look for duplicates within the left table
-        logger.get_logger().info("Checking for duplicates in left table")
+        geocork_logger.get_logger().info("Checking for duplicates in left table")
         analyses = []
         duplicates = {}
         grain_duplicates = {}
@@ -4093,7 +4093,7 @@ class ImportWizardDialog(QWidget):
                         distinct_aliquots.add(aliquot)
 
         if analysis_duplicates or spot_duplicates or grain_duplicates or aliquot_duplicates:
-            logger.get_logger().info("Duplicates found in left table")
+            geocork_logger.get_logger().info("Duplicates found in left table")
             # Highlight the duplicate cells
             self.left_table.blockSignals(True)
             for row in range(self.left_table.rowCount()):
@@ -4135,7 +4135,7 @@ class ImportWizardDialog(QWidget):
             return False
 
         # Now that there are no duplicates in the input data, look for duplicates in the database
-        logger.get_logger().info("Checking for duplicates against database")
+        geocork_logger.get_logger().info("Checking for duplicates against database")
         # Prepare SQL queries for validation with existing database values
         # Find Samples where SampleName in the database matches input SampleName
         sample_query = QSqlQuery()
@@ -4333,7 +4333,7 @@ class ImportWizardDialog(QWidget):
             self.left_table.blockSignals(False)
 
         if conflicts:
-            logger.get_logger().info("Conflict with left table values and database detected")
+            geocork_logger.get_logger().info("Conflict with left table values and database detected")
             self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[self.sheet_name]))
             message = QMessageBox()
             message.setIcon(QMessageBox.Icon.Warning)
@@ -4346,7 +4346,7 @@ class ImportWizardDialog(QWidget):
             return False
         elif any([sample_match, aliquot_match, spot_match, grain_match, analysis_match]) and not self.import_clicked:
             self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[sheet_name]))
-            logger.get_logger().info("Matches between the left table and the database detected")
+            geocork_logger.get_logger().info("Matches between the left table and the database detected")
             message = QMessageBox()
             message.setIcon(QMessageBox.Icon.Information)
             message.setWindowTitle('Potential Conflicts Detected')
@@ -4354,10 +4354,10 @@ class ImportWizardDialog(QWidget):
                             'If these matches are not intended, rename with a unique name before importing.')
             message.exec()
         elif self.import_clicked:
-            logger.get_logger().info(
+            geocork_logger.get_logger().info(
                 "Import clicked, no conflicts between the left table and the database detected")
         else:
-            logger.get_logger().info("No conflicts between the left table and the database detected")
+            geocork_logger.get_logger().info("No conflicts between the left table and the database detected")
             QMessageBox(QMessageBox.Icon.Information, f'No conflicts detected', f'No conflicts detected.')
         return True
 
@@ -4369,7 +4369,7 @@ class ImportWizardDialog(QWidget):
 
         def check_item_gps(item_gps_dictionary: str, item_import_header: str, item_db_header: str, item: str,
                            items: str):
-            logger.get_logger().info(f"Checking for duplicate {items} with different GPS coordinates")
+            geocork_logger.get_logger().info(f"Checking for duplicate {items} with different GPS coordinates")
 
             for sheet, column_mappings in self.sheet_mappings.items():
                 if sheet in [self.upb_sheet_name, self.geochem_sheet_name] and sheet in self.right_tables:
@@ -4421,16 +4421,16 @@ class ImportWizardDialog(QWidget):
                         QMessageBox(QMessageBox.Icon.Warning, f'Conflicts Detected',
                                     f'Red cells in the right table indicate GPS coordinate conflicts for the same {item_import_header}.\n\n'
                                     'Resolve these red conflicts before importing')
-                        logger.get_logger().info(
+                        geocork_logger.get_logger().info(
                             f"{items} with conflicting GPS coordinates detected in the right table")
                         # Set the current tab to the sheet with the conflict
                         self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[sheet]))
                         return False
-                    logger.get_logger().info(
+                    geocork_logger.get_logger().info(
                         f"No {items} with conflicting GPS coordinates detected in the right table")
 
                     # Now check if these items are in the database with different GPS coordinates
-                    logger.get_logger().info(
+                    geocork_logger.get_logger().info(
                         f"Checking for duplicate {items} with different GPS coordinates in the database")
                     query = QSqlQuery()
                     item_query = f'SELECT {item}GPSLocationID FROM {items} WHERE {item_db_header} = :item_name COLLATE NOCASE'
@@ -4439,18 +4439,18 @@ class ImportWizardDialog(QWidget):
                         query.prepare(item_query)
                         query.bindValue(':item_name', item_name)
                         if not query.exec(item_query):
-                            logger.get_logger().error("Error checking for duplicates in the database")
-                            logger.get_logger().debug(f"Error: {query.lastError().text()}")
-                            logger.get_logger().debug(f"SQL query: {item_query}")
+                            geocork_logger.get_logger().error("Error checking for duplicates in the database")
+                            geocork_logger.get_logger().debug(f"Error: {query.lastError().text()}")
+                            geocork_logger.get_logger().debug(f"SQL query: {item_query}")
                             return False
                         if query.next():
                             gps_id = query.value(0)
                             query.prepare(gps_query)
                             query.bindValue(':gps_id', gps_id)
                             if not query.exec(gps_query):
-                                logger.get_logger().error("Error checking for duplicates in the database")
-                                logger.get_logger().debug(f"Error: {query.lastError().text()}")
-                                logger.get_logger().debug(f"SQL query: {gps_query}")
+                                geocork_logger.get_logger().error("Error checking for duplicates in the database")
+                                geocork_logger.get_logger().debug(f"Error: {query.lastError().text()}")
+                                geocork_logger.get_logger().debug(f"SQL query: {gps_query}")
                                 return False
                             if query.next():
                                 db_gps_values = [query.value(i) for i in range(1, query.record().count()) if
@@ -4472,13 +4472,13 @@ class ImportWizardDialog(QWidget):
                         QMessageBox(QMessageBox.Icon.Warning, f'Conflicts Detected',
                                     f'Red cells in the right table indicate GPS coordinate conflicts for the same {item_import_header} with existing database entries.\n\n'
                                     'Resolve these red conflicts before importing')
-                        logger.get_logger().info(
+                        geocork_logger.get_logger().info(
                             f"{items} with conflicting GPS coordinates detected in the right table with existing database entries")
                         # Set the current tab to the sheet with the conflict
                         self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[sheet]))
                         return False
 
-                logger.get_logger().info("Checking for duplicate Columns with different GPS coordinates")
+                geocork_logger.get_logger().info("Checking for duplicate Columns with different GPS coordinates")
                 if 'Column Name' in column_mappings.values() and any(
                         import_helper.gps_possible_user_input_fields['Column GPS'].keys()):
                     column_col = list(column_mappings.keys())[list(column_mappings.values()).index('Column Name')]
@@ -4516,12 +4516,12 @@ class ImportWizardDialog(QWidget):
                         QMessageBox(QMessageBox.Icon.Warning, f'Conflicts Detected',
                                     'Red cells in the right table indicate GPS coordinate conflicts for the same Column Name.\n\n'
                                     'Resolve these red conflicts before importing')
-                        logger.get_logger().info(
+                        geocork_logger.get_logger().info(
                             "Columns with conflicting GPS coordinates detected in the right table")
                         # Set the current tab to the sheet with the conflict
                         self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[sheet]))
                         return False
-                logger.get_logger().info(
+                geocork_logger.get_logger().info(
                     "No Columns with conflicting GPS coordinates detected in the right table")
             return True
 
@@ -4943,7 +4943,7 @@ class ImportWizardDialog(QWidget):
                 continue
             self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[sheet]))
             if self.right_table != self.right_tables[sheet]:
-                logger.get_logger().critical(f"Sheet {sheet} does not match the current right table")
+                geocork_logger.get_logger().critical(f"Sheet {sheet} does not match the current right table")
                 return False
             right_cols = {'Sample Name': '', 'Aliquot Name': '', 'Spot Name': '', 'UPb Analysis Name': '',
                           'Geochemical Analysis Name': '', 'Grain Name': ''}
@@ -4992,7 +4992,7 @@ class ImportWizardDialog(QWidget):
                     if count != 0:
                         msg_text += f'\n{table}: {count}'
                 msg_text += '\n\nImport analysis data before other metadata files.'
-                logger.get_logger().error(msg_text)
+                geocork_logger.get_logger().error(msg_text)
 
         return new_analysis
 
@@ -5036,10 +5036,10 @@ class ImportWizardDialog(QWidget):
                         id_header = get_headers(static_table)[0]
                         query.prepare(f'SELECT "{id_header}", "{static_name_header}" FROM "{static_table}"')
                         if not query.exec():
-                            logger.get_logger().critical(f'Could not load values from database')
-                            logger.get_logger().debug(f'Failed to query the {static_table} values')
-                            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            geocork_logger.get_logger().critical(f'Could not load values from database')
+                            geocork_logger.get_logger().debug(f'Failed to query the {static_table} values')
+                            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                         static_values = {}
                         while query.next():
                             static_values[query.value(1)] = query.value(0)
@@ -5269,13 +5269,13 @@ class ImportWizardDialog(QWidget):
                                      'GeoChemAnalysisID': []}
             if not self.import_analyses_to_db():
                 rollback_savepoint('before_import')
-                logger.get_logger().error('Import canceled')
+                geocork_logger.get_logger().error('Import canceled')
                 self.import_clicked = False
                 return
 
         if not self.import_items_to_db(item_tables, analysis_data):
             rollback_savepoint('before_import')
-            logger.get_logger().error('Import canceled')
+            geocork_logger.get_logger().error('Import canceled')
             self.import_clicked = False
             return
 
@@ -5284,13 +5284,13 @@ class ImportWizardDialog(QWidget):
         self.imported_geochem_value_count = 0
         if analysis_data and not self.import_geochem_values_to_db():
             rollback_savepoint('before_import')
-            logger.get_logger().error('Import canceled')
+            geocork_logger.get_logger().error('Import canceled')
             self.import_clicked = False
             return
 
         if not self.import_many_to_many_to_db(many_tables):
             rollback_savepoint('before_import')
-            logger.get_logger().error('Import canceled')
+            geocork_logger.get_logger().error('Import canceled')
             self.import_clicked = False
             return
 
@@ -5316,7 +5316,7 @@ class ImportWizardDialog(QWidget):
             imported_message += f"Geochemical Analyte Values: {self.imported_geochem_value_count}\n"
         QMessageBox.information(self, "Success", imported_message)
         if not update_database():
-            logger.get_logger().critical('Error updating and displaying database')
+            geocork_logger.get_logger().critical('Error updating and displaying database')
             self.close()
         self.data_imported.emit(self.sample_ids)
         self.close()
@@ -5371,7 +5371,7 @@ class ImportWizardDialog(QWidget):
             row_count = self.right_tables[analysis_sheet].model().rowCount()
             import_count = row_count - len(disabled_rows)
             if analysis_col is None:
-                logger.get_logger().warning(f'No {analysis_header} column in the left table for {analysis_sheet}')
+                geocork_logger.get_logger().warning(f'No {analysis_header} column in the left table for {analysis_sheet}')
                 continue
 
             # Create a modal progress dialog
@@ -5412,22 +5412,22 @@ class ImportWizardDialog(QWidget):
 
                     # Find matching SampleID or create new
                     if record["Sample Name"]:
-                        logger.get_logger().info(f"Sample Name: {record['Sample Name']}")
+                        geocork_logger.get_logger().info(f"Sample Name: {record['Sample Name']}")
                         sample_query = QSqlQuery()
                         if not sample_query.prepare(
                                 'SELECT SampleID FROM Samples WHERE SampleName=:name COLLATE NOCASE'):
-                            logger.get_logger().critical(f"Error importing Sample {record['Sample Name']}")
-                            logger.get_logger().debug(f"Failed to prepare query to find sample")
-                            logger.get_logger().debug(f"Error: {sample_query.lastError().text()}")
-                            logger.get_logger().debug(f"SQL query: {sample_query.lastQuery()}")
+                            geocork_logger.get_logger().critical(f"Error importing Sample {record['Sample Name']}")
+                            geocork_logger.get_logger().debug(f"Failed to prepare query to find sample")
+                            geocork_logger.get_logger().debug(f"Error: {sample_query.lastError().text()}")
+                            geocork_logger.get_logger().debug(f"SQL query: {sample_query.lastQuery()}")
                             rollback_savepoint('before_analysis_import')
                             return False
                         sample_query.bindValue(":name", record["Sample Name"])
                         if not sample_query.exec():
-                            logger.get_logger().critical(f"Error importing Sample {record['Sample Name']}")
-                            logger.get_logger().debug(f'Failed search for sample {record["Sample Name"]}')
-                            logger.get_logger().debug(f'Error: {sample_query.lastError().text()}')
-                            logger.get_logger().debug(f'SQL query: {sample_query.executedQuery()}')
+                            geocork_logger.get_logger().critical(f"Error importing Sample {record['Sample Name']}")
+                            geocork_logger.get_logger().debug(f'Failed search for sample {record["Sample Name"]}')
+                            geocork_logger.get_logger().debug(f'Error: {sample_query.lastError().text()}')
+                            geocork_logger.get_logger().debug(f'SQL query: {sample_query.executedQuery()}')
                             rollback_savepoint('before_analysis_import')
                             return False
                         sample_id = None
@@ -5439,14 +5439,14 @@ class ImportWizardDialog(QWidget):
                             # Any overwrites have already happened, so use the ID
                             record["SampleID"] = sample_id
                             self.sample_ids.append(record["SampleID"])
-                            logger.get_logger().info(f"Existing Sample: {record["Sample Name"]}")
+                            geocork_logger.get_logger().info(f"Existing Sample: {record["Sample Name"]}")
                         else:
                             if self.conflict_mode == 'overwrite' and sample_id:
                                 # Delete the existing item first and then create a new one
                                 if not delete_data('Samples', [sample_id], enable_message=False):
-                                    logger.get_logger().critical(
+                                    geocork_logger.get_logger().critical(
                                         f'Could not overwrite existing Samples in the database')
-                                    logger.get_logger().debug(
+                                    geocork_logger.get_logger().debug(
                                         f'Failed to delete values from Samples for ID {sample_id}')
                                     rollback_savepoint('before_analysis_import')
                                     return False
@@ -5454,20 +5454,20 @@ class ImportWizardDialog(QWidget):
                             # no matching samplename in database, will create new one.
                             create_sample = QSqlQuery()
                             if not create_sample.prepare('INSERT INTO Samples (SampleName) VALUES (:name)'):
-                                logger.get_logger().critical(f"Error importing Sample {record['Sample Name']}")
-                                logger.get_logger().debug(f"Failed to prepare query to create sample")
-                                logger.get_logger().debug(f"Error: {create_sample.lastError().text()}")
-                                logger.get_logger().debug(f"SQL query: {create_sample.executedQuery()}")
+                                geocork_logger.get_logger().critical(f"Error importing Sample {record['Sample Name']}")
+                                geocork_logger.get_logger().debug(f"Failed to prepare query to create sample")
+                                geocork_logger.get_logger().debug(f"Error: {create_sample.lastError().text()}")
+                                geocork_logger.get_logger().debug(f"SQL query: {create_sample.executedQuery()}")
                                 rollback_savepoint('before_analysis_import')
                                 return False
                             create_sample.bindValue(":name", record["Sample Name"])
                             if not create_sample.exec():
                                 # if not create_sample.exec() and 'UNIQUE constraint failed' not in create_sample.lastError().text():
-                                logger.get_logger().critical(f"Error importing Sample {record['Sample Name']}")
-                                logger.get_logger().debug(f"Failed to execute query to create sample")
-                                logger.get_logger().debug(f"Error: {create_sample.lastError().text()}")
-                                logger.get_logger().debug(f"SQL query: {create_sample.executedQuery()}")
-                                logger.get_logger().debug(f"Bound values: {create_sample.boundValues()}")
+                                geocork_logger.get_logger().critical(f"Error importing Sample {record['Sample Name']}")
+                                geocork_logger.get_logger().debug(f"Failed to execute query to create sample")
+                                geocork_logger.get_logger().debug(f"Error: {create_sample.lastError().text()}")
+                                geocork_logger.get_logger().debug(f"SQL query: {create_sample.executedQuery()}")
+                                geocork_logger.get_logger().debug(f"Bound values: {create_sample.boundValues()}")
                                 rollback_savepoint('before_analysis_import')
                                 return False
                             record["SampleID"] = create_sample.lastInsertId()
@@ -5476,27 +5476,27 @@ class ImportWizardDialog(QWidget):
                             imported_names_list = imported_names['Samples']
                             imported_names_list.append(record["Sample Name"])
                             imported_names['Samples'] = imported_names_list
-                            logger.get_logger().info(f"Imported Sample: {record['Sample Name']}")
+                            geocork_logger.get_logger().info(f"Imported Sample: {record['Sample Name']}")
 
                     # Find matching Aliquot Name or create new
                     if record["Aliquot Name"] and record["SampleID"]:
-                        logger.get_logger().info(f"Aliquot Name: {record['Aliquot Name']}")
+                        geocork_logger.get_logger().info(f"Aliquot Name: {record['Aliquot Name']}")
                         aliquot_query = QSqlQuery()
                         if not aliquot_query.prepare(
                                 'SELECT AliquotID, ParentAliquotID, AliquotParentRow, SampleID FROM Aliquots WHERE AliquotName=:name COLLATE NOCASE'):
-                            logger.get_logger().critical(f"Error importing Aliquot {record['Aliquot Name']}")
-                            logger.get_logger().debug(f"Failed to prepare query to find aliquot")
-                            logger.get_logger().debug(f"Error: {aliquot_query.lastError().text()}")
-                            logger.get_logger().debug(f"SQL query: {aliquot_query.lastQuery()}")
+                            geocork_logger.get_logger().critical(f"Error importing Aliquot {record['Aliquot Name']}")
+                            geocork_logger.get_logger().debug(f"Failed to prepare query to find aliquot")
+                            geocork_logger.get_logger().debug(f"Error: {aliquot_query.lastError().text()}")
+                            geocork_logger.get_logger().debug(f"SQL query: {aliquot_query.lastQuery()}")
                             rollback_savepoint('before_analysis_import')
                             return False
                         aliquot_query.bindValue(":name", record["Aliquot Name"])
                         if not aliquot_query.exec():
-                            logger.get_logger().critical(f"Error importing Aliquot {record['Aliquot Name']}")
-                            logger.get_logger().debug(f'Failed search for aliquot {record["Aliquot Name"]}')
-                            logger.get_logger().debug(f'Error: {aliquot_query.lastError().text()}')
-                            logger.get_logger().debug(f'SQL query: {aliquot_query.executedQuery()}')
-                            logger.get_logger().debug(f'Bound values: {aliquot_query.boundValues()}')
+                            geocork_logger.get_logger().critical(f"Error importing Aliquot {record['Aliquot Name']}")
+                            geocork_logger.get_logger().debug(f'Failed search for aliquot {record["Aliquot Name"]}')
+                            geocork_logger.get_logger().debug(f'Error: {aliquot_query.lastError().text()}')
+                            geocork_logger.get_logger().debug(f'SQL query: {aliquot_query.executedQuery()}')
+                            geocork_logger.get_logger().debug(f'Bound values: {aliquot_query.boundValues()}')
                             rollback_savepoint('before_analysis_import')
                             return False
                         aliquot_id = None
@@ -5508,13 +5508,13 @@ class ImportWizardDialog(QWidget):
                             # Found matching samplename in database
                             # Any overwrites have already happened, so use the ID
                             record["AliquotID"] = aliquot_id
-                            logger.get_logger().info(f"Existing Aliquot: {record["Aliquot Name"]}")
+                            geocork_logger.get_logger().info(f"Existing Aliquot: {record["Aliquot Name"]}")
                         elif self.conflict_mode == 'overwrite' and aliquot_id:
                             # Delete the existing item first and then create a new one
                             if not delete_data('Aliquots', [aliquot_id], enable_message=False):
-                                logger.get_logger().critical(
+                                geocork_logger.get_logger().critical(
                                     f'Could not overwrite existing Aliquots in the database')
-                                logger.get_logger().debug(
+                                geocork_logger.get_logger().debug(
                                     f'Failed to delete values from Aliquots for ID {aliquot_id}')
                                 rollback_savepoint('before_analysis_import')
                                 return False
@@ -5522,7 +5522,7 @@ class ImportWizardDialog(QWidget):
                         if aliquot_id:
                             # Check that existing aliquot matches the sample ID
                             if aliquot_query.value(3) != record["SampleID"]:
-                                logger.get_logger().error(
+                                geocork_logger.get_logger().error(
                                     f'Aliquot {record["Aliquot Name"]} exists but is already associated with a different Sample.\nAliquot names must be unique.')
                                 # Highlight the cell in the left table
                                 self.left_table.item(row_idx, aliquot_col).setBackground(
@@ -5536,19 +5536,19 @@ class ImportWizardDialog(QWidget):
                             # found matching aliquot name in database, will use that aliquot ID
                             record["AliquotID"] = aliquot_query.value(0)
                             record["AliquotParentRow"] = aliquot_query.value(2)
-                            logger.get_logger().info(f"Existing Aliquot: {record['Aliquot Name']}")
+                            geocork_logger.get_logger().info(f"Existing Aliquot: {record['Aliquot Name']}")
                         else:
                             # no matching aliquot in database, will create new one.
                             # Check if the sample has other aliquots to determine the parent row
                             query = QSqlQuery()
                             if not query.exec(
                                     f'SELECT AliquotID, AliquotParentRow FROM Aliquots WHERE SampleID = {record["SampleID"]}'):
-                                logger.get_logger().critical(f'Error importing Aliquot {record["Aliquot Name"]}')
-                                logger.get_logger().debug(
+                                geocork_logger.get_logger().critical(f'Error importing Aliquot {record["Aliquot Name"]}')
+                                geocork_logger.get_logger().debug(
                                     f'Failed to query existing aliquots for sample ID {record["SampleID"]}')
-                                logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                                logger.get_logger().debug(f'values: {query.boundValues()}')
+                                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                                geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                                geocork_logger.get_logger().debug(f'values: {query.boundValues()}')
                                 rollback_savepoint('before_analysis_import')
                                 return False
                             existing_rows = []
@@ -5561,10 +5561,10 @@ class ImportWizardDialog(QWidget):
                             create_aliquot = QSqlQuery()
                             if not create_aliquot.prepare(
                                     'INSERT INTO Aliquots (AliquotName, AliquotParentRow, SampleID) VALUES (:name, :parent_row, :sample_id)'):
-                                logger.get_logger().critical(f"Error importing Aliquot {record['Aliquot Name']}")
-                                logger.get_logger().debug(f"Failed to prepare query to create aliquot")
-                                logger.get_logger().debug(f"Error: {create_aliquot.lastError().text()}")
-                                logger.get_logger().debug(f"SQL query: {create_aliquot.executedQuery()}")
+                                geocork_logger.get_logger().critical(f"Error importing Aliquot {record['Aliquot Name']}")
+                                geocork_logger.get_logger().debug(f"Failed to prepare query to create aliquot")
+                                geocork_logger.get_logger().debug(f"Error: {create_aliquot.lastError().text()}")
+                                geocork_logger.get_logger().debug(f"SQL query: {create_aliquot.executedQuery()}")
                                 rollback_savepoint('before_analysis_import')
                                 return False
                             create_aliquot.bindValue(':name', record["Aliquot Name"])
@@ -5572,11 +5572,11 @@ class ImportWizardDialog(QWidget):
                             create_aliquot.bindValue(':sample_id', record["SampleID"])
                             if not create_aliquot.exec():
                                 # if not create_aliquot.exec() and 'UNIQUE constraint failed' not in create_aliquot.lastError().text():
-                                logger.get_logger().critical(f"Error importing Aliquot {record['Aliquot Name']}")
-                                logger.get_logger().debug(f"Failed to create aliquot {record['Aliquot Name']}")
-                                logger.get_logger().debug(f"Error: {create_aliquot.lastError().text()}")
-                                logger.get_logger().debug(f"SQL query: {create_aliquot.executedQuery()}")
-                                logger.get_logger().debug(f"values: {create_aliquot.boundValues()}")
+                                geocork_logger.get_logger().critical(f"Error importing Aliquot {record['Aliquot Name']}")
+                                geocork_logger.get_logger().debug(f"Failed to create aliquot {record['Aliquot Name']}")
+                                geocork_logger.get_logger().debug(f"Error: {create_aliquot.lastError().text()}")
+                                geocork_logger.get_logger().debug(f"SQL query: {create_aliquot.executedQuery()}")
+                                geocork_logger.get_logger().debug(f"values: {create_aliquot.boundValues()}")
                                 rollback_savepoint('before_analysis_import')
                                 return False
                             record["AliquotID"] = create_aliquot.lastInsertId()
@@ -5584,27 +5584,27 @@ class ImportWizardDialog(QWidget):
                             imported_names_list = imported_names['Aliquots']
                             imported_names_list.append(record["Aliquot Name"])
                             imported_names['Aliquots'] = imported_names_list
-                            logger.get_logger().info(f"Imported Aliquot: {record['Aliquot Name']}")
+                            geocork_logger.get_logger().info(f"Imported Aliquot: {record['Aliquot Name']}")
 
                     # Find matching SpotID or create new
                     if record["Spot Name"] and record["AliquotID"]:
-                        logger.get_logger().info(f"Spot Name: {record['Spot Name']}")
+                        geocork_logger.get_logger().info(f"Spot Name: {record['Spot Name']}")
                         spot_query = QSqlQuery()
                         if not spot_query.prepare(
                                 'SELECT SpotID, AliquotID FROM Spots WHERE SpotName=:name COLLATE NOCASE'):
-                            logger.get_logger().critical(f"Error importing Spot {record['Spot Name']}")
-                            logger.get_logger().debug(f"Failed to prepare query to find spot")
-                            logger.get_logger().debug(f"Error: {spot_query.lastError().text()}")
-                            logger.get_logger().debug(f"SQL query: {spot_query.lastQuery()}")
+                            geocork_logger.get_logger().critical(f"Error importing Spot {record['Spot Name']}")
+                            geocork_logger.get_logger().debug(f"Failed to prepare query to find spot")
+                            geocork_logger.get_logger().debug(f"Error: {spot_query.lastError().text()}")
+                            geocork_logger.get_logger().debug(f"SQL query: {spot_query.lastQuery()}")
                             rollback_savepoint('before_analysis_import')
                             return False
                         spot_query.bindValue(':name', record["Spot Name"])
                         if not spot_query.exec():
-                            logger.get_logger().critical(f"Error importing Spot {record['Spot Name']}")
-                            logger.get_logger().debug(f'Failed search for spot {record["Spot Name"]}')
-                            logger.get_logger().debug(f'Error: {spot_query.lastError().text()}')
-                            logger.get_logger().debug(f'SQL query: {spot_query.executedQuery()}')
-                            logger.get_logger().debug(f'values: {spot_query.boundValues()}')
+                            geocork_logger.get_logger().critical(f"Error importing Spot {record['Spot Name']}")
+                            geocork_logger.get_logger().debug(f'Failed search for spot {record["Spot Name"]}')
+                            geocork_logger.get_logger().debug(f'Error: {spot_query.lastError().text()}')
+                            geocork_logger.get_logger().debug(f'SQL query: {spot_query.executedQuery()}')
+                            geocork_logger.get_logger().debug(f'values: {spot_query.boundValues()}')
                             rollback_savepoint('before_analysis_import')
                             return False
                         spot_id = None
@@ -5616,13 +5616,13 @@ class ImportWizardDialog(QWidget):
                             # Found matching samplename in database
                             # Any overwrites have already happened, so use the ID
                             record["SpotID"] = spot_id
-                            logger.get_logger().info(f"Existing Spot: {record["Spot Name"]}")
+                            geocork_logger.get_logger().info(f"Existing Spot: {record["Spot Name"]}")
                         elif self.conflict_mode == 'overwrite' and spot_id:
                             # Delete the existing item first and then create a new one
                             if not delete_data('Spots', [spot_id], enable_message=False):
-                                logger.get_logger().critical(
+                                geocork_logger.get_logger().critical(
                                     f'Could not overwrite existing Spots in the database')
-                                logger.get_logger().debug(
+                                geocork_logger.get_logger().debug(
                                     f'Failed to delete values from Spots for ID {spot_id}')
                                 rollback_savepoint('before_analysis_import')
                                 return False
@@ -5630,7 +5630,7 @@ class ImportWizardDialog(QWidget):
                         if spot_id:
                             # Check that existing spot matches the aliquot ID
                             if spot_query.value(1) != record["AliquotID"]:
-                                logger.get_logger().error(
+                                geocork_logger.get_logger().error(
                                     f'Spot {record["Spot Name"]} exists but is already associated with a different Aliquot.\nSpot names must be unique.')
                                 # Highlight the cell in the left table
                                 self.left_table.item(row_idx, spot_col).setBackground(self.conflict_brush)  # Light red
@@ -5642,27 +5642,27 @@ class ImportWizardDialog(QWidget):
                                 return False
                             # found matching spot name in database, will use that spot ID
                             record["SpotID"] = spot_query.value(0)
-                            logger.get_logger().info(f"Existing Spot: {record['Spot Name']}")
+                            geocork_logger.get_logger().info(f"Existing Spot: {record['Spot Name']}")
                         else:
                             # no matching spot name in database, will create new one.
                             create_spot = QSqlQuery()
                             if not create_spot.prepare(
                                     'INSERT INTO Spots (SpotName, AliquotID) VALUES (:name, :aliquot_id)'):
-                                logger.get_logger().critical(f"Error importing Spot {record['Spot Name']}")
-                                logger.get_logger().debug(f"Failed to prepare query to create spot")
-                                logger.get_logger().debug(f"Error: {create_spot.lastError().text()}")
-                                logger.get_logger().debug(f"SQL query: {create_spot.executedQuery()}")
+                                geocork_logger.get_logger().critical(f"Error importing Spot {record['Spot Name']}")
+                                geocork_logger.get_logger().debug(f"Failed to prepare query to create spot")
+                                geocork_logger.get_logger().debug(f"Error: {create_spot.lastError().text()}")
+                                geocork_logger.get_logger().debug(f"SQL query: {create_spot.executedQuery()}")
                                 rollback_savepoint('before_analysis_import')
                                 return False
                             create_spot.bindValue(':name', record["Spot Name"])
                             create_spot.bindValue(':aliquot_id', record["AliquotID"])
                             if not create_spot.exec():
                                 # if not create_spot.exec() and 'UNIQUE constraint failed' not in create_spot.lastError().text():
-                                logger.get_logger().critical(f"Error importing {record['Spot Name']}")
-                                logger.get_logger().debug(f"Failed to execute query to create spot")
-                                logger.get_logger().debug(f"Error: {create_spot.lastError().text()}")
-                                logger.get_logger().debug(f"SQL query: {create_spot.executedQuery()}")
-                                logger.get_logger().debug(f"values: {create_spot.boundValues()}")
+                                geocork_logger.get_logger().critical(f"Error importing {record['Spot Name']}")
+                                geocork_logger.get_logger().debug(f"Failed to execute query to create spot")
+                                geocork_logger.get_logger().debug(f"Error: {create_spot.lastError().text()}")
+                                geocork_logger.get_logger().debug(f"SQL query: {create_spot.executedQuery()}")
+                                geocork_logger.get_logger().debug(f"values: {create_spot.boundValues()}")
                                 rollback_savepoint('before_analysis_import')
                                 return False
                             record["SpotID"] = create_spot.lastInsertId()
@@ -5670,25 +5670,25 @@ class ImportWizardDialog(QWidget):
                             imported_names_list = imported_names['Spots']
                             imported_names_list.append(record["Spot Name"])
                             imported_names['Spots'] = imported_names_list
-                            logger.get_logger().info(f"Imported Spot: {record['Spot Name']}")
+                            geocork_logger.get_logger().info(f"Imported Spot: {record['Spot Name']}")
 
                     # Find matching GrainID or create new
                     if record["Grain Name"] and record["SpotID"]:
-                        logger.get_logger().info(f"Grain Name: {record['Grain Name']}")
+                        geocork_logger.get_logger().info(f"Grain Name: {record['Grain Name']}")
                         grain_query = QSqlQuery()
                         if not grain_query.prepare('SELECT GrainID FROM Grains WHERE GrainName=:name COLLATE NOCASE'):
-                            logger.get_logger().critical(f"Error importing Grain {record['Grain Name']}")
-                            logger.get_logger().debug(f"Failed to prepare query to find Grain")
-                            logger.get_logger().debug(f"Error: {grain_query.lastError().text()}")
-                            logger.get_logger().debug(f"SQL query: {grain_query.lastQuery()}")
+                            geocork_logger.get_logger().critical(f"Error importing Grain {record['Grain Name']}")
+                            geocork_logger.get_logger().debug(f"Failed to prepare query to find Grain")
+                            geocork_logger.get_logger().debug(f"Error: {grain_query.lastError().text()}")
+                            geocork_logger.get_logger().debug(f"SQL query: {grain_query.lastQuery()}")
                             rollback_savepoint('before_analysis_import')
                             return False
                         grain_query.bindValue(':name', record["Grain Name"])
                         if not grain_query.exec():
-                            logger.get_logger().critical(f"Error importing Grain {record['Grain Name']}")
-                            logger.get_logger().debug(f"Error searching for existing Grain")
-                            logger.get_logger().debug(f"Error: {grain_query.lastError().text()}")
-                            logger.get_logger().debug(f"SQL query: {grain_query.lastQuery()}")
+                            geocork_logger.get_logger().critical(f"Error importing Grain {record['Grain Name']}")
+                            geocork_logger.get_logger().debug(f"Error searching for existing Grain")
+                            geocork_logger.get_logger().debug(f"Error: {grain_query.lastError().text()}")
+                            geocork_logger.get_logger().debug(f"SQL query: {grain_query.lastQuery()}")
                             rollback_savepoint('before_analysis_import')
                             return False
                         grain_id = None
@@ -5700,13 +5700,13 @@ class ImportWizardDialog(QWidget):
                             # Found matching name in database
                             # Any overwrites have already happened, so use the ID
                             record["GrainID"] = grain_id
-                            logger.get_logger().info(f"Existing Grain: {record["Grain Name"]}")
+                            geocork_logger.get_logger().info(f"Existing Grain: {record["Grain Name"]}")
                         elif self.conflict_mode == 'overwrite' and grain_id:
                             # Delete the existing item first and then create a new one
                             if not delete_data('Grains', [grain_id], enable_message=False):
-                                logger.get_logger().critical(
+                                geocork_logger.get_logger().critical(
                                     f'Could not overwrite existing Grains in the database')
-                                logger.get_logger().debug(
+                                geocork_logger.get_logger().debug(
                                     f'Failed to delete values from Grains for ID {grain_id}')
                                 rollback_savepoint('before_analysis_import')
                                 return False
@@ -5716,23 +5716,23 @@ class ImportWizardDialog(QWidget):
                             spot_grain_query = QSqlQuery()
                             if not spot_grain_query.prepare(
                                     'SELECT SpotID, AliquotID FROM Spots WHERE GrainID=:grainID'):
-                                logger.get_logger().critical(f"Error importing Grain {record['Grain Name']}")
-                                logger.get_logger().debug(f"Failed to prepare query to find Grain")
-                                logger.get_logger().debug(f"Error: {spot_grain_query.lastError().text()}")
-                                logger.get_logger().debug(f"SQL query: {spot_grain_query.lastQuery()}")
+                                geocork_logger.get_logger().critical(f"Error importing Grain {record['Grain Name']}")
+                                geocork_logger.get_logger().debug(f"Failed to prepare query to find Grain")
+                                geocork_logger.get_logger().debug(f"Error: {spot_grain_query.lastError().text()}")
+                                geocork_logger.get_logger().debug(f"SQL query: {spot_grain_query.lastQuery()}")
                                 rollback_savepoint('before_analysis_import')
                                 return False
                             spot_grain_query.bindValue(':grainID', grain_id)
                             if not spot_grain_query.exec():
-                                logger.get_logger().critical(f"Error importing Grain {record['Grain Name']}")
-                                logger.get_logger().debug(f"Error searching for existing Grain")
-                                logger.get_logger().debug(f"Error: {spot_grain_query.lastError().text()}")
-                                logger.get_logger().debug(f"SQL query: {spot_grain_query.lastQuery()}")
+                                geocork_logger.get_logger().critical(f"Error importing Grain {record['Grain Name']}")
+                                geocork_logger.get_logger().debug(f"Error searching for existing Grain")
+                                geocork_logger.get_logger().debug(f"Error: {spot_grain_query.lastError().text()}")
+                                geocork_logger.get_logger().debug(f"SQL query: {spot_grain_query.lastQuery()}")
                                 rollback_savepoint('before_analysis_import')
                                 return False
                             while spot_grain_query.next():
                                 if spot_grain_query.value(1) != record["AliquotID"]:
-                                    logger.get_logger().error(
+                                    geocork_logger.get_logger().error(
                                         f'Grain {record["Grain Name"]} exists but is already associated with Spots from a different aliquot.\nGrain names must be unique.')
                                     # Highlight the cell in the left table
                                     self.left_table.item(row_idx, grain_col).setBackground(
@@ -5744,29 +5744,29 @@ class ImportWizardDialog(QWidget):
                                     rollback_savepoint('before_analysis_import')
                                     return False
                             record["GrainID"] = grain_id
-                            logger.get_logger().info(f"Existing Grain: {record['Grain Name']}")
+                            geocork_logger.get_logger().info(f"Existing Grain: {record['Grain Name']}")
                         else:
                             insert_sql = f"INSERT INTO Grains (GrainName) VALUES (:grain_name)"
                             insert_query = QSqlQuery()
                             if not insert_query.prepare(insert_sql):
-                                logger.get_logger().critical(
+                                geocork_logger.get_logger().critical(
                                     f"Error importing Grain {record['Grain Name']}")
-                                logger.get_logger().debug(
+                                geocork_logger.get_logger().debug(
                                     f"Failed to prepare data for grain {record['Grain Name']}")
-                                logger.get_logger().debug(f"Error: {insert_query.lastError().text()}")
-                                logger.get_logger().debug(f"SQL query: {insert_query.executedQuery()}")
+                                geocork_logger.get_logger().debug(f"Error: {insert_query.lastError().text()}")
+                                geocork_logger.get_logger().debug(f"SQL query: {insert_query.executedQuery()}")
                                 rollback_savepoint('before_analysis_import')
                                 return False
                             insert_query.bindValue(':grain_name', record["Grain Name"])
                             if not insert_query.exec():
                                 # if not insert_query.exec() and 'UNIQUE constraint failed' not in insert_query.lastError().text():
-                                logger.get_logger().critical(
+                                geocork_logger.get_logger().critical(
                                     f"Error importing Grain {record['Grain Name']}")
-                                logger.get_logger().debug(
+                                geocork_logger.get_logger().debug(
                                     f"Failed to insert data for grain {record['Grain Name']}")
-                                logger.get_logger().debug(f"Error: {insert_query.lastError().text()}")
-                                logger.get_logger().debug(f"SQL query: {insert_query.executedQuery()}")
-                                logger.get_logger().debug(f"Values: {insert_query.boundValues()}")
+                                geocork_logger.get_logger().debug(f"Error: {insert_query.lastError().text()}")
+                                geocork_logger.get_logger().debug(f"SQL query: {insert_query.executedQuery()}")
+                                geocork_logger.get_logger().debug(f"Values: {insert_query.boundValues()}")
                                 rollback_savepoint('before_analysis_import')
                                 return False
                             grain_id = insert_query.lastInsertId()
@@ -5774,52 +5774,52 @@ class ImportWizardDialog(QWidget):
                             update_sql = "UPDATE Spots SET GrainID=:grain_id WHERE SpotID=:spot_id"
                             update_query = QSqlQuery()
                             if not update_query.prepare(update_sql):
-                                logger.get_logger().critical(
+                                geocork_logger.get_logger().critical(
                                     f"Error importing Grain {record['Grain Name']}")
-                                logger.get_logger().debug(
+                                geocork_logger.get_logger().debug(
                                     f"Failed to prepare data for spot {record['Spot Name']}")
-                                logger.get_logger().debug(f"Error: {insert_query.lastError().text()}")
-                                logger.get_logger().debug(f"SQL query: {insert_query.executedQuery()}")
+                                geocork_logger.get_logger().debug(f"Error: {insert_query.lastError().text()}")
+                                geocork_logger.get_logger().debug(f"SQL query: {insert_query.executedQuery()}")
                                 rollback_savepoint('before_analysis_import')
                                 return False
                             update_query.bindValue(':grain_id', record["GrainID"])
                             update_query.bindValue(':spot_id', record["SpotID"])
                             if not update_query.exec():
-                                logger.get_logger().critical(
+                                geocork_logger.get_logger().critical(
                                     f"Error importing Grain {record['Grain Name']}")
-                                logger.get_logger().debug(
+                                geocork_logger.get_logger().debug(
                                     f"Failed to insert grain data for spot {record['Spot Name']}")
-                                logger.get_logger().debug(f"Error: {insert_query.lastError().text()}")
-                                logger.get_logger().debug(f"SQL query: {insert_query.executedQuery()}")
-                                logger.get_logger().debug(f"Values: {insert_query.boundValues()}")
+                                geocork_logger.get_logger().debug(f"Error: {insert_query.lastError().text()}")
+                                geocork_logger.get_logger().debug(f"SQL query: {insert_query.executedQuery()}")
+                                geocork_logger.get_logger().debug(f"Values: {insert_query.boundValues()}")
                                 rollback_savepoint('before_analysis_import')
                                 return False
                             self.analysis_imports['GrainID'].append(record["GrainID"])
                             imported_names_list = imported_names['Grains']
                             imported_names_list.append(record["Grain Name"])
                             imported_names['Grains'] = imported_names_list
-                            logger.get_logger().info(f"Imported Grain: {record['Grain Name']}")
+                            geocork_logger.get_logger().info(f"Imported Grain: {record['Grain Name']}")
 
                     # Find matching AnalysisID or create new
                     if record[analysis_header] and record["SpotID"]:
-                        logger.get_logger().info(f"{analysis_header}: {record[analysis_header]}")
+                        geocork_logger.get_logger().info(f"{analysis_header}: {record[analysis_header]}")
                         analysis_query = QSqlQuery()
                         if not analysis_query.prepare(
                                 f'SELECT {analysis_id_header}, SpotID FROM {analysis_table} WHERE {analysis_name_header}=:name COLLATE NOCASE'):
-                            logger.get_logger().critical(
+                            geocork_logger.get_logger().critical(
                                 f"Error importing {analysis_table} {record[analysis_header]}")
-                            logger.get_logger().debug(f"Failed to prepare query to find {analysis_table}")
-                            logger.get_logger().debug(f"Error: {analysis_query.lastError().text()}")
-                            logger.get_logger().debug(f"SQL query: {analysis_query.lastQuery()}")
+                            geocork_logger.get_logger().debug(f"Failed to prepare query to find {analysis_table}")
+                            geocork_logger.get_logger().debug(f"Error: {analysis_query.lastError().text()}")
+                            geocork_logger.get_logger().debug(f"SQL query: {analysis_query.lastQuery()}")
                             rollback_savepoint('before_analysis_import')
                             return False
                         analysis_query.bindValue(':name', record[analysis_header])
                         if not analysis_query.exec():
-                            logger.get_logger().critical(f"Error importing {record[analysis_header]}")
-                            logger.get_logger().debug(f"Error searching for existing {analysis_table}")
-                            logger.get_logger().debug(f"Error: {analysis_query.lastError().text()}")
-                            logger.get_logger().debug(f"SQL query: {analysis_query.executedQuery()}")
-                            logger.get_logger().debug(f"Bound values: {analysis_query.boundValues()}")
+                            geocork_logger.get_logger().critical(f"Error importing {record[analysis_header]}")
+                            geocork_logger.get_logger().debug(f"Error searching for existing {analysis_table}")
+                            geocork_logger.get_logger().debug(f"Error: {analysis_query.lastError().text()}")
+                            geocork_logger.get_logger().debug(f"SQL query: {analysis_query.executedQuery()}")
+                            geocork_logger.get_logger().debug(f"Bound values: {analysis_query.boundValues()}")
                             rollback_savepoint('before_analysis_import')
                             return False
                         analysis_id = None
@@ -5831,13 +5831,13 @@ class ImportWizardDialog(QWidget):
                             # Found matching name in database
                             # Any overwrites have already happened, so use the ID
                             record[analysis_id_header] = analysis_id
-                            logger.get_logger().info(f"Existing {analysis_table}: {record[analysis_header]}")
+                            geocork_logger.get_logger().info(f"Existing {analysis_table}: {record[analysis_header]}")
                         elif self.conflict_mode == 'overwrite' and analysis_id:
                             # Delete the existing item first and then create a new one
                             if not delete_data(analysis_table, [analysis_id], enable_message=False):
-                                logger.get_logger().critical(
+                                geocork_logger.get_logger().critical(
                                     f'Could not overwrite existing {analysis_table} in the database')
-                                logger.get_logger().debug(
+                                geocork_logger.get_logger().debug(
                                     f'Failed to delete values from {analysis_table} for ID {analysis_id}')
                                 rollback_savepoint('before_analysis_import')
                                 return False
@@ -5845,7 +5845,7 @@ class ImportWizardDialog(QWidget):
                         if analysis_id:
                             # Check that existing Analysis matches the spot ID
                             if analysis_query.value(1) != record["SpotID"]:
-                                logger.get_logger().error(
+                                geocork_logger.get_logger().error(
                                     f'{analysis_table} {record[analysis_header]} exists but is already associated with a different Spot.\nAnalysis names must be unique.')
                                 # Highlight the cell in the left table
                                 self.left_table.item(row_idx, analysis_col).setBackground(
@@ -5858,32 +5858,32 @@ class ImportWizardDialog(QWidget):
                                 return False
                             # found matching Analysis name in database, will use that Analysis ID
                             record[analysis_id_header] = analysis_query.value(0)
-                            logger.get_logger().info(f"Existing {analysis_table}: {record[analysis_header]}")
+                            geocork_logger.get_logger().info(f"Existing {analysis_table}: {record[analysis_header]}")
                         else:
                             record[analysis_id_header] = None
                         if not record[analysis_id_header]:
                             insert_sql = f'INSERT INTO {analysis_table} ({analysis_name_header}, SpotID) VALUES (:name, :spot_id)'
                             insert_query = QSqlQuery()
                             if not insert_query.prepare(insert_sql):
-                                logger.get_logger().critical(
+                                geocork_logger.get_logger().critical(
                                     f"Error importing {analysis_table} {record[analysis_header]}")
-                                logger.get_logger().debug(
+                                geocork_logger.get_logger().debug(
                                     f"Failed to prepare data for spot {record['Spot Name']}")
-                                logger.get_logger().debug(f"Error: {insert_query.lastError().text()}")
-                                logger.get_logger().debug(f"SQL query: {insert_query.executedQuery()}")
+                                geocork_logger.get_logger().debug(f"Error: {insert_query.lastError().text()}")
+                                geocork_logger.get_logger().debug(f"SQL query: {insert_query.executedQuery()}")
                                 rollback_savepoint('before_analysis_import')
                                 return False
                             insert_query.bindValue(':name', record[analysis_header])
                             insert_query.bindValue(':spot_id', record["SpotID"])
                             if not insert_query.exec():
                                 # if not insert_query.exec() and 'UNIQUE constraint failed' not in insert_query.lastError().text():
-                                logger.get_logger().critical(
+                                geocork_logger.get_logger().critical(
                                     f"Error importing {analysis_table} {record[analysis_header]}")
-                                logger.get_logger().debug(
+                                geocork_logger.get_logger().debug(
                                     f"Failed to insert UPb data for spot {record['Spot Name']}")
-                                logger.get_logger().debug(f"Error: {insert_query.lastError().text()}")
-                                logger.get_logger().debug(f"SQL query: {insert_query.executedQuery()}")
-                                logger.get_logger().debug(f"Values: {insert_query.boundValues()}")
+                                geocork_logger.get_logger().debug(f"Error: {insert_query.lastError().text()}")
+                                geocork_logger.get_logger().debug(f"SQL query: {insert_query.executedQuery()}")
+                                geocork_logger.get_logger().debug(f"Values: {insert_query.boundValues()}")
                                 rollback_savepoint('before_analysis_import')
                                 return False
 
@@ -5892,16 +5892,16 @@ class ImportWizardDialog(QWidget):
                             imported_names_list = imported_names[analysis_table]
                             imported_names_list.append(record[analysis_header])
                             imported_names[analysis_table] = imported_names_list
-                            logger.get_logger().info(f"Imported analysis_table: {record[analysis_header]}")
+                            geocork_logger.get_logger().info(f"Imported analysis_table: {record[analysis_header]}")
 
                             inserted_count += 1
 
             except Exception as e:
-                logger.get_logger().debug(f"Error: {e}")
+                geocork_logger.get_logger().debug(f"Error: {e}")
                 rollback_savepoint('before_analysis_import')
                 return False
             # QSqlDatabase().commit()
-            logger.get_logger().info(f"Imported {inserted_count} {analysis_table}")
+            geocork_logger.get_logger().info(f"Imported {inserted_count} {analysis_table}")
         release_savepoint('before_analysis_import')
         return True
 
@@ -5980,7 +5980,7 @@ class ImportWizardDialog(QWidget):
 
         self.item_ids = {}
         item_data = {}
-        logger.get_logger().info(f'Organizing data for input')
+        geocork_logger.get_logger().info(f'Organizing data for input')
         for table in item_tables:
             organize_count += 1
             organize_progress_dialog.setValue(organize_count)
@@ -5988,7 +5988,7 @@ class ImportWizardDialog(QWidget):
             QApplication.processEvents()
             # If the user clicked "Cancel", we can break out
             if organize_progress_dialog.wasCanceled():
-                logger.get_logger().info('Canceled organizing data')
+                geocork_logger.get_logger().info('Canceled organizing data')
                 return False
             # Check if any columns are mapped to this table in any sheet
             if table == 'SampleGPSLocations':
@@ -6000,9 +6000,9 @@ class ImportWizardDialog(QWidget):
             else:
                 db_table = table
                 prefix = None
-            logger.get_logger().info(f'Importing tags for {table}')
+            geocork_logger.get_logger().info(f'Importing tags for {table}')
             for sheet, column_mappings in self.sheet_mappings.items():
-                logger.get_logger().info(f'Importing tags for {table} from sheet {sheet}')
+                geocork_logger.get_logger().info(f'Importing tags for {table} from sheet {sheet}')
                 if column_mappings:
                     for column, field in column_mappings.items():
                         # retrieve the table the field represents
@@ -6060,13 +6060,13 @@ class ImportWizardDialog(QWidget):
             QApplication.processEvents()
             # If the user clicked "Cancel", we can break out
             if import_progress_dialog.wasCanceled():
-                logger.get_logger().info('Canceled importing data')
+                geocork_logger.get_logger().info('Canceled importing data')
                 rollback_savepoint('before_import_items')
                 return False
             if table == 'GeoChemicalAnalysisValues':
                 # One row per analysis per analyte with no name column; handled by import_geochem_values_to_db
                 continue
-            logger.get_logger().info(f'Importing {table}')
+            geocork_logger.get_logger().info(f'Importing {table}')
             table_name_columns = {}
             if table == 'SampleGPSLocations' or table == 'ColumnGPSLocations':
                 db_table = 'GPSLocations'
@@ -6079,9 +6079,9 @@ class ImportWizardDialog(QWidget):
             item_data[table] = {}
             foreign_keys = {}
             if not query.exec(f'PRAGMA foreign_key_list("{db_table}")'):
-                logger.get_logger().critical(f'Could not retrieve related table info for {table}')
-                logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                geocork_logger.get_logger().critical(f'Could not retrieve related table info for {table}')
+                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 rollback_savepoint('before_import_items')
                 import_progress_dialog.close()
                 return False
@@ -6135,8 +6135,8 @@ class ImportWizardDialog(QWidget):
                             # are not gathered twice under different parents
                             break
                     if not name_columns:
-                        logger.get_logger().critical(f"Unknown mapping for table {table} items")
-                        logger.get_logger().debug(
+                        geocork_logger.get_logger().critical(f"Unknown mapping for table {table} items")
+                        geocork_logger.get_logger().debug(
                             f"Could not find a parent name column for {table} in sheet {sheet}. "
                             f"Possible parents: {parent_tables}; checked: {checked_parent_headers or 'none mapped in this sheet'}")
                         rollback_savepoint('before_import_items')
@@ -6144,7 +6144,7 @@ class ImportWizardDialog(QWidget):
                         return False
                 if name_header and not search_dictionary(self.item_ids[table][sheet], name_header):
                     # This table requires a name column, but none of the mapped columns correspond to the name column
-                    logger.get_logger().error(
+                    geocork_logger.get_logger().error(
                         f'Cannot input info into {table} without a value for the {name_header} field in sheet {sheet}')
                     rollback_savepoint('before_import_items')
                     self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[sheet]))
@@ -6159,7 +6159,7 @@ class ImportWizardDialog(QWidget):
                         continue
                     for name_column in name_columns:
                         item_name = self.right_tables[sheet].model().index(row, name_column).data()
-                        logger.get_logger().info(
+                        geocork_logger.get_logger().info(
                             f'Gathering data for {table} item "{item_name}" from sheet {sheet}, row {row}')
                         item_id = None
                         if item_name in ['NULL', '', None]:
@@ -6268,7 +6268,7 @@ class ImportWizardDialog(QWidget):
                                                         column_data = column_lookup[row_name]
                                                         break
                                             if column_data == 'NULL' and foreign_name_item:
-                                                logger.get_logger().warning(
+                                                geocork_logger.get_logger().warning(
                                                     f'No {search_table} entry found for {table} "{item_name}" in sheet {sheet}; '
                                                     f'{item_header} will be left empty')
                                     elif item_header in combo_values:
@@ -6322,7 +6322,7 @@ class ImportWizardDialog(QWidget):
                 QApplication.processEvents()
                 # If the user clicked "Cancel", we can break out
                 if item_progress_dialog.wasCanceled():
-                    logger.get_logger().info('Canceled importing data')
+                    geocork_logger.get_logger().info('Canceled importing data')
                     rollback_savepoint('before_import_items')
                     item_progress_dialog.close()
                     import_progress_dialog.close()
@@ -6351,11 +6351,11 @@ class ImportWizardDialog(QWidget):
                                        for header, value in input_values.items()
                                        if header not in foreign_keys and 'ID' not in header)
                     if not has_gps_data:
-                        logger.get_logger().info(f'No GPS data for {table} entry "{item_name}", skipping')
+                        geocork_logger.get_logger().info(f'No GPS data for {table} entry "{item_name}", skipping')
                         continue
                     gps_format_id = self.determine_gps_format(input_values)
                     if not gps_format_id:
-                        logger.get_logger().error(
+                        geocork_logger.get_logger().error(
                             f'Could not determine GPS format for {table} entry "{item_name}". '
                             f'Check that latitude/longitude (or UTM) values are present for this entry')
                         rollback_savepoint('before_import_items')
@@ -6382,21 +6382,21 @@ class ImportWizardDialog(QWidget):
                     if name:
                         search_query = f'SELECT {get_headers(db_table)[0]} FROM "{db_table}" WHERE "{db_name_header}"=:name COLLATE NOCASE'
                         if not query.prepare(search_query):
-                            logger.get_logger().critical(f'Error importing {table} entry')
-                            logger.get_logger().debug(f'Failed to prepare query to find existing item')
-                            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            geocork_logger.get_logger().critical(f'Error importing {table} entry')
+                            geocork_logger.get_logger().debug(f'Failed to prepare query to find existing item')
+                            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                             rollback_savepoint('before_import_items')
                             item_progress_dialog.close()
                             import_progress_dialog.close()
                             return False
                         query.bindValue(':name', name)
                         if not query.exec():
-                            logger.get_logger().critical(f'Could not search for existing {table} in database')
-                            logger.get_logger().debug(f'Failed to query the {table} values')
-                            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                            logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+                            geocork_logger.get_logger().critical(f'Could not search for existing {table} in database')
+                            geocork_logger.get_logger().debug(f'Failed to query the {table} values')
+                            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                             rollback_savepoint('before_import_items')
                             item_progress_dialog.close()
                             import_progress_dialog.close()
@@ -6424,10 +6424,10 @@ class ImportWizardDialog(QWidget):
                             # All values are null, so skip this entry
                             continue
                         if not query.prepare(search_query):
-                            logger.get_logger().critical(f'Error importing {table} entry')
-                            logger.get_logger().debug(f'Failed to prepare query to find existing item')
-                            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            geocork_logger.get_logger().critical(f'Error importing {table} entry')
+                            geocork_logger.get_logger().debug(f'Failed to prepare query to find existing item')
+                            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                             rollback_savepoint('before_import_items')
                             item_progress_dialog.close()
                             import_progress_dialog.close()
@@ -6438,11 +6438,11 @@ class ImportWizardDialog(QWidget):
                                 if value not in ['NULL', '', None]:
                                     query.bindValue(f':{column_name}', value)
                         if not query.exec():
-                            logger.get_logger().critical(f'Could not search for existing {table} in database')
-                            logger.get_logger().debug(f'Failed to query the {table} values')
-                            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                            logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+                            geocork_logger.get_logger().critical(f'Could not search for existing {table} in database')
+                            geocork_logger.get_logger().debug(f'Failed to query the {table} values')
+                            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                             rollback_savepoint('before_import_items')
                             item_progress_dialog.close()
                             import_progress_dialog.close()
@@ -6468,7 +6468,7 @@ class ImportWizardDialog(QWidget):
                         if self.conflict_mode == 'skip' and not (get_headers(table)[0] in self.analysis_imports and
                                                                  item_id in self.analysis_imports[
                                                                      get_headers(table)[0]]):
-                            logger.get_logger().info(f'Skipping duplicate {table} "{name}"')
+                            geocork_logger.get_logger().info(f'Skipping duplicate {table} "{name}"')
                             for sheet in self.item_ids[table]:
                                 for column, header in self.item_ids[table][sheet].items():
                                     header_name = list(header.keys())[0]
@@ -6485,12 +6485,12 @@ class ImportWizardDialog(QWidget):
                             if table not in ['Samples', 'Aliquots', 'Grains', 'Spots', 'UPbAnalyses',
                                              'GeoChemicalAnalyses']:
                                 # not already handled in import_analysis_to_db method above
-                                logger.get_logger().info(f'Overwriting existing {table} "{name}"')
+                                geocork_logger.get_logger().info(f'Overwriting existing {table} "{name}"')
                                 # Delete the existing item and re-insert it
                                 if not delete_data(table, [item_id], enable_message=False):
-                                    logger.get_logger().critical(
+                                    geocork_logger.get_logger().critical(
                                         f'Could not overwrite existing {table} in the database')
-                                    logger.get_logger().debug(
+                                    geocork_logger.get_logger().debug(
                                         f'Failed to delete values from {table} for ID {item_id}')
                                     rollback_savepoint('before_import_items')
                                     item_progress_dialog.close()
@@ -6505,20 +6505,20 @@ class ImportWizardDialog(QWidget):
                             query_column_list = ', '.join([f'"{col}"' for col in query_columns])
                             existing_query = f'SELECT {query_column_list} FROM "{db_table}" WHERE "{get_headers(db_table)[0]}" = {item_id}'
                             if not query.prepare(existing_query):
-                                logger.get_logger().critical(f'Error importing {table} "{name}"')
-                                logger.get_logger().debug(f'Failed to prepare query to find existing item values')
-                                logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                                geocork_logger.get_logger().critical(f'Error importing {table} "{name}"')
+                                geocork_logger.get_logger().debug(f'Failed to prepare query to find existing item values')
+                                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                                geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                                 rollback_savepoint('before_import_items')
                                 item_progress_dialog.close()
                                 import_progress_dialog.close()
                                 return False
                             if not query.exec():
-                                logger.get_logger().critical(f'Error importing {table} "{name}"')
-                                logger.get_logger().debug(f'Failed to query the {table} values')
-                                logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                                logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+                                geocork_logger.get_logger().critical(f'Error importing {table} "{name}"')
+                                geocork_logger.get_logger().debug(f'Failed to query the {table} values')
+                                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                                geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                                geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                                 rollback_savepoint('before_import_items')
                                 item_progress_dialog.close()
                                 import_progress_dialog.close()
@@ -6532,7 +6532,7 @@ class ImportWizardDialog(QWidget):
                                         existing_values[col_name] = query.value(col_idx)
                             if existing_values == input_values:
                                 # All values are identical, so update the ID in all mapping places and move on
-                                logger.get_logger().info(f'Skipping identical existing {table} "{name}"')
+                                geocork_logger.get_logger().info(f'Skipping identical existing {table} "{name}"')
                                 for sheet in self.item_ids[table]:
                                     for column, header in self.item_ids[table][sheet].items():
                                         header_name = list(header.keys())[0]
@@ -6564,7 +6564,7 @@ class ImportWizardDialog(QWidget):
                                                 existing_name = get_name_from_id(unit_format_table,
                                                                                  existing_values[column])
                                                 input_name = get_name_from_id(unit_format_table, input_values[column])
-                                                logger.get_logger().error(
+                                                geocork_logger.get_logger().error(
                                                     f'{name_header} already has values with {column.replace('ID', '')} = {existing_name}, but importing values with {column.replace('ID', '')} = {input_name}\n\nImport conflict mode "add to" requires that additional data be in the same format as existing data')
                                                 rollback_savepoint('before_import_items')
                                                 item_progress_dialog.close()
@@ -6581,8 +6581,8 @@ class ImportWizardDialog(QWidget):
                                                                 list(update_values.values()),
                                                                 f'{get_headers(db_table)[0]} = {item_id}')
                                 if error:
-                                    logger.get_logger().error(f'Error updating {db_table} for {name}: {error}')
-                                    logger.get_logger().debug(
+                                    geocork_logger.get_logger().error(f'Error updating {db_table} for {name}: {error}')
+                                    geocork_logger.get_logger().debug(
                                         f'Error validating data to update for table {table}')
                                     rollback_savepoint('before_import_items')
                                     item_progress_dialog.close()
@@ -6596,10 +6596,10 @@ class ImportWizardDialog(QWidget):
                                 update_query = update_query[:-2]  # Remove the last ", "
                                 update_query += f' WHERE {get_headers(db_table)[0]} = {item_id}'
                                 if not query.prepare(update_query):
-                                    logger.get_logger().critical(f'Error importing {table} "{name}"')
-                                    logger.get_logger().debug(f'Failed to prepare query to update existing item')
-                                    logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                                    logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                                    geocork_logger.get_logger().critical(f'Error importing {table} "{name}"')
+                                    geocork_logger.get_logger().debug(f'Failed to prepare query to update existing item')
+                                    geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                                    geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                                     rollback_savepoint('before_import_items')
                                     item_progress_dialog.close()
                                     import_progress_dialog.close()
@@ -6611,18 +6611,18 @@ class ImportWizardDialog(QWidget):
                                     else:
                                         query.bindValue(f'{column_placeholder}', QVariant())
                                 if not query.exec():
-                                    logger.get_logger().critical(
+                                    geocork_logger.get_logger().critical(
                                         f'Could not update existing {table} in the database')
-                                    logger.get_logger().debug(
+                                    geocork_logger.get_logger().debug(
                                         f'Failed to update values in {table} for ID {item_id}')
-                                    logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                                    logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                                    logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+                                    geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                                    geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                                    geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                                     rollback_savepoint('before_import_items')
                                     item_progress_dialog.close()
                                     import_progress_dialog.close()
                                     return False
-                                logger.get_logger().info(f'Successfully updated {table} "{name}"')
+                                geocork_logger.get_logger().info(f'Successfully updated {table} "{name}"')
                             for sheet in self.item_ids[table]:
                                 for column, header in self.item_ids[table][sheet].items():
                                     header_name = list(header.keys())[0]
@@ -6632,26 +6632,26 @@ class ImportWizardDialog(QWidget):
                         # item_id = None
 
                 if not item_id:
-                    logger.get_logger().info(f'Inserting new entry into {table} for "{item_name}"')
+                    geocork_logger.get_logger().info(f'Inserting new entry into {table} for "{item_name}"')
                     if db_table in SQLUtils.user_viewable_trees:
                         # For tree tables, we need to get the max parent row of the root and add one
                         root_query = f'SELECT {get_headers(db_table)[2]} FROM "{db_table}" WHERE {get_headers(db_table)[1]} IS NULL ORDER BY {get_headers(db_table)[2]} DESC LIMIT 1'
                         if not query.prepare(root_query):
-                            logger.get_logger().critical(f'Error importing {table} "{item_name}"')
-                            logger.get_logger().debug(
+                            geocork_logger.get_logger().critical(f'Error importing {table} "{item_name}"')
+                            geocork_logger.get_logger().debug(
                                 f'Failed to prepare query to find maximum parent row for root')
-                            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                             rollback_savepoint('before_import_items')
                             item_progress_dialog.close()
                             import_progress_dialog.close()
                             return False
                         if not query.exec():
-                            logger.get_logger().critical(f'Could not search for existing {table} in database')
-                            logger.get_logger().debug(f'Failed to get the maximum parent row for root in {table}')
-                            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                            logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+                            geocork_logger.get_logger().critical(f'Could not search for existing {table} in database')
+                            geocork_logger.get_logger().debug(f'Failed to get the maximum parent row for root in {table}')
+                            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                             rollback_savepoint('before_import_items')
                             item_progress_dialog.close()
                             import_progress_dialog.close()
@@ -6670,15 +6670,15 @@ class ImportWizardDialog(QWidget):
                             error, header = validate_insert(db_table, list(input_values.keys()),
                                                             list(input_values.values()), None)
                         if error:
-                            logger.get_logger().error(f'Error inserting new {db_table} for {name}: {error}')
-                            logger.get_logger().debug(f'Error validating data to insert for table {table}')
+                            geocork_logger.get_logger().error(f'Error inserting new {db_table} for {name}: {error}')
+                            geocork_logger.get_logger().debug(f'Error validating data to insert for table {table}')
                             rollback_savepoint('before_import_items')
                             item_progress_dialog.close()
                             import_progress_dialog.close()
                             return False
                     if db_table in ['Samples', 'Aliquots', 'Grains', 'Spots', 'UPbAnalyses',
                                     'GeoChemicalAnalyses'] and not analysis_data:
-                        logger.get_logger().error(
+                        geocork_logger.get_logger().error(
                             f'Error inserting new Sample. New samples cannot be imported without analysis data')
                     insert_query = f'INSERT INTO "{db_table}" ('
                     for column, value in input_values.items():
@@ -6691,10 +6691,10 @@ class ImportWizardDialog(QWidget):
                     insert_query = insert_query[:-2]  # Remove the last ", "
                     insert_query += ')'
                     if not query.prepare(insert_query):
-                        logger.get_logger().critical(f'Error importing {table} "{item_name}"')
-                        logger.get_logger().debug(f'Failed to prepare query to insert new item')
-                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        geocork_logger.get_logger().critical(f'Error importing {table} "{item_name}"')
+                        geocork_logger.get_logger().debug(f'Failed to prepare query to insert new item')
+                        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                         rollback_savepoint('before_import_items')
                         item_progress_dialog.close()
                         import_progress_dialog.close()
@@ -6706,11 +6706,11 @@ class ImportWizardDialog(QWidget):
                         query.bindValue(column, value)
                     if not query.exec():
                         # if not query.exec() and 'UNIQUE constraint failed' not in query.lastError().text():
-                        logger.get_logger().critical(f'Error importing {table} "{item_name}"')
-                        logger.get_logger().debug(f'Failed to insert values into {table}')
-                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                        logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+                        geocork_logger.get_logger().critical(f'Error importing {table} "{item_name}"')
+                        geocork_logger.get_logger().debug(f'Failed to insert values into {table}')
+                        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                         rollback_savepoint('before_import_items')
                         item_progress_dialog.close()
                         import_progress_dialog.close()
@@ -6721,14 +6721,14 @@ class ImportWizardDialog(QWidget):
                             header_name = list(header.keys())[0]
                             if item_name in self.item_ids[table][sheet][column][header_name]:
                                 self.item_ids[table][sheet][column][header_name][item_name] = item_id
-                    logger.get_logger().info(f'Added {table} item "{item_name}"')
+                    geocork_logger.get_logger().info(f'Added {table} item "{item_name}"')
         import_table_count += 1
         import_progress_dialog.setValue(import_table_count)
         # Let the event loop process the dialog's updates
         QApplication.processEvents()
         # If the user clicked "Cancel", we can break out
         if import_progress_dialog.wasCanceled():
-            logger.get_logger().info('Canceled importing data')
+            geocork_logger.get_logger().info('Canceled importing data')
             rollback_savepoint('before_import_items')
             return False
 
@@ -6799,7 +6799,7 @@ class ImportWizardDialog(QWidget):
         # Only analytes with a mapped value column can be imported
         analyte_columns = {abbr: cols for abbr, cols in analyte_columns.items() if 'value' in cols}
         if not analyte_columns:
-            logger.get_logger().info('No geochemical analyte columns mapped, no analyte values to input')
+            geocork_logger.get_logger().info('No geochemical analyte columns mapped, no analyte values to input')
             return True
 
         query = QSqlQuery()
@@ -6807,23 +6807,23 @@ class ImportWizardDialog(QWidget):
         # GeoChemAnalyteID for each abbreviation (GeoChemicalAnalytes is populated from SQLUtils.geochemical_analytes)
         analyte_ids = {}
         if not query.exec('SELECT GeoChemAnalyteID, GeoChemAnalyteAbbreviation FROM GeoChemicalAnalytes'):
-            logger.get_logger().critical('Could not load geochemical analytes from the database')
-            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            geocork_logger.get_logger().critical('Could not load geochemical analytes from the database')
+            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
             return False
         while query.next():
             analyte_ids[query.value(1)] = query.value(0)
         missing = [abbr for abbr in analyte_columns if abbr not in analyte_ids]
         if missing:
-            logger.get_logger().error(
+            geocork_logger.get_logger().error(
                 f'Geochemical analytes not found in GeoChemicalAnalytes: {", ".join(missing)}')
             return False
 
         # Columns that exist in GeoChemicalAnalysisValues
         table_columns = set()
         if not query.exec(f'PRAGMA table_info("{values_table}")'):
-            logger.get_logger().critical(f'Could not retrieve column info for {values_table}')
-            logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            geocork_logger.get_logger().critical(f'Could not retrieve column info for {values_table}')
+            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
             return False
         while query.next():
             table_columns.add(query.value(1))
@@ -6843,7 +6843,7 @@ class ImportWizardDialog(QWidget):
                 analysis_col = column
                 break
         if analysis_col is None:
-            logger.get_logger().error(
+            geocork_logger.get_logger().error(
                 'Cannot input geochemical analyte values without a Geochemical Analysis Name')
             return False
 
@@ -6891,7 +6891,7 @@ class ImportWizardDialog(QWidget):
             progress_dialog.setValue(row + 1)
             QApplication.processEvents()
             if progress_dialog.wasCanceled():
-                logger.get_logger().info('Canceled importing geochemical analyte values')
+                geocork_logger.get_logger().info('Canceled importing geochemical analyte values')
                 rollback_savepoint('before_import_geochem_values')
                 return False
             if row in disabled_rows:
@@ -6904,23 +6904,23 @@ class ImportWizardDialog(QWidget):
 
             if not query.prepare('SELECT GeoChemAnalysisID FROM GeoChemicalAnalyses '
                                  'WHERE GeoChemAnalysisName = :name COLLATE NOCASE'):
-                logger.get_logger().critical(f'Error importing values for {analysis_name}')
-                logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                geocork_logger.get_logger().critical(f'Error importing values for {analysis_name}')
+                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 rollback_savepoint('before_import_geochem_values')
                 return False
             query.bindValue(':name', analysis_name)
             if not query.exec() or not query.next():
-                logger.get_logger().critical(
+                geocork_logger.get_logger().critical(
                     f'Could not find Geochemical Analysis "{analysis_name}" to attach analyte values to')
-                logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
                 rollback_savepoint('before_import_geochem_values')
                 return False
             analysis_id = query.value(0)
             new_analysis = analysis_id in new_analysis_ids
 
             if not new_analysis and self.conflict_mode == 'skip':
-                logger.get_logger().info(f'Skipping analyte values for existing analysis "{analysis_name}"')
+                geocork_logger.get_logger().info(f'Skipping analyte values for existing analysis "{analysis_name}"')
                 continue
 
             row_unit_id = static_id(row_unit_column, row) or default_unit_id
@@ -6950,18 +6950,18 @@ class ImportWizardDialog(QWidget):
                                   + f' FROM "{values_table}" WHERE GeoChemAnalysisID = :analysis_id '
                                     f'AND GeoChemAnalyteID = :analyte_id')
                 if not query.prepare(existing_query):
-                    logger.get_logger().critical(f'Error importing {abbreviation} for {analysis_name}')
-                    logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    geocork_logger.get_logger().critical(f'Error importing {abbreviation} for {analysis_name}')
+                    geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                    geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                     rollback_savepoint('before_import_geochem_values')
                     return False
                 query.bindValue(':analysis_id', analysis_id)
                 query.bindValue(':analyte_id', analyte_ids[abbreviation])
                 if not query.exec():
-                    logger.get_logger().critical(f'Error importing {abbreviation} for {analysis_name}')
-                    logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                    logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+                    geocork_logger.get_logger().critical(f'Error importing {abbreviation} for {analysis_name}')
+                    geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                    geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                     rollback_savepoint('before_import_geochem_values')
                     return False
 
@@ -6976,7 +6976,7 @@ class ImportWizardDialog(QWidget):
                                          if existing[col] in (None, '') and values[col] is not None}
                         if existing.get('GeoChemAnalyteValue') not in (None, '') and \
                                 existing.get('GeoChemAnalyteValue') != values.get('GeoChemAnalyteValue'):
-                            logger.get_logger().warning(
+                            geocork_logger.get_logger().warning(
                                 f'{analysis_name} already has {abbreviation} = {existing["GeoChemAnalyteValue"]}; '
                                 f'keeping it instead of {values["GeoChemAnalyteValue"]}')
                     if not update_values:
@@ -6987,7 +6987,7 @@ class ImportWizardDialog(QWidget):
                             ['NULL' if v is None else v for v in update_values.values()],
                             f'"{value_id_header}" = {existing_id}')
                         if error_msg:
-                            logger.get_logger().error(
+                            geocork_logger.get_logger().error(
                                 f'Error updating {abbreviation} for {analysis_name}: {error_msg}')
                             rollback_savepoint('before_import_geochem_values')
                             return False
@@ -6995,20 +6995,20 @@ class ImportWizardDialog(QWidget):
                                   + ', '.join(f'"{col}" = :{col}' for col in update_values)
                                   + f' WHERE "{value_id_header}" = :value_id')
                     if not query.prepare(update_sql):
-                        logger.get_logger().critical(f'Error importing {abbreviation} for {analysis_name}')
-                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        geocork_logger.get_logger().critical(f'Error importing {abbreviation} for {analysis_name}')
+                        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                         rollback_savepoint('before_import_geochem_values')
                         return False
                     for col, val in update_values.items():
                         query.bindValue(f':{col}', QVariant() if val is None else val)
                     query.bindValue(':value_id', existing_id)
                     if not query.exec():
-                        logger.get_logger().critical(f'Error importing {abbreviation} for {analysis_name}')
-                        logger.get_logger().debug(f'Failed to update {values_table}')
-                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                        logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+                        geocork_logger.get_logger().critical(f'Error importing {abbreviation} for {analysis_name}')
+                        geocork_logger.get_logger().debug(f'Failed to update {values_table}')
+                        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                         rollback_savepoint('before_import_geochem_values')
                         return False
                     updated += 1
@@ -7018,7 +7018,7 @@ class ImportWizardDialog(QWidget):
                     error_msg, header = validate_insert(values_table, list(values.keys()),
                                                         ['NULL' if v is None else v for v in values.values()], None)
                     if error_msg:
-                        logger.get_logger().error(
+                        geocork_logger.get_logger().error(
                             f'Error inserting {abbreviation} for {analysis_name}: {error_msg}')
                         rollback_savepoint('before_import_geochem_values')
                         return False
@@ -7027,19 +7027,19 @@ class ImportWizardDialog(QWidget):
                               + ') VALUES ('
                               + ', '.join(f':{col}' for col in values) + ')')
                 if not query.prepare(insert_sql):
-                    logger.get_logger().critical(f'Error importing {abbreviation} for {analysis_name}')
-                    logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    geocork_logger.get_logger().critical(f'Error importing {abbreviation} for {analysis_name}')
+                    geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                    geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                     rollback_savepoint('before_import_geochem_values')
                     return False
                 for col, val in values.items():
                     query.bindValue(f':{col}', QVariant() if val is None else val)
                 if not query.exec():
-                    logger.get_logger().critical(f'Error importing {abbreviation} for {analysis_name}')
-                    logger.get_logger().debug(f'Failed to insert into {values_table}')
-                    logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                    logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+                    geocork_logger.get_logger().critical(f'Error importing {abbreviation} for {analysis_name}')
+                    geocork_logger.get_logger().debug(f'Failed to insert into {values_table}')
+                    geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                    geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                     rollback_savepoint('before_import_geochem_values')
                     return False
                 inserted += 1
@@ -7047,7 +7047,7 @@ class ImportWizardDialog(QWidget):
         progress_dialog.close()
         release_savepoint('before_import_geochem_values')
         self.imported_geochem_value_count = inserted + updated
-        logger.get_logger().info(f'Imported {inserted} and updated {updated} geochemical analyte values')
+        geocork_logger.get_logger().info(f'Imported {inserted} and updated {updated} geochemical analyte values')
         return True
 
     def import_many_to_many_to_db(self, many_tables):
@@ -7067,7 +7067,7 @@ class ImportWizardDialog(QWidget):
             QApplication.processEvents()
             # If the user clicked "Cancel", we can break out
             if linking_progress_dialog.wasCanceled():
-                logger.get_logger().info('Canceled linking tables')
+                geocork_logger.get_logger().info('Canceled linking tables')
                 rollback_savepoint('before_import_many_to_many')
                 return False
             table1 = table.split('_')[0]
@@ -7085,9 +7085,9 @@ class ImportWizardDialog(QWidget):
                 table1_name_header, table1_name_columns = self.find_name_header(table1, sheet)
                 table2_name_header, table2_name_columns = self.find_name_header(table2, sheet)
                 if not table1_name_header or not table2_name_header:
-                    logger.get_logger().critical(f'Could not find names for table {table} in database')
+                    geocork_logger.get_logger().critical(f'Could not find names for table {table} in database')
                 if not table1_name_columns or not table2_name_columns:
-                    logger.get_logger().critical(f'Could not find name columns for table {table} in database')
+                    geocork_logger.get_logger().critical(f'Could not find name columns for table {table} in database')
                     continue
                 for row in range(self.right_tables[sheet].model().rowCount()):
                     if row in disabled_rows:
@@ -7099,7 +7099,7 @@ class ImportWizardDialog(QWidget):
                             if table1_name in self.item_ids[table1][sheet][column1][header1_name]:
                                 table1_id = self.item_ids[table1][sheet][column1][header1_name][table1_name]
                                 if not table1_id:
-                                    logger.get_logger().critical(
+                                    geocork_logger.get_logger().critical(
                                         f'Could not link {table1} "{table1_name}" in sheet {sheet} with data from other sheets')
                                     continue
                                 else:
@@ -7114,7 +7114,7 @@ class ImportWizardDialog(QWidget):
                                                 table2_id = self.item_ids[table2][sheet][column2][header2_name][
                                                     table2_name]
                                                 if not table2_id:
-                                                    logger.get_logger().critical(
+                                                    geocork_logger.get_logger().critical(
                                                         f'Could not link {table2} "{table2_name}" in sheet {sheet} with data from other sheets')
                                                     continue
                                                 else:
@@ -7131,28 +7131,28 @@ class ImportWizardDialog(QWidget):
                                                     table2_id_field = get_headers(table2)[0]
                                                     if not query.prepare(
                                                             f'SELECT {table1_id_field} FROM {table} WHERE {table1_id_field} = :table1_id AND {table2_id_field} = :table2_id'):
-                                                        logger.get_logger().critical(
+                                                        geocork_logger.get_logger().critical(
                                                             f'Error linking {table1} "{table1_name}" and {table2} "{table2_name}"')
-                                                        logger.get_logger().debug(
+                                                        geocork_logger.get_logger().debug(
                                                             f'Failed to prepare query to find existing relationship')
-                                                        logger.get_logger().debug(
+                                                        geocork_logger.get_logger().debug(
                                                             f'Error: {query.lastError().text()}')
-                                                        logger.get_logger().debug(
+                                                        geocork_logger.get_logger().debug(
                                                             f'SQL query: {query.lastQuery()}')
                                                         rollback_savepoint('before_import_many_to_many')
                                                         return False
                                                     query.bindValue(':table1_id', table1_id)
                                                     query.bindValue(':table2_id', table2_id)
                                                     if not query.exec():
-                                                        logger.get_logger().critical(
+                                                        geocork_logger.get_logger().critical(
                                                             f'Error linking {table1} "{table1_name}" and {table2} "{table2_name}"')
-                                                        logger.get_logger().debug(
+                                                        geocork_logger.get_logger().debug(
                                                             f'Failed to query the {table} values')
-                                                        logger.get_logger().debug(
+                                                        geocork_logger.get_logger().debug(
                                                             f'Error: {query.lastError().text()}')
-                                                        logger.get_logger().debug(
+                                                        geocork_logger.get_logger().debug(
                                                             f'SQL query: {query.lastQuery()}')
-                                                        logger.get_logger().debug(
+                                                        geocork_logger.get_logger().debug(
                                                             f'Bound values: {query.boundValues()}')
                                                         rollback_savepoint('before_import_many_to_many')
                                                         return False
@@ -7162,13 +7162,13 @@ class ImportWizardDialog(QWidget):
                                                     # Insert the new relationship
                                                     if not query.prepare(
                                                             f'INSERT INTO {table} ({table1_id_field}, {table2_id_field}) VALUES (:table1_id, :table2_id)'):
-                                                        logger.get_logger().critical(
+                                                        geocork_logger.get_logger().critical(
                                                             f'Error linking {table1} "{table1_name}" and {table2} "{table2_name}"')
-                                                        logger.get_logger().debug(
+                                                        geocork_logger.get_logger().debug(
                                                             f'Failed to prepare query to insert new relationship')
-                                                        logger.get_logger().debug(
+                                                        geocork_logger.get_logger().debug(
                                                             f'Error: {query.lastError().text()}')
-                                                        logger.get_logger().debug(
+                                                        geocork_logger.get_logger().debug(
                                                             f'SQL query: {query.lastQuery()}')
                                                         rollback_savepoint('before_import_many_to_many')
                                                         return False
@@ -7176,19 +7176,19 @@ class ImportWizardDialog(QWidget):
                                                     query.bindValue(':table2_id', table2_id)
                                                     if not query.exec():
                                                         # if not query.exec() and 'UNIQUE constraint failed' not in query.lastError().text():
-                                                        logger.get_logger().critical(
+                                                        geocork_logger.get_logger().critical(
                                                             f'Error linking {table1} "{table1_name}" and {table2} "{table2_name}"')
-                                                        logger.get_logger().debug(
+                                                        geocork_logger.get_logger().debug(
                                                             f'Failed to insert values into {table}')
-                                                        logger.get_logger().debug(
+                                                        geocork_logger.get_logger().debug(
                                                             f'Error: {query.lastError().text()}')
-                                                        logger.get_logger().debug(
+                                                        geocork_logger.get_logger().debug(
                                                             f'SQL query: {query.lastQuery()}')
-                                                        logger.get_logger().debug(
+                                                        geocork_logger.get_logger().debug(
                                                             f'Bound values: {query.boundValues()}')
                                                         rollback_savepoint('before_import_many_to_many')
                                                         return False
-                                                    logger.get_logger().info(
+                                                    geocork_logger.get_logger().info(
                                                         f'Linked {table1} "{table1_name}" (ID {table1_id}) with {table2} "{table2_name}" (ID {table2_id})')
         release_savepoint('before_import_many_to_many')
         return True
@@ -7234,8 +7234,8 @@ class ImportWizardDialog(QWidget):
                 if name_columns:
                     break
             if not name_header or not name_columns:
-                logger.get_logger().critical(f"Unknown mapping for table {table} items")
-                logger.get_logger().debug(
+                geocork_logger.get_logger().critical(f"Unknown mapping for table {table} items")
+                geocork_logger.get_logger().debug(
                     f"Could not find a parent name column for {table} in sheet {sheet} (parents: {parent_tables})")
                 return None, None
         return name_header, name_columns

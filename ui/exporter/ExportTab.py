@@ -22,7 +22,7 @@ from Functions import SQLUtils
 from Functions.Database_views import ViewQuery
 from ui.filters import FilterHelpers
 from ui.filters.FiltersTab import FiltersTab
-from util import logger
+from util import geocork_logger
 from util.database.database_helper import (get_join_from_table, columns_as_list, get_total_records,
                                            find_parent_items, update_database, turn_on_foreign_keys,
                                            turn_off_foreign_keys)
@@ -196,7 +196,7 @@ class ExportTab(QWidget):
         :param str worksheet_name: worksheet name to view, otherwise the current index will be used
         """
         # Get the current workbook
-        logger.get_logger().info('Updating table view with new parameters')
+        geocork_logger.get_logger().info('Updating table view with new parameters')
         show_loading_dialog('Loading', 'Updating table view with new parameters')
         start_update_table_view_time = time.time()
         if worksheet_name is None:
@@ -244,7 +244,7 @@ class ExportTab(QWidget):
         :param str worksheet_name: worksheet name to view, otherwise the current index will be used
         """
         # Get the current workbook
-        logger.get_logger().info('Updating table view with new parameters')
+        geocork_logger.get_logger().info('Updating table view with new parameters')
         show_loading_dialog('Loading', 'Updating table view with new parameters')
         start_update_table_view_time = time.time()
         if worksheet_name is None:
@@ -352,8 +352,8 @@ class ExportTab(QWidget):
             json_query.prepare('SELECT SQLQuery FROM FilterGroups WHERE FilterGroupID = :filter_id')
             json_query.bindValue(':filter_id', filter_id)
             if not json_query.exec():
-                logger.get_logger().critical(f'Could not fetch SQL Query for filter')
-                logger.get_logger().info(f'Filter ID: {filter_id}')
+                geocork_logger.get_logger().critical(f'Could not fetch SQL Query for filter')
+                geocork_logger.get_logger().info(f'Filter ID: {filter_id}')
 
             json_query.next()
             filter_json = json_query.value(0)
@@ -365,8 +365,8 @@ class ExportTab(QWidget):
             sql_query = f"SELECT DISTINCT UPbAnalysisID FROM ({filtered_where_clause});"
             uri = f'file:{settings.value('db_file', type=str)}?mode=ro&immutable=1'
             # Execute the query
-            logger.get_logger().info(f'Fetching distinct UPbAnalyisIDs from FilterID: {filter_id}')
-            logger.get_logger().debug(f'SQL command: {sql_query}')
+            geocork_logger.get_logger().info(f'Fetching distinct UPbAnalyisIDs from FilterID: {filter_id}')
+            geocork_logger.get_logger().debug(f'SQL command: {sql_query}')
             try:
                 conn = sqlite3.connect(uri, uri=True)
                 with conn:
@@ -387,28 +387,28 @@ class ExportTab(QWidget):
                         conn.commit()
                         conn.close()
                     except sqlite3.Error as e:
-                        logger.get_logger().critical(f'Error fetching distinct values')
-                        logger.get_logger().debug(f'Error: {e}')
-                        logger.get_logger().debug(f'SQL query: {sql_query}')
+                        geocork_logger.get_logger().critical(f'Error fetching distinct values')
+                        geocork_logger.get_logger().debug(f'Error: {e}')
+                        geocork_logger.get_logger().debug(f'SQL query: {sql_query}')
                         close_loading_dialog('Loading', 'Updating table view with new parameters')
                         return False
                 else:
-                    logger.get_logger().critical(f'Error fetching distinct values')
-                    logger.get_logger().debug(f'Error: {e}')
-                    logger.get_logger().debug(f'SQL query: {sql_query}')
+                    geocork_logger.get_logger().critical(f'Error fetching distinct values')
+                    geocork_logger.get_logger().debug(f'Error: {e}')
+                    geocork_logger.get_logger().debug(f'SQL query: {sql_query}')
                     close_loading_dialog('Loading', 'Updating table view with new parameters')
                     return False
-                logger.get_logger().critical(f"Error fetching distinct values")
-                logger.get_logger().debug(f"Error: {e}")
-                logger.get_logger().debug(f"SQL query: {sql_query}")
+                geocork_logger.get_logger().critical(f"Error fetching distinct values")
+                geocork_logger.get_logger().debug(f"Error: {e}")
+                geocork_logger.get_logger().debug(f"SQL query: {sql_query}")
                 close_loading_dialog('Loading', 'Updating table view with new parameters')
                 return None
 
-            logger.get_logger().info(f'Fetched distinct UPbAnalysisIDs from FilterID: {filter_id} sucessfully')
+            geocork_logger.get_logger().info(f'Fetched distinct UPbAnalysisIDs from FilterID: {filter_id} sucessfully')
             # add the filtered UPbAnalysisIDs to the set
             self.filtered_upb_ids.update(filtered_upb_ids)
 
-        logger.get_logger().info(f'Number of Filtered UPbAnalysis IDs Found: {len(self.filtered_upb_ids)}')
+        geocork_logger.get_logger().info(f'Number of Filtered UPbAnalysis IDs Found: {len(self.filtered_upb_ids)}')
 
         if self.exportformat_comboBox.currentText() == 'Database':
             # If the export format is Database, then we only need the list of analyses that pass the filters
@@ -444,7 +444,7 @@ class ExportTab(QWidget):
                                 {where_clause}
                                 {group_by} LIMIT {self.max_rows_to_display}"""
 
-        logger.get_logger().debug(f'Final TableView SQL command: {sample_query_str}')
+        geocork_logger.get_logger().debug(f'Final TableView SQL command: {sample_query_str}')
 
         # code to add optional grouped filters as a new Sample ID, if a filter name is 'Modern River Sand'
         # and returns UPbAnalysesIDs from multiple samples it will group them all together as
@@ -459,14 +459,14 @@ class ExportTab(QWidget):
             json_query.prepare('SELECT FilterGroupName, SQLQuery FROM FilterGroups WHERE FilterGroupID = :filter_id')
             json_query.bindValue(':filter_id', filter_id)
             if not json_query.exec():
-                logger.get_logger().critical(f'Could not fetch SQL Query for filter')
-                logger.get_logger().info(f'Filter ID: {filter_id}')
+                geocork_logger.get_logger().critical(f'Could not fetch SQL Query for filter')
+                geocork_logger.get_logger().info(f'Filter ID: {filter_id}')
 
             json_query.next()
             name = json_query.value(0)
             filter_json = json_query.value(1)
 
-            logger.get_logger().info('Fetching Filters for Grouped Filter List')
+            geocork_logger.get_logger().info('Fetching Filters for Grouped Filter List')
             # loops through each filter in the checked filter list, processes the json to sql
             filtered_where_clause, ctes = FilterHelpers.process_json_to_sql(filter_json[1:-1], scope='UPbAnalyses')
             filtered_where_clause = filtered_where_clause[0:-1]
@@ -475,8 +475,8 @@ class ExportTab(QWidget):
 
             uri = f'file:{settings.value('db_file', type=str)}?mode=ro&immutable=1'
             # Execute the query
-            logger.get_logger().info(f'Fetching distinct UPbAnalyisIDs from FilterID: {filter_id}')
-            logger.get_logger().debug(f'SQL command: {sql_query}')
+            geocork_logger.get_logger().info(f'Fetching distinct UPbAnalyisIDs from FilterID: {filter_id}')
+            geocork_logger.get_logger().debug(f'SQL command: {sql_query}')
             try:
                 conn = sqlite3.connect(uri, uri=True)
                 with conn:
@@ -489,13 +489,13 @@ class ExportTab(QWidget):
                 conn.commit()
                 conn.close()
             except sqlite3.Error as e:
-                logger.get_logger().critical(f"Error fetching distinct values")
-                logger.get_logger().debug(f"Error: {e}")
-                logger.get_logger().debug(f"SQL query: {sql_query}")
+                geocork_logger.get_logger().critical(f"Error fetching distinct values")
+                geocork_logger.get_logger().debug(f"Error: {e}")
+                geocork_logger.get_logger().debug(f"SQL query: {sql_query}")
                 close_loading_dialog('Loading', 'Updating table view with new parameters')
                 return None
 
-            logger.get_logger().info(f'Fetched distinct UPbAnalysisIDs from FilterID: {filter_id} sucessfully')
+            geocork_logger.get_logger().info(f'Fetched distinct UPbAnalysisIDs from FilterID: {filter_id} sucessfully')
 
             # remove LIMIT {self.max_rows_to_display} from original query_str, can only have one of those
             query_str = query_str.replace(f'LIMIT {self.max_rows_to_display}', '')
@@ -519,7 +519,7 @@ class ExportTab(QWidget):
                 query_str = f"{query_str} \nUNION ALL \n {modified_query_str} WHERE UPbAnalyses.UPbAnalysisID IN {filtered_upb_ids} {group_by} LIMIT {self.max_rows_to_display} \n"
             else:
                 query_str = f"{modified_query_str} WHERE UPbAnalyses.UPbAnalysisID IN {filtered_upb_ids} {group_by} LIMIT {self.max_rows_to_display} \n"
-            logger.get_logger().debug(f'SQL command: {query_str}')
+            geocork_logger.get_logger().debug(f'SQL command: {query_str}')
 
         # code to transform the query into a pivot table
         # SQLite doesn't have a builtin Pivot function, so it must be done manually.
@@ -532,7 +532,7 @@ class ExportTab(QWidget):
             db.close()
             db.open()
             if not db.isOpen():
-                logger.get_logger().critical('Error opening database connection')
+                geocork_logger.get_logger().critical('Error opening database connection')
                 close_loading_dialog('Loading', 'Updating table view with new parameters')
                 self.uncheck_pivot()
                 return None
@@ -542,9 +542,9 @@ class ExportTab(QWidget):
                 return None
 
             drop_table_qry = QSqlQuery()
-            logger.get_logger().info('Dropping TempPivotTable')
+            geocork_logger.get_logger().info('Dropping TempPivotTable')
             if not drop_table_qry.exec('DROP TABLE IF EXISTS TempPivotTable'):
-                logger.get_logger().critical(
+                geocork_logger.get_logger().critical(
                     f'Error dropping TempPivotTable: {drop_table_qry.lastError().text()}')
                 self.uncheck_pivot()
                 close_loading_dialog('Loading', 'Updating table view with new parameters')
@@ -553,24 +553,24 @@ class ExportTab(QWidget):
             uri = f'file:{settings.value('db_file', type=str)}'
             # Execute the query
             sql_temptable_create = 'CREATE TABLE TempPivotTable AS SELECT * FROM (' + query_str + ')'
-            logger.get_logger().debug(f'SQL command: {sql_temptable_create}')
+            geocork_logger.get_logger().debug(f'SQL command: {sql_temptable_create}')
             try:
                 conn = sqlite3.connect(uri, uri=True)
                 with conn:
                     cursor = conn.cursor()
-                    logger.get_logger().info('Creating table TempPivotTable')
+                    geocork_logger.get_logger().info('Creating table TempPivotTable')
                     cursor.execute(sql_temptable_create)
                 conn.commit()
                 conn.close()
             except sqlite3.Error as e:
-                logger.get_logger().critical(f"Error creating TempPivotTable")
-                logger.get_logger().debug(f"Error: {e}")
-                logger.get_logger().debug(f"SQL query: {sql_temptable_create}")
+                geocork_logger.get_logger().critical(f"Error creating TempPivotTable")
+                geocork_logger.get_logger().debug(f"Error: {e}")
+                geocork_logger.get_logger().debug(f"SQL query: {sql_temptable_create}")
                 self.uncheck_pivot()
                 close_loading_dialog('Loading', 'Updating table view with new parameters')
                 return None
 
-            logger.get_logger().info('Created table TempPivotTable successfully')
+            geocork_logger.get_logger().info('Created table TempPivotTable successfully')
 
             # defaults to pivot based on the first column in the exporter.
             # tuple is in format (table, attribute)
@@ -592,20 +592,20 @@ class ExportTab(QWidget):
             uri = f'file:{settings.value('db_file', type=str)}?mode=ro&immutable=1'
             # Execute the query
             sql_distinct_first_column = f'SELECT DISTINCT {pivot_col} FROM TempPivotTable ORDER BY {pivot_col}'
-            logger.get_logger().debug(f'SQL command: {sql_distinct_first_column}')
+            geocork_logger.get_logger().debug(f'SQL command: {sql_distinct_first_column}')
             try:
                 conn = sqlite3.connect(uri, uri=True)
                 with conn:
                     cursor = conn.cursor()
-                    logger.get_logger().info('Selecting distinct values from TempPivotTable first column')
+                    geocork_logger.get_logger().info('Selecting distinct values from TempPivotTable first column')
                     cursor.execute(sql_distinct_first_column)
                     first_column_list = [row[0] for row in cursor.fetchall()]
                 conn.commit()
                 conn.close()
             except sqlite3.Error as e:
-                logger.get_logger().critical(f"Error selecting distinct values from TempPivotTable")
-                logger.get_logger().debug(f"Error: {e}")
-                logger.get_logger().debug(f"SQL query: {sql_distinct_first_column}")
+                geocork_logger.get_logger().critical(f"Error selecting distinct values from TempPivotTable")
+                geocork_logger.get_logger().debug(f"Error: {e}")
+                geocork_logger.get_logger().debug(f"SQL query: {sql_distinct_first_column}")
                 self.uncheck_pivot()
                 close_loading_dialog('Loading', 'Updating table view with new parameters')
                 return None
@@ -614,7 +614,7 @@ class ExportTab(QWidget):
                 # if no columns/values are found then could be an error, check if items are checked, if there are
                 # then something went wrong.
                 if not len(self.checked_sample_list) == 0:
-                    logger.get_logger().error(
+                    geocork_logger.get_logger().error(
                         'No rows returned. Try broadening filters, samples, or additional filters.')
                     model = SQLiteTableModel()
                     proxy_model = ReadableProxyModel()
@@ -648,8 +648,8 @@ class ExportTab(QWidget):
                         case_expressions.append(
                             f'MAX(CASE WHEN [{pivot_col}] = \'{name}\' THEN [{field_name}] END) AS [{name + "_" + field_name}]')
                     except Exception as e:
-                        logger.get_logger().critical(f"Error getting column name for {name}")
-                        logger.get_logger().debug(f"Error: {e}")
+                        geocork_logger.get_logger().critical(f"Error getting column name for {name}")
+                        geocork_logger.get_logger().debug(f"Error: {e}")
                         self.uncheck_pivot()
                         close_loading_dialog('Loading', 'Updating table view with new parameters')
                         return None
@@ -676,10 +676,10 @@ class ExportTab(QWidget):
         model.setQuery(query_str)
         if model.last_error:
             if 'too many columns' in str(model.last_error):
-                logger.get_logger().critical(f"Too many rows to pivot")
+                geocork_logger.get_logger().critical(f"Too many rows to pivot")
                 self.uncheck_pivot()
             else:
-                logger.get_logger().critical(f'Error updating table view')
+                geocork_logger.get_logger().critical(f'Error updating table view')
             close_loading_dialog('Loading', 'Updating table view with new parameters')
             return None
         while model.canFetchMore():
@@ -695,9 +695,9 @@ class ExportTab(QWidget):
         counter_query = QSqlQuery(db=self.database)
         # logger_setup.get_logger().debug(f"SQL Command: {counter_sql_query}")
         if not counter_query.exec(counter_sql_query):
-            logger.get_logger().critical(f'Error fetching total records')
-            logger.get_logger().debug(f'Error: {counter_query.lastError().text()}')
-            logger.get_logger().debug(f'SQL query: {counter_query.lastQuery()}')
+            geocork_logger.get_logger().critical(f'Error fetching total records')
+            geocork_logger.get_logger().debug(f'Error: {counter_query.lastError().text()}')
+            geocork_logger.get_logger().debug(f'SQL query: {counter_query.lastQuery()}')
             close_loading_dialog('Loading', 'Updating table view with new parameters')
             return
         else:
@@ -721,7 +721,7 @@ class ExportTab(QWidget):
         tableView.setModel(proxy_model)
         tableView.resizeColumnsToContents()
         close_loading_dialog('Loading', 'Updating table view with new parameters')
-        logger.get_logger().info(f'Updated table view in {time.time() - start_update_table_view_time:.2f} seconds')
+        geocork_logger.get_logger().info(f'Updated table view in {time.time() - start_update_table_view_time:.2f} seconds')
 
     def update_active_filters(self):
         if not self.active_filter_sample_checkBox.isChecked():
@@ -735,7 +735,7 @@ class ExportTab(QWidget):
                 if self.active_filter_sample_ids is None:
                     self.active_filter_sample_ids = []
             except Exception as e:
-                logger.get_logger().critical(f'Error updating active filter')
+                geocork_logger.get_logger().critical(f'Error updating active filter')
                 return
 
         if len(self.active_filter_sample_ids) > 0 and self.active_filter_sample_checkBox.isChecked():
@@ -792,7 +792,7 @@ class ExportTab(QWidget):
                                 settings.setValue('gps_format_abbreviation', 'DD +/-')
 
                         if not update_database():
-                            logger.get_logger().critical(f'Error updating and displaying database')
+                            geocork_logger.get_logger().critical(f'Error updating and displaying database')
                             self.parent().close()
                             return
                         self.populate_stack()
@@ -970,7 +970,7 @@ class ExportTab(QWidget):
                             settings.setValue('age_error_format_abbreviation', '2σ abs')
 
                         if not update_database():
-                            logger.get_logger().critical(f'Error updating and displaying database')
+                            geocork_logger.get_logger().critical(f'Error updating and displaying database')
                             self.parent().close()
                             return
                         self.populate_stack()
@@ -1006,7 +1006,7 @@ class ExportTab(QWidget):
                             settings.setValue('age_error_format_abbreviation', '2σ abs')
 
                         if not update_database():
-                            logger.get_logger().critical(f'Error updating and displaying database')
+                            geocork_logger.get_logger().critical(f'Error updating and displaying database')
                             self.parent().close()
                             return
                         self.populate_stack()
@@ -1156,7 +1156,7 @@ class ExportTab(QWidget):
     def update_step_2_list(self):
         """Updates the CheckableComboBox model based upon selected values. Allows the user to select
          samples by either Samples or FilterGroups """
-        logger.get_logger().info(f'Updating Step 2 list for {self.selectionscope_comboBox.currentText()}')
+        geocork_logger.get_logger().info(f'Updating Step 2 list for {self.selectionscope_comboBox.currentText()}')
         start_update_step_2_time = time.time()
         self.samplesincluded_comboBox.setEnabled(True)
         self.samplesincluded_comboBox.show()
@@ -1179,7 +1179,7 @@ class ExportTab(QWidget):
             self.filters_label.setToolTip("")
 
             # self.update_table_view()
-        logger.get_logger().info(f'Update Step 2 list took {time.time() - start_update_step_2_time:.2f} seconds')
+        geocork_logger.get_logger().info(f'Update Step 2 list took {time.time() - start_update_step_2_time:.2f} seconds')
         self.update_table_view()
 
     def tab_changed(self):
@@ -1698,7 +1698,7 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
         """
         Method to force a refresh of the dropdowns, stacked checkboxes, and table view.
         """
-        logger.get_logger().info('Refresh Button Clicked')
+        geocork_logger.get_logger().info('Refresh Button Clicked')
 
         if self.exportformat_comboBox.currentText() != 'Database':
             # Recreate column stacks and reload checkbox states
@@ -1734,14 +1734,14 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
     def showEvent(self, a0):
         """Overridden showEvent to repopulate the table models when the widget is shown. This occurs mainly when
         the tabs are switched so if samples, filters are modified, the models are updated."""
-        logger.get_logger().info('Populating ExportWidget with data from the database')
+        geocork_logger.get_logger().info('Populating ExportWidget with data from the database')
         start_show_time = time.time()
         show_loading_dialog('Loading', 'Loading data for export...')
 
         sample_count = get_total_records('Samples')
         if self.sample_count != sample_count:
             self.sample_count = sample_count
-            logger.get_logger().info(f'Found {self.sample_count} samples in the database')
+            geocork_logger.get_logger().info(f'Found {self.sample_count} samples in the database')
             show_loading_dialog('Loading', f'Loading {self.sample_count} Samples...')
             self.samplesincluded_comboBox.enable_context_menu(show_context_menu=True, only_select_deselect=True)
             view_query = ViewQuery('Samples', True, **{'show_columns': settings.value('sample_edit_columns')[0:4]})
@@ -1752,7 +1752,7 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
             close_loading_dialog('Loading', f'Loading {self.sample_count} Samples...')
 
         filter_count = get_total_records('FilterGroups')
-        logger.get_logger().info(f'Found {filter_count} filters in the database')
+        geocork_logger.get_logger().info(f'Found {filter_count} filters in the database')
 
         show_loading_dialog('Loading', f'Loading {filter_count} Filter Groups...')
         self.filterselection_comboBox.enable_context_menu(show_context_menu=True, only_select_deselect=True)
@@ -1810,7 +1810,7 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
         # self.update_table_view()
 
         close_loading_dialog('Loading', 'Loading data for export...')
-        logger.get_logger().info(f'ExportWidget populated in {time.time() - start_show_time:.2f} seconds')
+        geocork_logger.get_logger().info(f'ExportWidget populated in {time.time() - start_show_time:.2f} seconds')
         super().showEvent(a0)
 
     def export_data(self):
@@ -1841,7 +1841,7 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
         if not fileName:
             return
 
-        logger.get_logger().info(f'Exporting selected samples to database {fileName}')
+        geocork_logger.get_logger().info(f'Exporting selected samples to database {fileName}')
         if not fileName.lower().endswith(".db"):
             fileName += ".db"
 
@@ -1856,18 +1856,18 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
             try:
                 os.remove(fileName)
             except OSError as e:
-                logger.get_logger().critical(f'Could not clear existing database file: {e}')
+                geocork_logger.get_logger().critical(f'Could not clear existing database file: {e}')
                 return
 
         tgt_db = QSqlDatabase().addDatabase('QSQLITE', 'target_connection')
         tgt_db.setDatabaseName(fileName)
         tgt_db.open()
         if not tgt_db.isOpen() or not turn_off_foreign_keys(tgt_db):
-            logger.get_logger().critical('Could not open target database')
+            geocork_logger.get_logger().critical('Could not open target database')
             return
         # Ensure the database is created and static tables are set up
         if not update_database(tgt_db):
-            logger.get_logger().critical('Could not create target database')
+            geocork_logger.get_logger().critical('Could not create target database')
             return
 
         # src_db is the current default database in use
@@ -1880,7 +1880,7 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
                                             'Exporting samples will apply the filters at the sample level.\nAny unwanted aliquots, spots, and analyses can be removed in the new database.',
                                             QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
             if response != QMessageBox.StandardButton.Ok:
-                logger.get_logger().info('User canceled the database export')
+                geocork_logger.get_logger().info('User canceled the database export')
                 return
             filtered_sample_ids, filtered_aliquot_ids, filtered_grain_ids, filtered_spot_ids = find_parent_items(
                 list(self.filtered_upb_ids), 'UPbAnalyses')
@@ -1891,7 +1891,7 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
 
         # subsets and copies over samples and related-data from src_db to tgt_db
         if not ExportDatabase.subset_database(src_db, tgt_db, all_sample_ids):
-            logger.get_logger().critical('Could not subset database')
+            geocork_logger.get_logger().critical('Could not subset database')
             close_loading_dialog('Exporting', 'Exporting to database...')
             return
         tgt_db.commit()
@@ -1937,7 +1937,7 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
             self.update_table_view(worksheet_name=sheet_name)
             sql = info['sql']
             if not sql:
-                logger.get_logger().warning(
+                geocork_logger.get_logger().warning(
                     f'No SQL query found for sheet "{sheet_name}". Select columns to include in each sheet before exporting.')
                 return False
             if first_sheet:
@@ -1951,9 +1951,9 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
             query.prepare(sql)
 
             if not query.exec():
-                logger.get_logger().critical(
+                geocork_logger.get_logger().critical(
                     f'Error exporting SQL query to excel: {query.lastError().text()}')
-                logger.get_logger().debug(f'SQL command: {sql}')
+                geocork_logger.get_logger().debug(f'SQL command: {sql}')
                 return False
 
             # Retrieve column names
@@ -1978,9 +1978,9 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
         try:
             wb.save(fileName)
         except Exception as e:
-            logger.get_logger().critical(
+            geocork_logger.get_logger().critical(
                 f'Error saving the Excel file')
-            logger.get_logger().debug(f'Exception: {e}')
+            geocork_logger.get_logger().debug(f'Exception: {e}')
             return False
 
         # Open the file using the system's default application
@@ -2031,9 +2031,9 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
                     query.prepare(sql)
 
                     if not query.exec():
-                        logger.get_logger().critical(
+                        geocork_logger.get_logger().critical(
                             f'Query execution failed for {sheet_name}: {query.lastError().text()}')
-                        logger.get_logger().debug(f'SQL command: {sql}')
+                        geocork_logger.get_logger().debug(f'SQL command: {sql}')
                         continue
 
                     column_count = query.record().count()
@@ -2050,8 +2050,8 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
 
 
             except Exception as e:
-                logger.get_logger().critical(f'Error saving the Excel file')
-                logger.get_logger().debug(f'Exception: {e}')
+                geocork_logger.get_logger().critical(f'Error saving the Excel file')
+                geocork_logger.get_logger().debug(f'Exception: {e}')
                 return False
 
         # Open the file using the system's default application

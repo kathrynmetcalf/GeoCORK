@@ -1,7 +1,7 @@
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtSql as QtS
 
-from util import logger
+from util import geocork_logger
 from util.database.database_helper import get_headers, get_name_from_id
 
 
@@ -13,7 +13,7 @@ def update_modified_timestamp(table: str, record_ids: list):
     :return:
     """
     if not record_ids or not table:
-        logger.get_logger().error('No record ids or table given for updating modified timestamp')
+        geocork_logger.get_logger().error('No record ids or table given for updating modified timestamp')
         return
     # Get the header for the first column, the ID column
 
@@ -27,14 +27,14 @@ def update_modified_timestamp(table: str, record_ids: list):
         return f'Unable to find modified header for {table}'
     record_id_header = headers[0]
     query = QtS.QSqlQuery()
-    logger.get_logger().info('Updating modified timestamp')
+    geocork_logger.get_logger().info('Updating modified timestamp')
     if len(record_ids) > 1:
         where_sql = f'{record_id_header} IN {tuple(record_ids)}'
     elif len(record_ids) == 1:
         where_sql = f'{record_id_header} = {record_ids[0]}'
     if not query.exec(f'UPDATE {table} SET {modified_header} = CURRENT_TIMESTAMP WHERE {where_sql}'):
-        logger.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        geocork_logger.get_logger().debug(f"Error: {query.lastError().text()}")
+        geocork_logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
         return f'Error updating modified timestamp for {table}'
     return ''
 
@@ -170,10 +170,10 @@ def validate_update(table: str, columns: list, values: list, where: str):
     table_model.setQuery(f'SELECT * FROM {table} WHERE {where}')
     if table_model.lastError().text():
         error = f'Error validating updated values for {table}'
-        logger.get_logger().debug(error)
-        logger.get_logger().debug(f'Error getting current values for {table}')
-        logger.get_logger().debug(f'Error: {table_model.lastError().text()}')
-        logger.get_logger().debug(f'Query: SELECT * FROM {table} WHERE {where}')
+        geocork_logger.get_logger().debug(error)
+        geocork_logger.get_logger().debug(f'Error getting current values for {table}')
+        geocork_logger.get_logger().debug(f'Error: {table_model.lastError().text()}')
+        geocork_logger.get_logger().debug(f'Query: SELECT * FROM {table} WHERE {where}')
         return error, None
     all_records = []
     for col in range(1, table_model.columnCount()):

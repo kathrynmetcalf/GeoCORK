@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import time
 import webbrowser
 
 import qtawesome
@@ -13,15 +14,24 @@ from PyQt6.uic import loadUi
 
 import util.Text_manipulations as TxM
 from Functions import SQLUtils
-from util.settings_manager import SettingsManager
+from Functions.Database_views import ViewQuery
+from ui.AddTags import AddTags
+from ui.AddTreeTags import AddTreeTags
+from ui.EditTable import EditTable
+from ui.EditTree import EditTree
+from ui.EditView import EditView
+from ui.New_reference import NewReference
+from ui.SampleInformation import SampleInformation
+from ui.SampleMap import SampleMapWindow
+from ui.settings import SettingsCore
+from util import geocork_logger
 from util.database.database_helper import (
     add_tree_popup, get_name_column,
     get_headers, get_total_records, get_record_row, columns_as_list,
     get_id_from_name, get_view_from_table, update_database
 )
-from ui.SampleMap import SampleMapWindow
-from ui.settings import SettingsCore
-from util.database import Savepoint_manager
+from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
+from util.settings_manager import SettingsManager
 from util.widgets.context_menus import TreeContextMenu
 from util.widgets.models.item_models import TableToolTipModel
 from util.widgets.models.proxy_models import ReadableProxyModel, TreeSortFilterProxyModel
@@ -32,24 +42,12 @@ from util.widgets.views.frozen_views import FrozenTableView
 from util.widgets.views.tree_views import TrackExpandedTreeView, save_expanded_state, expand_collapse
 
 settings = SettingsManager().settings
-from Functions.Database_views import ViewQuery
-from ui.EditView import EditView
-from ui.EditTable import EditTable
-from ui.EditTree import EditTree
-from ui.AddTags import AddTags
-from ui.AddTreeTags import AddTreeTags
-from ui.New_reference import NewReference
-from ui.SampleInformation import SampleInformation
-
-from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
-from util import logger
-import time
 
 
 class DisplayTables(QtW.QWidget):
     def __init__(self, parent):
         super().__init__(parent)
-        logger.get_logger().info("Starting the display tables window")
+        geocork_logger.get_logger().info("Starting the display tables window")
 
         # Load the ui file
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
@@ -61,10 +59,6 @@ class DisplayTables(QtW.QWidget):
             if widget.inherits("QMainWindow"):
                 self.main_window = widget
                 break
-
-        # Retrieve the savepoint manager
-        savepoint_manager = Savepoint_manager.SavepointManager()
-        self.savepoint_manager = savepoint_manager.get_instance()
 
         # Message box for any popup messages
         self.msg = QtW.QMessageBox(self)
@@ -106,7 +100,7 @@ class DisplayTables(QtW.QWidget):
         # Populate the value input with a completer based on the selected attribute
 
         sql_query = f'SELECT DISTINCT {self.name_header} FROM "{self.table}"'
-        logger.get_logger().debug(f'SQL command: {sql_query}')
+        geocork_logger.get_logger().debug(f'SQL command: {sql_query}')
         all_names = columns_as_list(sql_query, [self.name_header])[0]
         if not all_names:
             return
@@ -160,7 +154,7 @@ class DisplayTables(QtW.QWidget):
         table = self.dbTable_comboBox.currentText()
         self.table = TxM.remove_spaces(table)
 
-        logger.get_logger().info(f'Displaying {get_total_records(self.table, '')} {self.table}')
+        geocork_logger.get_logger().info(f'Displaying {get_total_records(self.table, '')} {self.table}')
         if self.table != get_view_from_table(self.table):
             if settings.value('show_items_missing_data'):
                 msg = f'Loading related data for {self.table}...\n\nSettings to speed up loading:\n- Hide items with missing data\n- Reduce the columns shown'
@@ -174,14 +168,14 @@ class DisplayTables(QtW.QWidget):
         if self.previous_table in self.dbtree_list and self.previous_table != self.table and self.model.rowCount() > 0:
             save_expanded_state(self.previous_table, self.dbTable_treeView)
         if self.table in self.dbtree_list:
-            logger.get_logger().info(f'Switching to tree view for {self.table}')
+            geocork_logger.get_logger().info(f'Switching to tree view for {self.table}')
             start_display_tree_time = time.time()
             self.dbTable_treeView: TrackExpandedTreeView
             self.switch_to_tree()
             self.edit_samples_pushButton.hide()
             self.model = SQLiteTableModel(f'SELECT * FROM {self.table}')
             if self.model.last_error:
-                logger.get_logger().critical(f'Error displaying {self.table}')
+                geocork_logger.get_logger().critical(f'Error displaying {self.table}')
                 close_loading_dialog('Loading', msg)
                 self.parent().close()
             self.total_records = self.model.rowCount()
@@ -192,7 +186,7 @@ class DisplayTables(QtW.QWidget):
 
             self.dbTable_treeView.setModel(self.tree_proxy_model)
             self.dbTable_treeView.setUniformRowHeights(True)
-            logger.get_logger().info(
+            geocork_logger.get_logger().info(
                 f'Populated tree view in {time.time() - start_display_tree_time:.2f} seconds')
             self.dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
             self.dbTable_treeView.hideColumn(1)  # don't show ID column
@@ -209,7 +203,7 @@ class DisplayTables(QtW.QWidget):
             self.name_header = self.model.headerData(self.name_column, QtC.Qt.Orientation.Horizontal,
                                                      QtC.Qt.ItemDataRole.DisplayRole)
             self.set_go_to_completer()
-            logger.get_logger().info(f'Displaying {self.name_header}')
+            geocork_logger.get_logger().info(f'Displaying {self.name_header}')
 
             # Optimize window resizing
             self.resize_timer = QTimer()
@@ -224,15 +218,15 @@ class DisplayTables(QtW.QWidget):
                 self.dbTable_treeView.resizeColumnToContents(column)
                 if self.dbTable_treeView.columnWidth(column) > 400:
                     self.dbTable_treeView.setColumnWidth(column, 400)
-            logger.get_logger().info(f'Resized columns in {time.time() - start_column_resize_time} seconds')
+            geocork_logger.get_logger().info(f'Resized columns in {time.time() - start_column_resize_time} seconds')
 
             self.page_info_label.setText(f'{self.total_records} {self.table}')
 
-            logger.get_logger().info(
+            geocork_logger.get_logger().info(
                 f'Set up tree view for {self.table} in {time.time() - start_display_tree_time} seconds')
 
         elif self.table in self.dbtable_list:
-            logger.get_logger().info(f'Switching to table view for {self.table}')
+            geocork_logger.get_logger().info(f'Switching to table view for {self.table}')
             self.switch_to_table()
             # Reset column sorting indicator
             self.dbTable_tableView.horizontalHeader().setSortIndicator(-1, QtC.Qt.SortOrder.AscendingOrder)
@@ -266,7 +260,7 @@ class DisplayTables(QtW.QWidget):
                 self.model = SQLiteTableModel(table_query)
             close_loading_dialog('Loading', msg)
             if self.model.last_error is not None:
-                logger.get_logger().critical(f'Error displaying {self.table}')
+                geocork_logger.get_logger().critical(f'Error displaying {self.table}')
                 close_loading_dialog('Loading', msg)
                 self.parent().close()
             self.dbTable_tableView.setSortingEnabled(True)
@@ -326,7 +320,8 @@ class DisplayTables(QtW.QWidget):
                     self.dbTable_tableView.setColumnWidth(column, 400)
 
         else:
-            logger.get_logger().error(f"Error {self.table}: Tried to switch to a table with no table or tree...")
+            geocork_logger.get_logger().error(
+                f"Error {self.table}: Tried to switch to a table with no table or tree...")
             self.parent().close()
 
         self.edit_pushButton.setText(f"Edit {self.table}")
@@ -336,7 +331,7 @@ class DisplayTables(QtW.QWidget):
         self.search_lineEdit.setText("")
         self.search()
         close_loading_dialog('Loading', msg)
-        logger.get_logger().info(f'Displayed {self.table} in {time.time() - start_display_time} seconds')
+        geocork_logger.get_logger().info(f'Displayed {self.table} in {time.time() - start_display_time} seconds')
 
     def edit_samples_popup(self, text=None):
         # print(f'edit_samples_popup called with {text}')
@@ -348,7 +343,7 @@ class DisplayTables(QtW.QWidget):
         if self.dbTable_tableView.selectedIndexes():
             selected_indexes = self.dbTable_tableView.selectedIndexes()
         else:
-            logger.get_logger().error("Select rows to edit")
+            geocork_logger.get_logger().error("Select rows to edit")
             return
         for index in selected_indexes:
             id_index = index.siblingAtColumn(0)
@@ -360,7 +355,7 @@ class DisplayTables(QtW.QWidget):
         dlg.exec()
         if dlg.updated:
             if not update_database():
-                logger.get_logger().critical(f'Error updating and displaying database')
+                geocork_logger.get_logger().critical(f'Error updating and displaying database')
                 self.parent().close()
             self.display_table()
 
@@ -378,7 +373,7 @@ class DisplayTables(QtW.QWidget):
         dlg.exec()
         if dlg.updated:
             if not update_database():
-                logger.get_logger().critical(f'Error updating and displaying database')
+                geocork_logger.get_logger().critical(f'Error updating and displaying database')
                 self.parent().close()
             self.display_table()
 
@@ -401,7 +396,7 @@ class DisplayTables(QtW.QWidget):
         dlg.exec()
         if dlg.updated:
             if not update_database():
-                logger.get_logger().critical(f'Error updating and displaying database')
+                geocork_logger.get_logger().critical(f'Error updating and displaying database')
                 self.parent().close()
             self.display_table()
 
@@ -464,7 +459,7 @@ class DisplayTables(QtW.QWidget):
                 if self.dbTable_tableView.selectedIndexes():
                     selected_indexes = self.dbTable_tableView.selectedIndexes()
                 else:
-                    logger.get_logger().error("Select row")
+                    geocork_logger.get_logger().error("Select row")
                     return
                 for index in selected_indexes:
                     parent_id = self.table_proxy_model.data(self.table_proxy_model.index(index.row(), 0),
@@ -601,7 +596,7 @@ class DisplayTables(QtW.QWidget):
                 return
             record_id = get_id_from_name(self.table, record_name)
             if not record_id:
-                logger.get_logger().error(f'Could not find record ID for record name: {record_name}')
+                geocork_logger.get_logger().error(f'Could not find record ID for record name: {record_name}')
                 return
             row = get_record_row(self.table, record_id)
 
@@ -615,10 +610,10 @@ class DisplayTables(QtW.QWidget):
                 elif self.table in self.dbtree_list:
                     scroll_to_record(record_id, self.dbTable_treeView)
             else:
-                logger.get_logger().critical(f"Record {self.name_header} not found: {record_name}")
+                geocork_logger.get_logger().critical(f"Record {self.name_header} not found: {record_name}")
         except Exception as e:
-            logger.get_logger().critical(f"Invalid Record {self.name_header}: {record_name}")
-            logger.get_logger().debug(f'Error: {e}')
+            geocork_logger.get_logger().critical(f"Invalid Record {self.name_header}: {record_name}")
+            geocork_logger.get_logger().debug(f'Error: {e}')
 
         self.goto_line_edit.setText('')
 

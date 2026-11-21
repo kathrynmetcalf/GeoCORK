@@ -1,7 +1,7 @@
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QHBoxLayout, QTextEdit, QMessageBox
 
-from util import logger
+from util import geocork_logger
 from util.database.database_helper import get_name_from_id, get_id_from_name
 
 
@@ -73,21 +73,21 @@ class SaveFilterDialog(QDialog):
         """
         query.prepare(sql_query)
         query.bindValue(":filter_id", self.update_id)
-        logger.get_logger().info(f'Populating fields for filter: {self.update_id}')
+        geocork_logger.get_logger().info(f'Populating fields for filter: {self.update_id}')
         if query.exec():
             if query.next():
                 self.name_input.setText(query.value(0))
                 self.description_input.setText(query.value(1))
             else:
                 filter_name = get_name_from_id('FilterGroups', self.update_id)
-                logger.get_logger().critical(f'No filter group "{filter_name}" found.')
-                logger.get_logger().debug(f'SQL command: {sql_query}')
+                geocork_logger.get_logger().critical(f'No filter group "{filter_name}" found.')
+                geocork_logger.get_logger().debug(f'SQL command: {sql_query}')
         else:
-            logger.get_logger().critical(
+            geocork_logger.get_logger().critical(
                 f'Error in populating existing Filters')
-            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger.get_logger().debug(f'SQL command: {sql_query}')
-            logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            geocork_logger.get_logger().debug(f'SQL command: {sql_query}')
+            geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
 
     def insert_data(self):
         """
@@ -105,13 +105,13 @@ class SaveFilterDialog(QDialog):
         check_query = "SELECT FilterGroupName FROM FilterGroups WHERE FilterGroupName = :name COLLATE NOCASE"
         query.prepare(check_query)
         query.bindValue(":name", name)
-        logger.get_logger().info(f'Checking if name: {name} already exists in FilterGroups table')
+        geocork_logger.get_logger().info(f'Checking if name: {name} already exists in FilterGroups table')
         if not query.exec():
-            logger.get_logger().critical(
+            geocork_logger.get_logger().critical(
                 f'Error in checking for existing Filters')
-            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger.get_logger().debug(f'SQL command: {check_query}')
-            logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            geocork_logger.get_logger().debug(f'SQL command: {check_query}')
+            geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
             return
 
         if query.next():
@@ -138,13 +138,13 @@ class SaveFilterDialog(QDialog):
             query.bindValue(":description", None if description=='' else description)
 
             if not query.exec():
-                logger.get_logger().critical(
+                geocork_logger.get_logger().critical(
                     f'Error could not add filter')
-                logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger.get_logger().debug(f'SQL command: {check_query}')
-                logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                geocork_logger.get_logger().debug(f'SQL command: {check_query}')
+                geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
             else:
-                logger.get_logger().info(f'Filter {name} added')
+                geocork_logger.get_logger().info(f'Filter {name} added')
                 self.accept()
 
     def update_data(self):
@@ -163,11 +163,11 @@ class SaveFilterDialog(QDialog):
         query.bindValue(":description", description)
         query.bindValue(":id", self.update_id)
         if not query.exec():
-            logger.get_logger().critical(
+            geocork_logger.get_logger().critical(
                 f'Error could not update filter')
-            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger.get_logger().debug(f'SQL command: {update_query}')
-            logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            geocork_logger.get_logger().debug(f'SQL command: {update_query}')
+            geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
         else:
-            logger.get_logger().info(f'Filter {name} updated')
+            geocork_logger.get_logger().info(f'Filter {name} updated')
             self.accept()

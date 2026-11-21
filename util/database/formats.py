@@ -11,18 +11,52 @@ from enum import Enum
 
 
 class ConcordanceFormat(Enum):
-    """Valid concordance formats. Used to create the ConcordanceFormats table."""
-    CONCORDANCE_RATIO = ('Concordance ratio', 'Con',
-                         'Ratio agreement between the 206Pb/238U age to the 207Pb/235U age')
-    CONCORDANCE_PERCENT = ('Concordance percent', 'Con%',
-                           'Percent agreement between the 206Pb/238U age and the 207Pb/235U age')
-    DISCORDANCE_RATIO = ('Discordance ratio', 'Dis',
-                         'Ratio disagreement between  the 206Pb/238U age to the 207Pb/206Pb age')
-    DISCORDANCE_PERCENT = ('Discordance percent', 'Dis%',
-                           'Percent disagreement between the 206Pb/238U age and the 207Pb/206Pb age')
-    MINIMUM_SEGMENTED_DISCORDANCE = ('Minimum segmented discordance', 'MinSegDis',
-                                     'Minimum of |206Pb/238U-207Pb/235U| ages and |206Pb/207Pb-207Pb/235U| ages')
+    """Valid concordance formats. Used to create the ConcordanceFormats table"""
 
+    def __init__(self, label, abbreviation, description):
+        self.label = label
+        self.abbreviation = abbreviation
+        self.description = description
+
+    def __new__(cls, label, abbreviation, description, to_base=None, from_base=None):
+        obj = object.__new__(cls)
+        obj._value_ = (label, abbreviation, description)  # .value stays the 3-tuple the existing code reads
+        return obj
+
+    CONCORDANCE_RATIO = (
+        'Concordance ratio',
+        'Con',
+        'Ratio agreement between the 206Pb/238U age to the 207Pb/235U age'
+    )
+    CONCORDANCE_PERCENT = (
+        'Concordance percent',
+        'Con%',
+        'Percent agreement between the 206Pb/238U age and the 207Pb/235U age'
+    )
+    DISCORDANCE_RATIO = (
+        'Discordance ratio',
+        'Dis',
+        'Ratio disagreement between the 206Pb/238U age to the 207Pb/206Pb age'
+    )
+    DISCORDANCE_PERCENT = (
+        'Discordance percent',
+        'Dis%',
+        'Percent disagreement between the 206Pb/238U age and the 207Pb/206Pb age'
+    )
+    MINIMUM_SEGMENTED_DISCORDANCE = (
+        'Minimum segmented discordance',
+        'MinSegDis',
+        'Minimum of |206Pb/238U-207Pb/235U| ages and |206Pb/207Pb-207Pb/235U| ages'
+    )
+
+CONCORDANCE_CONVERSIONS = {
+    (ConcordanceFormat.CONCORDANCE_RATIO,   ConcordanceFormat.CONCORDANCE_PERCENT): ('x*100',     'x/100'),
+    (ConcordanceFormat.CONCORDANCE_RATIO,   ConcordanceFormat.DISCORDANCE_RATIO):   ('1-x',       '1-x'),
+    (ConcordanceFormat.CONCORDANCE_RATIO,   ConcordanceFormat.DISCORDANCE_PERCENT): ('100*(1-x)', '1-(x/100)'),
+    (ConcordanceFormat.CONCORDANCE_PERCENT, ConcordanceFormat.DISCORDANCE_RATIO):   ('1-(x/100)', '100*(1-x)'),
+    (ConcordanceFormat.CONCORDANCE_PERCENT, ConcordanceFormat.DISCORDANCE_PERCENT): ('100-x',     '100-x'),
+    (ConcordanceFormat.DISCORDANCE_RATIO,   ConcordanceFormat.DISCORDANCE_PERCENT): ('x*100',     'x/100'),
+}
 
 class ErrorFormat(Enum):
     """Valid error formats. Used to create the ErrorFormats table."""

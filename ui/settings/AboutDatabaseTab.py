@@ -4,7 +4,7 @@ from PyQt6.QtCore import QStandardPaths
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtSql import QSqlQueryModel, QSqlQuery
 
-from util import logger
+from util import geocork_logger
 from ui.settings.UnitsFormatsTab import fixed_height
 
 
@@ -103,9 +103,9 @@ class AboutDatabaseTab(QtW.QWidget):
         for value in about_values:
             query.addBindValue(value)
         if not query.exec():
-            logger.get_logger().critical(f'Error updating About table')
-            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            geocork_logger.get_logger().critical(f'Error updating About table')
+            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
 
     def open_logs(self):
         """

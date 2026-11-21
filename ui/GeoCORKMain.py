@@ -20,10 +20,10 @@ from ui.exporter.ExportTab import ExportTab
 from ui.filters.FiltersTab import FiltersTab
 from ui.settings.Settings import SettingsDialog
 from ui.settings.SettingsCore import default_settings
-from util import logger
+from util import geocork_logger
 from util.Text_manipulations import shrink_home, expand_home
-from util.database import Savepoint_manager
-from util.database.Savepoint_manager import SavepointManager
+from util.database import savepoint_manager
+from util.database.savepoint_manager import SavepointManager
 from util.database.backup.BackupDatabase import BackupThread
 from util.database.database_helper import update_database, turn_on_foreign_keys, get_name_from_id
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
@@ -36,7 +36,7 @@ settings = SettingsManager().settings
 class GeoCORK(QtW.QMainWindow):
     def __init__(self, landingpage):
         super().__init__()
-        logger.get_logger().info("Starting the main window")
+        geocork_logger.get_logger().info("Starting the main window")
 
         self.setObjectName('GeoCORKMain')
         blank_schema_file = "Reference/GeoCORK_v1-0.db"
@@ -56,26 +56,25 @@ class GeoCORK(QtW.QMainWindow):
         install_static_menus(self, leading_menus=[file_menu])
 
         settings.setValue('db_file', self.db_file)
-        logger.get_logger().info(f"Setting database file to: {self.db_file}")
+        geocork_logger.get_logger().info(f"Setting database file to: {self.db_file}")
         if '/' in self.db_file:
             self.db_name: str = self.db_file.split('/')[-1]
         elif '\\' in self.db_file:
             self.db_name: str = self.db_file.split('\\')[-1]
         if self.db.isOpen():
             if self.db.open():
-                logger.get_logger().info(f"Database opened successfully")
+                geocork_logger.get_logger().info(f"Database opened successfully")
                 self.setWindowTitle(f"GeoCORK - {self.db_name}")
             else:
-                logger.get_logger().critical('Database could not be opened')
+                geocork_logger.get_logger().critical('Database could not be opened')
                 return
         else:
-            logger.get_logger().info(f"Database already opened")
+            geocork_logger.get_logger().info(f"Database already opened")
 
         if not turn_on_foreign_keys():
             return
 
         SettingsManager().set_db_file(self.db_name)
-        self.savepoint_manager = Savepoint_manager.SavepointManager().get_instance()
         self.msg = QtW.QMessageBox(self)
 
         # if not update_database():
@@ -205,7 +204,7 @@ class GeoCORK(QtW.QMainWindow):
         dlg.exec()
         if dlg.updated:
             if not update_database():
-                logger.get_logger().critical('Error updating and displaying database')
+                geocork_logger.get_logger().critical('Error updating and displaying database')
                 self.close()
             self.update_window_title()
             # Refresh the active tab
@@ -240,7 +239,7 @@ class GeoCORK(QtW.QMainWindow):
         self.tabWidget.setCurrentIndex(2)
 
     def create_backup(self):
-        logger.get_logger().info(f'Creating backup of {self.db_name}:')
+        geocork_logger.get_logger().info(f'Creating backup of {self.db_name}:')
         local_timezone = get_localzone()
         current_time = datetime.now(local_timezone)
         formatted_timestamp = current_time.strftime('%Y-%m-%d %H.%M.%S')
@@ -252,7 +251,7 @@ class GeoCORK(QtW.QMainWindow):
         if backup_dir and not os.path.exists(backup_dir):
             os.makedirs(backup_dir, exist_ok=True)
 
-        logger.get_logger().info(f'Backing up to {backup_file}')
+        geocork_logger.get_logger().info(f'Backing up to {backup_file}')
 
         if not SavepointManager.get_instance().active_savepoints():
             self.progressBar = QProgressDialog()
@@ -266,12 +265,12 @@ class GeoCORK(QtW.QMainWindow):
             self.thread.start()
 
         else:
-            logger.get_logger().critical(
+            geocork_logger.get_logger().critical(
                 'Uncommitted changes: cannot backup\nPlease commit or discard changes before creating a backup.')
-            logger.get_logger().debug(f"Savepoints: {SavepointManager.get_instance().active_savepoints_names()}")
+            geocork_logger.get_logger().debug(f"Savepoints: {SavepointManager.get_instance().active_savepoints_names()}")
 
     def restore_backup(self):
-        logger.get_logger().info(f'Restoring backup to {self.db_name}:')
+        geocork_logger.get_logger().info(f'Restoring backup to {self.db_name}:')
 
         backup_file = (QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation) +
                        rf"/backups/{self.db_name.replace('.db', '')}/")
@@ -308,7 +307,7 @@ class GeoCORK(QtW.QMainWindow):
         :param index: The index of the tab that was changed
         :return:
         """
-        logger.get_logger().debug(f'Tab changed to {self.tabWidget.tabText(index)}')
+        geocork_logger.get_logger().debug(f'Tab changed to {self.tabWidget.tabText(index)}')
         ## This is taking too long, so the user should use the refresh button as needed
         # if self.tabWidget.tabText(index) not in self.tabWidget.permanent_tabs:
         #     self.tabWidget.widget(index).display_table()
@@ -321,7 +320,7 @@ class GeoCORK(QtW.QMainWindow):
         :param child_type: The type of the child
         :return:
         """
-        logger.get_logger().info(
+        geocork_logger.get_logger().info(
             f'Opening tab with parent ID {parent_ids} and parent type {parent_type} and child type {child_type}')
         start_open_tab_time = time.time()
         if not parent_ids:
@@ -329,11 +328,11 @@ class GeoCORK(QtW.QMainWindow):
         self.tabWidget: PartiallyCloseableTabWidget
         for p_id in parent_ids:
             if parent_type not in ['Samples', 'Aliquots', 'Grains', 'Spots']:
-                logger.get_logger().critical(f'Parent type {parent_type} not recognized')
+                geocork_logger.get_logger().critical(f'Parent type {parent_type} not recognized')
                 return
             parent_name = get_name_from_id(parent_type, p_id)
             if child_type not in ['Aliquots', 'Grains', 'Spots', 'UPbAnalyses', 'GeoChemicalAnalyses']:
-                logger.get_logger().critical(f'Child type {child_type} not recognized')
+                geocork_logger.get_logger().critical(f'Child type {child_type} not recognized')
                 return
             label = f'{parent_type} {parent_name}: {child_type}'
             show_loading_dialog('Loading',
@@ -343,10 +342,10 @@ class GeoCORK(QtW.QMainWindow):
             start_add_tab_time = time.time()
             self.tabWidget.addTab(tab, label)
             self.tabWidget.setTabToolTip(self.tabWidget.currentIndex(), label)
-            logger.get_logger().debug(f'Time to add tab: {time.time() - start_add_tab_time}')
+            geocork_logger.get_logger().debug(f'Time to add tab: {time.time() - start_add_tab_time}')
             tab.setUpdatesEnabled(True)
         end_open_tab_time = time.time()
-        logger.get_logger().info(f'Time to open tab: {end_open_tab_time - start_open_tab_time}')
+        geocork_logger.get_logger().info(f'Time to open tab: {end_open_tab_time - start_open_tab_time}')
 
     def close_tab(self, index):
         self.tabWidget: PartiallyCloseableTabWidget
@@ -376,19 +375,19 @@ class GeoCORK(QtW.QMainWindow):
     def closeEvent(self, event):
         self.saveWindowState()
 
-        logger.get_logger().info(f"Current databases open {QSqlDatabase().connectionNames()}")
+        geocork_logger.get_logger().info(f"Current databases open {QSqlDatabase().connectionNames()}")
         if 'qt_sql_default_connection' in QSqlDatabase().connectionNames():
             if not self.db.commit():
                 if 'transaction is active' in self.db.lastError().text():
-                    logger.get_logger().critical(
+                    geocork_logger.get_logger().critical(
                         f'Database is open but a transaction is active: {self.db.lastError().text()}')
                 else:
                     if "Driver not loaded" not in self.db.lastError().text():
-                        logger.get_logger().critical(f'Database error: {self.db.lastError().text()}')
+                        geocork_logger.get_logger().critical(f'Database error: {self.db.lastError().text()}')
             self.db.close()
             self.db.removeDatabase('qt_sql_default_connection')
-            logger.get_logger().info(f"Current databases open {QSqlDatabase().connectionNames()}")
+            geocork_logger.get_logger().info(f"Current databases open {QSqlDatabase().connectionNames()}")
         else:
-            logger.get_logger().info('Database not open')
+            geocork_logger.get_logger().info('Database not open')
         self.landingpage.show()
         super().closeEvent(event)

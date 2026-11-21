@@ -1,7 +1,7 @@
 from PyQt6 import QtCore, QtSql
 from PyQt6.QtSql import QSqlQueryModel, QSqlDatabase
 
-from util import logger
+from util import geocork_logger
 from Functions.Check_triggers import update_modified_timestamp
 from util.settings_manager import SettingsManager
 from util.database.database_helper import update_other_table_with_checks, get_name_column, get_view_from_table, \
@@ -33,13 +33,13 @@ class DisplayRoundedQueryModel(QSqlQueryModel):
         :return:
         """
         if not query_text:
-            logger.get_logger().info(f"No query text provided, skipping setQuery for {self.objectName()}.")
+            geocork_logger.get_logger().info(f"No query text provided, skipping setQuery for {self.objectName()}.")
             return
         super().setQuery(query_text, self.db)
         if self.lastError().text():
-            logger.get_logger().critical(f"Error displaying table")
-            logger.get_logger().debug(f"Failed to set query: {self.lastError().text()}")
-            logger.get_logger().debug(f"SQL query: {query_text}")
+            geocork_logger.get_logger().critical(f"Error displaying table")
+            geocork_logger.get_logger().debug(f"Failed to set query: {self.lastError().text()}")
+            geocork_logger.get_logger().debug(f"SQL query: {query_text}")
         else:
             self.query_text = query_text
             if 'table_info' in query_text:
@@ -161,7 +161,7 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
         if role == QtCore.Qt.ItemDataRole.CheckStateRole:
             item_id = self.index(index.row(), 0).data(QtCore.Qt.ItemDataRole.DisplayRole)
             if not item_id:
-                logger.get_logger().debug(f'No ID found for row {index.row()} in {self.tableName()}')
+                geocork_logger.get_logger().debug(f'No ID found for row {index.row()} in {self.tableName()}')
                 return False
             if value == QtCore.Qt.CheckState.Checked:
                 if item_id not in self.checked_ids:
@@ -246,17 +246,17 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
         :return: 'True' if successful, 'No' if not needed, 'False' needed but failed
         """
         if not other_ids:
-            logger.get_logger().error(f'No item IDs given for {other_table}')
+            geocork_logger.get_logger().error(f'No item IDs given for {other_table}')
             return 'False'
         if self.partially_checked_ids:
             # Any selection for a one-to-many relationship should be complete, so there should be no partially checked IDs
-            logger.get_logger().info(f'Partially checked IDs for one-to-many relationship, no changes to update')
+            geocork_logger.get_logger().info(f'Partially checked IDs for one-to-many relationship, no changes to update')
             return 'No'
         if len(self.checked_ids) > 1:
             # If there are multiple checked IDs, this is a many-to-many relationship, so we should not use this function
-            logger.get_logger().error(
+            geocork_logger.get_logger().error(
                 f'Multiple checked IDs given for {self.tableName()}. Select only one ID to update {other_table}.')
-            logger.get_logger().debug(
+            geocork_logger.get_logger().debug(
                 f'This should be a one-to-many relationship, so set the checkable combo box to single click.')
             return 'False'
         return update_other_table_with_checks(self.table, list(self.checked_ids), list(self.partially_checked_ids),
@@ -271,7 +271,7 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
         :return: 'True' if successful, 'No' if not needed, 'False' needed but failed
         """
         if not item_ids:
-            logger.get_logger().error(f'No item IDs given for {many_table}')
+            geocork_logger.get_logger().error(f'No item IDs given for {many_table}')
             return 'False'
         return update_many_table_with_checks(self.table, list(self.checked_ids), list(self.partially_checked_ids),
                                              many_table, item_ids)
@@ -303,24 +303,24 @@ class EditableSqlQueryModel(DisplayRoundedQueryModel):
             edited_header = self.headerData(index.column(), QtCore.Qt.Orientation.Horizontal)
             query = QtSql.QSqlQuery()
             if not query.exec(f'SELECT {edited_header} FROM {self.table} WHERE {id_header}={edited_id}'):
-                logger.get_logger().critical(f'Failed to get {edited_header} from {self.table}')
-                logger.get_logger().debug(f"Error: {query.lastError().text()}")
-                logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                geocork_logger.get_logger().critical(f'Failed to get {edited_header} from {self.table}')
+                geocork_logger.get_logger().debug(f"Error: {query.lastError().text()}")
+                geocork_logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
                 return False
             if query.next():
                 if query.value(0) == value:
-                    logger.get_logger().info(f'{edited_header} is already set to {value}')
+                    geocork_logger.get_logger().info(f'{edited_header} is already set to {value}')
                     return True
             query.prepare(f'UPDATE {self.table} SET {edited_header}=:value WHERE {id_header}=:id')
             query.bindValue(':value', value)
             query.bindValue(':id', edited_id)
             if not query.exec():
-                logger.get_logger().critical(f'Failed to update {edited_header} in {self.table}')
-                logger.get_logger().debug(f"Error: {query.lastError().text()}")
-                logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
-                logger.get_logger().debug(f"Bound values: {query.boundValues()}")
+                geocork_logger.get_logger().critical(f'Failed to update {edited_header} in {self.table}')
+                geocork_logger.get_logger().debug(f"Error: {query.lastError().text()}")
+                geocork_logger.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                geocork_logger.get_logger().debug(f"Bound values: {query.boundValues()}")
                 return False
-            logger.get_logger().info(f'Successfully updated {edited_header} in {self.table}')
+            geocork_logger.get_logger().info(f'Successfully updated {edited_header} in {self.table}')
             update_modified_timestamp(self.tableName(), [edited_id])
             self.setQuery(self.query_text)
             self.dataChanged.emit(index, index)
@@ -330,11 +330,11 @@ class EditableSqlQueryModel(DisplayRoundedQueryModel):
     def deleteRowFromTable(self, row):
         id = self.data(self.index(row, 0), QtCore.Qt.ItemDataRole.DisplayRole)
         if not id:
-            logger.get_logger().warning(f'No ID found for row {row} in {self.table}')
+            geocork_logger.get_logger().warning(f'No ID found for row {row} in {self.table}')
             return False
         if not delete_data(self.table, [id]):
             return False
-        logger.get_logger().info(f'Successfully deleted {id} from {self.table}')
+        geocork_logger.get_logger().info(f'Successfully deleted {id} from {self.table}')
         return True
 
 

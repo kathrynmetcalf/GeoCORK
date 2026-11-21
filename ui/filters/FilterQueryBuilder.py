@@ -7,7 +7,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QVBoxLayout, QScrollArea, QSizePolicy, QWidget, QListWidgetItem, QMessageBox, QLabel
 
-from util import logger
+from util import geocork_logger
 from Functions import SQLUtils
 
 from ui.filters.FilterHelpers import process_group
@@ -60,7 +60,7 @@ class FilterQueryBuilder(QWidget):
             """
         query.prepare(sql_query)
         query.bindValue(":filter_name", filter_name)
-        logger.get_logger().info(f'Populating QueryBuilder from stored filter: {filter_name}')
+        geocork_logger.get_logger().info(f'Populating QueryBuilder from stored filter: {filter_name}')
 
         if query.exec():
             if query.next():
@@ -75,14 +75,14 @@ class FilterQueryBuilder(QWidget):
                 self.scrollarea.setWidget(self.main_group_box)
                 self.show()
             else:
-                logger.get_logger().error(
+                geocork_logger.get_logger().error(
                     f'No matching filter group for: {filter_name}')
         else:
-            logger.get_logger().critical(
+            geocork_logger.get_logger().critical(
                 f'Error in populating existing Filters')
-            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger.get_logger().debug(f'SQL command: {sql_query}')
-            logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+            geocork_logger.get_logger().debug(f'SQL command: {sql_query}')
+            geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
         close_loading_dialog('Loading', f'Populating from {filter_name}...')
 
 
@@ -114,7 +114,7 @@ class FilterQueryBuilder(QWidget):
         filter_start = time.time()
         show_loading_dialog('Filtering', f'Filtering {type} based on current criteria...\n\nThis may take minutes for complex filters or large databases.')
         sql_query = self.get_sql(type)
-        database = logger.settings.value('db_file', type=str)
+        database = geocork_logger.settings.value('db_file', type=str)
         uri = f'file:{database}?mode=ro&immutable=1'
         try:
             conn = sqlite3.connect(uri, uri=True)
@@ -126,14 +126,14 @@ class FilterQueryBuilder(QWidget):
             conn.commit()
             conn.close()
         except sqlite3.Error as e:
-            logger.get_logger().critical("Error filtering data")
-            logger.get_logger().debug(f"Failed to get filtered ids")
-            logger.get_logger().debug(f"Error: {e}")
-            logger.get_logger().debug(f"SQL query: {sql_query}")
+            geocork_logger.get_logger().critical("Error filtering data")
+            geocork_logger.get_logger().debug(f"Failed to get filtered ids")
+            geocork_logger.get_logger().debug(f"Error: {e}")
+            geocork_logger.get_logger().debug(f"SQL query: {sql_query}")
             close_loading_dialog('Filtering', f'Filtering {type} based on current criteria...\n\nThis may take minutes for complex filters or large databases.')
             return None
-        logger.get_logger().debug(f'Filtered ids: {results}')
-        logger.get_logger().info('Gathered filtered ids successfully in {:.2f} seconds'.format(time.time() - filter_start))
+        geocork_logger.get_logger().debug(f'Filtered ids: {results}')
+        geocork_logger.get_logger().info('Gathered filtered ids successfully in {:.2f} seconds'.format(time.time() - filter_start))
         close_loading_dialog('Filtering', f'Filtering {type} based on current criteria...\n\nThis may take minutes for complex filters or large databases.')
         return results if results else None
 
@@ -157,9 +157,9 @@ class FilterQueryBuilder(QWidget):
 
         # gathers the join statements with found tables
         join = get_join_from_table("", self.main_group_box.get_tables())
-        logger.get_logger().debug(f'SQL Join: {join}')
+        geocork_logger.get_logger().debug(f'SQL Join: {join}')
         selects = self.main_group_box.get_selects()
-        logger.get_logger().debug(f'SQL Selects: {selects}')
+        geocork_logger.get_logger().debug(f'SQL Selects: {selects}')
 
         def extract_as_tables(join):
             as_tables = None
@@ -270,10 +270,10 @@ class FilterQueryBuilder(QWidget):
                 WHERE UPbAnalysisID IS NOT NULL;"""
 
         else:
-            logger.get_logger().critical(f'Unknown Type Given: {type}')
+            geocork_logger.get_logger().critical(f'Unknown Type Given: {type}')
             return None
 
-        logger.get_logger().debug(f'Filtered SQL command: {sql_query}')
+        geocork_logger.get_logger().debug(f'Filtered SQL command: {sql_query}')
 
         return sql_query
 

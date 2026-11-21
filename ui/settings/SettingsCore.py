@@ -9,7 +9,7 @@ from PyQt6.QtGui import (QFont, QColor, QPalette, QBrush)
 from PyQt6.QtSql import QSqlQueryModel, QSqlQuery
 from PyQt6.QtWidgets import QColorDialog
 
-from util import logger
+from util import geocork_logger
 from util.settings_manager import SettingsManager
 from util.database.views import view_attributes_dict, view_setting_dict
 
@@ -155,7 +155,7 @@ def _setting_color(key: str, fallback: str) -> QColor:
     """Returns the QColor stored in key, or fallback if the stored value is missing/invalid."""
     color = QColor(str(settings.value(key, fallback)))
     if not color.isValid():
-        logger.get_logger().warning(f'Invalid color stored for {key}, using {fallback}')
+        geocork_logger.get_logger().warning(f'Invalid color stored for {key}, using {fallback}')
         color = QColor(fallback)
     return color
 
@@ -249,7 +249,7 @@ def apply_color_palette():
         _apply_color_scheme_hint()
         if settings.value('custom_theme_colors') == 'true':
             mode = active_color_mode()
-            logger.get_logger().debug(f'Applying custom {mode} mode theme colors')
+            geocork_logger.get_logger().debug(f'Applying custom {mode} mode theme colors')
             app.setPalette(build_theme_palette(get_theme_color('text'), get_theme_color('fill')))
             _custom_palette_applied = True
         elif _custom_palette_applied:
@@ -502,9 +502,9 @@ def default_settings():
             # Retrieve all analyte abbreviations from the database and include columns for value, error, and unit
             query = QSqlQuery()
             if not query.exec(f'SELECT GeoChemAnalyteAbbreviation FROM GeoChemicalAnalytes') and 'Driver' not in query.lastError().text():
-                logger.get_logger().critical(f'Error fetching geochemical analytes for settings')
-                logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                geocork_logger.get_logger().critical(f'Error fetching geochemical analytes for settings')
+                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 continue
             if 'Driver' not in query.lastError().text():
                 while query.next():
@@ -527,9 +527,9 @@ def default_settings():
             # Retrieve all analyte abbreviations from the database and include columns for value, error, and unit
             query = QSqlQuery()
             if not query.exec(f'SELECT GeoChemAnalyteAbbreviation FROM GeoChemicalAnalytes') and 'Driver' not in query.lastError().text():
-                logger.get_logger().critical(f'Error fetching geochemical analytes for settings')
-                logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                geocork_logger.get_logger().critical(f'Error fetching geochemical analytes for settings')
+                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 continue
             analyte_abbreviations = []
             if 'Driver' not in query.lastError().text():
@@ -636,7 +636,7 @@ def update_column_settings() -> bool:
                     else:
                         current_columns.remove(column)
                 except Exception as e:
-                    logger.get_logger().debug(f'Remove column error: {e}')
+                    geocork_logger.get_logger().debug(f'Remove column error: {e}')
                     return False
         settings.setValue(column_settings, current_columns)
     return True
@@ -689,7 +689,7 @@ def update_abbreviation(id_key: str) -> bool:
     while model.canFetchMore():
         model.fetchMore()
     if model.rowCount() == 0:
-        logger.get_logger().critical(f"Error: No results found for {id_key}: {model.lastError().text()}")
+        geocork_logger.get_logger().critical(f"Error: No results found for {id_key}: {model.lastError().text()}")
         return False
     abbreviation_key = id_key.replace('_id', '_abbreviation')
     settings.setValue(abbreviation_key, model.record(0).value(0))
@@ -719,7 +719,7 @@ class ColorButton(QtW.QPushButton):
         """Sets the swatch color, invalid colors are ignored"""
         qcolor = QColor(str(color))
         if not qcolor.isValid():
-            logger.get_logger().warning(f'Invalid color {color} for {self.objectName()}')
+            geocork_logger.get_logger().warning(f'Invalid color {color} for {self.objectName()}')
             return
         self._color = qcolor.name()
         self._refresh()

@@ -9,7 +9,7 @@ from PyQt6.QtSql import QSqlDatabase
 from PyQt6.QtWidgets import QTreeView
 from PyQt6.uic import loadUi
 
-from util import logger
+from util import geocork_logger
 import util.Text_manipulations as TxM
 from Functions import SQLUtils
 from Functions.Database_views import ViewQuery
@@ -30,7 +30,7 @@ settings = SettingsManager().settings
 class DisplayTablesSimplified(QtW.QWidget):
     def __init__(self, parent, db_file: str):
         super().__init__(parent)
-        logger.get_logger().info(f"Loading simplified {self.tables}")
+        geocork_logger.get_logger().info(f"Loading simplified {self.tables}")
         start_time = time.time()
         self.setObjectName('database_tab')
 
@@ -73,7 +73,7 @@ class DisplayTablesSimplified(QtW.QWidget):
 
         self.connect_signals()
 
-        logger.get_logger().info(f'Loaded simplified {self.table} in {time.time() - start_time} seconds')
+        geocork_logger.get_logger().info(f'Loaded simplified {self.table} in {time.time() - start_time} seconds')
 
     def connect_signals(self):
         # Signal for table combo box
@@ -119,9 +119,9 @@ class DisplayTablesSimplified(QtW.QWidget):
         table = self.dbTable_comboBox.currentText()
         self.table = TxM.remove_spaces(table)
         if not self.table:
-            logger.get_logger().warning('No table selected to display')
+            geocork_logger.get_logger().warning('No table selected to display')
             return
-        logger.get_logger().info(f'Displaying {self.table}')
+        geocork_logger.get_logger().info(f'Displaying {self.table}')
         # If moving from a tree table, save the expanded state first
         if self.previous_table in self.dbtree_list and self.previous_table != self.table:
             save_expanded_state(self.previous_table, self.dbTable_treeView)
@@ -137,7 +137,7 @@ class DisplayTablesSimplified(QtW.QWidget):
         show_loading_dialog('Loading', msg)
 
         if self.table in self.dbtree_list:
-            logger.get_logger().info(f'Switching to tree view for {self.table}')
+            geocork_logger.get_logger().info(f'Switching to tree view for {self.table}')
             self.switch_to_tree()
             self.database.open()
             if get_view_from_table(self.table) != self.table:
@@ -154,7 +154,7 @@ class DisplayTablesSimplified(QtW.QWidget):
                 # There is no view_query, so just use the table query and database file
                 self.model = SQLiteTableModel(table_query, database=self.db_file)
             if self.model.last_error:
-                logger.get_logger().critical(f'Error loading {self.table}')
+                geocork_logger.get_logger().critical(f'Error loading {self.table}')
                 return
 
             self.tree_model = TreeModel(source_model=self.model, db=self.database)
@@ -202,7 +202,7 @@ class DisplayTablesSimplified(QtW.QWidget):
             else:
                 close_loading_dialog('Loading', f'Loading {self.table}...')
             if self.model.last_error:
-                logger.get_logger().critical(f'Error loading {self.table}')
+                geocork_logger.get_logger().critical(f'Error loading {self.table}')
                 return
             self.table_proxy_model.setSourceModel(self.model)
 

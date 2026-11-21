@@ -2,11 +2,11 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
 
-from util import logger
+from util import geocork_logger
 from Functions.Check_triggers import update_modified_timestamp
 from Functions.Database_views import ViewQuery
 from util.settings_manager import SettingsManager
-from util.database.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from util.database.savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from util.database.database_helper import (
     find_current_sub_items, get_name_from_id,
     find_tree_model, find_child_ids)
@@ -31,10 +31,10 @@ class SampleChainEdit(QtW.QDialog):
         if not self.child_ids or not self.child_table:
             return
         if child_table not in ['Aliquots', 'Grains', 'Spots', 'UPbAnalyses']:
-            logger.get_logger().critical(f'Child table {child_table} not recognized')
+            geocork_logger.get_logger().critical(f'Child table {child_table} not recognized')
             return
 
-        logger.get_logger().info(f'Opening new SampleChainEdit window for {self.child_table}')
+        geocork_logger.get_logger().info(f'Opening new SampleChainEdit window for {self.child_table}')
 
         self.current_sample_id = None
         self.current_aliquot_id = None
@@ -311,7 +311,7 @@ class SampleChainEdit(QtW.QDialog):
         self.check_updated()
         if self.updated:
             if not self.new_sample_id and self.sample_mode_comboBox.currentText() == 'Existing':
-                logger.get_logger().error(f'Sample required for {self.child_table}')
+                geocork_logger.get_logger().error(f'Sample required for {self.child_table}')
                 return False
             create_savepoint('before_update_chain')
             changes_msg = ''
@@ -327,13 +327,13 @@ class SampleChainEdit(QtW.QDialog):
                 query.bindValue(0, new_sample_name)
                 if not query.exec():
                     if 'UNIQUE constraint failed: Samples.SampleName' in query.lastError().text():
-                        logger.get_logger().error(
+                        geocork_logger.get_logger().error(
                             f'Sample name "{new_sample_name}" already exists in the database. Names must be unique.')
                     else:
-                        logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
-                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                        logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+                        geocork_logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
+                        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                     rollback_savepoint('before_update_chain')
                     return False
                 self.new_sample_id = query.lastInsertId()
@@ -342,9 +342,9 @@ class SampleChainEdit(QtW.QDialog):
                 new_aliquot_name = self.aliquot_lineEdit.text()
                 aliquot_rows = []
                 if not query.exec(f'SELECT AliquotParentRow FROM Aliquots WHERE ParentAliquotID IS NULL'):
-                    logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
-                    logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    geocork_logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
+                    geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                    geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                     rollback_savepoint('before_update_chain')
                     return False
                 while query.next():
@@ -357,25 +357,25 @@ class SampleChainEdit(QtW.QDialog):
                 query.bindValue(2, self.new_sample_id)
                 if not query.exec():
                     if 'UNIQUE constraint failed: Aliquots.AliquotName' in query.lastError().text():
-                        logger.get_logger().error(
+                        geocork_logger.get_logger().error(
                             f'Aliquot name {new_aliquot_name} already exists in the database. Names must be unique.')
                     else:
-                        logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
-                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                        logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+                        geocork_logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
+                        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                     rollback_savepoint('before_update_chain')
                     return False
                 self.new_aliquot_id = query.lastInsertId()
             elif self.aliquot_mode_comboBox.currentText() == 'Move':
                 if not self.new_aliquot_id:
-                    logger.get_logger().error(f'Aliquot required for {self.child_table}')
+                    geocork_logger.get_logger().error(f'Aliquot required for {self.child_table}')
                     return False
                 if not query.exec(
                         f'SELECT ParentAliquotID, AliquotParentRow, SampleID FROM Aliquots WHERE AliquotID = {self.new_aliquot_id}'):
-                    logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
-                    logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    geocork_logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
+                    geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                    geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                     rollback_savepoint('before_update_chain')
                     return False
                 query.next()
@@ -388,9 +388,9 @@ class SampleChainEdit(QtW.QDialog):
                         # Sub aliquot, so make it its own top-level aliquot
                         aliquot_rows = []
                         if not query.exec(f'SELECT AliquotParentRow FROM Aliquots WHERE ParentAliquotID IS NULL'):
-                            logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
-                            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            geocork_logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
+                            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                             rollback_savepoint('before_update_chain')
                             return False
                         while query.next():
@@ -399,9 +399,9 @@ class SampleChainEdit(QtW.QDialog):
                         parent_row = aliquot_rows[0] + 1
                     if not query.exec(
                             f'UPDATE Aliquots SET (SampleID, ParentAliquotID, AliquotParentRow) = ({self.new_sample_id}, NULL, {parent_row}) WHERE AliquotID = {self.new_aliquot_id}'):
-                        logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
-                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        geocork_logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
+                        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                         rollback_savepoint('before_update_chain')
                         return False
                     update_modified_timestamp('Aliquots', [self.new_aliquot_id])
@@ -412,13 +412,13 @@ class SampleChainEdit(QtW.QDialog):
                 query.bindValue(0, new_grain_name)
                 if not query.exec():
                     if 'UNIQUE constraint failed: Grains.GrainName' in query.lastError().text():
-                        logger.get_logger().error(
+                        geocork_logger.get_logger().error(
                             f'Grain name "{new_grain_name}" already exists in the database. Names must be unique.')
                     else:
-                        logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
-                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                        logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+                        geocork_logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
+                        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                     rollback_savepoint('before_update_chain')
                     return False
                 self.new_grain_id = query.lastInsertId()
@@ -433,25 +433,25 @@ class SampleChainEdit(QtW.QDialog):
                     query.bindValue(2, QtC.QVariant())
                 if not query.exec():
                     if 'UNIQUE constraint failed: Spots.SpotName' in query.lastError().text():
-                        logger.get_logger().error(
+                        geocork_logger.get_logger().error(
                             f'Spot name "{new_spot_name}" already exists in the database. Names must be unique.')
                     else:
-                        logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
-                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                        logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+                        geocork_logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
+                        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                     rollback_savepoint('before_update_chain')
                     return False
                 self.new_spot_id = query.lastInsertId()
             elif self.spot_mode_comboBox.currentText() == 'Move':
                 if self.child_table == 'UPbAnalyses' and not self.new_spot_id:
-                    logger.get_logger().error(f'Spot required for {self.child_table}')
+                    geocork_logger.get_logger().error(f'Spot required for {self.child_table}')
                     return False
                 if not query.prepare(
                         f'UPDATE Spots SET (AliquotID, GrainID) = (?,?) WHERE SpotID = {self.new_spot_id}'):
-                    logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
-                    logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    geocork_logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
+                    geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                    geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                     rollback_savepoint('before_update_chain')
                     return False
                 update_modified_timestamp('Spots', [self.new_spot_id])
@@ -461,10 +461,10 @@ class SampleChainEdit(QtW.QDialog):
                 else:
                     query.bindValue(1, QtC.QVariant())
                 if not query.exec():
-                    logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
-                    logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                    logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+                    geocork_logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
+                    geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                    geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                     rollback_savepoint('before_update_chain')
                     return False
             elif self.grain_mode_comboBox.currentText() == 'Move' and self.new_grain_id:
@@ -474,18 +474,18 @@ class SampleChainEdit(QtW.QDialog):
                 elif len(related_spot_ids) == 1:
                     sql_where = f'= {related_spot_ids[0]}'
                 if not query.prepare(f'UPDATE Spots SET (AliquotID, GrainID) = (?,?) WHERE SpotID = {sql_where}'):
-                    logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
-                    logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    geocork_logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
+                    geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                    geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                     rollback_savepoint('before_update_chain')
                     return False
                 query.bindValue(0, self.new_aliquot_id)
                 query.bindValue(1, self.new_grain_id)
                 if not query.exec():
-                    logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
-                    logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                    logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+                    geocork_logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
+                    geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                    geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                     rollback_savepoint('before_update_chain')
                     return False
                 update_modified_timestamp('Spots', related_spot_ids)
@@ -496,19 +496,19 @@ class SampleChainEdit(QtW.QDialog):
                 sql_where = f'IN ({", ".join(str(child_id) for child_id in self.child_ids)})'
             if self.child_table == 'UPbAnalyses':
                 if not self.new_spot_id:
-                    logger.get_logger().error(f'Spot required for {self.child_table}')
+                    geocork_logger.get_logger().error(f'Spot required for {self.child_table}')
                     return False
                 if not query.exec(
                         f'UPDATE UPbAnalyses SET SpotID = {self.new_spot_id} WHERE UPbAnalysisID {sql_where}'):
-                    logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
-                    logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    geocork_logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
+                    geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                    geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                     rollback_savepoint('before_update_chain')
                     return False
                 update_modified_timestamp('UPbAnalyses', self.child_ids)
             elif self.child_table == 'Spots':
                 if not self.new_aliquot_id:
-                    logger.get_logger().error(f'Aliquot required for {self.child_table}')
+                    geocork_logger.get_logger().error(f'Aliquot required for {self.child_table}')
                     return False
                 query.prepare(f'UPDATE Spots SET (AliquotID, GrainID) = (?, ?) WHERE SpotID {sql_where}')
                 query.bindValue(0, self.new_aliquot_id)
@@ -517,46 +517,46 @@ class SampleChainEdit(QtW.QDialog):
                 else:
                     query.bindValue(1, QtC.QVariant())
                 if not query.exec():
-                    logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
-                    logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                    logger.get_logger().debug(f'Bound values: {query.boundValues()}')
+                    geocork_logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
+                    geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                    geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    geocork_logger.get_logger().debug(f'Bound values: {query.boundValues()}')
                     rollback_savepoint('before_update_chain')
                     return False
                 update_modified_timestamp('Spots', self.child_ids)
             elif self.child_table == 'Grains':
                 if not self.new_aliquot_id:
-                    logger.get_logger().error(f'Aliquot required for {self.child_table}')
+                    geocork_logger.get_logger().error(f'Aliquot required for {self.child_table}')
                     return False
                 select_query = QtS.QSqlQuery()
                 if not select_query.exec(
                         f'SELECT SpotID FROM Spots WHERE AliquotID = {self.new_aliquot_id} AND GrainID {sql_where}'):
-                    logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
-                    logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    geocork_logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
+                    geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                    geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                     rollback_savepoint('before_update_chain')
                     return False
                 spot_ids = []
                 while select_query.next():
                     spot_ids.append(select_query.value(0))
                 if not query.exec(f'UPDATE Spots SET AliquotID = {self.new_aliquot_id} WHERE GrainID {sql_where}'):
-                    logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
-                    logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    geocork_logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
+                    geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                    geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                     rollback_savepoint('before_update_chain')
                     return False
                 update_modified_timestamp('Spots', spot_ids)
             elif self.child_table == 'Aliquots':
                 if not self.new_sample_id:
-                    logger.get_logger().error(f'Sample required for {self.child_table}')
+                    geocork_logger.get_logger().error(f'Sample required for {self.child_table}')
                     return False
                 update_sample_ids = []
                 update_aliquot_parent_ids = []
                 if not query.exec(
                         f'SELECT AliquotID, ParentAliquotID, SampleID FROM Aliquots WHERE AliquotID {sql_where}'):
-                    logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
-                    logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    geocork_logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
+                    geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                    geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                     rollback_savepoint('before_update_chain')
                     return False
                 while query.next():
@@ -570,9 +570,9 @@ class SampleChainEdit(QtW.QDialog):
                 if update_aliquot_parent_ids:
                     aliquot_rows = []
                     if not query.exec(f'SELECT AliquotParentRow FROM Aliquots WHERE ParentAliquotID IS NULL'):
-                        logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
-                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        geocork_logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
+                        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                         rollback_savepoint('before_update_chain')
                         return False
                     while query.next():
@@ -583,9 +583,9 @@ class SampleChainEdit(QtW.QDialog):
                         parent_row += 1
                         if not query.exec(
                                 f'UPDATE Aliquots SET (ParentAliquotID, AliquotParentRow) = (NULL, {parent_row}) WHERE AliquotID = {aliquot_id}'):
-                            logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
-                            logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                            logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            geocork_logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
+                            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                             rollback_savepoint('before_update_chain')
                             return False
                     update_modified_timestamp('Aliquots', self.child_ids)
@@ -600,9 +600,9 @@ class SampleChainEdit(QtW.QDialog):
                         aliquot_where = f'IN ({", ".join(str(update_id) for update_id in update_sample_ids)})'
                     if not query.exec(
                             f'UPDATE Aliquots SET SampleID = {self.new_sample_id} WHERE AliquotID {aliquot_where}'):
-                        logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
-                        logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        geocork_logger.get_logger().critical(f'Error updating sample chain for {self.child_table}')
+                        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
                         rollback_savepoint('before_update_chain')
                         return False
                     update_modified_timestamp('Aliquots', update_sample_ids)
@@ -617,7 +617,7 @@ class SampleChainEdit(QtW.QDialog):
                 if response == QtW.QMessageBox.StandardButton.Cancel:
                     rollback_savepoint('before_update_chain')
                     return False
-        logger.get_logger().info(f'Sample chain for {self.child_table} has been updated.')
+        geocork_logger.get_logger().info(f'Sample chain for {self.child_table} has been updated.')
         return True
 
     def check_updated(self):
@@ -700,5 +700,5 @@ class SampleChainEdit(QtW.QDialog):
         if not self.close_by_dialog:
             self.discard_question()
         else:
-            logger.get_logger().info(f'Closing {self.child_table} chain edit dialog')
+            geocork_logger.get_logger().info(f'Closing {self.child_table} chain edit dialog')
             super().close()

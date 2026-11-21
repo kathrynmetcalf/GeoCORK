@@ -4,7 +4,7 @@ from collections import defaultdict
 from typing import List, Tuple, Dict
 
 from Functions import SQLUtils
-from util import logger
+from util import geocork_logger
 from util.database.database_helper import get_join_from_table
 
 
@@ -12,7 +12,7 @@ def process_json_to_sql(json_string, scope):
     """
     Converts a structured JSON string representing a filter group to a SQL WHERE clause.
     """
-    logger.get_logger().debug(f'Processing with scope: {scope}: {json_string}')
+    geocork_logger.get_logger().debug(f'Processing with scope: {scope}: {json_string}')
     json_string = json_string.replace("'", "\"")
     group = json.loads(json_string)
     where_clause, ctes = process_group(group)
@@ -57,8 +57,8 @@ def process_json_to_sql(json_string, scope):
         join = get_join_from_table(join, ['UPbAnalyses'])
         sql += f"SELECT * FROM Samples {join} {where_clause};"
     else:
-        logger.get_logger().critical(f"Unknown scope: {scope}")
-    logger.get_logger().debug(f"SQL generated successfully: {sql}")
+        geocork_logger.get_logger().critical(f"Unknown scope: {scope}")
+    geocork_logger.get_logger().debug(f"SQL generated successfully: {sql}")
     return sql, ctes
 
 
@@ -77,7 +77,7 @@ def process_table_names(data):
             collect_table_names(subgroup)
 
     collect_table_names(data)
-    logger.get_logger().debug(f'Collected table names: {table_names}')
+    geocork_logger.get_logger().debug(f'Collected table names: {table_names}')
     return table_names
 
 
@@ -231,7 +231,7 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
                 value_lower = value.split(',')[0]
                 value_upper = value.split(',')[1]
         except IndexError:
-            logger.get_logger().error(f"Range operator requires two numbers, got: {value}")
+            geocork_logger.get_logger().error(f"Range operator requires two numbers, got: {value}")
             raise ValueError(f"Range operator requires two numbers, got: {value}")
         if operator_raw == "is between":
             if datatype == "date":
@@ -239,7 +239,7 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
             elif datatype == "number":
                 operator_sql = [f">= {value_lower}", f"<= {value_upper}"]
             else:
-                logger.get_logger().error(f"Range must be numeric or date, got: {datatype}")
+                geocork_logger.get_logger().error(f"Range must be numeric or date, got: {datatype}")
                 raise ValueError(f"Unsupported datatype for range operator: {datatype}")
         else:  # "is not between"
             if datatype == "date":
@@ -247,7 +247,7 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
             elif datatype == "number":
                 operator_sql = [f"< {value_lower}", f"> {value_upper}"]
             else:
-                logger.get_logger().error(f"Range must be numeric or date, got: {datatype}")
+                geocork_logger.get_logger().error(f"Range must be numeric or date, got: {datatype}")
     else:
         # default
         operator_sql = "="
@@ -277,7 +277,7 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
                     f"AND {table}.{meta['name_column']} {operator_sql[1]}"
                 )
             else:
-                logger.get_logger().error(f"Range not specified correctly: {value}")
+                geocork_logger.get_logger().error(f"Range not specified correctly: {value}")
                 raise ValueError(f"Range operator requires two values, got: {value}")
         elif "NULL" in operator_sql or "LIKE" in operator_sql:
             # LIKE / IS NULL / IS NOT NULL → already has full operator
@@ -383,7 +383,7 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
             else:
                 cond_sql = f"{field_key} {operator_sql[0]} AND {field_key} {operator_sql[1]}"
         else:
-            logger.get_logger().error(f"Range not specified correctly: {value}")
+            geocork_logger.get_logger().error(f"Range not specified correctly: {value}")
             raise ValueError(f"Range operator requires two values, got: {value}")
     elif "NULL" in operator_sql or "LIKE" in operator_sql:
         cond_sql = f"{field_key} {operator_sql}"

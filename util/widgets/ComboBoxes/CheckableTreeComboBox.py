@@ -1,7 +1,7 @@
 from PyQt6 import QtCore, QtWidgets, QtGui
 from PyQt6.QtGui import QAction
 
-from util import logger
+from util import geocork_logger
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.widgets.ComboBoxes.TreeComboBox import TreeComboBox
 from util.widgets.context_menus import TreeContextMenu
@@ -88,7 +88,7 @@ class CheckableTreeComboBox(TreeComboBox):
         """
         current_line_edit_text = self.lineEdit().text()
         if not self.tree_model:
-            logger.get_logger().info(f'No checkable tree model found in {self.objectName()}')
+            geocork_logger.get_logger().info(f'No checkable tree model found in {self.objectName()}')
             return
         if self.tree_model.partially_checked_ids:
             # At least one item is partially checked, so the line edit should be a dash
@@ -135,7 +135,7 @@ class CheckableTreeComboBox(TreeComboBox):
         """
         menu = TreeContextMenu()
         if not self.tree_model:
-            logger.get_logger().info(f'No checkable tree model found in {self.objectName()}')
+            geocork_logger.get_logger().info(f'No checkable tree model found in {self.objectName()}')
             return
         if self.tree_model.tableName() == 'Aliquots':
             menu.set_view(self.treeView, False, False)
@@ -144,10 +144,10 @@ class CheckableTreeComboBox(TreeComboBox):
         action = menu.exec(self.mapToGlobal(pos))
         if action:
             if action.text() == 'Edit':
-                logger.get_logger().info(f'Edit triggered for checkable tree combo box')
+                geocork_logger.get_logger().info(f'Edit triggered for checkable tree combo box')
                 self.edit_triggered.emit(self)
             elif 'Add' in action.text() or 'Insert' in action.text():
-                logger.get_logger().info(f'Add triggered for checkable tree combo box')
+                geocork_logger.get_logger().info(f'Add triggered for checkable tree combo box')
                 self.add_triggered.emit(self, action)
             elif 'Expand' in action.text() or 'Collapse' in action.text():
                 expand_collapse(self.treeView, action)
@@ -164,7 +164,7 @@ class CheckableTreeComboBox(TreeComboBox):
         :return:
         """
         show_loading_dialog('Loading', f'Loading {self.tree_model.sourceModel().rowCount()} items...')
-        logger.get_logger().info(
+        geocork_logger.get_logger().info(
             f'Showing popup for checkable tree combo box with {self.tree_model.sourceModel().rowCount()} items')
         super().showPopup()
         if not self.clicked:
@@ -238,7 +238,7 @@ class CheckableTreeComboBox(TreeComboBox):
                     if self.single_click:
                         # Was the only selected item unchecked? If so, set the current index to the root before clearing all checks
                         if not self.tree_model:
-                            logger.get_logger().info(f'No checkable tree model found in {self.objectName()}')
+                            geocork_logger.get_logger().info(f'No checkable tree model found in {self.objectName()}')
                             return True
                         checked_indices, partially_checked_indices = self.tree_model.traverse_checkable_tree(
                             QtCore.QModelIndex())

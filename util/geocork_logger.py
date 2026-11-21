@@ -11,7 +11,7 @@ from PyQt6.QtSql import QSqlDatabase
 from PyQt6.QtWidgets import QMessageBox, QApplication
 from tzlocal import get_localzone
 
-from util.database.Savepoint_manager import SavepointManager
+from util.database.savepoint_manager import SavepointManager
 from util.settings_manager import SettingsManager
 
 settings = SettingsManager().settings
@@ -29,8 +29,12 @@ formatted_timestamp = current_time.strftime('%Y-%m-%d %H.%M.%S')
 _logger = None
 _queue_listener = None
 
+LOGGER_NAME = "GeoCORKLogger"
+LOG_FILE = QStandardPaths.writableLocation(
+    QStandardPaths.StandardLocation.AppDataLocation) + f"/logs/{formatted_timestamp}.log"  # The file to which we log
 
-class CustomLogger(logging.getLoggerClass()):
+
+class GeoCORKLogger(logging.getLoggerClass()):
     """Custom logger that captures critical errors and shows a PyQt6 message box."""
 
     def critical(self, msg, parent=None, *args, exc_info=None, stack_info=False, stacklevel=2, extra=None):
@@ -52,15 +56,14 @@ class CustomLogger(logging.getLoggerClass()):
         super().error(msg, *args, exc_info=exc_info, stack_info=stack_info, stacklevel=stacklevel, extra=extra)
 
 
+
+
 def setup_async_logger():
     """
     Initializes the global logger and queue listener, setting the level
     from QSettings if available. Writes logs to both console and a file.
     """
     global _logger, _queue_listener
-    LOGGER_NAME = "GeoCORKLogger"
-    LOG_FILE = QStandardPaths.writableLocation(
-        QStandardPaths.StandardLocation.AppDataLocation) + f"/logs/{formatted_timestamp}.log"  # The file to which we log
 
     # Ensure the directory exists
     log_dir = os.path.dirname(LOG_FILE)
@@ -76,7 +79,7 @@ def setup_async_logger():
     numeric_level = getattr(logging, saved_level_str.upper(), logging.DEBUG)
 
     # Create the global logger
-    logging.setLoggerClass(CustomLogger)
+    logging.setLoggerClass(GeoCORKLogger)
     _logger = logging.getLogger(LOGGER_NAME)
     _logger.setLevel(numeric_level)
 
@@ -151,7 +154,7 @@ def stop_logger():
 
 
 def _log_direct(level, message):
-    # Bypass CustomLogger methods to avoid QMessageBox
+    # Bypass GeoCORKLogger methods to avoid QMessageBox
     record = _logger.makeRecord(
         _logger.name, level, fn="", lno=0, msg=message, args=None, exc_info=None
     )

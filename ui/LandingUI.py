@@ -15,9 +15,9 @@ from PyQt6.QtWidgets import QFileDialog, QPushButton, QMessageBox, QMainWindow, 
 
 from ui.MergeDatabaseUI import MergeDatabaseDialog
 from ui.settings.SettingsCore import update_stylesheet
-from util import logger
+from util import geocork_logger
 from util.Text_manipulations import shrink_home, expand_home
-from util.database import Savepoint_manager
+from util.database import savepoint_manager
 from util.database.database_helper import update_database, turn_on_foreign_keys
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.settings_manager import SettingsManager
@@ -34,7 +34,7 @@ THEME_EVENTS = (QEvent.Type.PaletteChange, QEvent.Type.ApplicationPaletteChange,
 class LandingPage(QMainWindow):
     def __init__(self, start_filepath=None):
         super().__init__()
-        logger.get_logger().info("Starting Landing Page...")
+        geocork_logger.get_logger().info("Starting Landing Page...")
         from ui.menus.StaticMenuGuard import install_static_menus
         install_static_menus(self)
 
@@ -158,7 +158,7 @@ class LandingPage(QMainWindow):
 
     def closeEvent(self, a0):
         self.saveWindowState()
-        logger.get_logger().info("Closing Landing Page...")
+        geocork_logger.get_logger().info("Closing Landing Page...")
         super().closeEvent(a0)
 
     # ------------------------------------------------------------------ theme
@@ -202,7 +202,7 @@ class LandingPage(QMainWindow):
         if theme_key == self._applied_theme:
             return
         self._applied_theme = theme_key
-        logger.get_logger().debug(f"Landing page theme: {'dark' if is_dark else 'light'}")
+        geocork_logger.get_logger().debug(f"Landing page theme: {'dark' if is_dark else 'light'}")
 
         pixmap = self.get_logo_pixmap(is_dark, dpr)
         if pixmap is not None and not pixmap.isNull():
@@ -235,7 +235,7 @@ class LandingPage(QMainWindow):
             painter.end()
             pixmap.setDevicePixelRatio(dpr)
         else:
-            logger.get_logger().debug(f"Could not load {svg_name}, falling back to GeoCORK_Logo.png")
+            geocork_logger.get_logger().debug(f"Could not load {svg_name}, falling back to GeoCORK_Logo.png")
             pixmap = QPixmap(os.path.join(self.base_path, 'GeoCORK_Logo.png'))
             if pixmap.isNull():
                 return None
@@ -249,7 +249,7 @@ class LandingPage(QMainWindow):
         # This is a new database, so prompt the user to fill in the About Database form
         if not self.test_database_lock():
             if not update_database():
-                logger.get_logger().critical('Error updating and displaying database')
+                geocork_logger.get_logger().critical('Error updating and displaying database')
                 return
             from ui.settings.Settings import SettingsDialog
             settings_dialog = SettingsDialog()
@@ -269,12 +269,11 @@ class LandingPage(QMainWindow):
             from ui.GeoCORKMain import GeoCORK
             for widget in QApplication.allWidgets():
                 if widget.objectName() == 'GeoCORKMain':
-                    Savepoint_manager.SavepointManager.reset()
+                    savepoint_manager.SavepointManager.reset()
                     widget.close()
                     break
 
-            Savepoint_manager.SavepointManager.reset()
-            Savepoint_manager.SavepointManager().get_instance()
+            savepoint_manager.SavepointManager.reset()
             if self.db is None:
                 for connectionName in QSqlDatabase.connectionNames():
                     QSqlDatabase().removeDatabase(connectionName)
@@ -282,7 +281,7 @@ class LandingPage(QMainWindow):
                 self.db.setDatabaseName(self.get_filename())
                 self.db.open()
                 if not self.db.isOpen():
-                    logger.get_logger().critical(f"Error opening database: {self.db.lastError().text()}")
+                    geocork_logger.get_logger().critical(f"Error opening database: {self.db.lastError().text()}")
                     close_loading_dialog("Opening",
                                          f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
                     self.show()
@@ -292,10 +291,10 @@ class LandingPage(QMainWindow):
                                          f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
                     self.show()
                     return
-                Savepoint_manager.SavepointManager()
+                savepoint_manager.SavepointManager()
             if not skip_update:
                 if not update_database():
-                    logger.get_logger().critical('Error updating and displaying database')
+                    geocork_logger.get_logger().critical('Error updating and displaying database')
                     close_loading_dialog("Opening",
                                          f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
                     self.show()
@@ -327,7 +326,7 @@ class LandingPage(QMainWindow):
         QtWidgets.QApplication.processEvents()
         for widget in QApplication.allWidgets():
             if widget.objectName() == 'GeoCORKMain':
-                Savepoint_manager.SavepointManager.reset()
+                savepoint_manager.SavepointManager.reset()
                 widget.close()
 
         # Create and start the backup thread
@@ -338,14 +337,14 @@ class LandingPage(QMainWindow):
         src = sqlite3.connect(db_file, timeout=10)
         backup = sqlite3.connect(backup_file, timeout=10)
 
-        logger.get_logger().info('Beginning Restore')
+        geocork_logger.get_logger().info('Beginning Restore')
         self.last_percent = 0
 
         def progress(status, remaining, total):
             # Calculate progress percentage
             percent = 100 - int((remaining / total) * 100)
             if percent != self.last_percent:
-                logger.get_logger().info(f'Backup Progress: {percent}')
+                geocork_logger.get_logger().info(f'Backup Progress: {percent}')
                 self.last_percent = percent
 
         backup.backup(src, pages=5, progress=progress)
@@ -367,7 +366,7 @@ class LandingPage(QMainWindow):
         self.db = None
 
     def test_database_lock(self):
-        logger.get_logger().info("Testing Database Lock...")
+        geocork_logger.get_logger().info("Testing Database Lock...")
         database_path = self.get_filename()
         try:
             # Attempt to connect and perform a simple query
@@ -380,10 +379,10 @@ class LandingPage(QMainWindow):
             connection.close()
         except Exception as e:
             # Handle the specific database lock error
-            logger.get_logger().debug(
+            geocork_logger.get_logger().debug(
                 f"Error testing for database lock: {e}")
             if "database is locked" in str(e):
-                logger.get_logger().debug(
+                geocork_logger.get_logger().debug(
                     f"Database lock error: {e}")
                 self.show_message("Database Locked",
                                   "The database is currently locked. Make sure it is not in use elsewhere.")
@@ -425,11 +424,12 @@ class LandingPage(QMainWindow):
                 self.db = QSqlDatabase.addDatabase("QSQLITE")
                 self.db.setDatabaseName(full_path)
                 if not self.db.open():
-                    logger.get_logger().critical(f"Error opening database: {self.db.lastError().text()}")
+                    geocork_logger.get_logger().critical(f"Error opening database: {self.db.lastError().text()}")
                     return
                 if not turn_on_foreign_keys():
                     return
-                Savepoint_manager.SavepointManager()
+                # creates the first singleton instance for the save point manager
+                savepoint_manager.SavepointManager()
                 settings.setValue('db_file', full_path)
                 self.open_about_db()
                 self.open_geo_cork(skip_update=True)
@@ -464,11 +464,12 @@ class LandingPage(QMainWindow):
             self.db.setDatabaseName(self.get_filename())
             self.db.open()
             if not self.db.isOpen():
-                logger.get_logger().critical(f"Error opening database: {self.db.lastError().text()}")
+                geocork_logger.get_logger().critical(f"Error opening database: {self.db.lastError().text()}")
                 return
             if not turn_on_foreign_keys():
                 return
-            Savepoint_manager.SavepointManager()
+            # creates the first singleton instance for the save point manager
+            savepoint_manager.SavepointManager()
             self.selected_files = file_name
             if self.selected_files not in self.list_recents:
                 self.list_recents.insert(0, self.selected_files)  # Add the new database to the top of the list
