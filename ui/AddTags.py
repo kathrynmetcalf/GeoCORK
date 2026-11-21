@@ -16,18 +16,26 @@ settings = SettingsManager().settings
 
 
 class AddTags(QtWidgets.QDialog):
-    """
-    A dialog for adding tags to a table_name in the database.
-    """
 
-    def __init__(self, parent_window, table_name):
+    def __init__(self, parent_window, table):
+        """
+        A dialog window for adding tags to a normal table in the database. The dialog allows the user to enter a name and
+        description for the new item. The dialog also displays the existing items in the table view,
+        allowing the user to see existing items. A completer is provided for the name field to avoid duplicates,
+        and a warning label is shown if a duplicate name is entered.
+        :param parent_window:
+        :param table:
+        """
         super().__init__(parent=parent_window)
-        logger.get_logger().info(f'Starting AddTags dialog for {table_name}...')
+        logger.get_logger().info(f'Starting AddTags dialog for {table}...')
 
-        self.table = table_name
+        self.table = table
+        """Database table used for internal or query use"""
+
         self.table_name = TxM.add_spaces_camel(self.table)
+        """Display name of the table with spaces and capitalization"""
 
-        self.build_ui(self.table)
+        self.build_ui()
         self.loadWindowState()
 
         self.setModal(True)
@@ -51,7 +59,7 @@ class AddTags(QtWidgets.QDialog):
 
         close_loading_dialog('Loading', f'Opening add window for {self.table_name}...')
 
-    def build_ui(self, table_name):
+    def build_ui(self):
         self.main_layout = QVBoxLayout(self)
 
         self.main_layout.addWidget(QLabel("Adding new item to top level at new row"))
@@ -59,14 +67,13 @@ class AddTags(QtWidgets.QDialog):
         # ---- Top row: Add button, search ----
         self.input_form_layout = QFormLayout()
         # todo figure out this alignment issue
-        self.input_form_layout.setLabelAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
+        self.input_form_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
 
+        name_label = QLabel('<span style="color: #FF0000; font-weight: bold;">*</span> New Unique Name:')
         self.newName_lineEdit = QLineEdit()
         self.newName_lineEdit.setPlaceholderText('e.g., abc123')
         self.newName_lineEdit.setToolTip("The name must be unique across all tags in the same table_name")
-        # todo add red to *
-        self.input_form_layout.addRow('* New Unique Name:',
-                                      self.newName_lineEdit)
+        self.input_form_layout.addRow(name_label, self.newName_lineEdit)
 
         self.newDescription_lineEdit = QLineEdit()
         self.newDescription_lineEdit.setPlaceholderText('e.g., abc123')
@@ -77,14 +84,14 @@ class AddTags(QtWidgets.QDialog):
         self.main_layout.addLayout(self.input_form_layout)
 
         self.central_layout = QHBoxLayout()
-        # todo make * red
-        self.central_layout.addWidget(QLabel("* Required"))
+        required_label = QLabel('<span style="color: #FF0000; font-weight: bold;">*</span> Required')
+        self.central_layout.addWidget(required_label)
 
         self.warning_label = QLabel("Error: Duplicate tag name")
         self.central_layout.addWidget(self.warning_label)
         self.central_layout.addStretch()
 
-        self.add_pushButton = QPushButton(f'Add {TxM.add_spaces_camel(table_name)}')
+        self.add_pushButton = QPushButton(f'Add {self.table_name}')
         self.add_pushButton.setObjectName("add_pushButton")
         self.add_pushButton.setAutoDefault(False)
         self.add_pushButton.setToolTip("Adds the tag with a unique name and description")
@@ -116,8 +123,8 @@ class AddTags(QtWidgets.QDialog):
         self.model = QtSql.QSqlTableModel()
         set_table(self.model, self.table_name)
         self.columns = get_headers(self.table_name)
-        self.name_header = self.columns[get_name_column(self.table_name)]
-        self.description_header = self.columns[get_description_column(self.table_name)]
+        self.name_header = self.columns[get_name_column(self.table)]
+        self.description_header = self.columns[get_description_column(self.table)]
         while self.model.canFetchMore():
             self.model.fetchMore()
         self.filter_proxy_model.setSourceModel(self.model)
@@ -133,7 +140,7 @@ class AddTags(QtWidgets.QDialog):
         query = QtSql.QSqlQuery()
 
         # Get a list of the existing tag names
-        query.prepare(f'SELECT {self.name_header} FROM {self.table_name}')
+        query.prepare(f'SELECT {self.name_header} FROM {self.table}')
         if not query.exec():
             logger.get_logger().critical(
                 f'Error selecting display column from {self.table_name}: {query.lastError().text()}')
@@ -162,7 +169,7 @@ class AddTags(QtWidgets.QDialog):
         name = self.newName_lineEdit.text()
         description = self.newDescription_lineEdit.text()
         query = QtSql.QSqlQuery()
-        query.prepare(f'INSERT INTO {self.table_name}({self.name_header}, {self.description_header}) VALUES(?, ?)')
+        query.prepare(f'INSERT INTO {self.table}({self.name_header}, {self.description_header}) VALUES(?, ?)')
         query.addBindValue(name)
         query.addBindValue(None if description == '' else description)
 
