@@ -2,15 +2,15 @@ from PyQt6 import QtWidgets, QtCore
 
 
 class ReorderListView(QtWidgets.QListView):
-    """
-    A QListView subclass that allows for reordering items via drag-and-drop. This class extends QListView to provide
-    functionality for dragging and dropping items to reorder them within the list. It sets the default drop action to
-    MoveAction and enables drag-and-drop mode. The startDrag method is overridden to prevent dragging the permanent header,
-    which is always at the top of the list. The dropEvent method is overridden to handle dropping items between other items
-    while preventing drops before the permanent header or on an item.
-    """
 
     def __init__(self, parent=None):
+        """
+        A QListView subclass that allows for reordering items via drag-and-drop. This class extends QListView to provide
+        functionality for dragging and dropping items to reorder them within the list. It sets the default drop action to
+        MoveAction and enables drag-and-drop mode. The startDrag method is overridden to prevent dragging the permanent header,
+        which is always at the top of the list. The dropEvent method is overridden to handle dropping items between other items
+        while preventing drops before the permanent header or on an item.
+        """
         super().__init__(parent)
         self.setDefaultDropAction(QtCore.Qt.DropAction.MoveAction)
         self.setDragDropMode(QtWidgets.QListView.DragDropMode.DragDrop)

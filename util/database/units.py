@@ -10,6 +10,7 @@ class DirectionUnits(Enum):
     EAST = ('East', 'E', 'positive east')
     WEST = ('West', 'W', 'positive west')
 
+direction_units = [member.value for member in DirectionUnits]
 
 class DistanceUnits(Enum):
     """
@@ -25,6 +26,29 @@ class DistanceUnits(Enum):
     FEET = ('Feet', 'ft', '1')
     INCHES = ('Inches', 'in', f'(1/12)')
 
+distance_units = [member.value for member in DistanceUnits]
+
+IMPERIAL_DISTANCE_UNITS = {DistanceUnits.MILES, DistanceUnits.YARDS, DistanceUnits.FEET, DistanceUnits.INCHES}
+M_PER_FT = 0.3048  # International foot, exact
+
+
+def _distance_conversion(from_unit: DistanceUnits, to_unit: DistanceUnits) -> str:
+    f_from, f_to = from_unit.value[2], to_unit.value[2]
+    from_imperial = from_unit in IMPERIAL_DISTANCE_UNITS
+    to_imperial = to_unit in IMPERIAL_DISTANCE_UNITS
+    if from_imperial == to_imperial:
+        return f'x*{f_from}/{f_to}'
+    if to_imperial:  # metric -> imperial
+        return f'x*{f_from}/({M_PER_FT}*{f_to})'
+    return f'x*({f_from}*{M_PER_FT})/{f_to}'  # imperial -> metric
+
+
+_members = list(DistanceUnits)
+DISTANCE_CONVERSIONS = {
+    (a, b): (_distance_conversion(a, b), _distance_conversion(b, a))
+    for i, a in enumerate(_members) for b in _members[i + 1:]
+}
+
 
 class AgeUnits(Enum):
     """
@@ -35,6 +59,18 @@ class AgeUnits(Enum):
     THOUSAND_YEARS = ('Thousand years', 'ka', '1000')
     YEARS = ('Years', 'a', '1')
 
+age_units = [member.value for member in AgeUnits]
+
+# Third field of each AgeUnits member is its size in years.
+def _age_conversion(from_unit: AgeUnits, to_unit: AgeUnits) -> str:
+    return f'x*{from_unit.value[2]}/{to_unit.value[2]}'
+
+
+_age_members = list(AgeUnits)
+AGE_CONVERSIONS = {
+    (a, b): (_age_conversion(a, b), _age_conversion(b, a))
+    for i, a in enumerate(_age_members) for b in _age_members[i + 1:]
+}
 
 class AnalyticalUnits(Enum):
     """
@@ -63,7 +99,43 @@ class AnalyticalUnits(Enum):
     FRACTIONAL_ABUNDANCE = ('Fractional abundance', 'fraction',
                             'Isotope abundance as a decimal fraction of total atoms of that element')
 
-direction_units = [member.value for member in DirectionUnits]
-distance_units = [member.value for member in DistanceUnits]
-age_units = [member.value for member in AgeUnits]
 analytical_units = [member.value for member in AnalyticalUnits]
+
+# Units within a group convert by simple scaling; the factor is the unit's size as a dimensionless fraction.
+MASS_FRACTION_FACTORS = {
+    AnalyticalUnits.PARTS_PER_MILLION: 1e-6,
+    AnalyticalUnits.MILLIGRAMS_PER_KILOGRAM: 1e-6,
+    AnalyticalUnits.MICROGRAMS_PER_GRAM: 1e-6,
+    AnalyticalUnits.PARTS_PER_BILLION: 1e-9,
+    AnalyticalUnits.NANOGRAMS_PER_GRAM: 1e-9,
+    AnalyticalUnits.PARTS_PER_TRILLION: 1e-12,
+    AnalyticalUnits.WEIGHT_PERCENT: 1e-2,
+}
+ATOM_FRACTION_FACTORS = {
+    AnalyticalUnits.ATOMIC_PERCENT: 1e-2,
+    AnalyticalUnits.FRACTIONAL_ABUNDANCE: 1.0,
+}
+AVOGADRO = '6.02214076e23'  # exact (2019 SI)
+
+# Placeholder for pairs that need outside context (element mass, reference standard, decay constant,
+# instrument calibration), e.g. cps -> concentration, delta -> epsilon, initial -> measured ratio.
+NO_SIMPLE_CONVERSION = '-'
+
+
+def _analytical_conversion(from_unit: AnalyticalUnits, to_unit: AnalyticalUnits) -> str:
+    for factors in (MASS_FRACTION_FACTORS, ATOM_FRACTION_FACTORS):
+        if from_unit in factors and to_unit in factors:
+            factor = factors[from_unit] / factors[to_unit]
+            return 'x' if factor == 1.0 else f'x*{factor:g}'
+    if (from_unit, to_unit) == (AnalyticalUnits.MOLES_PER_GRAM, AnalyticalUnits.ATOMS_PER_GRAM):
+        return f'x*{AVOGADRO}'
+    if (from_unit, to_unit) == (AnalyticalUnits.ATOMS_PER_GRAM, AnalyticalUnits.MOLES_PER_GRAM):
+        return f'x/{AVOGADRO}'
+    return NO_SIMPLE_CONVERSION
+
+
+_analytical_members = list(AnalyticalUnits)
+ANALYTICAL_CONVERSIONS = {
+    (a, b): (_analytical_conversion(a, b), _analytical_conversion(b, a))
+    for i, a in enumerate(_analytical_members) for b in _analytical_members[i + 1:]
+}

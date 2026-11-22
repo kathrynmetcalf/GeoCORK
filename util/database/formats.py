@@ -49,14 +49,24 @@ class ConcordanceFormat(Enum):
         'Minimum of |206Pb/238U-207Pb/235U| ages and |206Pb/207Pb-207Pb/235U| ages'
     )
 
+
+# Concordance formats that were in the v1.03 schema but have since been removed.
+# They stay in the enum so older databases can still be migrated.
+RETIRED_CONCORDANCE_FORMATS = {ConcordanceFormat.MINIMUM_SEGMENTED_DISCORDANCE}
+
+# Current lists, in the same tuple shape the existing code reads.
+concordance_formats = [m.value for m in ConcordanceFormat if m not in RETIRED_CONCORDANCE_FORMATS]
+concordance_formats_v103 = [m.value for m in ConcordanceFormat]
+
 CONCORDANCE_CONVERSIONS = {
-    (ConcordanceFormat.CONCORDANCE_RATIO,   ConcordanceFormat.CONCORDANCE_PERCENT): ('x*100',     'x/100'),
-    (ConcordanceFormat.CONCORDANCE_RATIO,   ConcordanceFormat.DISCORDANCE_RATIO):   ('1-x',       '1-x'),
-    (ConcordanceFormat.CONCORDANCE_RATIO,   ConcordanceFormat.DISCORDANCE_PERCENT): ('100*(1-x)', '1-(x/100)'),
-    (ConcordanceFormat.CONCORDANCE_PERCENT, ConcordanceFormat.DISCORDANCE_RATIO):   ('1-(x/100)', '100*(1-x)'),
-    (ConcordanceFormat.CONCORDANCE_PERCENT, ConcordanceFormat.DISCORDANCE_PERCENT): ('100-x',     '100-x'),
-    (ConcordanceFormat.DISCORDANCE_RATIO,   ConcordanceFormat.DISCORDANCE_PERCENT): ('x*100',     'x/100'),
+    (ConcordanceFormat.CONCORDANCE_RATIO, ConcordanceFormat.CONCORDANCE_PERCENT): ('x*100', 'x/100'),
+    (ConcordanceFormat.CONCORDANCE_RATIO, ConcordanceFormat.DISCORDANCE_RATIO): ('1-x', '1-x'),
+    (ConcordanceFormat.CONCORDANCE_RATIO, ConcordanceFormat.DISCORDANCE_PERCENT): ('100*(1-x)', '1-(x/100)'),
+    (ConcordanceFormat.CONCORDANCE_PERCENT, ConcordanceFormat.DISCORDANCE_RATIO): ('1-(x/100)', '100*(1-x)'),
+    (ConcordanceFormat.CONCORDANCE_PERCENT, ConcordanceFormat.DISCORDANCE_PERCENT): ('100-x', '100-x'),
+    (ConcordanceFormat.DISCORDANCE_RATIO, ConcordanceFormat.DISCORDANCE_PERCENT): ('x*100', 'x/100'),
 }
+
 
 class ErrorFormat(Enum):
     """Valid error formats. Used to create the ErrorFormats table."""
@@ -64,6 +74,18 @@ class ErrorFormat(Enum):
     TWO_SIGMA_ABSOLUTE = ('2 sigma absolute', '2σ abs', '2σ absolute uncertainty')
     ONE_SIGMA_PERCENT = ('1 sigma percent', '1σ %', '1σ percent uncertainty')
     TWO_SIGMA_PERCENT = ('2 sigma percent', '2σ %', '2σ percent uncertainty')
+
+
+error_formats = [m.value for m in ErrorFormat]
+
+ERROR_CONVERSIONS = {
+    (ErrorFormat.ONE_SIGMA_ABSOLUTE, ErrorFormat.TWO_SIGMA_ABSOLUTE): ('x*2', 'x/2'),
+    (ErrorFormat.ONE_SIGMA_ABSOLUTE, ErrorFormat.ONE_SIGMA_PERCENT): ('(x/y)*100', '(x/100)*y'),
+    (ErrorFormat.ONE_SIGMA_ABSOLUTE, ErrorFormat.TWO_SIGMA_PERCENT): ('(x/y)*200', '(x/200)*y'),
+    (ErrorFormat.TWO_SIGMA_ABSOLUTE, ErrorFormat.ONE_SIGMA_PERCENT): ('(x/y)*100/2', '(x/100)*2*y'),
+    (ErrorFormat.TWO_SIGMA_ABSOLUTE, ErrorFormat.TWO_SIGMA_PERCENT): ('(x/y)*100', '(x/100)*y'),
+    (ErrorFormat.ONE_SIGMA_PERCENT, ErrorFormat.TWO_SIGMA_PERCENT): ('x*2', 'x/2'),
+}
 
 
 class GPSFormat(Enum):
@@ -84,40 +106,5 @@ class GPSFormat(Enum):
            'Universal Transverse Mercator (standard) with zone, northing, and easting')
 
 
-class AnalyticalUnits(Enum):
-    """Valid analytical units. Used to create the AnalyticalUnits table."""
-    PARTS_PER_MILLION = ('Parts per million', 'ppm', 'Concentration in parts per million (mg/kg or μg/g)')
-    PARTS_PER_BILLION = ('Parts per billion', 'ppb', 'Concentration in parts per billion (μg/kg or ng/g)')
-    PARTS_PER_TRILLION = ('Parts per trillion', 'ppt', 'Concentration in parts per trillion (ng/kg or pg/g)')
-    WEIGHT_PERCENT = ('Weight percent', 'wt%', 'Concentration as a percentage by weight')
-    MICROGRAMS_PER_GRAM = ('Micrograms per gram', 'μg/g', 'Concentration in micrograms per gram (equivalent to ppm)')
-    NANOGRAMS_PER_GRAM = ('Nanograms per gram', 'ng/g', 'Concentration in nanograms per gram (equivalent to ppb)')
-    MILLIGRAMS_PER_KILOGRAM = ('Milligrams per kilogram', 'mg/kg',
-                               'Concentration in milligrams per kilogram (equivalent to ppm)')
-    MOLES_PER_GRAM = ('Moles per gram', 'mol/g', 'Concentration in moles per gram')
-    ATOMS_PER_GRAM = ('Atoms per gram', 'atoms/g', 'Concentration in atoms per gram')
-    COUNTS_PER_SECOND = ('Counts per second', 'cps', 'Raw signal intensity in counts per second')
-    ISOTOPE_RATIO = ('Isotope ratio', 'ratio',
-                     'Dimensionless ratio of two isotope abundances (e.g., 206Pb/238U, 87Sr/86Sr)')
-    DELTA_NOTATION = ('Delta notation', 'δ‰',
-                      'Per mil deviation of an isotope ratio from a reference standard (e.g., δ18O, δ13C)')
-    EPSILON_NOTATION = ('Epsilon notation', 'ε',
-                        'Parts per 10,000 deviation of an isotope ratio from a reference (e.g., εNd, εHf)')
-    INITIAL_RATIO = ('Initial ratio', 'initial',
-                     'Isotope ratio corrected for radiogenic ingrowth back to time of formation')
-    ATOMIC_PERCENT = ('Atomic percent', 'at%',
-                      'Isotope abundance as a percentage of total atoms of that element')
-    FRACTIONAL_ABUNDANCE = ('Fractional abundance', 'fraction',
-                            'Isotope abundance as a decimal fraction of total atoms of that element')
-
-
-# Concordance formats that were in the v1.03 schema but have since been removed.
-# They stay in the enum so older databases can still be migrated.
-RETIRED_CONCORDANCE_FORMATS = {ConcordanceFormat.MINIMUM_SEGMENTED_DISCORDANCE}
-
-# Current lists, in the same tuple shape the existing code reads.
-concordance_formats = [m.value for m in ConcordanceFormat if m not in RETIRED_CONCORDANCE_FORMATS]
-concordance_formats_v103 = [m.value for m in ConcordanceFormat]
-error_formats = [m.value for m in ErrorFormat]
 gps_formats = [m.value for m in GPSFormat]
-analytical_units = [m.value for m in AnalyticalUnits]
+

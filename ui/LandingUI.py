@@ -253,7 +253,7 @@ class LandingPage(QMainWindow):
                 return
             from ui.settings.Settings import SettingsDialog
             settings_dialog = SettingsDialog()
-            settings_dialog.settings_tabWidget.setCurrentIndex(2)
+            settings_dialog.settings_tabWidget.setCurrentIndex(3)
             # Set the current tab to the About Database tab
             settings_dialog.exec()
 

@@ -7,13 +7,12 @@ Settings.ui is no longer used.
 from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import QPoint, QSize, Qt
 
-from util import geocork_logger
-
-from ui.settings.SettingsCore import settings, reset_to_default_settings
-from ui.settings.UnitsFormatsTab import UnitsFormatsTab
-from ui.settings.TableDisplaysTab import TableDisplaysTab
 from ui.settings.AboutDatabaseTab import AboutDatabaseTab
+from ui.settings.SettingsCore import settings, reset_to_default_settings
+from ui.settings.TableDisplaysTab import TableDisplaysTab
+from ui.settings.UnitsFormatsTab import UnitsFormatsTab
 from ui.settings.UserInterfaceTab import UserInterfaceTab
+from util import geocork_logger
 
 
 class SettingsDialog(QtW.QDialog):
@@ -40,7 +39,12 @@ class SettingsDialog(QtW.QDialog):
         self.display_tab_widget = TableDisplaysTab(self)
         self.about_db_tab = AboutDatabaseTab(self)
         self.ui_tab = UserInterfaceTab(self)
-        self._tabs = [self.units_formats_tab, self.display_tab_widget, self.about_db_tab, self.ui_tab]
+        self._tabs = [
+            self.units_formats_tab,
+            self.display_tab_widget,
+            self.ui_tab,
+            self.about_db_tab,
+        ]
         for tab in self._tabs:
             self.settings_tabWidget.addTab(tab, tab.title)
 

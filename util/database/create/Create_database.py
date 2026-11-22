@@ -2,7 +2,8 @@ import os
 import sys
 import xml.etree.ElementTree as ET  # xml reader
 
-from PyQt6 import QtSql as QtS
+from PyQt6 import QtSql as QtSql
+from PyQt6.QtSql import QSqlDatabase
 from PyQt6.QtWidgets import QMessageBox
 
 import Functions.SQLUtils as SQLUtils
@@ -13,8 +14,10 @@ from util.database.database_helper import get_headers
 from util.settings_manager import SettingsManager
 
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
-from util.database.formats import concordance_formats, error_formats, gps_formats, CONCORDANCE_CONVERSIONS
-from util.database.units import age_units, analytical_units, distance_units, direction_units
+from util.database.formats import concordance_formats, error_formats, gps_formats, CONCORDANCE_CONVERSIONS, \
+    ERROR_CONVERSIONS
+from util.database.units import age_units, analytical_units, distance_units, direction_units, DISTANCE_CONVERSIONS, \
+    ANALYTICAL_CONVERSIONS, AGE_CONVERSIONS
 
 settings = SettingsManager().settings
 
@@ -1909,7 +1912,7 @@ CREATE_SPOTS_TABLE_v101 = '''CREATE TABLE IF NOT EXISTS Spots(
 '''Commands to create tables and populate default tables'''
 
 
-def create_tables(database=None) -> bool:
+def create_tables(database: QSqlDatabase = QSqlDatabase()) -> bool:
     """
     Connect to the database and execute the sql strings defined above to create the database tables.
     Only creates tables that do not already exist - does not overwrite existing tables.
@@ -1920,10 +1923,7 @@ def create_tables(database=None) -> bool:
     :return: True for success, False for failure
     """
     geocork_logger.get_logger().info('Creating database tables')
-    if database is None:
-        query = QtS.QSqlQuery()
-    else:
-        query = QtS.QSqlQuery(database)
+    query = QtSql.QSqlQuery(db = database)
 
     # Create the tables
     if not query.exec(CREATE_ABOUT_TABLE):
@@ -2367,7 +2367,7 @@ def create_tables(database=None) -> bool:
     return True
 
 
-def update_schema(version: str, database: QtS.QSqlDatabase = None) -> str:
+def update_schema(version: str, database: QtSql.QSqlDatabase = None) -> str:
     """
     Function to update the database schema to the latest version.
     :param version: Current version of the database schema. If None, defaults to 0.
@@ -2376,8 +2376,8 @@ def update_schema(version: str, database: QtS.QSqlDatabase = None) -> str:
     :rtype: str
     """
     if database is None:
-        database = QtS.QSqlDatabase()
-    query = QtS.QSqlQuery(database)
+        database = QtSql.QSqlDatabase()
+    query = QtSql.QSqlQuery(database)
     if version is None:
         version = 0
     if version == settings.value('default_geocork_version') or version == 0:
@@ -2460,14 +2460,14 @@ def update_schema(version: str, database: QtS.QSqlDatabase = None) -> str:
 
     return 'True'
 
-def update_schema_v101(database: QtS.QSqlDatabase = None) -> bool:
+def update_schema_v101(database: QtSql.QSqlDatabase = None) -> bool:
     # Update from version 1.0.0 to 1.0.1
     # Grain tables added automatically in Create_database.py
     # Add empty GrainID column to Spots table
     # Add UPbAnalysisName column to UPbAnalyses table and populate with SpotName
 
     create_savepoint('before_schema_update')
-    query = QtS.QSqlQuery(database)
+    query = QtSql.QSqlQuery(database)
 
     if not query.exec(f'ALTER TABLE Spots ADD COLUMN GrainID INTEGER'):
         geocork_logger.get_logger().debug(f"Failed to add GrainID column to Spots table")
@@ -2739,7 +2739,7 @@ def update_schema_v101(database: QtS.QSqlDatabase = None) -> bool:
         return False
     return True
 
-def update_schema_v103(database: QtS.QSqlDatabase = None) -> bool:
+def update_schema_v103(database: QtSql.QSqlDatabase = None) -> bool:
     """
     Update schema from v1.0.1 or v1.0.2 to v1.0.3. In the UPbAnalysis table, replace single concordance column with
     Concordance_206Pb/238Uv207Pb/206Pb and Concordance_206Pb/238Uv207Pb/235U.
@@ -2748,7 +2748,7 @@ def update_schema_v103(database: QtS.QSqlDatabase = None) -> bool:
     """
     # update schema from v1.0.1 or v1.0.2 to v1.0.3
     create_savepoint('before_schema_update')
-    query = QtS.QSqlQuery()
+    query = QtSql.QSqlQuery()
 
     if not query.exec(f'ALTER TABLE UPbAnalyses ADD COLUMN "Concordance_206Pb/238Uv207Pb/206Pb" REAL'):
         if 'duplicate column name' not in query.lastError().text():
@@ -2907,7 +2907,7 @@ def update_schema_v103(database: QtS.QSqlDatabase = None) -> bool:
 
     updated = 0
     not_found = []
-    age_color_query = QtS.QSqlQuery()
+    age_color_query = QtSql.QSqlQuery()
     age_color_query.prepare("""
                   UPDATE Ages
                   SET Color = :color
@@ -2938,7 +2938,7 @@ def update_schema_v103(database: QtS.QSqlDatabase = None) -> bool:
         return False
     return True
 
-def update_schema_v104(database: QtS.QSqlDatabase = None) -> bool:
+def update_schema_v104(database: QtSql.QSqlDatabase = None) -> bool:
     """
     Update schema from v1.0.3 to v1.0.4.
     Add columns for ErrorCorr/Rho_68v76, ErrorCorr/Rho_68v75, and MinimumSegmentedDiscordance in the UPbAnalyses table and populate.
@@ -2948,7 +2948,7 @@ def update_schema_v104(database: QtS.QSqlDatabase = None) -> bool:
     """
     # update schema from v1.0.3 to v1.0.4
     create_savepoint('before_schema_update')
-    query = QtS.QSqlQuery()
+    query = QtSql.QSqlQuery()
     show_loading_dialog('Updating', 'Adding new columns to UPbAnalyses...')
     geocork_logger.get_logger().debug(f'Adding new columns to UPbAnalyses...')
     if not query.exec(f'ALTER TABLE UPbAnalyses ADD COLUMN "ErrorCorr/Rho_68v76" REAL'):
@@ -3346,18 +3346,15 @@ def update_schema_v104(database: QtS.QSqlDatabase = None) -> bool:
     return True
 
 
-def populate_tables(database=None) -> bool:
+def populate_tables(database: QSqlDatabase = QSqlDatabase()) -> bool:
     """
     Populate the default values in the static database tables. Uses the default database connection if no database is provided.
-    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :param database: QSqlDatabase instance to populate tables in, if not provided the default database is used.
     :return: True for success, False for failure
     """
     # Populate the age units table during initiation
     geocork_logger.get_logger().info('Populating tables')
-    if database is None:
-        query = QtS.QSqlQuery()
-    else:
-        query = QtS.QSqlQuery(database)
+    query = QtSql.QSqlQuery(db = database)
     sql = 'SELECT * FROM AgeUnits'
     if not query.exec(sql):
         geocork_logger.get_logger().critical(f'Error getting AgeUnits')
@@ -3531,17 +3528,14 @@ def populate_tables(database=None) -> bool:
     return True
 
 
-def populate_age_units(database=None) -> bool:
+def populate_age_units(database: QSqlDatabase = QSqlDatabase()) -> bool:
     """
     Connect to the database and add the default age units. Uses the default database connection if no database is provided.
-    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :param database: QSqlDatabase instance to populate tables in, if not provided the default database is used.
     :return: True for success, False for failure
     """
 
-    if database is None:
-        query = QtS.QSqlQuery()
-    else:
-        query = QtS.QSqlQuery(database)
+    query = QtSql.QSqlQuery(db = database)
     # Begin by deleting all rows in the table to allow for a reset if things get changed
     for unit in age_units:
         sql = f'''INSERT INTO AgeUnits(AgeUnitName, AgeUnitAbbreviation) VALUES("{unit[0]}","{unit[1]}")'''
@@ -3554,84 +3548,50 @@ def populate_age_units(database=None) -> bool:
 
     return True
 
-
-def populate_age_conversions(database=None) -> bool:
+def populate_age_conversions(database: QSqlDatabase = QSqlDatabase()) -> bool:
     """
-    Connect to the database and add the default age unit conversions. Uses the default database connection if no database
-    is provided.
-    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    Insert or update the default age unit conversions defined in units.AGE_CONVERSIONS.
+    Uses the default database connection if no database is provided.
+    :param database: QSqlDatabase instance to populate tables in, if not provided the default database is used.
     :return: True for success, False for failure
     """
-    if database is None:
-        query = QtS.QSqlQuery()
-        age_conversion_model = QtS.QSqlTableModel()
-    else:
-        query = QtS.QSqlQuery(database)
-        database: QtS.QSqlDatabase
-        age_conversion_model = QtS.QSqlTableModel(db=database)
-    age_conversion_model.setTable('AgeUnitConversions')
-    age_conversion_model.select()
-    while age_conversion_model.canFetchMore():
-        age_conversion_model.fetchMore()
-    for unit1 in range(len(age_units)):
-        for unit2 in range(len(age_units)):
-            if unit2 > unit1:
-                conversion1to2 = f'x*{age_units[unit1][2]}/{age_units[unit2][2]}'
-                conversion2to1 = f'x*{age_units[unit2][2]}/{age_units[unit1][2]}'
-                age_conversion_model.setFilter(
-                    f'FromAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}") AND ToAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}")')
-                if age_conversion_model.rowCount() == 0:
-                    sql = f'''INSERT INTO AgeUnitConversions(FromAgeUnitID, ToAgeUnitID, AgeUnitConversionCalculation)
-                                    VALUES((SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}"),(SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}"),"{conversion1to2}")'''
-                    if not query.exec(sql):
-                        geocork_logger.get_logger().critical(f'Error populating AgeUnitConversions')
-                        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                        return False
-                else:
-                    current_conversion = age_conversion_model.record(0).value('AgeUnitConversionCalculation')
-                    if current_conversion != conversion1to2:
-                        sql = f'''UPDATE AgeUnitConversions SET AgeUnitConversionCalculation = "{conversion1to2}"
-                                    WHERE FromAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}") AND ToAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}")'''
-                        if not query.exec(sql):
-                            geocork_logger.get_logger().critical(f'Error populating AgeUnitConversions')
-                            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                            return False
-                age_conversion_model.setFilter(
-                    f'FromAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}") AND ToAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}")')
-                if age_conversion_model.rowCount() == 0:
-                    sql = f'''INSERT INTO AgeUnitConversions(FromAgeUnitID, ToAgeUnitID, AgeUnitConversionCalculation)
-                                    VALUES((SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}"),(SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}"),"{conversion2to1}")'''
-                    if not query.exec(sql):
-                        geocork_logger.get_logger().critical(f'Error populating AgeUnitConversions')
-                        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                        return False
-                else:
-                    current_conversion = age_conversion_model.record(0).value('AgeUnitConversionCalculation')
-                    if current_conversion != conversion2to1:
-                        sql = f'''UPDATE AgeUnitConversions SET AgeUnitConversionCalculation = "{conversion2to1}"
-                                    WHERE FromAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}") AND ToAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}")'''
-                        if not query.exec(sql):
-                            geocork_logger.get_logger().critical(f'Error populating AgeUnitConversions')
-                            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                            return False
+    query = QtSql.QSqlQuery(db=database)
+
+    lookup = '(SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = ?)'
+    sql = f'''INSERT INTO AgeUnitConversions(
+                  FromAgeUnitID, ToAgeUnitID, AgeUnitConversionCalculation)
+              VALUES({lookup}, {lookup}, ?)
+              ON CONFLICT(FromAgeUnitID, ToAgeUnitID) DO UPDATE SET
+                  AgeUnitConversionCalculation = excluded.AgeUnitConversionCalculation,
+                  AgeUnitConversionModified = CURRENT_TIMESTAMP
+              WHERE AgeUnitConversionCalculation IS NOT excluded.AgeUnitConversionCalculation'''
+
+    if not query.prepare(sql):
+        geocork_logger.get_logger().critical('Error preparing AgeUnitConversions query')
+        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        return False
+
+    for (unit_a, unit_b), (a_to_b, b_to_a) in AGE_CONVERSIONS.items():
+        for from_unit, to_unit, calc in ((unit_a, unit_b, a_to_b), (unit_b, unit_a, b_to_a)):
+            query.bindValue(0, from_unit.value[1])
+            query.bindValue(1, to_unit.value[1])
+            query.bindValue(2, calc)
+            if not query.exec():
+                geocork_logger.get_logger().critical('Error populating AgeUnitConversions')
+                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                geocork_logger.get_logger().debug(f'Conversion: {from_unit.value[1]} -> {to_unit.value[1]} = {calc}')
+                return False
     return True
 
-def populate_analytical_units(database=None) -> bool:
+def populate_analytical_units(database: QSqlDatabase = QSqlDatabase()) -> bool:
     """
     Connect to the database and add the default analytical units. Uses the default database connection if no database
     is provided.
-    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :param database: QSqlDatabase instance to populate tables in, if not provided the default database is used.
     :return: True for success, False for failure
     """
 
-    if database is None:
-        query = QtS.QSqlQuery()
-    else:
-        query = QtS.QSqlQuery(database)
+    query = QtSql.QSqlQuery(db = database)
     for analytical_unit in analytical_units:
         sql = f'''INSERT INTO AnalyticalUnits(AnalyticalUnitName, AnalyticalUnitAbbreviation, AnalyticalUnitDescription)
                                 VALUES("{analytical_unit[0]}","{analytical_unit[1]}","{analytical_unit[2]}")'''
@@ -3644,142 +3604,50 @@ def populate_analytical_units(database=None) -> bool:
     return True
 
 
-def populate_analytical_conversions(database=None) -> bool:
+def populate_analytical_conversions(database: QSqlDatabase = QSqlDatabase()) -> bool:
     """
-    Connect to the database and add the default analytical format conversions. Uses the default database connection if no
-    database is provided.
-    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    Insert or update the default analytical unit conversions defined in units.ANALYTICAL_CONVERSIONS.
+    Uses the default database connection if no database is provided.
+    :param database: QSqlDatabase instance to populate tables in, if not provided the default database is used.
     :return: True for success, False for failure
     """
-    if database is None:
-        query = QtS.QSqlQuery()
-        analytical_unit_conversion_model = QtS.QSqlTableModel()
-    else:
-        query = QtS.QSqlQuery(database)
-        analytical_unit_conversion_model = QtS.QSqlTableModel(db=database)
-    analytical_unit_conversion_model.setTable('AnalyticalUnitConversions')
-    analytical_unit_conversion_model.select()
-    while analytical_unit_conversion_model.canFetchMore():
-        analytical_unit_conversion_model.fetchMore()
-    for unit1 in range(len(analytical_units)):
-        for unit2 in range(len(analytical_units)):
-            if unit2 > unit1:
-                abbr1 = analytical_units[unit1][1]
-                abbr2 = analytical_units[unit2][1]
-                # Define mass-fraction equivalence groups (all interconvertible by simple scaling)
-                # ppm = mg/kg = μg/g (1e-6)
-                # ppb = μg/kg = ng/g (1e-9)
-                # ppt = ng/kg = pg/g (1e-12)
-                # wt% (1e-2)
-                ppm_group = ('ppm', 'mg/kg', 'μg/g')
-                ppb_group = ('ppb', 'ng/g')
-                ppt_group = ('ppt',)
-                wtpct_group = ('wt%',)
-                # Mapping from format abbreviation to its mass fraction (dimensionless)
-                mass_fraction_factors = {}
-                for fmt in ppm_group:
-                    mass_fraction_factors[fmt] = 1e-6
-                for fmt in ppb_group:
-                    mass_fraction_factors[fmt] = 1e-9
-                for fmt in ppt_group:
-                    mass_fraction_factors[fmt] = 1e-12
-                for fmt in wtpct_group:
-                    mass_fraction_factors[fmt] = 1e-2
-                # Isotope abundance equivalence group (at% and fraction interconvertible)
-                atom_fraction_factors = {'at%': 1e-2, 'fraction': 1.0}
-                conversion1to2 = '-'
-                conversion2to1 = '-'
-                if abbr1 in mass_fraction_factors and abbr2 in mass_fraction_factors:
-                    # Both formats are mass-based concentrations - simple scaling
-                    factor = mass_fraction_factors[abbr1] / mass_fraction_factors[abbr2]
-                    inverse_factor = mass_fraction_factors[abbr2] / mass_fraction_factors[abbr1]
-                    if factor == 1.0:
-                        # Equivalent units (e.g., ppm and mg/kg)
-                        conversion1to2 = 'x'
-                        conversion2to1 = 'x'
-                    else:
-                        conversion1to2 = f'x*{factor:g}'
-                        conversion2to1 = f'x*{inverse_factor:g}'
-                elif abbr1 in atom_fraction_factors and abbr2 in atom_fraction_factors:
-                    # Both formats are atomic abundance - simple scaling
-                    factor = atom_fraction_factors[abbr1] / atom_fraction_factors[abbr2]
-                    inverse_factor = atom_fraction_factors[abbr2] / atom_fraction_factors[abbr1]
-                    if factor == 1.0:
-                        conversion1to2 = 'x'
-                        conversion2to1 = 'x'
-                    else:
-                        conversion1to2 = f'x*{factor:g}'
-                        conversion2to1 = f'x*{inverse_factor:g}'
-                elif (abbr1, abbr2) == ('mol/g', 'atoms/g') or (abbr1, abbr2) == ('atoms/g', 'mol/g'):
-                    # Avogadro's number scaling between mol/g and atoms/g
-                    if abbr1 == 'mol/g':
-                        conversion1to2 = 'x*6.02214076e23'
-                        conversion2to1 = 'x/6.02214076e23'
-                    else:
-                        conversion1to2 = 'x/6.02214076e23'
-                        conversion2to1 = 'x*6.02214076e23'
-                # All other format pairs (e.g., concentration <-> isotope ratio, cps <-> concentration,
-                # delta <-> epsilon, initial <-> measured ratio) require additional context such as
-                # element identity, atomic mass, reference standard, decay constant, or instrument
-                # calibration. These cannot be expressed as a simple algebraic conversion and are
-                # left as the placeholder '-'.
-                analytical_unit_conversion_model.setFilter(
-                    f'FromAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr1}") AND ToAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr2}")')
-                if analytical_unit_conversion_model.rowCount() == 0:
-                    sql = f'''INSERT INTO AnalyticalUnitConversions(FromAnalyticalUnitID, ToAnalyticalUnitID, AnalyticalUnitConversionCalculation)
-                                                            VALUES((SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr1}"),(SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr2}"),"{conversion1to2}")'''
-                    if not query.exec(sql):
-                        geocork_logger.get_logger().critical('Error populating AnalyticalUnitConversions')
-                        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                        return False
-                else:
-                    current_conversion = analytical_unit_conversion_model.record(0).value(
-                        'AnalyticalUnitConversionCalculation')
-                    if current_conversion != conversion1to2:
-                        sql = f'''UPDATE AnalyticalUnitConversions SET AnalyticalUnitConversionCalculation = "{conversion1to2}"
-                                                            WHERE FromAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr1}") AND ToAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr2}")'''
-                        if not query.exec(sql):
-                            geocork_logger.get_logger().critical('Error populating AnalyticalUnitConversions')
-                            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                            return False
-                analytical_unit_conversion_model.setFilter(
-                    f'FromAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr2}") AND ToAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr1}")')
-                if analytical_unit_conversion_model.rowCount() == 0:
-                    sql = f'''INSERT INTO AnalyticalUnitConversions(FromAnalyticalUnitID, ToAnalyticalUnitID, AnalyticalUnitConversionCalculation)
-                                                            VALUES((SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr2}"),(SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr1}"),"{conversion2to1}")'''
-                    if not query.exec(sql):
-                        geocork_logger.get_logger().critical('Error populating AnalyticalUnitConversions')
-                        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                        return False
-                else:
-                    current_conversion = analytical_unit_conversion_model.record(0).value(
-                        'AnalyticalUnitConversionCalculation')
-                    if current_conversion != conversion2to1:
-                        sql = f'''UPDATE AnalyticalUnitConversions SET AnalyticalUnitConversionCalculation = "{conversion2to1}"
-                                                            WHERE FromAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr2}") AND ToAnalyticalUnitID = (SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = "{abbr1}")'''
-                        if not query.exec(sql):
-                            geocork_logger.get_logger().critical('Error populating AnalyticalUnitConversions')
-                            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                            return False
+    query = QtSql.QSqlQuery(db=database)
+
+    lookup = '(SELECT AnalyticalUnitID FROM AnalyticalUnits WHERE AnalyticalUnitAbbreviation = ?)'
+    sql = f'''INSERT INTO AnalyticalUnitConversions(
+                  FromAnalyticalUnitID, ToAnalyticalUnitID, AnalyticalUnitConversionCalculation)
+              VALUES({lookup}, {lookup}, ?)
+              ON CONFLICT(FromAnalyticalUnitID, ToAnalyticalUnitID) DO UPDATE SET
+                  AnalyticalUnitConversionCalculation = excluded.AnalyticalUnitConversionCalculation,
+                  AnalyticalUnitConversionModified = CURRENT_TIMESTAMP
+              WHERE AnalyticalUnitConversionCalculation IS NOT excluded.AnalyticalUnitConversionCalculation'''
+
+    if not query.prepare(sql):
+        geocork_logger.get_logger().critical('Error preparing AnalyticalUnitConversions query')
+        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        return False
+
+    for (unit_a, unit_b), (a_to_b, b_to_a) in ANALYTICAL_CONVERSIONS.items():
+        for from_unit, to_unit, calc in ((unit_a, unit_b, a_to_b), (unit_b, unit_a, b_to_a)):
+            query.bindValue(0, from_unit.value[1])
+            query.bindValue(1, to_unit.value[1])
+            query.bindValue(2, calc)
+            if not query.exec():
+                geocork_logger.get_logger().critical('Error populating AnalyticalUnitConversions')
+                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                geocork_logger.get_logger().debug(f'Conversion: {from_unit.value[1]} -> {to_unit.value[1]} = {calc}')
+                return False
     return True
 
 
-def populate_concordance_formats(database=None) -> bool:
+def populate_concordance_formats(database: QSqlDatabase = QSqlDatabase()) -> bool:
     """
     Connect to the database and add the default concordance formats. Uses the default database connection if no database
     is provided.
-    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :param database: QSqlDatabase instance to populate tables in, if not provided the default database is used.
     :return: True for success, False for failure
     """
-
-    if database is None:
-        query = QtS.QSqlQuery()
-    else:
-        query = QtS.QSqlQuery(database)
+    query = QtSql.QSqlQuery(db = database)
     for concordance_format in concordance_formats:
         sql = f'''INSERT INTO ConcordanceFormats(ConcordanceFormatName, ConcordanceFormatAbbreviation, ConcordanceFormatDescription)
                                 VALUES("{concordance_format[0]}","{concordance_format[1]}","{concordance_format[2]}")'''
@@ -3792,14 +3660,14 @@ def populate_concordance_formats(database=None) -> bool:
     return True
 
 
-def populate_concordance_conversions(database=None) -> bool:
+def populate_concordance_conversions(database: QSqlDatabase = QSqlDatabase()) -> bool:
     """
     Insert or update the default concordance format conversions defined in formats.CONCORDANCE_CONVERSIONS.
     Uses the default database connection if no database is provided.
-    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :param database: QSqlDatabase instance to populate tables in, if not provided the default database is used.
     :return: True for success, False for failure
     """
-    query = QtS.QSqlQuery() if database is None else QtS.QSqlQuery(database)
+    query = QtSql.QSqlQuery(db = database)
 
     lookup = ('(SELECT ConcordanceFormatID FROM ConcordanceFormats '
               'WHERE ConcordanceFormatAbbreviation = ?)')
@@ -3829,19 +3697,16 @@ def populate_concordance_conversions(database=None) -> bool:
     return True
 
 
-def populate_direction_units(database=None) -> bool:
+def populate_direction_units(database: QSqlDatabase = QSqlDatabase()) -> bool:
     """
     Connect to the database and add the default direction units. Uses the default database connection if no database is provided.
-    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :param database: QSqlDatabase instance to populate tables in, if not provided the default database is used.
     :return: True for success, False for failure
     """
-    if database is None:
-        query = QtS.QSqlQuery()
-    else:
-        query = QtS.QSqlQuery(database)
+    query = QtSql.QSqlQuery(db = database)
     # Begin by deleting all rows in the table to allow for a reset if things get changed
     for unit in direction_units:
-        sql = f'''INSERT INTO DirectionUnits(DirectionUnitName, DirectionUnitAbbreviation, DirectionUnitAbbreviation)
+        sql = f'''INSERT INTO DirectionUnits(DirectionUnitName, DirectionUnitAbbreviation, DirectionUnitDescription)
                                 VALUES("{unit[0]}", "{unit[1]}", "{unit[2]}")'''
         if not query.exec(sql):
             if 'UNIQUE constraint failed' not in query.lastError().text():
@@ -3852,21 +3717,17 @@ def populate_direction_units(database=None) -> bool:
     return True
 
 
-def populate_distance_units(database=None) -> bool:
+def populate_distance_units(database: QSqlDatabase = QSqlDatabase()) -> bool:
     """
     Connect to the database and add the default distance units. Uses the default database connection if no database is provided.
-    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :param database: QSqlDatabase instance to populate tables in, if not provided the default database is used.
     :return: True for success, False for failure
     """
-
-    if database is None:
-        query = QtS.QSqlQuery()
-    else:
-        query = QtS.QSqlQuery(database)
+    query = QtSql.QSqlQuery(db = database)
     # International standard foot is 0.3048 meters exactly
     for unit in distance_units:
-        sql = f'''INSERT INTO DistanceUnits(DistanceUnitName, DistanceUnitAbbreviation)
-                                    VALUES("{unit[0]}","{unit[1]}")'''
+        sql = f'''INSERT INTO DistanceUnits(DistanceUnitName, DistanceUnitAbbreviation, DistanceUnitDescription)
+                                    VALUES("{unit[0]}","{unit[1]}", "{unit[2]}")'''
         if not query.exec(sql):
             if 'UNIQUE constraint failed' not in query.lastError().text():
                 geocork_logger.get_logger().critical('Error populating DistanceUnits')
@@ -3876,95 +3737,50 @@ def populate_distance_units(database=None) -> bool:
     return True
 
 
-def populate_distance_conversions(database=None) -> bool:
+def populate_distance_conversions(database: QSqlDatabase = QSqlDatabase()) -> bool:
     """
-    Connect to the database and add the default distance unit conversions. Uses the default database connection if no database
-    is provided.
-    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    Insert or update the default distance unit conversions defined in units.DISTANCE_CONVERSIONS.
+    Uses the default database connection if no database is provided.
+    :param database: QSqlDatabase instance to populate tables in, if not provided the default database is used.
     :return: True for success, False for failure
     """
-    if database is None:
-        query = QtS.QSqlQuery()
-        distance_conversion_model = QtS.QSqlTableModel()
-    else:
-        query = QtS.QSqlQuery(database)
-        distance_conversion_model = QtS.QSqlTableModel(db=database)
-    distance_conversion_model.setTable('DistanceUnitConversions')
-    distance_conversion_model.select()
-    while distance_conversion_model.canFetchMore():
-        distance_conversion_model.fetchMore()
-    # International standard foot is 0.3048 meters exactly
-    m_per_ft = 0.3048
-    for unit1 in range(len(distance_units)):
-        for unit2 in range(len(distance_units)):
-            if unit2 > unit1:
-                if (distance_units[unit1][1][-1] == 'm' and distance_units[unit2][1][-1] == 'm') or (
-                        distance_units[unit1][1][-1] != 'm' and distance_units[unit2][1][-1] != 'm'):
-                    # Both units are the same format
-                    conversion1to2 = f'x*{distance_units[unit1][2]}/{distance_units[unit2][2]}'
-                    conversion2to1 = f'x*{distance_units[unit2][2]}/{distance_units[unit1][2]}'
-                elif distance_units[unit1][1][-1] == 'm':
-                    # Unit 1 is metric and unit 2 is imperial
-                    conversion1to2 = f'x*{distance_units[unit1][2]}/({m_per_ft}*{distance_units[unit2][2]})'
-                    conversion2to1 = f'x*({distance_units[unit2][2]}*{m_per_ft})/{distance_units[unit1][2]}'
-                else:
-                    # Unit 1 is imperial and unit 2 is metric
-                    conversion1to2 = f'x*({distance_units[unit1][2]}*{m_per_ft})/{distance_units[unit2][2]}'
-                    conversion2to1 = f'x*{distance_units[unit2][2]}/({m_per_ft}*{distance_units[unit1][2]})'
-                distance_conversion_model.setFilter(
-                    f'FromDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}") AND ToDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}")')
-                if distance_conversion_model.rowCount() == 0:
-                    sql = f'''INSERT INTO DistanceUnitConversions(FromDistanceUnitID, ToDistanceUnitID, DistanceUnitConversionCalculation)
-                                            VALUES((SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}"),(SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}"),"{conversion1to2}")'''
-                    if not query.exec(sql):
-                        geocork_logger.get_logger().critical('Error populating DistanceUnitConversions')
-                        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                        return False
-                else:
-                    current_conversion = distance_conversion_model.record(0).value('DistanceUnitConversionCalculation')
-                    if current_conversion != conversion1to2:
-                        sql = f'''UPDATE DistanceUnitConversions SET DistanceUnitConversionCalculation = "{conversion1to2}"
-                                            WHERE FromDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}") AND ToDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}")'''
-                        if not query.exec(sql):
-                            geocork_logger.get_logger().critical('Error populating DistanceUnitConversions')
-                            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                            return False
-                distance_conversion_model.setFilter(
-                    f'FromDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}") AND ToDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}")')
-                if distance_conversion_model.rowCount() == 0:
-                    sql = f'''INSERT INTO DistanceUnitConversions(FromDistanceUnitID, ToDistanceUnitID, DistanceUnitConversionCalculation)
-                                            VALUES((SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}"),(SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}"),"{conversion2to1}")'''
-                    if not query.exec(sql):
-                        geocork_logger.get_logger().critical('Error populating DistanceUnitConversions')
-                        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                        return False
-                else:
-                    current_conversion = distance_conversion_model.record(0).value('DistanceUnitConversionCalculation')
-                    if current_conversion != conversion2to1:
-                        sql = f'''UPDATE DistanceUnitConversions SET DistanceUnitConversionCalculation = "{conversion2to1}"
-                                            WHERE FromDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}") AND ToDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}")'''
-                        if not query.exec(sql):
-                            geocork_logger.get_logger().critical('Error populating DistanceUnitConversions')
-                            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                            return False
+    query = QtSql.QSqlQuery(db=database)
+
+    lookup = '(SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = ?)'
+    sql = f'''INSERT INTO DistanceUnitConversions(
+                  FromDistanceUnitID, ToDistanceUnitID, DistanceUnitConversionCalculation)
+              VALUES({lookup}, {lookup}, ?)
+              ON CONFLICT(FromDistanceUnitID, ToDistanceUnitID) DO UPDATE SET
+                  DistanceUnitConversionCalculation = excluded.DistanceUnitConversionCalculation,
+                  DistanceUnitConversionModified = CURRENT_TIMESTAMP
+              WHERE DistanceUnitConversionCalculation IS NOT excluded.DistanceUnitConversionCalculation'''
+
+    if not query.prepare(sql):
+        geocork_logger.get_logger().critical('Error preparing DistanceUnitConversions query')
+        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        return False
+
+    for (unit_a, unit_b), (a_to_b, b_to_a) in DISTANCE_CONVERSIONS.items():
+        for from_unit, to_unit, calc in ((unit_a, unit_b, a_to_b), (unit_b, unit_a, b_to_a)):
+            query.bindValue(0, from_unit.value[1])
+            query.bindValue(1, to_unit.value[1])
+            query.bindValue(2, calc)
+            if not query.exec():
+                geocork_logger.get_logger().critical('Error populating DistanceUnitConversions')
+                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                geocork_logger.get_logger().debug(f'Conversion: {from_unit.value[1]} -> {to_unit.value[1]} = {calc}')
+                return False
     return True
 
 
-def populate_error_formats(database=None) -> bool:
+def populate_error_formats(database: QSqlDatabase = QSqlDatabase()) -> bool:
     """
     Connect to the database and add the default error formats. Uses the default database connection if no database is provided.
-    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :param database: QSqlDatabase instance to populate tables in, if not provided the default database is used.
     :return: True for success, False for failure
     """
 
-    if database is None:
-        query = QtS.QSqlQuery()
-    else:
-        query = QtS.QSqlQuery(database)
+    query = QtSql.QSqlQuery(db = database)
     for error_format in error_formats:
         sql = f'''INSERT INTO ErrorFormats(ErrorFormatName, ErrorFormatAbbreviation, ErrorFormatDescription)
                                     VALUES("{error_format[0]}","{error_format[1]}","{error_format[2]}")'''
@@ -3977,103 +3793,50 @@ def populate_error_formats(database=None) -> bool:
     return True
 
 
-def populate_error_conversions(database=None) -> bool:
+def populate_error_conversions(database: QSqlDatabase = QSqlDatabase()) -> bool:
     """
-    Connect to the database and add the default error format conversions. Uses the default database connection if no database
-    is provided.
-    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    Insert or update the default error format conversions defined in formats.ERROR_CONVERSIONS.
+    Uses the default database connection if no database is provided.
+    :param database: QSqlDatabase instance to populate tables in, if not provided the default database is used.
     :return: True for success, False for failure
     """
-    if database is None:
-        query = QtS.QSqlQuery()
-        error_conversion_model = QtS.QSqlTableModel()
-    else:
-        query = QtS.QSqlQuery(database)
-        error_conversion_model = QtS.QSqlTableModel(db=database)
-    error_conversion_model.setTable('ErrorFormatConversions')
-    error_conversion_model.select()
-    while error_conversion_model.canFetchMore():
-        error_conversion_model.fetchMore()
-    for format1 in range(len(error_formats)):
-        for format2 in range(len(error_formats)):
-            if format2 > format1:
-                if (error_formats[format1][1][-1] == '%' and error_formats[format2][1][-1] == '%') or (
-                        error_formats[format1][1][-1] != '%' and error_formats[format2][1][-1] != '%'):
-                    # Both are the same format, percent or absolute
-                    conversion1to2 = 'x*2'
-                    conversion2to1 = 'x/2'
-                elif error_formats[format1][1][-1] != '%':
-                    # First format is absolute and second format is percent
-                    if (error_formats[format1][1][0] == '2' and error_formats[format2][1][0] == '2') or (
-                            error_formats[format1][1][0] == '1' and error_formats[format2][1][0] == '1'):
-                        # Both formats are 1 sigma or 2 sigma, x is the databased error and y is the value it is an error of
-                        conversion1to2 = '(x/y)*100'
-                        conversion2to1 = '(x/100)*y'
-                    elif error_formats[format1][1][0] == '2' and error_formats[format2][1][0] == '1':
-                        # 2 sigma absolute to 1 sigma percent, x is the databased error and y is the value it is an error of
-                        conversion1to2 = '(x/y)*100/2'
-                        # 1 sigma percent to 2 sigma absolute, x is the databased error and y is the value it is an error of
-                        conversion2to1 = '(x/100)*2*y'
-                    elif error_formats[format1][1][0] == '1' and error_formats[format2][1][0] == '2':
-                        # 1 sigma ratio to 2 sigma percent, x is the databased error and y is the value it is an error of
-                        conversion1to2 = '(x/y)*200'
-                        # 2 sigma percent to 1 sigma absolute, x is the databased error and y is the value it is an error of
-                        conversion2to1 = '(x/200)*y'
+    query = QtSql.QSqlQuery(db=database)
 
-                error_conversion_model.setFilter(
-                    f'FromErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format1][1]}") AND ToErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format2][1]}")')
-                if error_conversion_model.rowCount() == 0:
-                    sql = f'''INSERT INTO ErrorFormatConversions(FromErrorFormatID, ToErrorFormatID, ErrorFormatConversionCalculation)
-                                        VALUES((SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format1][1]}"),(SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format2][1]}"),"{conversion1to2}")'''
-                    if not query.exec(sql):
-                        geocork_logger.get_logger().critical(f'Error populating ErrorFormatConversions')
-                        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                        return False
-                else:
-                    current_conversion = error_conversion_model.record(0).value('ErrorFormatConversionCalculation')
-                    if current_conversion != conversion1to2:
-                        sql = f'''UPDATE ErrorFormatConversions SET ErrorFormatConversionCalculation = "{conversion1to2}"
-                                        WHERE FromErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format1][1]}") AND ToErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format2][1]}")'''
-                        if not query.exec(sql):
-                            geocork_logger.get_logger().critical(f'Error populating ErrorFormatConversions')
-                            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                            return False
-                error_conversion_model.setFilter(
-                    f'FromErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format2][1]}") AND ToErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format1][1]}")')
-                if error_conversion_model.rowCount() == 0:
-                    sql = f'''INSERT INTO ErrorFormatConversions(FromErrorFormatID, ToErrorFormatID, ErrorFormatConversionCalculation)
-                                        VALUES((SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format2][1]}"),(SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format1][1]}"),"{conversion2to1}")'''
-                    if not query.exec(sql):
-                        geocork_logger.get_logger().critical(f'Error populating ErrorFormatConversions')
-                        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                        geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                        return False
-                else:
-                    current_conversion = error_conversion_model.record(0).value('ErrorFormatConversionCalculation')
-                    if current_conversion != conversion2to1:
-                        sql = f'''UPDATE ErrorFormatConversions SET ErrorFormatConversionCalculation = "{conversion2to1}"
-                                        WHERE FromErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format2][1]}") AND ToErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format1][1]}")'''
-                        if not query.exec(sql):
-                            geocork_logger.get_logger().critical(f'Error populating ErrorFormatConversions')
-                            geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
-                            geocork_logger.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                            return False
+    lookup = '(SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = ?)'
+    sql = f'''INSERT INTO ErrorFormatConversions(
+                  FromErrorFormatID, ToErrorFormatID, ErrorFormatConversionCalculation)
+              VALUES({lookup}, {lookup}, ?)
+              ON CONFLICT(FromErrorFormatID, ToErrorFormatID) DO UPDATE SET
+                  ErrorFormatConversionCalculation = excluded.ErrorFormatConversionCalculation,
+                  ErrorFormatConversionModified = CURRENT_TIMESTAMP
+              WHERE ErrorFormatConversionCalculation IS NOT excluded.ErrorFormatConversionCalculation'''
+
+    if not query.prepare(sql):
+        geocork_logger.get_logger().critical('Error preparing ErrorFormatConversions query')
+        geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+        return False
+
+    for (fmt_a, fmt_b), (a_to_b, b_to_a) in ERROR_CONVERSIONS.items():
+        for from_fmt, to_fmt, calc in ((fmt_a, fmt_b, a_to_b), (fmt_b, fmt_a, b_to_a)):
+            query.bindValue(0, from_fmt.value[1])
+            query.bindValue(1, to_fmt.value[1])
+            query.bindValue(2, calc)
+            if not query.exec():
+                geocork_logger.get_logger().critical('Error populating ErrorFormatConversions')
+                geocork_logger.get_logger().debug(f'Error: {query.lastError().text()}')
+                geocork_logger.get_logger().debug(f'Conversion: {from_fmt.value[1]} -> {to_fmt.value[1]} = {calc}')
+                return False
     return True
 
-def populate_geochemical_analytes(database=None) -> bool:
+def populate_geochemical_analytes(database: QSqlDatabase = QSqlDatabase()) -> bool:
     """
     Connect to the database and add the default geochemical analytes. Uses the default database connection if no database
     is provided.
-    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :param database: QSqlDatabase instance to populate tables in, if not provided the default database is used.
     :return: True for success, False for failure
     """
 
-    if database is None:
-        query = QtS.QSqlQuery()
-    else:
-        query = QtS.QSqlQuery(database)
+    query = QtSql.QSqlQuery(db = database)
     analyte_class_ids = {}
     root_row = 0
     for geochemical_class in SQLUtils.geochemical_analyte_classes:
@@ -4152,18 +3915,15 @@ def populate_geochemical_analytes(database=None) -> bool:
 
 
 
-def populate_gps_formats(database=None) -> bool:
+def populate_gps_formats(database: QSqlDatabase = QSqlDatabase()) -> bool:
     """
     Populate the GPSFormats table with the default formats. Add text for code to run later for conversions. Uses the default
     database connection if no database is provided.
-    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :param database: QSqlDatabase instance to populate tables in, if not provided the default database is used.
     :return: True for success, False for failure
     """
 
-    if database is None:
-        query = QtS.QSqlQuery()
-    else:
-        query = QtS.QSqlQuery(database)
+    query = QtSql.QSqlQuery(db = database)
     for gps_format in gps_formats:
         sql = f'''INSERT INTO GPSFormats(GPSFormatName, GPSFormatAbbreviation, GPSFormatDescription)
                     VALUES("{gps_format[0]}","{gps_format[1]}","{gps_format[2]}")'''
@@ -4175,21 +3935,21 @@ def populate_gps_formats(database=None) -> bool:
                 return False
     return True
 
-def populate_gps_conversions(database=None) -> bool:
+def populate_gps_conversions(database: QSqlDatabase = QSqlDatabase()) -> bool:
     """
     Populate the GPSFormatConversions table with the conversions between GPS formats. Uses the default database connection
     if no database is provided.
-    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :param database: QSqlDatabase instance to populate tables in, if not provided the default database is used.
     :return: True for success, False for failure
     """
     if database is None:
-        query = QtS.QSqlQuery()
-        gps_format_model = QtS.QSqlTableModel()
-        gps_conversion_model = QtS.QSqlTableModel()
+        query = QtSql.QSqlQuery()
+        gps_format_model = QtSql.QSqlTableModel()
+        gps_conversion_model = QtSql.QSqlTableModel()
     else:
-        query = QtS.QSqlQuery(database)
-        gps_format_model = QtS.QSqlTableModel(db=database)
-        gps_conversion_model = QtS.QSqlTableModel(db=database)
+        query = QtSql.QSqlQuery(database)
+        gps_format_model = QtSql.QSqlTableModel(db=database)
+        gps_conversion_model = QtSql.QSqlTableModel(db=database)
     gps_format_model.setTable('GPSFormats')
     gps_format_model.select()
     while gps_format_model.canFetchMore():
@@ -4462,18 +4222,15 @@ def populate_gps_conversions(database=None) -> bool:
     return True
 
 
-def populate_ages(database=None) -> bool:
+def populate_ages(database: QSqlDatabase = QSqlDatabase()) -> bool:
     """
     Connect to the database and add the Geologic timescale tree structure with names and ages. GSA Geologic Time Scale
     v. 5.0 as a xml file. Overwrites any previous changes to this table. Uses the default database if none is provided.
-    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :param database: QSqlDatabase instance to populate tables in, if not provided the default database is used.
     :return: True for success, False for failure
     """
 
-    if database is None:
-        query = QtS.QSqlQuery()
-    else:
-        query = QtS.QSqlQuery(database)
+    query = QtSql.QSqlQuery(db = database)
 
     base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
     xml_file = os.path.join(base_path, "../../../Functions/GeologicTime_Ages.xml")
@@ -4545,17 +4302,14 @@ def populate_ages(database=None) -> bool:
     return True
 
 
-def add_age(age: tuple, database=None) -> bool:
+def add_age(age: tuple, database: QSqlDatabase = QSqlDatabase()) -> bool:
     """
     Adds each age item to the table with its parent ID. Called by populate_ages. Uses the default database if none is provided.
     :param age: tuple that contains (Parent ageID, age name, Max Ma, Min Ma, hexColor)
-    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :param database: QSqlDatabase instance to populate tables in, if not provided the default database is used.
     :return: True if successful, False if error
     """
-    if database is None:
-        query = QtS.QSqlQuery()
-    else:
-        query = QtS.QSqlQuery(database)
+    query = QtSql.QSqlQuery(db = database)
     if age[0]:
         # if there is a parent
         sql = f'''INSERT INTO Ages(ParentAgeID, AgeParentRow, AgeName, OldestAge, YoungestAge, Color)

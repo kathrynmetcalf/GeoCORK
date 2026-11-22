@@ -146,7 +146,6 @@ def generate():
 
 
 view_attributes_dict = generate()
-print(view_attributes_dict)
 
 view_setting_dict = {
     'SampleView': 'sample_view_columns',
