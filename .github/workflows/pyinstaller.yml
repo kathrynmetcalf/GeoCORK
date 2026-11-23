@@ -1,59 +1,91 @@
 name: PyInstaller
 
 
-on: [workflow_dispatch]
+on: [ workflow_dispatch ]
 
 jobs:
   macos-builder:
-      runs-on: 'macos-latest'
-  
-      steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+    runs-on: 'macos-latest'
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: 3.12
-  
+          python-version: 3.13
+
       - run: pip install -r requirements.txt pyinstaller PyQt6 PyQt6-Qt6 pandas openpyxl QtAwesome Pillow
-      - run: pyinstaller mainAppEngine.py --windowed --name GeoCORK --icon icon.ico --add-data "Reference/GeologicTime_Ages.xml:." --add-data "ui/GeoCORKLogo_Lightmode.svg:." --add-data "ui/GeoCORKLogo_Darkmode.svg:." --add-data "ui/AgeFields.ui:." --add-data "ui/AddTags.ui:." --add-data "ui/AddTreeTags.ui:." --add-data "ui/AddTreeTags.ui:." --add-data "ui/DataViewerWidget.ui:." --add-data "ui/DisplayTables.ui:." --add-data "ui/DisplayTablesSimplified.ui:." --add-data "ui/EditSampleTable.ui:." --add-data "ui/EditTable.ui:." --add-data "ui/EditTree.ui:." --add-data "ui/EditUPbTags.ui:." --add-data "ui/ExporterUI.ui:." --add-data "ui/Filters.ui:." --add-data "ui/GeoCORKMain.ui:." --add-data "ui/GPSFields.ui:." --add-data "ui/LandingPage.ui:." --add-data "ui/MergeDatabase.ui:." --add-data "ui/New_reference.ui:." --add-data "ui/SampleInformation.ui:." --add-data "ui/SelectColumns.ui:." --add-data "ui/Settings.ui:." --add-data "ui/U-Th-Pb_insitu_Template.xlsx:." --add-data "ui/SampleMap.html:."
+      - name: Build app
+        run: >
+          pyinstaller mainAppEngine.py
+          --windowed
+          --name GeoCORK
+          --icon icon.ico
+          --add-data "Reference/GeologicTime_Ages.xml:."
+          --add-data "ui/*.ui:."
+          --add-data "ui/GeoCORKLogo_*.svg:."
+          --add-data "ui/U-Th-Pb_insitu_Template.xlsx:."
+          --add-data "ui/SampleMap.html:."
       - name: Package .app correctly (preserves macOS bundle metadata)
         run: |
           cd dist
           tar -czf GeoCORK.app.tar.gz GeoCORK.app
-          
+
       - uses: actions/upload-artifact@v4
         with:
           name: GeoCORK-macos
           path: dist/GeoCORK.app.tar.gz
-          
+
   windows-builder-2025:
-      runs-on: 'windows-latest'
-  
-      steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+    runs-on: 'windows-latest'
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: 3.12
-  
+          python-version: 3.13
+
       - run: pip install -r requirements.txt pyinstaller PyQt6 PyQt6-Qt6 pandas openpyxl QtAwesome Pillow
-      - run: pyinstaller mainAppEngine.py --windowed --onefile --name GeoCORK --icon icon.ico --add-data "Reference/GeologicTime_Ages.xml:." --add-data "ui/GeoCORKLogo_Lightmode.svg:." --add-data "ui/GeoCORKLogo_Darkmode.svg:." --add-data "ui/AgeFields.ui:." --add-data "ui/AddTags.ui:." --add-data "ui/AddTreeTags.ui:." --add-data "ui/AddTreeTags.ui:." --add-data "ui/DataViewerWidget.ui:." --add-data "ui/DisplayTables.ui:." --add-data "ui/DisplayTablesSimplified.ui:." --add-data "ui/EditSampleTable.ui:." --add-data "ui/EditTable.ui:." --add-data "ui/EditTree.ui:." --add-data "ui/EditUPbTags.ui:." --add-data "ui/ExporterUI.ui:." --add-data "ui/Filters.ui:." --add-data "ui/GeoCORKMain.ui:." --add-data "ui/GPSFields.ui:." --add-data "ui/LandingPage.ui:." --add-data "ui/MergeDatabase.ui:." --add-data "ui/New_reference.ui:." --add-data "ui/SampleInformation.ui:." --add-data "ui/SelectColumns.ui:." --add-data "ui/Settings.ui:." --add-data "ui/U-Th-Pb_insitu_Template.xlsx:." --add-data "ui/SampleMap.html:."
-  
+      - name: Build app
+        run: >
+          pyinstaller mainAppEngine.py
+          --windowed
+          --onefile
+          --name GeoCORK
+          --icon icon.ico
+          --add-data "Reference/GeologicTime_Ages.xml:."
+          --add-data "ui/*.ui:."
+          --add-data "ui/GeoCORKLogo_*.svg:."
+          --add-data "ui/U-Th-Pb_insitu_Template.xlsx:."
+          --add-data "ui/SampleMap.html:."
+
       - uses: actions/upload-artifact@v4
         with:
           name: GeoCORK-windows-2025
           path: dist/*
 
   windows-builder-2022:
-      runs-on: 'windows-2022'
-  
-      steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+    runs-on: 'windows-2022'
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: 3.12
-  
+          python-version: 3.13
+
       - run: pip install -r requirements.txt pyinstaller PyQt6 PyQt6-Qt6 pandas openpyxl QtAwesome Pillow
-      - run: pyinstaller mainAppEngine.py --windowed --onefile --name GeoCORK --icon icon.ico --add-data "Reference/GeologicTime_Ages.xml:." --add-data "ui/GeoCORKLogo_Lightmode.svg:." --add-data "ui/GeoCORKLogo_Darkmode.svg:." --add-data "ui/AgeFields.ui:." --add-data "ui/AddTags.ui:." --add-data "ui/AddTreeTags.ui:." --add-data "ui/AddTreeTags.ui:." --add-data "ui/DataViewerWidget.ui:." --add-data "ui/DisplayTables.ui:." --add-data "ui/DisplayTablesSimplified.ui:." --add-data "ui/EditSampleTable.ui:." --add-data "ui/EditTable.ui:." --add-data "ui/EditTree.ui:." --add-data "ui/EditUPbTags.ui:." --add-data "ui/ExporterUI.ui:." --add-data "ui/Filters.ui:." --add-data "ui/GeoCORKMain.ui:." --add-data "ui/GPSFields.ui:." --add-data "ui/LandingPage.ui:." --add-data "ui/MergeDatabase.ui:." --add-data "ui/New_reference.ui:." --add-data "ui/SampleInformation.ui:." --add-data "ui/SelectColumns.ui:." --add-data "ui/Settings.ui:." --add-data "ui/U-Th-Pb_insitu_Template.xlsx:." --add-data "ui/SampleMap.html:."
-  
+      - name: Build app
+        run: >
+          pyinstaller mainAppEngine.py
+          --windowed
+          --onefile
+          --name GeoCORK
+          --icon icon.ico
+          --add-data "Reference/GeologicTime_Ages.xml:."
+          --add-data "ui/*.ui:."
+          --add-data "ui/GeoCORKLogo_*.svg:."
+          --add-data "ui/U-Th-Pb_insitu_Template.xlsx:."
+          --add-data "ui/SampleMap.html:."
+
       - uses: actions/upload-artifact@v4
         with:
           name: GeoCORK-windows-2022
