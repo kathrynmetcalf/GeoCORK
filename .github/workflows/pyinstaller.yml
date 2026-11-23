@@ -25,6 +25,7 @@ jobs:
           --add-data "ui/GeoCORKLogo_*.svg:."
           --add-data "ui/U-Th-Pb_insitu_Template.xlsx:."
           --add-data "ui/SampleMap.html:."
+          --collect-data pyrolite
       - name: Package .app correctly (preserves macOS bundle metadata)
         run: |
           cd dist
@@ -57,6 +58,7 @@ jobs:
           --add-data "ui/GeoCORKLogo_*.svg:."
           --add-data "ui/U-Th-Pb_insitu_Template.xlsx:."
           --add-data "ui/SampleMap.html:."
+          --collect-data pyrolite
 
       - uses: actions/upload-artifact@v4
         with:
@@ -85,6 +87,7 @@ jobs:
           --add-data "ui/GeoCORKLogo_*.svg:."
           --add-data "ui/U-Th-Pb_insitu_Template.xlsx:."
           --add-data "ui/SampleMap.html:."
+          --collect-data pyrolite
 
       - uses: actions/upload-artifact@v4
         with:
