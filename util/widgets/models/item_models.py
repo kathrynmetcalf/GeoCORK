@@ -71,7 +71,7 @@ class DisableItemModel(QtGui.QStandardItemModel):
             item = self.item(index.row(), index.column()).data(QtCore.Qt.ItemDataRole.DisplayRole)
             if item:
                 return item
-        elif role == QtCore.Qt.ItemDatdaRole.ToolTipRole:
+        elif role == QtCore.Qt.ItemDataRole.ToolTipRole:
             item = self.item(index.row(), index.column()).data(QtCore.Qt.ItemDataRole.DisplayRole)
             if not isinstance(item, str):
                 item = item.text()
