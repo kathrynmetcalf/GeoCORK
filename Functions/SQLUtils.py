@@ -591,7 +591,7 @@ static_tables = ['About',
                  'AnalyticalUnits',
                  'AnalyticalUnitConversions',
                  'GeoChemicalAnalytes']
-"""Used in ExportDatabase.py as tables to skip if found exporting.
+"""Used in export_helper.py as tables to skip if found exporting.
 Since these tables should be static across any database and is modified/created exclusively by code"""
 
 foreign_key_tables = [

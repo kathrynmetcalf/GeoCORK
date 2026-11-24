@@ -1,7 +1,6 @@
 import csv
 import os
 import sqlite3
-import sys
 import time
 
 import qtawesome
@@ -13,9 +12,8 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QTableView,
     QLabel, QCheckBox, QSpacerItem, QComboBox,
     QSizePolicy, QTabWidget, QInputDialog, QDialog, QListWidget, QHBoxLayout, QMessageBox, QGroupBox, QScrollArea,
-    QHeaderView, QAbstractItemView, QListWidgetItem
+    QHeaderView, QAbstractItemView, QListWidgetItem, QStackedWidget, QGridLayout
 )
-from PyQt6.uic import loadUi
 from openpyxl import Workbook
 
 from Functions import SQLUtils
@@ -26,7 +24,7 @@ from util import geocork_logger
 from util.database.database_helper import (get_join_from_table, columns_as_list, get_total_records,
                                            find_parent_items, update_database, turn_on_foreign_keys,
                                            turn_off_foreign_keys)
-from util.database.export import ExportDatabase
+from util.database.export import export_helper
 from util.database.export.export_helper import export_formats
 from util.loading_dialog_manager import show_loading_dialog, close_loading_dialog
 from util.populate_models import populate_combo_box
@@ -47,9 +45,9 @@ class ExportTab(QWidget):
 
     def __init__(self, parent=None, database: QSqlDatabase = QSqlDatabase()):
         super().__init__(parent)
-        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-        sources_ui_file = os.path.join(base_path, "ExporterUI.ui")
-        loadUi(sources_ui_file, self)
+        self.setObjectName('ExportTab')
+
+        self.build_ui()
 
         self.database = database
 
@@ -190,6 +188,110 @@ class ExportTab(QWidget):
         self.columnselection_comboBox.addItems(SQLUtils.table_attributes_dict)
 
         self.populate_stack()
+
+    def build_ui(self):
+
+        self.horizontalLayout = QHBoxLayout(self)
+
+        # ================= Left side: options =================
+        self.options_widget = QWidget(self)
+        self.options_widget.setFixedWidth(500)
+        self.options_layout = QVBoxLayout(self.options_widget)
+
+        self.use_converted_label = QLabel('All columns selected will use converted values from settings:')
+        self.use_converted_label.setToolTip(
+            'Change desired Age, Error, or Unit preferences in settings before export')
+        self.options_layout.addWidget(self.use_converted_label)
+
+        # ---- Options grid: labels in column 0, combo boxes in column 1 ----
+        self.optionscombo_layout = QGridLayout()
+        self.optionscombo_layout.setContentsMargins(0, 6, 0, 10)
+        self.optionscombo_layout.setSpacing(10)
+
+        # Row 0: Export format
+        self.exportformat_comboBox = QComboBox(self)
+        self.exportformat_comboBox.setToolTip('Switch between custom and pre-defined formats')
+        self.exportformat_comboBox.addItems(export_formats)
+        self.optionscombo_layout.addWidget(QLabel("Choose Export Format:"), 0, 0)
+        self.optionscombo_layout.addWidget(self.exportformat_comboBox, 0, 1)
+
+        # Row 1: File format
+        self.fileformat_comboBox = QComboBox(self)
+        self.fileformat_comboBox.setToolTip('Switch between the export file formats')
+        self.fileformat_comboBox.addItems(['Excel (.xlsx)', 'Comma-Separated Value (.csv)'])
+        self.optionscombo_layout.addWidget(QLabel("Choose File Format:"), 1, 0)
+        self.optionscombo_layout.addWidget(self.fileformat_comboBox, 1, 1)
+
+        # Row 2: Selection scope
+        self.selectionscope_comboBox = QComboBox(self)
+        self.selectionscope_comboBox.addItems(['Samples', 'Filter Groups'])
+        self.selectionscope_comboBox.setToolTip('Select whether to select by sample name or a filter group name.')
+        self.optionscombo_layout.addWidget(QLabel("Select All By:"), 2, 0)
+        self.optionscombo_layout.addWidget(self.selectionscope_comboBox, 2, 1)
+
+        # Row 3: Samples
+        self.samplesincluded_label = QLabel("Select Samples:")
+        self.samplesincluded_comboBox = CheckableComboBox(self)
+        self.samplesincluded_comboBox.setToolTip('Select samples to include in the export')
+        self.optionscombo_layout.addWidget(self.samplesincluded_label, 3, 0)
+        self.optionscombo_layout.addWidget(self.samplesincluded_comboBox, 3, 1)
+
+        # Row 4: Additional filters
+        self.filters_label = QLabel("Select Additional Filters (optional):")
+        self.filterselection_comboBox = CheckableComboBox(self)
+        self.samplesincluded_comboBox.setToolTip('Select additional filters to refine selected samples by')
+        self.optionscombo_layout.addWidget(self.filters_label, 4, 0)
+        self.optionscombo_layout.addWidget(self.filterselection_comboBox, 4, 1)
+
+        # Row 5: Filters as grouped sample
+        self.groupedfilter_label = QLabel("Add Filters As Group Sample:")
+        self.groupedfilter_comboBox = CheckableComboBox()
+        self.groupedfilter_comboBox.setToolTip(
+            'Filters selected will be added to exporter as a single grouped sample with the filter name')
+        self.groupedfilter_comboBox.setCurrentIndex(-1)
+        self.optionscombo_layout.addWidget(self.groupedfilter_label, 5, 0)
+        self.optionscombo_layout.addWidget(self.groupedfilter_comboBox, 5, 1)
+
+        # Row 6: Active filter checkbox
+        self.active_filter_sample_checkBox = QCheckBox('Include Active Filter In Samples')
+        self.active_filter_sample_checkBox.setToolTip(
+            'Sets the sample selection combobox to reflect only samples found from the active filters '
+            'from the filter tab')
+        self.optionscombo_layout.addWidget(self.active_filter_sample_checkBox, 6, 0)
+
+        self.options_layout.addLayout(self.optionscombo_layout)
+
+        # ---- Column selection ----
+        self.options_layout.addWidget(QLabel("Select Columns To Output (required for custom format):"))
+
+        self.columnselection_comboBox = QComboBox()
+        self.columnselection_comboBox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        self.options_layout.addWidget(self.columnselection_comboBox)
+
+        self.columnattributes_stack = QStackedWidget()
+        self.columnattributes_stack.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        self.columnattributes_stack.setBaseSize(QSize(400, 600))
+        self.options_layout.addWidget(self.columnattributes_stack)
+
+        self.horizontalLayout.addWidget(self.options_widget)
+
+        # ================= Right side: worksheet preview =================
+        self.workbook_layout = QVBoxLayout()
+
+        self.datatables_label = QLabel('Data Table(s) Preview:')
+        self.datatables_label.setObjectName('datatables_label')
+        self.workbook_layout.addWidget(self.datatables_label)
+
+        # Filled with worksheet buttons at runtime
+        self.worksheetbutton_layout = QHBoxLayout()
+        self.workbook_layout.addLayout(self.worksheetbutton_layout)
+
+        self.workbooktabs = QTabWidget()
+        self.workbooktabs.setObjectName('workbooktabs')
+        self.workbooktabs.setMinimumSize(QSize(0, 500))
+        self.workbook_layout.addWidget(self.workbooktabs)
+
+        self.horizontalLayout.addLayout(self.workbook_layout)
 
     def sync_selected_ordered_columns(self, worksheet_name: str = None):
         """
@@ -721,7 +823,8 @@ class ExportTab(QWidget):
         tableView.setModel(proxy_model)
         tableView.resizeColumnsToContents()
         close_loading_dialog('Loading', 'Updating table view with new parameters')
-        geocork_logger.get_logger().info(f'Updated table view in {time.time() - start_update_table_view_time:.2f} seconds')
+        geocork_logger.get_logger().info(
+            f'Updated table view in {time.time() - start_update_table_view_time:.2f} seconds')
 
     def update_active_filters(self):
         if not self.active_filter_sample_checkBox.isChecked():
@@ -1160,26 +1263,26 @@ class ExportTab(QWidget):
         start_update_step_2_time = time.time()
         self.samplesincluded_comboBox.setEnabled(True)
         self.samplesincluded_comboBox.show()
-        self.step_2_label.show()
+        self.samplesincluded_label.show()
         self.filters_label.show()
         self.filters_label.setText("Select Additional Filters (optional):")
         self.filters_label.setToolTip(
-            "Additional filters to filter the samples, multiple filters are combined with OR.")
+            "Additional filters to filter the samples, multiple filters are combined with an OR clause.")
         self.samplesincluded_comboBox.clear_all_checks()
         self.filterselection_comboBox.clear_all_checks()
         self.groupedfilter_comboBox.clear_all_checks()
 
         if self.selectionscope_comboBox.currentText() == 'Filter Groups':
-            self.step_2_label.hide()
+            self.samplesincluded_label.hide()
             self.samplesincluded_comboBox.hide()
-            self.samplesincluded_comboBox: CheckableComboBox
             self.checked_sample_list = []
 
             self.filters_label.setText("Select Filters:")
-            self.filters_label.setToolTip("")
+            self.filters_label.setToolTip("Filter(s) to apply to export all samples that match the filter(s).")
 
             # self.update_table_view()
-        geocork_logger.get_logger().info(f'Update Step 2 list took {time.time() - start_update_step_2_time:.2f} seconds')
+        geocork_logger.get_logger().info(
+            f'Update Step 2 list took {time.time() - start_update_step_2_time:.2f} seconds')
         self.update_table_view()
 
     def tab_changed(self):
@@ -1890,7 +1993,7 @@ U-Pb concordance format: {self.settings.value('concordance_format_abbreviation')
         show_loading_dialog('Exporting', 'Exporting to database...')
 
         # subsets and copies over samples and related-data from src_db to tgt_db
-        if not ExportDatabase.subset_database(src_db, tgt_db, all_sample_ids):
+        if not export_helper.subset_database(src_db, tgt_db, all_sample_ids):
             geocork_logger.get_logger().critical('Could not subset database')
             close_loading_dialog('Exporting', 'Exporting to database...')
             return

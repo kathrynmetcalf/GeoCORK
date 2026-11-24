@@ -20,47 +20,47 @@ VIEWABLE_LABELS = {
 
 class FiltersTab(QWidget):
     def __init__(self, parent=None):
-
         super().__init__(parent)
-        self.setObjectName("FiltersTab")
-        self.resize(1000, 700)
 
+        self.setObjectName("FiltersTab")
+
+        self.build_ui()
+
+        self.connect_signals()
+
+
+        self.filter_list_widget.itemDoubleClicked.connect(lambda state: self.querybuilder.populate_filters(state))
+        self.filter_list_widget.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+        self.filter_list_widget.customContextMenuRequested.connect(self.filter_context_menu)
+
+    def build_ui(self):
         # Root layout
         self.root_layout = QHBoxLayout(self)
 
-        # Left column layout
-        self.left_column_layout = QVBoxLayout()
-        self.left_column_layout.setSizeConstraint(QLayout.SizeConstraint.SetDefaultConstraint)
+        # Left column widget
+        self.left_column_widget = QWidget(self)
+        self.left_column_widget.setFixedWidth(250)
+        # left column layout
+        self.left_column_layout = QVBoxLayout(self.left_column_widget)
         self.root_layout.addLayout(self.left_column_layout)
 
         # Title label - in left column
-        self.label = QLabel("Saved Filters", self)
-        label_policy = QSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
-        label_policy.setHorizontalStretch(0)
-        label_policy.setVerticalStretch(0)
-        self.label.setSizePolicy(label_policy)
-        self.label.setFixedSize(QSize(225, 50))
+        self.label = QLabel("Saved Filters", parent=self)
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.left_column_layout.addWidget(self.label)
 
         # Search box - in left column
         self.filter_search_lineEdit = QLineEdit(self)
-        self.filter_search_lineEdit.setMinimumSize(225, 25)
-        self.filter_search_lineEdit.setMaximumSize(225, 25)
         self.filter_search_lineEdit.setPlaceholderText("search stored filters")
         self.filter_search_lineEdit.textChanged.connect(self.filter_items)
         self.left_column_layout.addWidget(self.filter_search_lineEdit)
 
         # Stored filters list - in left column
         self.filter_list_widget = QListWidget(self)
-        list_policy = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
-        list_policy.setHorizontalStretch(0)
-        list_policy.setVerticalStretch(0)
-        self.filter_list_widget.setSizePolicy(list_policy)
-        self.filter_list_widget.setMinimumSize(225, 50)
-        self.filter_list_widget.setMaximumSize(225, 800)
         self.left_column_layout.addWidget(self.filter_list_widget)
         self.update_filter_list()
+
+        self.root_layout.addWidget(self.left_column_widget)
 
         # right column layout
         self.right_column_layout = QVBoxLayout()
@@ -77,49 +77,47 @@ class FiltersTab(QWidget):
         self.view_samples_button = QPushButton('View Samples')
         self.view_samples_button.setToolTip('View samples that pass the filter')
         buttons_layout.addWidget(self.view_samples_button)
-        self.view_samples_button.clicked.connect(lambda: self.view_data('Samples'))
 
         # views Aliquots that match the criteria - in right column/buttonset
         self.view_aliquots_button = QPushButton('View Aliquots')
         self.view_aliquots_button.setToolTip('View aliquots that pass the filter')
         buttons_layout.addWidget(self.view_aliquots_button)
-        self.view_aliquots_button.clicked.connect(lambda: self.view_data('Aliquots'))
 
         # views Grains that match the criteria - in right column/buttonset
         self.view_grains_button = QPushButton('View Grains')
         self.view_grains_button.setToolTip('View grains that pass the filter')
         buttons_layout.addWidget(self.view_grains_button)
-        self.view_grains_button.clicked.connect(lambda: self.view_data('Grains'))
 
         # views Spots that match the criteria - in right column/buttonset
         self.view_spots_button = QPushButton('View Spots')
         self.view_spots_button.setToolTip('View spots that pass the filter')
         buttons_layout.addWidget(self.view_spots_button)
-        self.view_spots_button.clicked.connect(lambda: self.view_data('Spots'))
 
         # views UPbAnalyses that match the criteria - in right column/buttonset
         self.view_analyses_button = QPushButton('View Analyses')
         self.view_analyses_button.setToolTip('View analyses that pass the filter')
         buttons_layout.addWidget(self.view_analyses_button)
-        self.view_analyses_button.clicked.connect(lambda: self.view_data('UPbAnalyses'))
 
         # Saves the current filter - in right column/buttonset
         self.save_filter_button = QPushButton('Save Filter')
         self.save_filter_button.setToolTip('Save current filter criteria for later use')
         buttons_layout.addWidget(self.save_filter_button)
-        self.save_filter_button.clicked.connect(self.save_filter)
 
         self.right_column_layout.addLayout(buttons_layout)
 
-        self.filter_list_widget.itemDoubleClicked.connect(lambda state: self.querybuilder.populate_filters(state))
-        self.filter_list_widget.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
-        self.filter_list_widget.customContextMenuRequested.connect(self.filter_context_menu)
+    def connect_signals(self):
+        self.view_samples_button.clicked.connect(lambda: self.view_data('Samples'))
+        self.view_aliquots_button.clicked.connect(lambda: self.view_data('Aliquots'))
+        self.view_grains_button.clicked.connect(lambda: self.view_data('Grains'))
+        self.view_spots_button.clicked.connect(lambda: self.view_data('Spots'))
+        self.view_analyses_button.clicked.connect(lambda: self.view_data('UPbAnalyses'))
+        self.save_filter_button.clicked.connect(self.save_filter)
 
     def view_data(self, data_type: str):
         """
-        Opens a DataViewerWidget with filtered IDs for the given data type.
-        data_type must be a key in VIEWABLE_LABELS (e.g. 'Samples', 'UPbAnalyses').
-        """
+            Opens a DataViewerWidget with filtered IDs for the given data type.
+            data_type must be a key in VIEWABLE_LABELS (e.g. 'Samples', 'UPbAnalyses').
+            """
         if data_type not in VIEWABLE_LABELS:
             raise ValueError(f"Unsupported data type: {data_type!r}")
 
@@ -159,9 +157,9 @@ class FiltersTab(QWidget):
 
             query = QSqlQuery()
             sql_query = """
-                    DELETE FROM FilterGroups 
-                    WHERE FilterGroupName = :filter_name COLLATE NOCASE;
-                """
+                        DELETE FROM FilterGroups
+                        WHERE FilterGroupName = :filter_name COLLATE NOCASE; \
+                        """
             query.prepare(sql_query)
             query.bindValue(":filter_name", item.text())
             if not query.exec():

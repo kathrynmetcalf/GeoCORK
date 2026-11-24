@@ -262,19 +262,20 @@ def apply_color_palette():
 
 def update_stylesheet():
     """
-    Updates the stylesheet of the application based on the current settings.
+    Updates the application fonts based on the current settings.
+    Fonts are set through QApplication.setFont (not a stylesheet) so widgets keep the native macOS style.
     """
-    # Apply the stylesheet to the active QApplication object
     app = QtW.QApplication.instance()
-    set_font = QFont(settings.value('font_family'), int(settings.value('font_size')))
-    app.setFont(set_font)
-    # setting the font size and family, by setting to lower class QAbstractItemView
-    # subclasses QTableView, QTreeView, QListView and created ones in Widget_classes.py are still affected
-    app.setStyleSheet(f'''
-        QAbstractItemView {{
-            font-size: {settings.value('table_font_size')}pt;
-        }}
-        ''')
+    family = settings.value('font_family')
+
+    # The general font must be set first. Calling setFont with no class name clears any per-class fonts.
+    app.setFont(QFont(family, int(settings.value('font_size'))))
+
+    # This font applies only to QAbstractItemView subclasses (QTableView, QTreeView, QListView and the
+    # custom views in Widget_classes.py)
+    app.setFont(QFont(family, int(settings.value('table_font_size'))), 'QAbstractItemView')
+
+    # Clear any stylesheet left over from earlier versions
     apply_color_palette()
 
 
