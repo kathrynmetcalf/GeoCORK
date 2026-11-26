@@ -9,17 +9,28 @@ class SavepointManager:
 
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(SavepointManager, cls).__new__(cls)
-            cls._instance.savepoint_list: list = []
+            instance = super().__new__(cls)
+            instance.savepoint_list = []
+            cls._instance = instance
         return cls._instance
 
     @classmethod
     def reset(cls):
+        """
+        Clear all savepoints and drop the singleton
+        :return:
+        """
+        if cls._instance is not None:
+            cls._instance.savepoint_list.clear()
         cls._instance = None
 
     @classmethod
-    def get_instance(cls):
-        return cls._instance
+    def get_instance(cls) -> "SavepointManager":
+        """
+        Return the singleton, creating it on first use.
+        :return:
+        """
+        return cls()
 
     def add_savepoint(self, savepoint_name: str):
         if savepoint_name not in self.savepoint_list:
@@ -35,7 +46,7 @@ class SavepointManager:
         :return: list of active savepoint names
         :rtype: list
         """
-        return self.savepoint_list
+        return list(self.savepoint_list)
 
     def active_savepoints(self) -> bool:
         """
@@ -43,10 +54,7 @@ class SavepointManager:
         :return: True if savepoints exist, False otherwise
         :rtype: bool
         """
-        if len(self.savepoint_list) > 0:
-            return True
-        else:
-            return False
+        return bool(self.savepoint_list)
 
 def create_savepoint(savepoint_name: str, database: QSqlDatabase=QSqlDatabase()):
     """
