@@ -1,4 +1,4 @@
-![GeoCORK Logo](ui/GeoCORK_Logo.png)
+![GeoCORK Logo](GeoCORK_Logo.png)
 ---
 <h2 align="center"> An improved workflow for geochronology data management</h2>
 
