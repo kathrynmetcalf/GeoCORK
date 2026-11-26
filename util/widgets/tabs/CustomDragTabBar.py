@@ -1,18 +1,24 @@
-from PyQt6 import QtWidgets
+from PyQt6 import QtCore, QtGui, QtWidgets
 
 
 class CustomDragTabBar(QtWidgets.QTabBar):
     """
-    A custom QTabBar that allows for drag-and-drop reordering of tabs and maintains a list of permanent tabs.
-    This class extends QTabBar to provide functionality for dragging tabs, reordering them, and ensuring that certain
-    tabs remain in a fixed position (permanent tabs). It also provides methods to update the list of permanent tabs
-    and to correct the order of tabs after a drag-and-drop operation. The mouseReleaseEvent is overridden to ensure
-    that the permanent tabs are always in the correct order after a drag-and-drop operation.
+    A custom QTabBar that allows drag-and-drop reordering of tabs while keeping a set of permanent tabs static.
+
+    Permanent tabs (i.e., 'Data Tables', 'Filters', 'Export') are expected to occupy the leading positions of the tab
+    bar. They cannot be picked up and dragged (movable is switched off while a permanent tab is pressed) and
+    cannot be displaced by other tabs (a dragged tab is clamped so it can never cross into the permanent area).
+    All other tabs remain freely movable among themselves. correct_tab_order() is kept as a safety net and runs after
+    every mouse release.
     """
 
     def __init__(self, permanent_tabs: list, parent=None):
         super().__init__(parent)
         self.permanent_tabs = permanent_tabs
+        self._restore_movable = None
+        """Movable state to restore on release after a permanent tab was pressed (None = nothing to restore)"""
+        self._grab_offset = None
+        """Distance from the dragged tab's leading edge to the mouse at press time (None = no movable drag active)"""
 
     def add_vertical_line(self):
         # self.setStyleSheet("""
@@ -23,41 +29,98 @@ class CustomDragTabBar(QtWidgets.QTabBar):
             QTabBar::tab {padding: 10px;}
             """)
 
-    def update_permanent_tabs(self, names: list[str]):
+    def update_permanent_tabs(self, names: list[str]) -> None:
         """
         Update the list of permanent tabs. This method is used to set or update the names of the tabs that should
-        remain in a fixed position (permanent tabs) in the tab bar. It can be called to change the permanent tabs
-        dynamically, for example, when the user changes the configuration of the application or when new tabs are added.
+        remain in a fixed position (permanent tabs) in the tab bar.
         :param names: list of names of the tabs that should be permanent, which will not be closable or movable
         :return:
         """
         self.permanent_tabs = names
 
-    def mouseReleaseEvent(self, event):
+    # ------------------------------------------------------------------ helpers
+    def _is_horizontal(self) -> bool:
+        return self.shape() in (QtWidgets.QTabBar.Shape.RoundedNorth, QtWidgets.QTabBar.Shape.RoundedSouth,
+                                QtWidgets.QTabBar.Shape.TriangularNorth, QtWidgets.QTabBar.Shape.TriangularSouth)
+
+    def _is_permanent(self, index: int) -> bool:
+        return 0 <= index < self.count() and self.tabText(index) in self.permanent_tabs
+
+    def _permanent_count(self) -> int:
+        """Number of leading tabs that are permanent."""
+        count = 0
+        while count < self.count() and self._is_permanent(count):
+            count += 1
+        return count
+
+    def _permanent_boundary(self):
+        """Pixel coordinate (x for horizontal, y for vertical) where the permanent area ends, or None if empty."""
+        count = self._permanent_count()
+        if count == 0:
+            return None
+        rect = self.tabRect(count - 1)
+        return rect.right() + 1 if self._is_horizontal() else rect.bottom() + 1
+
+    # ------------------------------------------------------------------ events
+    def mousePressEvent(self, event: QtGui.QMouseEvent) -> None:
         """
-        Handle the mouse release event to ensure that permanent tabs are always in the correct order after a drag-and-drop operation.
-        :param event:
-        :return:
+        If a permanent tab is pressed, disable moving for the duration of the press so it can still be selected but
+        never dragged. If a normal tab is pressed, remember where it was grabbed so the drag can be clamped.
         """
-        # Move the permanent tabs to the left side of the tab bar
+        self._restore_movable = None
+        self._grab_offset = None
+        if event.button() == QtCore.Qt.MouseButton.LeftButton:
+            index = self.tabAt(event.position().toPoint())
+            if self._is_permanent(index):
+                if self.isMovable():
+                    self._restore_movable = True
+                    self.setMovable(False)
+            elif index >= 0 and self.isMovable():
+                rect = self.tabRect(index)
+                pos = event.position()
+                self._grab_offset = pos.x() - rect.left() if self._is_horizontal() else pos.y() - rect.top()
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event: QtGui.QMouseEvent) -> None:
+        """
+        While a normal tab is being dragged, clamp the mouse position so the tab's leading edge can never pass the
+        end of the permanent area. This stops other tabs from displacing the permanent tabs.
+        """
+        boundary = self._permanent_boundary()
+        if (self._grab_offset is not None and boundary is not None
+                and event.buttons() & QtCore.Qt.MouseButton.LeftButton):
+            pos = event.position()
+            minimum = boundary + self._grab_offset
+            horizontal = self._is_horizontal()
+            current = pos.x() if horizontal else pos.y()
+            if current < minimum:
+                delta = minimum - current
+                shift = QtCore.QPointF(delta, 0) if horizontal else QtCore.QPointF(0, delta)
+                event = QtGui.QMouseEvent(event.type(), pos + shift, event.globalPosition() + shift,
+                                          event.button(), event.buttons(), event.modifiers())
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event: QtGui.QMouseEvent) -> None:
+        """
+        Finish the press: restore the movable state if it was turned off for a permanent tab, then make sure the
+        permanent tabs are still in their designated positions.
+        """
         super().mouseReleaseEvent(event)
+        if self._restore_movable is not None:
+            self.setMovable(self._restore_movable)
+            self._restore_movable = None
+        self._grab_offset = None
         if self.permanent_tabs:
             self.correct_tab_order()
 
-    def correct_tab_order(self):
+    def correct_tab_order(self) -> None:
         """
-        Correct the order of permanent tabs in the tab bar. This method checks the current order of tabs in the tab bar
-        and ensures that the permanent tabs are in the correct positions. If a permanent tab is not in the correct position,
-        it moves it to the correct position. This is useful after a drag-and-drop operation to ensure that the permanent
-        tabs remain in their designated positions.
+        Safety net: ensure each permanent tab sits at its designated index (its position in self.permanent_tabs).
         :return:
         """
-        for index in range(self.count()):
-            if self.tabText(index) in self.permanent_tabs:
-                for i in range(len(self.permanent_tabs)):
-                    if self.tabText(index) == self.permanent_tabs[i]:
-                        if index != i:
-                            # Permanent tab is not in the correct position
-                            self.moveTab(index, i)
-                        else:  # Permanent tab is in the correct position
-                            break
+        for target, name in enumerate(self.permanent_tabs):
+            for index in range(self.count()):
+                if self.tabText(index) == name:
+                    if index != target and target < self.count():
+                        self.moveTab(index, target)
+                    break
