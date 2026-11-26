@@ -1,0 +1,20 @@
+# Documentation build requirements (also used by Read the Docs)
+sphinx>=8.1
+furo>=2024.8.6
+sphinx-copybutton>=0.5
+myst-parser>=4.0
+sphinx-autobuild
+
+# GeoCORK runtime dependencies needed so autodoc can import the code.
+# PyQt6 is installed for real (not mocked) because modules run Qt code at import time.
+PyQt6>=6.6
+PyQt6-WebEngine>=6.6
+numpy
+pandas
+matplotlib
+pyproj
+openpyxl
+qtawesome
+tzlocal
+requests
+# detritalPy and pyrolite are mocked in conf.py (autodoc_mock_imports)

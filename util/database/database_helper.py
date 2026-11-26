@@ -10,6 +10,7 @@ from Functions.Database_views import ViewQuery
 from util import geocork_logger
 from util.database.savepoint_manager import rollback_savepoint, release_savepoint, create_savepoint
 from util.database.defined_joins import *
+from util.database.views import view_setting_dict
 from util.display_formatting import get_readable_header
 from util.loading_dialog_manager import close_loading_dialog, show_loading_dialog, LoadingDialogManager
 from util.settings_manager import SettingsManager
@@ -67,7 +68,7 @@ def get_headers(table: str) -> list:
     """
     query = QtSql.QSqlQuery()
     if 'View' in table:
-        show_columns = settings.value(SQLUtils.view_setting_dict[table])
+        show_columns = settings.value(view_setting_dict[table])
         return show_columns
     table = table.replace('"', '').strip()
     if not query.exec(f'PRAGMA table_xinfo("{table}")'):
