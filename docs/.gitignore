@@ -1,0 +1,6 @@
+_build/
+._build/
+api/generated/
+.api/generated/
+_static/GeoCORKLogo_*.svg
+._static/GeoCORKLogo_*.svg
