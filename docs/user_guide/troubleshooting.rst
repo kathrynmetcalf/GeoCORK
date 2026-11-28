@@ -6,7 +6,7 @@ Navigation and names
 
 Hovering over buttons, table headers and drop-down items often shows a tooltip with more
 information. For database items, the item's description is used as its tooltip. If you
-find places where more tooltips would help, let us know on the `GeoCORK GitHub`_.
+find places where more tooltips would help, let us know on the `GeoCORK GitHub <https://github.com/kathrynmetcalf/GeoCORK/>`_.
 
 Video tutorials are coming, and on-screen tutorials are planned for future releases.
 
@@ -48,6 +48,6 @@ GeoCORK is open, the newest log file is the current session.
 Reporting bugs, features, ideas and suggestions
 -----------------------------------------------
 
-We welcome all feedback on the `GeoCORK GitHub`_. Please open a detailed issue for each
+We welcome all feedback on the `GeoCORK GitHub <https://github.com/kathrynmetcalf/GeoCORK/>`_. Please open a detailed issue for each
 bug, feature, idea or suggestion. For bugs, include all diagnostic information, including
 the log file from the time the problem happened.

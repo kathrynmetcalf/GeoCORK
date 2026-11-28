@@ -1,15 +1,19 @@
 Installation
 ============
 
-.. todo:: Add download links for packaged releases (Windows / macOS) once they are published.
+To install GeoCORK first download the desired Windows or MacOS packaged release below.
+Installation for Windows and MacOS are similar as they are standalone executables.
+The MacOS version is unsigned and requires the user to approve in settings after the first time opening GeoCORK.
 
 Packaged releases
 -----------------
 
-*To do:* describe where to download the installer for each platform and how to run it.
+The latest release can be found on `GeoCORK's GitHub
+<https://github.com/kathrynmetcalf/GeoCORK/releases>`_.
 
 Running from source
 -------------------
+Want the latest features? Run GeoCORK from source and choose the desired branch.
 
 GeoCORK requires Python 3.12 or newer.
 

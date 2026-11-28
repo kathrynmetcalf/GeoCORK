@@ -9,9 +9,9 @@ Core Sample-Analyses Hierarchy
 
    Samples
    └── Aliquots
-       └── Spots  (── Grains)
-           ├── UPbAnalyses
-           └── GeoChemicalAnalyses
+       └── Spots (── Grains)
+           ├── UPbAnalyses (see below)
+           └── GeoChemicalAnalyses (see below)
 
 Core Sample Metadata
 --------------
@@ -34,6 +34,27 @@ All sample metadata is a many-to-many relationship to contextual data categories
 Other metadata like references, instruments, or method data are stored lower in the hierarchy.
 However, through the hierarchy these data are accessible and summarized at the sample level.
 
+Sample-Aliquot-Spot-Grain Schema
+""""
+
+.. code-block:: text
+
+   Samples
+   └── Aliquots (tree-like structure for nested aliquots)
+       └── Aliquot Contexts (tags)
+
+       └── Spots
+           └── Spot Contexts (tags) (m:n) (optional)
+                  Recommended use is to store Rim/Core contexts
+           └── Spot Composition (tags) (1:m) (optional)
+                  Recommended use is to store mineral data
+           └── Grains (1:m) (optional)
+                  Allows a single grain to be associated with multiple spots.
+
+           ├── UPbAnalyses (see below)
+           └── GeoChemicalAnalyses (see below)
+
+
 U-Pb Analysis Schema
 """"
 
@@ -44,6 +65,7 @@ U-Pb Analysis Schema
    └── Lab Facilities
    └── Instruments
    └── U-Pb Analysis Methods
+   └── U-Pb Analysis Contexts (tags)
    └── Rejection Reasons
 
 GeoChemical Analysis Schema
@@ -56,6 +78,7 @@ GeoChemical Analysis Schema
    └── Lab Facilities
    └── Instruments
    └── Geochemical Analysis Methods
+   └── Geochemical Analysis Contexts (tags)
    └── Rejection Reasons
 
 See :mod:`util.database.create.Create_database` for how a new database is created and

@@ -1,8 +1,6 @@
 Quickstart
 ==========
 
-.. todo:: Add screenshots of each step.
-
 1. **Open or create a database.** The landing page lists recent databases and can create a
    new, empty GeoCORK database.
 2. **Import data.** Use the import wizard to load an Excel workbook (for example the

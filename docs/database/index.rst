@@ -27,5 +27,5 @@ GeoCORK’s database was designed with five guiding principles as they relate to
 * **Analyses hang off a hierarchy.** Samples → aliquots → spots (and grains) → analyses.
   ``UPbAnalyses`` and ``GeoChemicalAnalyses`` are separate leaf tables.
     This enables a single spot or grain to have
-    multiple U-Pb analyses or Geochemical analyses, thus allowing split-stream methodologies.
+    multiple U-Pb analyses or Geochemical analyses, thus allowing split stream methodologies.
 
